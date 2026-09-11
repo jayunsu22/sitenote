@@ -1,0 +1,626 @@
+{
+  "name": "거래처별 현장관리 백업",
+  "nodes": [
+    {
+      "id": "922232a8-c515-477b-ac83-df134d5977ec",
+      "name": "sync Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "78328878-7cce-42ec-9aed-2df0e9274e24",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sitenote-sync",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "231a39e2-354f-48d4-b391-0f9c710f4514",
+      "name": "키검사·배치생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "\n// 백업키 검사 + 타입별 10건 배치 생성 (Airtable upsert 는 요청당 최대 10건)\nconst KEY = \"__BACKUP_KEY__\";\nconst body = $input.first().json.body || {};\nif (!body.key || body.key !== KEY) return [{ json: { error: 'unauthorized' } }];\nconst ops = Array.isArray(body.ops) ? body.ops : [];\nconst TABLE = { client: '거래처', site: '현장', settings: '설정' };\nconst now = new Date().toISOString();\nconst byTable = {};\nfor (const op of ops) {\n  const table = TABLE[op.type]; if (!table || !op.id) continue;\n  const d = op.data || {};\n  let fields = { id: String(op.id), data: JSON.stringify(d), '수정시각': now, '삭제': op.op === 'delete' };\n  if (op.type === 'client') Object.assign(fields, { '이름': d.name || '', '순서': Number(d.order || 0) });\n  if (op.type === 'site') Object.assign(fields, { '현장명': d.name || '', '거래처id': d.clientId || '', '시작날짜': d.date || '' });\n  if (op.op === 'delete') fields = { id: String(op.id), '삭제': true, '수정시각': now };\n  (byTable[table] = byTable[table] || []).push({ fields });\n}\nconst out = [];\nfor (const table of Object.keys(byTable)) {\n  const recs = byTable[table];\n  for (let i = 0; i < recs.length; i += 10) {\n    out.push({ json: { table, body: { performUpsert: { fieldsToMergeOn: ['id'] }, records: recs.slice(i, i + 10), typecast: true } } });\n  }\n}\nif (!out.length) return [{ json: { table: '', body: null, empty: true } }];\nreturn out;\n"
+      }
+    },
+    {
+      "id": "abe755b2-08c0-4def-b90c-4eedbf28377f",
+      "name": "인증됨?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "168a6aa2-abac-4057-b233-7147449c16f0",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3e9936dc-3448-4fff-8217-dbbe8fd16932",
+      "name": "보낼 것 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "7cf1533b-cab9-4a72-bf25-497b263ea799",
+              "leftValue": "={{ !!$json.empty }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d67d1370-82f7-4b83-b151-bfcbfac4ff0b",
+      "name": "Airtable upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -160
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "J5wefJCMalpjjm3Q",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      },
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.airtable.com/v0/__BASE_ID__/{{ $json.table }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "23a0e762-5acf-4e2c-81ce-eac1c4a3fda3",
+      "name": "결과집계",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -160
+      ],
+      "parameters": {
+        "jsCode": "const n = $input.all().reduce((m, it) => m + ((it.json.records || []).length), 0);\nreturn [{ json: { ok: true, done: n } }];"
+      }
+    },
+    {
+      "id": "bf7962fe-e46b-4d8c-8c45-084538e5e9df",
+      "name": "응답 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        -160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6259cfb3-27d7-4c17-a7cd-974a65ee9ef5",
+      "name": "응답 (빈 요청)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -20
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": true, \"done\": 0}",
+        "options": {}
+      }
+    },
+    {
+      "id": "f1ad0abd-49dc-4770-9618-1753360efe83",
+      "name": "응답 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"unauthorized\"}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "c0994f47-30b2-4149-8381-3578ccde2dd2",
+      "name": "restore Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "084e1799-a32e-4d98-89cb-b5578a8c4aad",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sitenote-restore",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "6257ee17-6ebe-4ee2-bd61-d86e9ed4ade2",
+      "name": "복원 키검사",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "jsCode": "\nconst KEY = \"__BACKUP_KEY__\";\nconst q = $input.first().json.query || {};\nif (!q.key || q.key !== KEY) return [{ json: { error: 'unauthorized' } }];\nreturn [{ json: { ok: true } }];\n"
+      }
+    },
+    {
+      "id": "72ec5585-1c9f-409b-a7dc-1b16c3d4e850",
+      "name": "복원 인증됨?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "485f5c24-9d95-47fb-beed-ca04c206c94f",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1ce48eb9-c775-427a-b583-ffd6536ac682",
+      "name": "거래처 읽기",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        320
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "J5wefJCMalpjjm3Q",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.airtable.com/v0/__BASE_ID__/거래처",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filterByFormula",
+              "value": "NOT({삭제})"
+            },
+            {
+              "name": "pageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}"
+            }
+          }
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "2a07553e-e0cb-49bb-99a3-506e8915ed75",
+      "name": "현장 읽기",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        320
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "J5wefJCMalpjjm3Q",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.airtable.com/v0/__BASE_ID__/현장",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filterByFormula",
+              "value": "NOT({삭제})"
+            },
+            {
+              "name": "pageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}"
+            }
+          }
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "b9ab1e0e-7449-4fa6-99e1-f043eb71fb5c",
+      "name": "설정 읽기",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        320
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "J5wefJCMalpjjm3Q",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.airtable.com/v0/__BASE_ID__/설정",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filterByFormula",
+              "value": "NOT({삭제})"
+            },
+            {
+              "name": "pageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}"
+            }
+          }
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "efe26560-b83c-4264-a8f3-83dc7e0b8240",
+      "name": "복원 합치기",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        320
+      ],
+      "parameters": {
+        "jsCode": "\n// 3개 테이블 결과를 앱이 기대하는 형태로 합침\nfunction rows(nodeName) {\n  const out = [];\n  for (const it of $(nodeName).all()) {\n    const recs = (it.json.records) ? it.json.records : [];\n    for (const r of recs) {\n      const f = r.fields || {};\n      if (f['삭제']) continue;\n      try { out.push(JSON.parse(f.data || '{}')); } catch (e) { /* 손상된 행 무시 */ }\n    }\n  }\n  return out;\n}\nconst clients = rows('거래처 읽기');\nconst sites = rows('현장 읽기');\nconst settingsRows = rows('설정 읽기');\nreturn [{ json: { clients, sites, settings: settingsRows[0] || {} } }];\n"
+      }
+    },
+    {
+      "id": "726ae1d0-2b4d-4663-a06e-9c428a622d51",
+      "name": "복원 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        320
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "05dc037b-d98c-4f88-9930-76b98f7b506b",
+      "name": "복원 응답 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        520
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"unauthorized\"}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    }
+  ],
+  "connections": {
+    "sync Webhook": {
+      "main": [
+        [
+          {
+            "node": "키검사·배치생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "키검사·배치생성": {
+      "main": [
+        [
+          {
+            "node": "인증됨?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "인증됨?": {
+      "main": [
+        [
+          {
+            "node": "보낼 것 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "응답 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보낼 것 있음?": {
+      "main": [
+        [
+          {
+            "node": "Airtable upsert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "응답 (빈 요청)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable upsert": {
+      "main": [
+        [
+          {
+            "node": "결과집계",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "결과집계": {
+      "main": [
+        [
+          {
+            "node": "응답 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "restore Webhook": {
+      "main": [
+        [
+          {
+            "node": "복원 키검사",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "복원 키검사": {
+      "main": [
+        [
+          {
+            "node": "복원 인증됨?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "복원 인증됨?": {
+      "main": [
+        [
+          {
+            "node": "거래처 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "복원 응답 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "거래처 읽기": {
+      "main": [
+        [
+          {
+            "node": "현장 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "현장 읽기": {
+      "main": [
+        [
+          {
+            "node": "설정 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "설정 읽기": {
+      "main": [
+        [
+          {
+            "node": "복원 합치기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "복원 합치기": {
+      "main": [
+        [
+          {
+            "node": "복원 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
