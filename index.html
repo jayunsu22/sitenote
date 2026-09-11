@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>거래처별 현장관리</title>
+  <link rel="stylesheet" href="style.css?v=20260912">
+
+  <!-- 홈화면 추가(PWA) -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="현장관리">
+  <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+
+  <!-- ========== 메인 화면 ========== -->
+  <section id="viewMain" class="view">
+    <header class="topbar">
+      <h1 class="topbar-title">거래처별 현장관리</h1>
+      <div class="topbar-actions">
+        <button id="syncBadge" class="sync-badge" hidden title="백업 상태"></button>
+        <button id="btnSettings" class="icon-btn" title="설정">⚙</button>
+      </div>
+    </header>
+
+    <nav class="tabs-wrap">
+      <div id="tabs" class="tabs"></div>
+      <button id="btnAddClient" class="tab tab-add" title="거래처 추가">＋</button>
+    </nav>
+
+    <div id="mainBody" class="main-body">
+      <!-- 고정값 아코디언 -->
+      <div id="fixedWrap" class="fixed-wrap" hidden>
+        <button id="fixedToggle" class="fixed-toggle">
+          <span class="fixed-arrow">▶</span> 고정값 <span class="fixed-sub">담당자 · 단가 · 주의사항</span>
+        </button>
+        <div id="fixedBody" class="fixed-body" hidden>
+          <div class="field-group">
+            <div class="field-label">담당자</div>
+            <div id="contactList" class="contact-list"></div>
+            <button id="btnAddContact" class="btn-sm">＋ 담당자 추가</button>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="fxFilmPrice">업체 필름단가</label>
+            <textarea id="fxFilmPrice" data-fx="filmPrice" rows="2" placeholder="예: 1m 9000원"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="fxLaborPrice">업체 인건비단가</label>
+            <textarea id="fxLaborPrice" data-fx="laborPrice" rows="2" placeholder="예: 4인까지 1인 식대포함 28만원, 5인부터 27만원"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="fxQuoteNote">견적시 주의사항</label>
+            <textarea id="fxQuoteNote" data-fx="quoteNote" rows="2"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="fxSiteNote">현장 주의사항</label>
+            <textarea id="fxSiteNote" data-fx="siteNote" rows="2"></textarea>
+          </div>
+          <div class="fixed-danger">
+            <button id="btnRenameClient" class="btn-sm">거래처 이름 변경</button>
+            <button id="btnDeleteClient" class="btn-sm btn-danger">거래처 삭제</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="cards" class="cards"></div>
+      <div id="emptyState" class="empty-state" hidden></div>
+    </div>
+
+    <button id="btnAddSite" class="fab" title="현장 추가" hidden>＋ 현장</button>
+  </section>
+
+  <!-- ========== 현장 상세 화면 ========== -->
+  <section id="viewSite" class="view" hidden>
+    <header class="topbar">
+      <button id="btnBack" class="icon-btn" title="뒤로">←</button>
+      <h1 id="siteTitle" class="topbar-title topbar-title-center">현장</h1>
+      <div class="topbar-actions">
+        <button id="btnColor" class="icon-btn" title="색상 변경">🎨</button>
+        <button id="btnDeleteSite" class="icon-btn" title="삭제">🗑</button>
+      </div>
+    </header>
+    <div id="colorPicker" class="color-picker" hidden></div>
+    <div id="siteFields" class="site-fields"></div>
+    <div class="copy-bar">
+      <button id="btnCopyQuestion" class="btn-copy btn-copy-q">업자에게 질문 복사</button>
+      <button id="btnCopyShare" class="btn-copy btn-copy-s">팀원에게 공유 복사</button>
+    </div>
+  </section>
+
+  <!-- ========== 설정 화면 ========== -->
+  <section id="viewSettings" class="view" hidden>
+    <header class="topbar">
+      <button id="btnSettingsBack" class="icon-btn" title="뒤로">←</button>
+      <h1 class="topbar-title topbar-title-center">설정</h1>
+      <div class="topbar-actions"></div>
+    </header>
+    <div class="settings-body">
+      <div class="settings-section">
+        <h2>백업 (Airtable)</h2>
+        <div class="field-group">
+          <label class="field-label" for="backupKey">백업키</label>
+          <div class="row">
+            <input type="text" id="backupKey" placeholder="백업키 입력 (한 번만)" autocomplete="off">
+            <button id="btnSaveKey" class="btn-sm">저장</button>
+          </div>
+        </div>
+        <div id="syncStatus" class="sync-status"></div>
+        <div class="row">
+          <button id="btnFlushNow" class="btn-sm">지금 백업</button>
+          <button id="btnRestore" class="btn-sm btn-danger">Airtable에서 복원</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>업자에게 질문 문구</h2>
+        <p class="hint">항목이 비어있을 때 복사되는 문구입니다. 내 말투로 바꿔도 됩니다.</p>
+        <div id="questionList"></div>
+        <button id="btnResetQuestions" class="btn-sm">기본 문구로 초기화</button>
+      </div>
+      <div class="settings-section">
+        <h2>정보</h2>
+        <p class="hint">데이터는 이 폰 안에 저장되고, 백업키가 있으면 변경 3초 뒤 Airtable로 조용히 백업됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 공용 모달 ========== -->
+  <div id="modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+      <div id="modalBtns" class="modal-btns"></div>
+    </div>
+  </div>
+
+  <script src="share.js?v=20260912"></script>
+  <script src="store.js?v=20260912"></script>
+  <script src="app.js?v=20260912"></script>
+</body>
+</html>
