@@ -1,3 +1,5 @@
 *.bak
 node_modules/
 .claude/
+n8n/.backup_key
+n8n/현장관리_백업.json
