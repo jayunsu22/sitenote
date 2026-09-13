@@ -58,9 +58,11 @@
   function normalizeClient(raw) {
     return Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
   }
-  // 사진(명함 등): 거래처 고정값에 붙는 이미지. dataUrl 은 앱에서 축소한 JPEG
+  // 사진(명함·단가표 등): 거래처 고정값에 붙는 이미지.
+  // 폰 상태에는 작은 thumb 만 두고, 원본은 IndexedDB + 백업 조각 행에 따로 보관한다.
+  // (구버전에서 만든 사진은 dataUrl 을 그대로 들고 있고, 그대로 동작한다)
   function normalizePhoto(raw) {
-    return Object.assign({ id: '', clientId: '', name: '', dataUrl: '', w: 0, h: 0, bytes: 0, createdAt: 0, updatedAt: 0 }, raw);
+    return Object.assign({ id: '', clientId: '', name: '', thumb: '', dataUrl: '', w: 0, h: 0, bytes: 0, parts: 0, createdAt: 0, updatedAt: 0 }, raw);
   }
   function genId(prefix) {
     return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -139,7 +141,9 @@
       enqueue({ op: 'delete', type: 'site', id: s.id });
     });
     state.photos.filter(function (p) { return p.clientId === id; }).forEach(function (p) {
+      for (var i = 0; i < (p.parts || 0); i++) enqueue({ op: 'delete', type: 'photo', id: p.id + '#' + i });
       enqueue({ op: 'delete', type: 'photo', id: p.id });
+      delFull(p.id);
     });
     state.sites = state.sites.filter(function (s) { return s.clientId !== id; });
     state.photos = state.photos.filter(function (p) { return p.clientId !== id; });
@@ -170,22 +174,103 @@
     commit({ op: 'delete', type: 'site', id: id });
   }
 
+  // ---------- 사진 원본 저장소 (IndexedDB, 없으면 localStorage) ----------
+  // 원본은 수백 KB 라 상태 JSON 에 넣으면 입력할 때마다 통째로 직렬화돼 느려지고 용량도 금방 찬다.
+  var DB_NAME = 'sitenote', DB_STORE = 'photos', dbPromise = null;
+  function idb() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function (resolve, reject) {
+      if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB 없음')); return; }
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore(DB_STORE); };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('IndexedDB 열기 실패')); };
+    });
+    return dbPromise;
+  }
+  function idbRun(mode, fn) {
+    return idb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(DB_STORE, mode), req = fn(tx.objectStore(DB_STORE));
+        tx.oncomplete = function () { resolve(req ? req.result : undefined); };
+        tx.onabort = tx.onerror = function () { reject(tx.error || new Error('사진 저장 실패')); };
+      });
+    });
+  }
+  function photoKey(id) { return KEY + '.photo.' + id; }
+  function putFull(id, dataUrl) {
+    return idbRun('readwrite', function (st) { return st.put(dataUrl, id); })
+      .catch(function () { localStorage.setItem(photoKey(id), dataUrl); }); // IndexedDB 못 쓰는 브라우저
+  }
+  function getFull(id) {
+    return idbRun('readonly', function (st) { return st.get(id); })
+      .catch(function () { return null; })
+      .then(function (v) {
+        if (v) return v;
+        try { return localStorage.getItem(photoKey(id)) || ''; } catch (e) { return ''; }
+      });
+  }
+  function delFull(id) {
+    return idbRun('readwrite', function (st) { return st.delete(id); })
+      .catch(function () { /* 없으면 그만 */ })
+      .then(function () { try { localStorage.removeItem(photoKey(id)); } catch (e) { /* 무시 */ } });
+  }
+  // 원본은 Airtable 한 칸 한도(10만자)에 맞춰 조각 행으로 나눠 보낸다.
+  // 큐에는 본문 대신 '몇 번째 조각인지'만 넣고, 전송 직전에 원본에서 잘라 채운다 —
+  // 그래야 백업 전까지 폰 저장소에 수백 KB 짜리 사본이 쌓이지 않는다.
+  function chunkOps(photoId, parts) {
+    var ops = [];
+    for (var i = 0; i < parts; i++) ops.push({ op: 'upsert', type: 'photo', id: photoId + '#' + i, photoRef: photoId, part: i });
+    return ops;
+  }
+  // 큐 항목 → 실제 전송할 op (조각 참조는 여기서 본문을 채움)
+  function resolveOps(batch) {
+    var cache = {};
+    return Promise.all(batch.map(function (o) {
+      if (!o.photoRef) return o;
+      cache[o.photoRef] = cache[o.photoRef] || getFull(o.photoRef).then(function (url) {
+        return Share.splitChunks(url, Share.PHOTO_CHUNK);
+      });
+      return cache[o.photoRef].then(function (chunks) {
+        return { op: o.op, type: o.type, id: o.id, ts: o.ts, seq: o.seq,
+                 data: { id: o.id, photoId: o.photoRef, i: o.part, chunk: chunks[o.part] || '' } };
+      });
+    }));
+  }
+
   // ---------- 사진 (거래처 고정값) ----------
   function getPhoto(id) { return state.photos.find(function (p) { return p.id === id; }) || null; }
   function photosOf(clientId) {
     return state.photos.filter(function (p) { return p.clientId === clientId; })
       .sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
   }
-  // 저장공간이 가득 차면 방금 추가한 사진을 되돌리고 null 을 돌려준다 (앱이 안내 문구를 띄움)
+  // photo = { name, thumb, dataUrl(원본), w, h, bytes }
+  // 원본은 IndexedDB 에, 메타(+thumb)는 상태에 저장. 저장공간이 가득 차면 되돌리고 null.
   function addPhoto(clientId, photo) {
     var now = Date.now();
-    var p = normalizePhoto(Object.assign({ id: genId('p'), clientId: clientId, createdAt: now }, photo, { updatedAt: now }));
-    state.photos.push(p);
-    if (commit({ op: 'upsert', type: 'photo', id: p.id, data: p })) return p;
-    state.photos = state.photos.filter(function (x) { return x.id !== p.id; });
-    state.syncQueue = state.syncQueue.filter(function (o) { return !(o.type === 'photo' && o.id === p.id); });
-    persist(); emit();
-    return null;
+    var full = String((photo && photo.dataUrl) || '');
+    var p = normalizePhoto(Object.assign({ id: genId('p'), clientId: clientId, createdAt: now }, photo, {
+      dataUrl: '', parts: Math.ceil(full.length / Share.PHOTO_CHUNK), updatedAt: now
+    }));
+    return putFull(p.id, full).then(function () {
+      state.photos.push(p);
+      if (!commit({ op: 'upsert', type: 'photo', id: p.id, data: p })) throw new Error('quota');
+      chunkOps(p.id, p.parts).forEach(enqueue);
+      commit(null);
+      return p;
+    }).catch(function () {
+      state.photos = state.photos.filter(function (x) { return x.id !== p.id; });
+      state.syncQueue = state.syncQueue.filter(function (o) { return !(o.type === 'photo' && String(o.id).indexOf(p.id) === 0); });
+      persist(); emit();
+      return delFull(p.id).then(function () { return null; });
+    });
+  }
+  // 사진 원본 (없으면 thumb 이라도)
+  function photoData(id) {
+    var p = getPhoto(id);
+    if (!p) return Promise.resolve('');
+    if (p.dataUrl) return Promise.resolve(p.dataUrl); // 구버전 사진
+    return getFull(id).then(function (v) { return v || p.thumb || ''; });
   }
   function updatePhoto(id, patch) {
     var p = getPhoto(id);
@@ -195,8 +280,12 @@
     return p;
   }
   function deletePhoto(id) {
-    state.photos = state.photos.filter(function (p) { return p.id !== id; });
+    var p = getPhoto(id);
+    var parts = (p && p.parts) || 0;
+    state.photos = state.photos.filter(function (x) { return x.id !== id; });
+    for (var i = 0; i < parts; i++) enqueue({ op: 'delete', type: 'photo', id: id + '#' + i });
     commit({ op: 'delete', type: 'photo', id: id });
+    return delFull(id);
   }
 
   // ---------- 설정 ----------
@@ -232,8 +321,11 @@
 
     flushing = true;
     var batch = state.syncQueue.slice();
-    var body = JSON.stringify({ key: state.settings.backupKey, ops: batch });
-    return fetchWithTimeout(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body })
+    return resolveOps(batch)
+      .then(function (ops) {
+        return fetchWithTimeout(SYNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: state.settings.backupKey, ops: ops }) });
+      })
       .then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json().catch(function () { return {}; });
@@ -272,14 +364,26 @@
         var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab };
         state.clients = (data.clients || []).map(normalizeClient);
         state.sites = (data.sites || []).map(normalizeSite);
-        state.photos = (data.photos || []).map(normalizePhoto);
+        var metas = [], chunksById = {};
+        (data.photos || []).forEach(function (r) {
+          if (!r || !r.id) return;
+          if (r.photoId) (chunksById[r.photoId] = chunksById[r.photoId] || []).push(r);
+          else metas.push(normalizePhoto(r));
+        });
+        state.photos = metas;
+        var fulls = metas.map(function (m) {
+          var joined = Share.joinChunks(chunksById[m.id]);
+          return joined ? putFull(m.id, joined).catch(function () { /* 저장 실패해도 나머지는 복원 */ }) : null;
+        }).filter(Boolean);
         state.settings = Object.assign(defaultSettings(), keep);
         state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (data.settings && data.settings.questions) || {});
         state.syncQueue = [];
         state.lastSyncAt = Date.now();
         state.lastSyncError = '';
         persist(); emit();
-        return { clients: state.clients.length, sites: state.sites.length, photos: state.photos.length };
+        return Promise.all(fulls).then(function () {
+          return { clients: state.clients.length, sites: state.sites.length, photos: state.photos.length };
+        });
       });
   }
 
@@ -300,6 +404,7 @@
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
+    photoData: photoData,
     setSettings: setSettings,
     pendingCount: pendingCount, flush: flush, restore: restore,
     onChange: onChange,

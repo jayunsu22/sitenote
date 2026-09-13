@@ -88,13 +88,19 @@ textarea { resize: vertical; }
   display: flex; flex-direction: column; text-align: left; }
 .photo-item:active { border-color: var(--primary); }
 .photo-item img { width: 100%; height: 86px; object-fit: cover; display: block; background: #f1f5f9; }
-.photo-cap { display: block; padding: 5px 7px; font-size: 12px; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.photo-cap { padding: 5px 7px; font-size: 12px; line-height: 1.35; color: var(--text); font-weight: 700;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.photo-cap.empty { color: var(--muted); font-weight: 500; }
 .photo-empty { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
-.photo-box { max-height: 56vh; overflow: auto; border-radius: 10px; background: #0f172a; -webkit-overflow-scrolling: touch; }
-.photo-view img { width: 100%; max-height: 56vh; object-fit: contain; display: block; }
-.photo-box.zoom { overflow: auto; }
-.photo-box.zoom img { width: auto; max-width: none; max-height: none; }
+.photo-viewer { position: fixed; inset: 0; z-index: 60; background: #0f172a; display: flex; flex-direction: column; }
+.pv-bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; padding-top: calc(6px + env(safe-area-inset-top));
+  background: var(--card); border-bottom: 1px solid var(--border); }
+.pv-bar input { flex: 1; min-width: 0; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
+.pv-box { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; -webkit-overflow-scrolling: touch; }
+.pv-box img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.pv-box.zoom { display: block; }
+.pv-box.zoom img { max-width: none; max-height: none; width: auto; }
+.pv-meta { padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); font-size: 12px; color: #cbd5e1; text-align: center; }
 .photo-view input { margin-top: 10px; }
 .photo-view .photo-meta { margin: 8px 0 0; }
 

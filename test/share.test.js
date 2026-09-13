@@ -171,6 +171,19 @@ test('isImageDataUrl: 이미지 data URL 만 통과', () => {
   assert.ok(!Share.isImageDataUrl('data:image/jpeg;base64,"><script>'));
   assert.ok(!Share.isImageDataUrl(''));
 });
+test('splitChunks / joinChunks: 잘랐다 붙이면 원래대로', () => {
+  const big = 'x'.repeat(250);
+  const parts = Share.splitChunks(big, 100);
+  assert.strictEqual(parts.length, 3);
+  assert.deepStrictEqual(parts.map(p => p.length), [100, 100, 50]);
+  const rows = parts.map((chunk, i) => ({ i, chunk }));
+  assert.strictEqual(Share.joinChunks(rows.slice().reverse()), big, '순서가 섞여도 i 로 정렬');
+  assert.strictEqual(Share.joinChunks([]), '');
+});
+test('joinChunks: 조각이 빠졌으면 버림', () => {
+  assert.strictEqual(Share.joinChunks([{ i: 0, chunk: 'a' }, { i: 2, chunk: 'c' }]), '');
+  assert.strictEqual(Share.joinChunks([{ i: 1, chunk: 'b' }]), '');
+});
 test('fmtBytes', () => {
   assert.strictEqual(Share.fmtBytes(900), '900B');
   assert.strictEqual(Share.fmtBytes(50 * 1024), '50KB');

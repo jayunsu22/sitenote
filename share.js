@@ -34,11 +34,30 @@
 
   var COLOR_COUNT = 8;
 
-  // 사진(명함 등) — 저장 전 자동 축소 기준
-  // Airtable 롱텍스트 한 칸은 10만자 한도. base64 는 원본의 4/3 이므로 60KB → 약 8.2만자로 안전하다.
-  var PHOTO_MAX_BYTES = 60 * 1024;
-  var PHOTO_MAX_DIM = 1280;   // 긴 변 기준 픽셀
-  var PHOTO_MIN_DIM = 480;    // 더 줄여도 용량이 안 맞으면 여기까지만
+  // 사진(명함·단가표 등) — 저장 전 자동 축소 기준
+  // 단가표 숫자가 읽히려면 해상도가 중요하므로 품질보다 픽셀을 먼저 지킨다.
+  var PHOTO_MAX_BYTES = 600 * 1024;  // 원본 보관 한도
+  var PHOTO_MAX_DIM = 2000;          // 긴 변 기준 픽셀
+  var PHOTO_MIN_DIM = 1000;          // 용량이 안 맞아도 여기보다 작게는 안 줄인다
+  // 목록 격자에 쓰는 작은 그림 — 폰 저장소(localStorage)와 Airtable 한 칸에 그대로 들어간다
+  var PHOTO_THUMB_DIM = 400;
+  var PHOTO_THUMB_BYTES = 40 * 1024;
+  // Airtable 롱텍스트 한 칸은 10만자 한도 → 원본 base64 는 이 크기로 잘라 여러 행에 나눠 백업
+  var PHOTO_CHUNK = 90000;
+
+  // 긴 문자열을 size 글자씩 자름
+  function splitChunks(str, size) {
+    var out = [];
+    str = String(str || '');
+    for (var i = 0; i < str.length; i += size) out.push(str.slice(i, i + size));
+    return out;
+  }
+  // 조각 행([{i, chunk}])을 순서대로 붙여 원래 문자열로. 빠진 번호가 있으면 '' (불완전한 백업은 버림)
+  function joinChunks(rows) {
+    var list = (rows || []).slice().sort(function (a, b) { return (a.i || 0) - (b.i || 0); });
+    for (var i = 0; i < list.length; i++) if ((list[i].i || 0) !== i) return '';
+    return list.map(function (r) { return r.chunk || ''; }).join('');
+  }
 
   // 'data:image/jpeg;base64,...' 의 실제 바이트 수
   function dataUrlBytes(url) {
@@ -170,6 +189,11 @@
     PHOTO_MAX_BYTES: PHOTO_MAX_BYTES,
     PHOTO_MAX_DIM: PHOTO_MAX_DIM,
     PHOTO_MIN_DIM: PHOTO_MIN_DIM,
+    PHOTO_THUMB_DIM: PHOTO_THUMB_DIM,
+    PHOTO_THUMB_BYTES: PHOTO_THUMB_BYTES,
+    PHOTO_CHUNK: PHOTO_CHUNK,
+    splitChunks: splitChunks,
+    joinChunks: joinChunks,
     dataUrlBytes: dataUrlBytes,
     isImageDataUrl: isImageDataUrl,
     fmtBytes: fmtBytes,

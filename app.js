@@ -85,6 +85,9 @@
     var h = location.hash || '';
     var m = /^#site\/(.+)$/.exec(h);
     if (m && Store.getSite(m[1])) { currentSiteId = m[1]; showView('viewSite'); renderSite(); return; }
+    var mp = /^#photo\/(.+)$/.exec(h);
+    if (mp && Store.getPhoto(mp[1])) { showView('viewMain'); renderMain(); openPhotoViewer(mp[1]); return; }
+    closePhotoViewer();
     if (h === '#settings') { showView('viewSettings'); renderSettings(); return; }
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
@@ -228,7 +231,7 @@
     renderContacts(Store.getClient(c.id));
     var inputs = $('contactList').querySelectorAll('.name'); if (inputs.length) inputs[inputs.length - 1].focus();
   };
-  // ---------- 메인: 고정값 사진 (명함 등) ----------
+  // ---------- 메인: 고정값 사진 (명함·단가표 등) ----------
   function renderPhotos(c) {
     var wrap = $('photoList'); wrap.innerHTML = '';
     var photos = Store.photosOf(c.id);
@@ -240,16 +243,18 @@
       var img = document.createElement('img');
       img.alt = p.name || '사진';
       img.loading = 'lazy';
-      if (Share.isImageDataUrl(p.dataUrl)) img.src = p.dataUrl;
+      var small = p.thumb || p.dataUrl;
+      if (Share.isImageDataUrl(small)) img.src = small;
       var cap = document.createElement('span');
-      cap.className = 'photo-cap'; cap.textContent = p.name || '이름 없음';
+      cap.className = 'photo-cap' + (p.name ? '' : ' empty');
+      cap.textContent = p.name || '설명 없음';
       item.appendChild(img); item.appendChild(cap);
-      item.onclick = function () { openPhoto(p.id); };
+      item.onclick = function () { go('#photo/' + p.id); };
       wrap.appendChild(item);
     });
   }
 
-  // 파일 → JPEG data URL 로 축소. Airtable 한 칸(10만자)에 들어가도록 용량을 맞춘다
+  // 파일 → JPEG data URL. 단가표 숫자가 읽혀야 하므로 품질보다 해상도를 먼저 지킨다
   function readImage(file) {
     return new Promise(function (resolve, reject) {
       var byFileReader = function () {
@@ -273,47 +278,61 @@
       byFileReader();
     });
   }
+  function drawTo(img, dim) {
+    var w0 = img.width || img.naturalWidth, h0 = img.height || img.naturalHeight;
+    var scale = Math.min(1, dim / Math.max(w0, h0));
+    var w = Math.max(1, Math.round(w0 * scale)), h = Math.max(1, Math.round(h0 * scale));
+    var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); // 투명 PNG 가 검게 나오지 않도록
+    ctx.drawImage(img, 0, 0, w, h);
+    return { cv: cv, w: w, h: h };
+  }
+  // 큰 변부터 줄이고, 같은 크기 안에서 품질을 낮춰가며 한도에 맞춤
+  function encode(img, dims, quals, maxBytes) {
+    var best = null;
+    for (var d = 0; d < dims.length; d++) {
+      var c = drawTo(img, dims[d]);
+      for (var q = 0; q < quals.length; q++) {
+        var url = c.cv.toDataURL('image/jpeg', quals[q]);
+        var bytes = Share.dataUrlBytes(url);
+        var cand = { dataUrl: url, w: c.w, h: c.h, bytes: bytes };
+        if (!best || bytes < best.bytes) best = cand;
+        if (bytes <= maxBytes) return cand;
+      }
+    }
+    return best;
+  }
   function compressImage(file) {
     return readImage(file).then(function (img) {
-      var w0 = img.width || img.naturalWidth, h0 = img.height || img.naturalHeight;
-      if (!w0 || !h0) throw new Error('이미지 크기를 알 수 없습니다');
-      var best = null;
-      for (var dim = Share.PHOTO_MAX_DIM; dim >= Share.PHOTO_MIN_DIM; dim = Math.round(dim * 0.75)) {
-        var scale = Math.min(1, dim / Math.max(w0, h0));
-        var w = Math.max(1, Math.round(w0 * scale)), h = Math.max(1, Math.round(h0 * scale));
-        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-        var ctx = cv.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); // 투명 PNG 가 검게 나오지 않도록
-        ctx.drawImage(img, 0, 0, w, h);
-        for (var q = 0.82; q >= 0.39; q -= 0.12) {
-          var url = cv.toDataURL('image/jpeg', q);
-          var bytes = Share.dataUrlBytes(url);
-          if (!best || bytes < best.bytes) best = { dataUrl: url, w: w, h: h, bytes: bytes };
-          if (bytes <= Share.PHOTO_MAX_BYTES) return best;
-        }
-      }
-      if (!best || best.bytes > Share.PHOTO_MAX_BYTES) throw new Error('사진 용량을 줄이지 못했습니다');
-      return best;
+      if (!(img.width || img.naturalWidth)) throw new Error('이미지 크기를 알 수 없습니다');
+      var dims = [];
+      for (var d = Share.PHOTO_MAX_DIM; d >= Share.PHOTO_MIN_DIM; d = Math.round(d * 0.8)) dims.push(d);
+      var full = encode(img, dims, [0.85, 0.75, 0.65, 0.55, 0.45], Share.PHOTO_MAX_BYTES);
+      if (!full) throw new Error('사진을 변환하지 못했습니다');
+      var thumb = encode(img, [Share.PHOTO_THUMB_DIM, 300, 240], [0.7, 0.6, 0.5], Share.PHOTO_THUMB_BYTES);
+      return { dataUrl: full.dataUrl, w: full.w, h: full.h, bytes: full.bytes, thumb: (thumb || full).dataUrl };
     });
   }
-  // 여러 장은 한 장씩 차례로 (폰 메모리 아끼기)
+  // 여러 장은 한 장씩 차례로 (폰 메모리 아끼기). 다 올리면 설명(메모)을 물어본다
   function addPhotoFiles(files) {
     var c = Store.getClient(currentClientId); if (!c || !files.length) return;
     toast(files.length > 1 ? '사진 ' + files.length + '장 처리 중…' : '사진 처리 중…');
-    var okCount = 0, failMsg = '';
+    var added = [], failMsg = '';
     var next = function (i) {
       if (i >= files.length) {
         renderPhotos(Store.getClient(currentClientId));
-        if (okCount) toast('사진 ' + okCount + '장 추가됨' + (failMsg ? ' · ' + failMsg : ''));
-        else toast(failMsg || '추가된 사진이 없습니다');
+        if (failMsg) toast(failMsg);
+        if (added.length) askPhotoNames(added, 0);
+        else if (!failMsg) toast('추가된 사진이 없습니다');
         return;
       }
       var f = files[i];
       if (!/^image\//.test(f.type || '')) { failMsg = '이미지 파일만 올릴 수 있습니다'; next(i + 1); return; }
       compressImage(f).then(function (r) {
-        var name = String(f.name || '').replace(/\.[^.]+$/, '').slice(0, 40);
-        var saved = Store.addPhoto(currentClientId, { name: name, dataUrl: r.dataUrl, w: r.w, h: r.h, bytes: r.bytes });
-        if (saved) okCount++;
+        return Store.addPhoto(currentClientId, { name: '', thumb: r.thumb, dataUrl: r.dataUrl, w: r.w, h: r.h, bytes: r.bytes });
+      }).then(function (saved) {
+        if (saved) added.push(saved.id);
         else failMsg = '폰 저장공간이 가득 찼습니다 — 사진을 지우고 다시 시도하세요';
         next(i + 1);
       }).catch(function (e) {
@@ -322,6 +341,17 @@
       });
     };
     next(0);
+  }
+  // 올린 직후 설명 입력 — 나중에 찾으려면 "영림 2026년 단가" 같은 메모가 있어야 한다
+  function askPhotoNames(ids, i) {
+    if (i >= ids.length) { toast('사진 ' + ids.length + '장 추가됨'); return; }
+    var p = Store.getPhoto(ids[i]);
+    if (!p) { askPhotoNames(ids, i + 1); return; }
+    modalPrompt('사진 설명 ' + (ids.length > 1 ? '(' + (i + 1) + '/' + ids.length + ')' : ''), '', '예: 영림 2026년 단가').then(function (v) {
+      if (v != null && v.trim()) Store.updatePhoto(p.id, { name: v.trim() });
+      renderPhotos(Store.getClient(currentClientId));
+      askPhotoNames(ids, i + 1);
+    });
   }
   $('btnAddPhoto').onclick = function () {
     if (!currentClientId) { toast('거래처를 먼저 선택하세요'); return; }
@@ -332,40 +362,53 @@
     $('photoInput').value = '';
     addPhotoFiles(files);
   };
-  // 사진 크게 보기 — 이름 수정 / 삭제
-  function openPhoto(id) {
-    var p = Store.getPhoto(id); if (!p) return;
-    openModal(p.name || '사진',
-      '<div class="photo-view"><div id="photoBox" class="photo-box"><img id="photoBig" alt=""></div>' +
-      '<input type="text" id="photoName" placeholder="설명 (예: 김실장 명함)">' +
-      '<p class="hint photo-meta">' + esc(p.w + '×' + p.h + ' · ' + Share.fmtBytes(p.bytes)) + ' · 사진을 탭하면 확대</p></div>',
-      [{ label: '삭제', cls: 'danger', onClick: function () { closeModal(); confirmDeletePhoto(id); } },
-       { label: '닫기', cls: 'primary', onClick: closeModal }]);
-    var big = $('photoBig');
-    if (Share.isImageDataUrl(p.dataUrl)) big.src = p.dataUrl;
-    // 앱 전체가 핀치줌을 막아놨으므로, 탭하면 원본 크기로 바꿔 스크롤해서 보게 한다 (명함 글씨 확인용)
-    big.onclick = function () {
-      var box = $('photoBox');
-      if (!box.classList.toggle('zoom')) return;
-      box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;   // 확대하면 가운데부터 보이게
-      box.scrollTop = (box.scrollHeight - box.clientHeight) / 2;
-    };
-    var nameInput = $('photoName');
+
+  // ---------- 사진 크게 보기 (전체 화면) ----------
+  var viewerId = '';
+  function openPhotoViewer(id) {
+    var p = Store.getPhoto(id);
+    if (!p) { back(); return; }
+    viewerId = id;
+    $('photoViewer').hidden = false;
+    $('pvBox').classList.remove('zoom');
+    $('pvMeta').textContent = p.w + '×' + p.h + ' · ' + Share.fmtBytes(p.bytes) + ' · 탭하면 확대';
+    var nameInput = $('pvName');
     nameInput.value = p.name || '';
-    nameInput.addEventListener('input', function () {
-      Store.updatePhoto(id, { name: nameInput.value });
-      renderPhotos(Store.getClient(currentClientId));
+    var img = $('pvImg');
+    img.removeAttribute('src');
+    var small = p.thumb || p.dataUrl;
+    if (Share.isImageDataUrl(small)) img.src = small;   // 먼저 작은 그림, 원본은 읽는 대로 교체
+    Store.photoData(id).then(function (url) {
+      if (viewerId === id && Share.isImageDataUrl(url)) img.src = url;
     });
   }
-  function confirmDeletePhoto(id) {
-    var p = Store.getPhoto(id); if (!p) return;
-    modalConfirm('사진 삭제', '"' + (p.name || '이름 없음') + '" 사진을 삭제합니다.', '삭제', true).then(function (ok) {
-      if (!ok) { openPhoto(id); return; }
+  function closePhotoViewer() {
+    viewerId = '';
+    $('photoViewer').hidden = true;
+    $('pvBox').classList.remove('zoom');
+    $('pvImg').removeAttribute('src');
+  }
+  $('pvClose').onclick = function () { back(); };
+  $('pvName').addEventListener('input', function () {
+    if (!viewerId) return;
+    Store.updatePhoto(viewerId, { name: $('pvName').value });
+    renderPhotos(Store.getClient(currentClientId));
+  });
+  // 앱 전체가 핀치줌을 막아놨으므로, 탭하면 원본 크기로 바꿔 스크롤해서 보게 한다 (단가표 숫자 확인용)
+  $('pvImg').onclick = function () {
+    var box = $('pvBox');
+    if (!box.classList.toggle('zoom')) return;
+    box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;
+    box.scrollTop = (box.scrollHeight - box.clientHeight) / 2;
+  };
+  $('pvDelete').onclick = function () {
+    var id = viewerId, p = Store.getPhoto(id); if (!p) return;
+    modalConfirm('사진 삭제', '"' + (p.name || '설명 없음') + '" 사진을 삭제합니다.', '삭제', true).then(function (ok) {
+      if (!ok) return;
       Store.deletePhoto(id);
-      renderPhotos(Store.getClient(currentClientId));
-      toast('삭제됨');
+      back(); toast('삭제됨');
     });
-  }
+  };
 
   $('btnRenameClient').onclick = function () { renameClient(currentClientId); };
   $('btnDeleteClient').onclick = function () { deleteClient(currentClientId); };

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260913">
+  <link rel="stylesheet" href="style.css?v=20260913b">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -47,9 +47,9 @@
             <button id="btnAddContact" class="btn-sm">＋ 담당자 추가</button>
           </div>
           <div class="field-group">
-            <div class="field-label">사진 (명함 등)</div>
+            <div class="field-label">사진 (명함 · 단가표)</div>
             <div id="photoList" class="photo-list" hidden></div>
-            <div id="photoEmpty" class="photo-empty">명함·견적서·도면 사진을 올려두면 여기서 바로 볼 수 있습니다.</div>
+            <div id="photoEmpty" class="photo-empty">명함·단가표·견적서 사진을 올려두고 "영림 2026년 단가"처럼 설명을 달아두면 찾기 쉽습니다.</div>
             <input type="file" id="photoInput" accept="image/*" multiple hidden>
             <button id="btnAddPhoto" class="btn-sm">＋ 사진 추가</button>
           </div>
@@ -137,6 +137,17 @@
     </div>
   </section>
 
+  <!-- ========== 사진 크게 보기 (전체 화면) ========== -->
+  <div id="photoViewer" class="photo-viewer" hidden>
+    <header class="pv-bar">
+      <button id="pvClose" class="icon-btn" title="뒤로">←</button>
+      <input type="text" id="pvName" placeholder="설명 (예: 영림 2026년 단가)">
+      <button id="pvDelete" class="icon-btn" title="삭제">🗑</button>
+    </header>
+    <div id="pvBox" class="pv-box"><img id="pvImg" alt=""></div>
+    <div id="pvMeta" class="pv-meta"></div>
+  </div>
+
   <!-- ========== 공용 모달 ========== -->
   <div id="modal" class="modal-overlay" hidden>
     <div class="modal">
@@ -146,8 +157,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260913"></script>
-  <script src="store.js?v=20260913"></script>
-  <script src="app.js?v=20260913"></script>
+  <script src="share.js?v=20260913b"></script>
+  <script src="store.js?v=20260913b"></script>
+  <script src="app.js?v=20260913b"></script>
 </body>
 </html>

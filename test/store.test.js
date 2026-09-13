@@ -130,49 +130,74 @@ function reset() {
 
   console.log('photo (고정값 사진)');
   const IMG = 'data:image/jpeg;base64,' + 'A'.repeat(400);
-  await test('addPhoto: 거래처에 붙고 큐에 photo upsert', () => {
+  const BIG = 'data:image/jpeg;base64,' + 'B'.repeat(Share.PHOTO_CHUNK * 2 + 100); // 조각 3개짜리 원본
+  const THUMB = 'data:image/jpeg;base64,' + 'C'.repeat(120);
+  await test('addPhoto: 메타는 상태에, 원본은 조각 op 로 큐에', async () => {
     reset();
     const a = Store.addClient('A');
-    const p = Store.addPhoto(a.id, { name: '김실장 명함', dataUrl: IMG, w: 1280, h: 720, bytes: 300 });
+    const p = await Store.addPhoto(a.id, { name: '영림 2026년 단가', thumb: THUMB, dataUrl: BIG, w: 1500, h: 2000, bytes: 200000 });
     assert.ok(p && p.id.startsWith('p_'));
-    assert.strictEqual(p.clientId, a.id);
-    assert.strictEqual(Store.photosOf(a.id).length, 1);
-    const op = Store.state.syncQueue.find(o => o.type === 'photo');
-    assert.ok(op); assert.strictEqual(op.op, 'upsert'); assert.strictEqual(op.data.dataUrl, IMG);
+    assert.strictEqual(p.parts, 3, '90000자씩 3조각');
+    assert.strictEqual(p.dataUrl, '', '원본은 상태에 두지 않음');
+    assert.strictEqual(p.thumb, THUMB);
+    const ops = Store.state.syncQueue.filter(o => o.type === 'photo');
+    assert.strictEqual(ops.length, 4, '메타 1 + 조각 3');
+    const meta = ops.find(o => o.id === p.id);
+    assert.strictEqual(meta.data.name, '영림 2026년 단가');
+    const chunks = ops.filter(o => o.id !== p.id);
+    assert.deepStrictEqual(chunks.map(o => o.part), [0, 1, 2]);
+    assert.ok(chunks.every(o => o.photoRef === p.id && !o.data), '큐에는 참조만, 본문은 전송 직전에 채움');
   });
-  await test('photosOf: 추가한 순서(오래된 것 먼저), 다른 거래처는 안 섞임', () => {
+  await test('photoData: 저장한 원본을 다시 읽음', async () => {
+    reset();
+    const a = Store.addClient('A');
+    const p = await Store.addPhoto(a.id, { thumb: THUMB, dataUrl: IMG });
+    assert.strictEqual(await Store.photoData(p.id), IMG);
+  });
+  await test('photosOf: 추가한 순서, 다른 거래처는 안 섞임', async () => {
     reset();
     const a = Store.addClient('A'), b = Store.addClient('B');
-    const p1 = Store.addPhoto(a.id, { name: '1', dataUrl: IMG, createdAt: 1 });
-    const p2 = Store.addPhoto(a.id, { name: '2', dataUrl: IMG, createdAt: 2 });
-    Store.addPhoto(b.id, { name: '3', dataUrl: IMG });
+    const p1 = await Store.addPhoto(a.id, { name: '1', dataUrl: IMG, createdAt: 1 });
+    const p2 = await Store.addPhoto(a.id, { name: '2', dataUrl: IMG, createdAt: 2 });
+    await Store.addPhoto(b.id, { name: '3', dataUrl: IMG });
     assert.deepStrictEqual(Store.photosOf(a.id).map(p => p.id), [p1.id, p2.id]);
     assert.strictEqual(Store.photosOf(b.id).length, 1);
   });
-  await test('updatePhoto / deletePhoto', () => {
+  await test('updatePhoto: 설명만 바꾸면 메타만 다시 보냄', async () => {
     reset();
     const a = Store.addClient('A');
-    const p = Store.addPhoto(a.id, { name: '', dataUrl: IMG });
-    Store.updatePhoto(p.id, { name: '견적서' });
-    assert.strictEqual(Store.getPhoto(p.id).name, '견적서');
-    Store.deletePhoto(p.id);
-    assert.strictEqual(Store.getPhoto(p.id), null);
-    assert.ok(Store.state.syncQueue.some(o => o.type === 'photo' && o.op === 'delete' && o.id === p.id));
+    const p = await Store.addPhoto(a.id, { name: '', thumb: THUMB, dataUrl: BIG });
+    Store.state.syncQueue = [];
+    Store.updatePhoto(p.id, { name: '영림 단가표' });
+    assert.strictEqual(Store.getPhoto(p.id).name, '영림 단가표');
+    const ops = Store.state.syncQueue.filter(o => o.type === 'photo');
+    assert.deepStrictEqual(ops.map(o => o.id), [p.id], '조각은 다시 안 보냄');
   });
-  await test('deleteClient: 사진도 같이 삭제, 큐에 delete', () => {
+  await test('deletePhoto: 메타와 조각 모두 삭제', async () => {
     reset();
     const a = Store.addClient('A');
-    const p = Store.addPhoto(a.id, { name: '명함', dataUrl: IMG });
+    const p = await Store.addPhoto(a.id, { dataUrl: BIG });
+    Store.state.syncQueue = [];
+    await Store.deletePhoto(p.id);
+    assert.strictEqual(Store.getPhoto(p.id), null);
+    const dels = Store.state.syncQueue.filter(o => o.type === 'photo' && o.op === 'delete').map(o => o.id).sort();
+    assert.deepStrictEqual(dels, [p.id, p.id + '#0', p.id + '#1', p.id + '#2'].sort());
+  });
+  await test('deleteClient: 사진 메타·조각도 같이 삭제', async () => {
+    reset();
+    const a = Store.addClient('A');
+    const p = await Store.addPhoto(a.id, { name: '명함', dataUrl: BIG });
     Store.deleteClient(a.id);
     assert.strictEqual(Store.state.photos.length, 0);
-    assert.ok(Store.state.syncQueue.some(o => o.type === 'photo' && o.op === 'delete' && o.id === p.id));
+    const dels = Store.state.syncQueue.filter(o => o.type === 'photo' && o.op === 'delete').map(o => o.id);
+    assert.strictEqual(dels.length, 4);
   });
-  await test('저장공간이 가득 차면 사진을 되돌리고 null', () => {
+  await test('저장공간이 가득 차면 사진을 되돌리고 null', async () => {
     reset();
     const a = Store.addClient('A');
     const realSet = localStorage.setItem;
     localStorage.setItem = () => { const e = new Error('QuotaExceededError'); e.name = 'QuotaExceededError'; throw e; };
-    const p = Store.addPhoto(a.id, { name: '큰사진', dataUrl: IMG });
+    const p = await Store.addPhoto(a.id, { name: '큰사진', dataUrl: IMG });
     localStorage.setItem = realSet;
     assert.strictEqual(p, null);
     assert.strictEqual(Store.state.photos.length, 0, '메모리 상태도 되돌아감');
@@ -211,6 +236,21 @@ function reset() {
     assert.strictEqual(Store.pendingCount(), 0);
     assert.ok(Store.state.lastSyncAt > 0);
   });
+  await test('사진 조각은 전송 직전에 원본에서 채워진다', async () => {
+    reset();
+    Store.setSettings({ backupKey: 'k' });
+    const a = Store.addClient('A');
+    const big = 'data:image/jpeg;base64,' + 'B'.repeat(Share.PHOTO_CHUNK + 50);
+    const p = await Store.addPhoto(a.id, { name: '단가표', thumb: 'data:image/jpeg;base64,CCCC', dataUrl: big });
+    fetchCalls = [];
+    await runTimers();
+    const body = JSON.parse(fetchCalls[0][1].body);
+    const chunkOps = body.ops.filter(o => o.type === 'photo' && o.data && o.data.photoId === p.id);
+    assert.strictEqual(chunkOps.length, 2);
+    assert.strictEqual(Share.joinChunks(chunkOps.map(o => o.data)), big, '보낸 조각을 붙이면 원본');
+    assert.ok(body.ops.every(o => !('photoRef' in o)), '참조 필드는 서버로 보내지 않음');
+    assert.strictEqual(Store.pendingCount(), 0);
+  });
   await test('실패 시 큐 유지', async () => {
     reset();
     fetchImpl = async () => ({ ok: false, status: 500, json: async () => ({}) });
@@ -248,7 +288,11 @@ function reset() {
     fetchImpl = async () => ({ ok: true, json: async () => ({
       clients: [{ id: 'c9', name: 'R', order: 0, contacts: [] }],
       sites: [{ id: 's9', clientId: 'c9', name: 'RS', films: [] }],
-      photos: [{ id: 'p9', clientId: 'c9', name: '명함', dataUrl: 'data:image/jpeg;base64,AAAA' }],
+      photos: [
+        { id: 'p9', clientId: 'c9', name: '명함', thumb: 'data:image/jpeg;base64,CCCC', parts: 2 },
+        { id: 'p9#1', photoId: 'p9', i: 1, chunk: 'BBBB' },
+        { id: 'p9#0', photoId: 'p9', i: 0, chunk: 'data:image/jpeg;base64,AAAA' }
+      ],
       settings: { questions: { toilet: '복원된 문구' } }
     }) });
     const r = await Store.restore(true);
@@ -256,6 +300,7 @@ function reset() {
     assert.strictEqual(r.photos, 1);
     assert.strictEqual(Store.photosOf('c9')[0].name, '명함');
     assert.strictEqual(Store.getPhoto('p9').bytes, 0, '누락 필드는 기본값으로 채움');
+    assert.strictEqual(await Store.photoData('p9'), 'data:image/jpeg;base64,AAAABBBB', '조각을 붙여 원본 복구');
     assert.strictEqual(Store.state.clients[0].name, 'R');
     assert.strictEqual(Store.getSite('s9').carReg.v, '미확인', '누락 필드는 기본값으로 채움');
     assert.strictEqual(Store.state.settings.questions.toilet, '복원된 문구');
