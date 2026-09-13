@@ -60,7 +60,7 @@ return [{ json: { ok: true } }];
 ''' % json.dumps(backup_key, ensure_ascii=False)
 
     restore_merge = r'''
-// 3개 테이블 결과를 앱이 기대하는 형태로 합침
+// 4개 테이블 결과를 앱이 기대하는 형태로 합침
 function rows(nodeName) {
   const out = [];
   for (const it of $(nodeName).all()) {

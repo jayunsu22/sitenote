@@ -2,7 +2,7 @@
   "name": "거래처별 현장관리 백업",
   "nodes": [
     {
-      "id": "5adff876-dc65-41d2-bc02-12ddc51554be",
+      "id": "7b2e8245-3356-478a-80c4-e0382ffa68d2",
       "name": "sync Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -10,7 +10,7 @@
         0,
         0
       ],
-      "webhookId": "ea639427-3f4a-4392-839d-0abb9e43c543",
+      "webhookId": "b3eaaff0-704b-46c2-805b-55fe175bd782",
       "parameters": {
         "httpMethod": "POST",
         "path": "sitenote-sync",
@@ -19,7 +19,7 @@
       }
     },
     {
-      "id": "965fccf5-8a33-4c2e-84e6-91cfdbc04e8e",
+      "id": "722167cc-dd1c-4c51-b3c5-49aa47bbcab2",
       "name": "키검사·배치생성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -32,7 +32,7 @@
       }
     },
     {
-      "id": "461c3275-b383-4f74-95d3-53f896029360",
+      "id": "68f64f72-a5df-482e-9934-ab3a52d0ef2a",
       "name": "인증됨?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -49,7 +49,7 @@
           },
           "conditions": [
             {
-              "id": "2d74731e-ccf5-43e5-bc58-e201a9580b71",
+              "id": "0516f065-4162-4d57-9801-e540d426268f",
               "leftValue": "={{ $json.error }}",
               "rightValue": "",
               "operator": {
@@ -65,7 +65,7 @@
       }
     },
     {
-      "id": "e865242e-a4d0-46fd-9978-7c8ae1233356",
+      "id": "c3b4af3f-bcd4-4f58-ad4d-6a22c4666516",
       "name": "보낼 것 있음?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
           },
           "conditions": [
             {
-              "id": "f8b2f0f6-ec9b-425b-a999-00a69a35cf8e",
+              "id": "a3245c7f-fd9d-4c78-a34b-1233f7622b2a",
               "leftValue": "={{ !!$json.empty }}",
               "rightValue": "",
               "operator": {
@@ -98,7 +98,7 @@
       }
     },
     {
-      "id": "85c60509-eafc-480a-aaab-e8c702e034d6",
+      "id": "22fdc255-a9d8-4251-9970-09cf20f92c5d",
       "name": "Airtable upsert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -124,7 +124,7 @@
       }
     },
     {
-      "id": "f6ff89ae-3443-4652-9ecb-256bb6aae24b",
+      "id": "97c69f5c-f05c-4330-b282-fe87527fcaee",
       "name": "결과집계",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -137,7 +137,7 @@
       }
     },
     {
-      "id": "dad327a5-5b92-41a9-bba4-e15a78795e32",
+      "id": "62d9e249-bf2b-437f-b6b7-7e28f2b1608f",
       "name": "응답 OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -152,7 +152,7 @@
       }
     },
     {
-      "id": "291b695c-d7a7-4572-b951-8dc5b4ffeff3",
+      "id": "d42c1246-5340-40bd-a001-2f95360d33be",
       "name": "응답 (빈 요청)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -167,7 +167,7 @@
       }
     },
     {
-      "id": "999d8a1d-5509-41ca-8525-de8fa7be8d04",
+      "id": "07facb3b-5287-47b9-ad31-73bd126f2e01",
       "name": "응답 401",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -184,7 +184,7 @@
       }
     },
     {
-      "id": "1ea584dd-98ec-4308-8667-cf3feb7901e3",
+      "id": "ab4d0872-d5db-4c1d-a8a4-6e1159c105d1",
       "name": "restore Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -192,7 +192,7 @@
         0,
         400
       ],
-      "webhookId": "a9a52a3f-76ba-442c-b993-24be14dcc4f8",
+      "webhookId": "e4fd16fe-58c5-4645-b6c6-a13dfa5ec18a",
       "parameters": {
         "httpMethod": "GET",
         "path": "sitenote-restore",
@@ -201,7 +201,7 @@
       }
     },
     {
-      "id": "d36f0f80-07c4-4ba3-a838-d3f1fa070c49",
+      "id": "2255b9d7-dfb2-4422-a26b-eec611728813",
       "name": "복원 키검사",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -214,7 +214,7 @@
       }
     },
     {
-      "id": "2531ae56-0867-426b-a49a-30d4d868bd1e",
+      "id": "100fa194-8347-4e68-b385-4a46595ae952",
       "name": "복원 인증됨?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -231,7 +231,7 @@
           },
           "conditions": [
             {
-              "id": "53e60aa2-d9f5-4fb4-ba55-99900a582587",
+              "id": "b8a69f6a-4282-43ac-9e6f-b35b4e004463",
               "leftValue": "={{ $json.error }}",
               "rightValue": "",
               "operator": {
@@ -247,7 +247,7 @@
       }
     },
     {
-      "id": "7ad97364-b6d7-429a-a941-3d5ce36d18f9",
+      "id": "2bee220c-2f10-4a58-bd97-fa66c8ee766d",
       "name": "거래처 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -301,7 +301,7 @@
       "executeOnce": true
     },
     {
-      "id": "6a6a3d67-90d4-4325-94a9-b1163e975070",
+      "id": "ac2bb582-69de-4054-b3d8-03df0631390e",
       "name": "현장 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -355,7 +355,7 @@
       "executeOnce": true
     },
     {
-      "id": "b5ec308c-23f2-49ef-b586-737095ac95e5",
+      "id": "a1d1d23c-d6c8-494e-8cba-7b73e292cdd4",
       "name": "설정 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -409,7 +409,7 @@
       "executeOnce": true
     },
     {
-      "id": "3d96f25b-b424-49ef-b7a2-2caf752f1a20",
+      "id": "46c319a4-f90e-40c2-9da6-92ad6ef00229",
       "name": "사진 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -463,7 +463,7 @@
       "executeOnce": true
     },
     {
-      "id": "0e074583-4e88-484b-bce2-1311b1c80d50",
+      "id": "fe06cfd5-59b5-48da-8668-da976f55f086",
       "name": "복원 합치기",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -472,11 +472,11 @@
         320
       ],
       "parameters": {
-        "jsCode": "\n// 3개 테이블 결과를 앱이 기대하는 형태로 합침\nfunction rows(nodeName) {\n  const out = [];\n  for (const it of $(nodeName).all()) {\n    const recs = (it.json.records) ? it.json.records : [];\n    for (const r of recs) {\n      const f = r.fields || {};\n      if (f['삭제']) continue;\n      try { out.push(JSON.parse(f.data || '{}')); } catch (e) { /* 손상된 행 무시 */ }\n    }\n  }\n  return out;\n}\nconst clients = rows('거래처 읽기');\nconst sites = rows('현장 읽기');\nconst photos = rows('사진 읽기');\nconst settingsRows = rows('설정 읽기');\nreturn [{ json: { clients, sites, photos, settings: settingsRows[0] || {} } }];\n"
+        "jsCode": "\n// 4개 테이블 결과를 앱이 기대하는 형태로 합침\nfunction rows(nodeName) {\n  const out = [];\n  for (const it of $(nodeName).all()) {\n    const recs = (it.json.records) ? it.json.records : [];\n    for (const r of recs) {\n      const f = r.fields || {};\n      if (f['삭제']) continue;\n      try { out.push(JSON.parse(f.data || '{}')); } catch (e) { /* 손상된 행 무시 */ }\n    }\n  }\n  return out;\n}\nconst clients = rows('거래처 읽기');\nconst sites = rows('현장 읽기');\nconst photos = rows('사진 읽기');\nconst settingsRows = rows('설정 읽기');\nreturn [{ json: { clients, sites, photos, settings: settingsRows[0] || {} } }];\n"
       }
     },
     {
-      "id": "e74e74df-a2e4-4510-922f-5c64e01e2bc2",
+      "id": "d6c08392-8a0f-477e-8da8-bb62c9e68b7d",
       "name": "복원 응답",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -491,7 +491,7 @@
       }
     },
     {
-      "id": "8f5d73f0-144d-4908-9f82-ae175b439dc9",
+      "id": "478abecd-2635-4dca-a80a-f642fe0ab1e6",
       "name": "복원 응답 401",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
