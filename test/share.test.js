@@ -156,5 +156,26 @@ test('원본 큐 변경 안 함', () => {
   assert.strictEqual(q.length, 0);
 });
 
+console.log('사진 도우미');
+test('dataUrlBytes: base64 실제 바이트 (패딩 반영)', () => {
+  assert.strictEqual(Share.dataUrlBytes('data:image/jpeg;base64,QUJD'), 3);      // ABC
+  assert.strictEqual(Share.dataUrlBytes('data:image/jpeg;base64,QUJDRA=='), 4);  // ABCD
+  assert.strictEqual(Share.dataUrlBytes(''), 0);
+  assert.strictEqual(Share.dataUrlBytes(null), 0);
+});
+test('isImageDataUrl: 이미지 data URL 만 통과', () => {
+  assert.ok(Share.isImageDataUrl('data:image/jpeg;base64,QUJD'));
+  assert.ok(Share.isImageDataUrl('data:image/png;base64,QUJDRA=='));
+  assert.ok(!Share.isImageDataUrl('data:text/html;base64,QUJD'));
+  assert.ok(!Share.isImageDataUrl('https://example.com/a.jpg'));
+  assert.ok(!Share.isImageDataUrl('data:image/jpeg;base64,"><script>'));
+  assert.ok(!Share.isImageDataUrl(''));
+});
+test('fmtBytes', () => {
+  assert.strictEqual(Share.fmtBytes(900), '900B');
+  assert.strictEqual(Share.fmtBytes(50 * 1024), '50KB');
+  assert.strictEqual(Share.fmtBytes(2.5 * 1024 * 1024), '2.5MB');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

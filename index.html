@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260912">
+  <link rel="stylesheet" href="style.css?v=20260913">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -38,13 +38,20 @@
       <!-- 고정값 아코디언 -->
       <div id="fixedWrap" class="fixed-wrap" hidden>
         <button id="fixedToggle" class="fixed-toggle">
-          <span class="fixed-arrow">▶</span> 고정값 <span class="fixed-sub">담당자 · 단가 · 주의사항</span>
+          <span class="fixed-arrow">▶</span> 고정값 <span class="fixed-sub">담당자 · 단가 · 사진 · 주의사항</span>
         </button>
         <div id="fixedBody" class="fixed-body" hidden>
           <div class="field-group">
             <div class="field-label">담당자</div>
             <div id="contactList" class="contact-list"></div>
             <button id="btnAddContact" class="btn-sm">＋ 담당자 추가</button>
+          </div>
+          <div class="field-group">
+            <div class="field-label">사진 (명함 등)</div>
+            <div id="photoList" class="photo-list" hidden></div>
+            <div id="photoEmpty" class="photo-empty">명함·견적서·도면 사진을 올려두면 여기서 바로 볼 수 있습니다.</div>
+            <input type="file" id="photoInput" accept="image/*" multiple hidden>
+            <button id="btnAddPhoto" class="btn-sm">＋ 사진 추가</button>
           </div>
           <div class="field-group">
             <label class="field-label" for="fxFilmPrice">업체 필름단가</label>
@@ -139,8 +146,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260912"></script>
-  <script src="store.js?v=20260912"></script>
-  <script src="app.js?v=20260912"></script>
+  <script src="share.js?v=20260913"></script>
+  <script src="store.js?v=20260913"></script>
+  <script src="app.js?v=20260913"></script>
 </body>
 </html>

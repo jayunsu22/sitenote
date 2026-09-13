@@ -34,7 +34,7 @@
     };
   }
   function defaultState() {
-    return { version: 1, clients: [], sites: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
+    return { version: 1, clients: [], sites: [], photos: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
   }
   function blankSite(clientId, color) {
     var now = Date.now();
@@ -58,6 +58,10 @@
   function normalizeClient(raw) {
     return Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
   }
+  // 사진(명함 등): 거래처 고정값에 붙는 이미지. dataUrl 은 앱에서 축소한 JPEG
+  function normalizePhoto(raw) {
+    return Object.assign({ id: '', clientId: '', name: '', dataUrl: '', w: 0, h: 0, bytes: 0, createdAt: 0, updatedAt: 0 }, raw);
+  }
   function genId(prefix) {
     return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   }
@@ -72,6 +76,7 @@
     if (parsed) {
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.sites = (parsed.sites || []).map(normalizeSite);
+      state.photos = (parsed.photos || []).map(normalizePhoto);
       state.settings = Object.assign(defaultSettings(), parsed.settings || {});
       state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (parsed.settings || {}).questions || {});
       state.syncQueue = parsed.syncQueue || [];
@@ -81,17 +86,20 @@
     }
     return state;
   }
+  // 저장 성공 여부를 돌려준다 — 사진처럼 용량이 큰 항목은 실패하면 되돌려야 하기 때문
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 용량 초과 등 — 메모리 상태는 유지 */ }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+    catch (e) { return false; /* 용량 초과 등 — 메모리 상태는 유지 */ }
   }
   function emit() { listeners.forEach(function (fn) { try { fn(state); } catch (e) { /* 리스너 오류 무시 */ } }); }
 
   // 변경 커밋: 저장 → 큐 → 디바운스 전송 → 리스너
   function commit(op) {
     if (op) enqueue(op);
-    persist();
+    var saved = persist();
     scheduleFlush();
     emit();
+    return saved;
   }
 
   // 설정 중 서버로 보낼 것만 (백업키·마지막 탭은 폰에만)
@@ -130,7 +138,11 @@
     state.sites.filter(function (s) { return s.clientId === id; }).forEach(function (s) {
       enqueue({ op: 'delete', type: 'site', id: s.id });
     });
+    state.photos.filter(function (p) { return p.clientId === id; }).forEach(function (p) {
+      enqueue({ op: 'delete', type: 'photo', id: p.id });
+    });
     state.sites = state.sites.filter(function (s) { return s.clientId !== id; });
+    state.photos = state.photos.filter(function (p) { return p.clientId !== id; });
     state.clients = state.clients.filter(function (c) { return c.id !== id; });
     commit({ op: 'delete', type: 'client', id: id });
   }
@@ -156,6 +168,35 @@
   function deleteSite(id) {
     state.sites = state.sites.filter(function (s) { return s.id !== id; });
     commit({ op: 'delete', type: 'site', id: id });
+  }
+
+  // ---------- 사진 (거래처 고정값) ----------
+  function getPhoto(id) { return state.photos.find(function (p) { return p.id === id; }) || null; }
+  function photosOf(clientId) {
+    return state.photos.filter(function (p) { return p.clientId === clientId; })
+      .sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  }
+  // 저장공간이 가득 차면 방금 추가한 사진을 되돌리고 null 을 돌려준다 (앱이 안내 문구를 띄움)
+  function addPhoto(clientId, photo) {
+    var now = Date.now();
+    var p = normalizePhoto(Object.assign({ id: genId('p'), clientId: clientId, createdAt: now }, photo, { updatedAt: now }));
+    state.photos.push(p);
+    if (commit({ op: 'upsert', type: 'photo', id: p.id, data: p })) return p;
+    state.photos = state.photos.filter(function (x) { return x.id !== p.id; });
+    state.syncQueue = state.syncQueue.filter(function (o) { return !(o.type === 'photo' && o.id === p.id); });
+    persist(); emit();
+    return null;
+  }
+  function updatePhoto(id, patch) {
+    var p = getPhoto(id);
+    if (!p) return null;
+    Object.assign(p, patch, { updatedAt: Date.now() });
+    commit({ op: 'upsert', type: 'photo', id: p.id, data: p });
+    return p;
+  }
+  function deletePhoto(id) {
+    state.photos = state.photos.filter(function (p) { return p.id !== id; });
+    commit({ op: 'delete', type: 'photo', id: id });
   }
 
   // ---------- 설정 ----------
@@ -231,13 +272,14 @@
         var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab };
         state.clients = (data.clients || []).map(normalizeClient);
         state.sites = (data.sites || []).map(normalizeSite);
+        state.photos = (data.photos || []).map(normalizePhoto);
         state.settings = Object.assign(defaultSettings(), keep);
         state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (data.settings && data.settings.questions) || {});
         state.syncQueue = [];
         state.lastSyncAt = Date.now();
         state.lastSyncError = '';
         persist(); emit();
-        return { clients: state.clients.length, sites: state.sites.length };
+        return { clients: state.clients.length, sites: state.sites.length, photos: state.photos.length };
       });
   }
 
@@ -257,6 +299,7 @@
     clients: clients, getClient: getClient, addClient: addClient, updateClient: updateClient,
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
+    getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     setSettings: setSettings,
     pendingCount: pendingCount, flush: flush, restore: restore,
     onChange: onChange,

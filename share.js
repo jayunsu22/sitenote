@@ -34,6 +34,34 @@
 
   var COLOR_COUNT = 8;
 
+  // 사진(명함 등) — 저장 전 자동 축소 기준
+  // Airtable 롱텍스트 한 칸은 10만자 한도. base64 는 원본의 4/3 이므로 60KB → 약 8.2만자로 안전하다.
+  var PHOTO_MAX_BYTES = 60 * 1024;
+  var PHOTO_MAX_DIM = 1280;   // 긴 변 기준 픽셀
+  var PHOTO_MIN_DIM = 480;    // 더 줄여도 용량이 안 맞으면 여기까지만
+
+  // 'data:image/jpeg;base64,...' 의 실제 바이트 수
+  function dataUrlBytes(url) {
+    var i = String(url || '').indexOf(',');
+    if (i < 0) return 0;
+    var b64 = url.slice(i + 1);
+    var pad = b64.slice(-2) === '==' ? 2 : b64.slice(-1) === '=' ? 1 : 0;
+    return Math.max(0, Math.floor(b64.length * 3 / 4) - pad);
+  }
+
+  // 이미지 data URL 인지 확인 (복원 데이터에 엉뚱한 값이 와도 <img> 에 넣지 않도록)
+  function isImageDataUrl(url) {
+    return /^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(String(url || ''));
+  }
+
+  // 파일 크기 표기 (12KB / 1.2MB)
+  function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + 'B';
+    if (n < 1024 * 1024) return Math.round(n / 1024) + 'KB';
+    return (n / 1024 / 1024).toFixed(1) + 'MB';
+  }
+
   function str(v) { return (v == null ? '' : String(v)).trim(); }
 
   // 비어있음 판정: 텍스트는 공백 제거 후 빈 문자열, 선택형은 '미확인', films는 코드가 있는 줄이 하나도 없음
@@ -139,6 +167,12 @@
     FIELD_MAP: FIELD_MAP,
     DEFAULT_QUESTIONS: DEFAULT_QUESTIONS,
     COLOR_COUNT: COLOR_COUNT,
+    PHOTO_MAX_BYTES: PHOTO_MAX_BYTES,
+    PHOTO_MAX_DIM: PHOTO_MAX_DIM,
+    PHOTO_MIN_DIM: PHOTO_MIN_DIM,
+    dataUrlBytes: dataUrlBytes,
+    isImageDataUrl: isImageDataUrl,
+    fmtBytes: fmtBytes,
     isEmpty: isEmpty,
     titleLine: titleLine,
     shortDate: shortDate,

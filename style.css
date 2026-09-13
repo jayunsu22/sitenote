@@ -82,6 +82,22 @@ textarea { resize: vertical; }
   border-radius: 8px; background: var(--success); color: #fff; text-decoration: none; font-size: 18px; }
 .contact-row a.tel.disabled { background: #cbd5e1; pointer-events: none; }
 .contact-row .x { width: 32px; height: 38px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+/* 고정값 사진 (명함 등) */
+.photo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.photo-item { padding: 0; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; overflow: hidden;
+  display: flex; flex-direction: column; text-align: left; }
+.photo-item:active { border-color: var(--primary); }
+.photo-item img { width: 100%; height: 86px; object-fit: cover; display: block; background: #f1f5f9; }
+.photo-cap { display: block; padding: 5px 7px; font-size: 12px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.photo-empty { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
+.photo-box { max-height: 56vh; overflow: auto; border-radius: 10px; background: #0f172a; -webkit-overflow-scrolling: touch; }
+.photo-view img { width: 100%; max-height: 56vh; object-fit: contain; display: block; }
+.photo-box.zoom { overflow: auto; }
+.photo-box.zoom img { width: auto; max-width: none; max-height: none; }
+.photo-view input { margin-top: 10px; }
+.photo-view .photo-meta { margin: 8px 0 0; }
+
 .fixed-danger { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border); }
 
 .btn-sm { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-weight: 700; font-size: 13px; color: var(--text); }

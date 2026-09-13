@@ -161,7 +161,8 @@
   function deleteClient(id) {
     var c = Store.getClient(id); if (!c) return;
     var n = Store.sitesOf(id).length;
-    modalConfirm('거래처 삭제', '"' + c.name + '" 거래처와 현장 ' + n + '개를 삭제합니다. 되돌릴 수 없습니다.', '삭제', true).then(function (ok) {
+    var np = Store.photosOf(id).length;
+    modalConfirm('거래처 삭제', '"' + c.name + '" 거래처와 현장 ' + n + '개' + (np ? ', 사진 ' + np + '장' : '') + '을 삭제합니다. 되돌릴 수 없습니다.', '삭제', true).then(function (ok) {
       if (!ok) return;
       Store.deleteClient(id); ensureCurrentClient(); renderMain(); toast('삭제됨');
     });
@@ -188,6 +189,7 @@
       if (document.activeElement !== el) el.value = c[k] || '';
     });
     renderContacts(c);
+    renderPhotos(c);
   }
   document.querySelectorAll('[data-fx]').forEach(function (el) {
     el.addEventListener('input', function () {
@@ -226,6 +228,145 @@
     renderContacts(Store.getClient(c.id));
     var inputs = $('contactList').querySelectorAll('.name'); if (inputs.length) inputs[inputs.length - 1].focus();
   };
+  // ---------- 메인: 고정값 사진 (명함 등) ----------
+  function renderPhotos(c) {
+    var wrap = $('photoList'); wrap.innerHTML = '';
+    var photos = Store.photosOf(c.id);
+    wrap.hidden = !photos.length;
+    $('photoEmpty').hidden = photos.length > 0;
+    photos.forEach(function (p) {
+      var item = document.createElement('button');
+      item.type = 'button'; item.className = 'photo-item'; item.title = p.name || '사진';
+      var img = document.createElement('img');
+      img.alt = p.name || '사진';
+      img.loading = 'lazy';
+      if (Share.isImageDataUrl(p.dataUrl)) img.src = p.dataUrl;
+      var cap = document.createElement('span');
+      cap.className = 'photo-cap'; cap.textContent = p.name || '이름 없음';
+      item.appendChild(img); item.appendChild(cap);
+      item.onclick = function () { openPhoto(p.id); };
+      wrap.appendChild(item);
+    });
+  }
+
+  // 파일 → JPEG data URL 로 축소. Airtable 한 칸(10만자)에 들어가도록 용량을 맞춘다
+  function readImage(file) {
+    return new Promise(function (resolve, reject) {
+      var byFileReader = function () {
+        var fr = new FileReader();
+        fr.onload = function () {
+          var img = new Image();
+          img.onload = function () { resolve(img); };
+          img.onerror = function () { reject(new Error('이미지 형식을 열 수 없습니다')); };
+          img.src = fr.result;
+        };
+        fr.onerror = function () { reject(new Error('파일을 읽을 수 없습니다')); };
+        fr.readAsDataURL(file);
+      };
+      // createImageBitmap 은 폰 사진의 회전(EXIF)까지 반영해준다. 안 되면 FileReader 로 대체
+      if (typeof createImageBitmap === 'function') {
+        try {
+          createImageBitmap(file, { imageOrientation: 'from-image' }).then(resolve, byFileReader);
+          return;
+        } catch (e) { /* 옵션 미지원 */ }
+      }
+      byFileReader();
+    });
+  }
+  function compressImage(file) {
+    return readImage(file).then(function (img) {
+      var w0 = img.width || img.naturalWidth, h0 = img.height || img.naturalHeight;
+      if (!w0 || !h0) throw new Error('이미지 크기를 알 수 없습니다');
+      var best = null;
+      for (var dim = Share.PHOTO_MAX_DIM; dim >= Share.PHOTO_MIN_DIM; dim = Math.round(dim * 0.75)) {
+        var scale = Math.min(1, dim / Math.max(w0, h0));
+        var w = Math.max(1, Math.round(w0 * scale)), h = Math.max(1, Math.round(h0 * scale));
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        var ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); // 투명 PNG 가 검게 나오지 않도록
+        ctx.drawImage(img, 0, 0, w, h);
+        for (var q = 0.82; q >= 0.39; q -= 0.12) {
+          var url = cv.toDataURL('image/jpeg', q);
+          var bytes = Share.dataUrlBytes(url);
+          if (!best || bytes < best.bytes) best = { dataUrl: url, w: w, h: h, bytes: bytes };
+          if (bytes <= Share.PHOTO_MAX_BYTES) return best;
+        }
+      }
+      if (!best || best.bytes > Share.PHOTO_MAX_BYTES) throw new Error('사진 용량을 줄이지 못했습니다');
+      return best;
+    });
+  }
+  // 여러 장은 한 장씩 차례로 (폰 메모리 아끼기)
+  function addPhotoFiles(files) {
+    var c = Store.getClient(currentClientId); if (!c || !files.length) return;
+    toast(files.length > 1 ? '사진 ' + files.length + '장 처리 중…' : '사진 처리 중…');
+    var okCount = 0, failMsg = '';
+    var next = function (i) {
+      if (i >= files.length) {
+        renderPhotos(Store.getClient(currentClientId));
+        if (okCount) toast('사진 ' + okCount + '장 추가됨' + (failMsg ? ' · ' + failMsg : ''));
+        else toast(failMsg || '추가된 사진이 없습니다');
+        return;
+      }
+      var f = files[i];
+      if (!/^image\//.test(f.type || '')) { failMsg = '이미지 파일만 올릴 수 있습니다'; next(i + 1); return; }
+      compressImage(f).then(function (r) {
+        var name = String(f.name || '').replace(/\.[^.]+$/, '').slice(0, 40);
+        var saved = Store.addPhoto(currentClientId, { name: name, dataUrl: r.dataUrl, w: r.w, h: r.h, bytes: r.bytes });
+        if (saved) okCount++;
+        else failMsg = '폰 저장공간이 가득 찼습니다 — 사진을 지우고 다시 시도하세요';
+        next(i + 1);
+      }).catch(function (e) {
+        failMsg = (e && e.message) || '사진을 읽지 못했습니다';
+        next(i + 1);
+      });
+    };
+    next(0);
+  }
+  $('btnAddPhoto').onclick = function () {
+    if (!currentClientId) { toast('거래처를 먼저 선택하세요'); return; }
+    var inp = $('photoInput'); inp.value = ''; inp.click();
+  };
+  $('photoInput').onchange = function () {
+    var files = Array.prototype.slice.call($('photoInput').files || []);
+    $('photoInput').value = '';
+    addPhotoFiles(files);
+  };
+  // 사진 크게 보기 — 이름 수정 / 삭제
+  function openPhoto(id) {
+    var p = Store.getPhoto(id); if (!p) return;
+    openModal(p.name || '사진',
+      '<div class="photo-view"><div id="photoBox" class="photo-box"><img id="photoBig" alt=""></div>' +
+      '<input type="text" id="photoName" placeholder="설명 (예: 김실장 명함)">' +
+      '<p class="hint photo-meta">' + esc(p.w + '×' + p.h + ' · ' + Share.fmtBytes(p.bytes)) + ' · 사진을 탭하면 확대</p></div>',
+      [{ label: '삭제', cls: 'danger', onClick: function () { closeModal(); confirmDeletePhoto(id); } },
+       { label: '닫기', cls: 'primary', onClick: closeModal }]);
+    var big = $('photoBig');
+    if (Share.isImageDataUrl(p.dataUrl)) big.src = p.dataUrl;
+    // 앱 전체가 핀치줌을 막아놨으므로, 탭하면 원본 크기로 바꿔 스크롤해서 보게 한다 (명함 글씨 확인용)
+    big.onclick = function () {
+      var box = $('photoBox');
+      if (!box.classList.toggle('zoom')) return;
+      box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2;   // 확대하면 가운데부터 보이게
+      box.scrollTop = (box.scrollHeight - box.clientHeight) / 2;
+    };
+    var nameInput = $('photoName');
+    nameInput.value = p.name || '';
+    nameInput.addEventListener('input', function () {
+      Store.updatePhoto(id, { name: nameInput.value });
+      renderPhotos(Store.getClient(currentClientId));
+    });
+  }
+  function confirmDeletePhoto(id) {
+    var p = Store.getPhoto(id); if (!p) return;
+    modalConfirm('사진 삭제', '"' + (p.name || '이름 없음') + '" 사진을 삭제합니다.', '삭제', true).then(function (ok) {
+      if (!ok) { openPhoto(id); return; }
+      Store.deletePhoto(id);
+      renderPhotos(Store.getClient(currentClientId));
+      toast('삭제됨');
+    });
+  }
+
   $('btnRenameClient').onclick = function () { renameClient(currentClientId); };
   $('btnDeleteClient').onclick = function () { deleteClient(currentClientId); };
 
@@ -457,7 +598,7 @@
     // 새 폰: 키를 넣었는데 데이터가 비어있으면 자동 복원 시도
     if (k && wasEmpty) {
       Store.restore(false).then(function (r) {
-        if (r) { toast('복원됨: 거래처 ' + r.clients + ', 현장 ' + r.sites); }
+        if (r) { toast('복원됨: 거래처 ' + r.clients + ', 현장 ' + r.sites + ', 사진 ' + r.photos); }
       }).catch(function (e) { toast('복원 실패: ' + e.message); });
     }
   };
@@ -473,7 +614,7 @@
         if (!ok) return;
         return modalConfirm('정말 복원할까요?', '되돌릴 수 없습니다.', '네, 복원', true).then(function (ok2) {
           if (!ok2) return;
-          Store.restore(true).then(function (r) { toast('복원됨: 거래처 ' + r.clients + ', 현장 ' + r.sites); currentClientId = ''; renderSyncStatus(); })
+          Store.restore(true).then(function (r) { toast('복원됨: 거래처 ' + r.clients + ', 현장 ' + r.sites + ', 사진 ' + r.photos); currentClientId = ''; renderSyncStatus(); })
             .catch(function (e) { toast('복원 실패: ' + e.message); });
         });
       });
