@@ -612,6 +612,18 @@
 
   // ---------- 복사 버튼 ----------
   function checkedKeys() { return Object.keys(checked).filter(function (k) { return checked[k]; }); }
+  // 저장 버튼 - 칸마다 이미 자동저장되고 있지만, 눌러서 확인할 수 있게 둔 버튼.
+  // 실제로 하는 일: 키보드 내리기(마지막 입력 확정) + 백업 대기분을 3초 기다리지 않고 바로 전송.
+  $('btnSaveSite').onclick = function () {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if (!state.settings.backupKey) { toast('저장됨 (백업키가 없어 폰에만 저장)'); return; }
+    if (!Store.pendingCount()) { toast('저장됨 — 백업까지 완료'); return; }
+    toast('저장 중...');
+    Store.flush().then(function (ok) {
+      toast(ok ? '저장됨 — 백업까지 완료' : '폰에 저장됨 — 백업은 잠시 뒤 다시 보냅니다');
+    });
+  };
+
   $('btnCopyQuestion').onclick = function () {
     var s = Store.getSite(currentSiteId); if (!s) return;
     var text = Share.buildQuestion(s, checkedKeys(), state.settings.questions);

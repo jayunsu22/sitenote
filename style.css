@@ -132,7 +132,7 @@ textarea { resize: vertical; }
 .color-picker { display: flex; gap: 10px; padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--border); justify-content: center; }
 .color-dot { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; }
 .color-dot.active { border-color: var(--text); }
-.site-fields { flex: 1; padding: 8px 0 110px; background: var(--card); }
+.site-fields { flex: 1; padding: 8px 0 170px; background: var(--card); } /* 아래 고정바(저장+복사 2줄)에 안 가리게 */
 .frow { display: grid; grid-template-columns: 28px 92px 1fr; gap: 6px; align-items: start; padding: 8px 12px 8px 8px; border-bottom: 1px solid var(--border); }
 .frow.is-empty .flabel { color: var(--warn); }
 .frow .fcheck { margin: 9px 0 0 4px; width: 20px; height: 20px; accent-color: var(--primary); }
@@ -159,8 +159,12 @@ textarea { resize: vertical; }
 .site-fields .frow-name { background: #f8fafc; }
 .site-fields .frow-name input { font-weight: 800; font-size: 16px; }
 
-.copy-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 10px;
+.copy-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 10px; flex-wrap: wrap;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
+/* 저장은 한 줄을 통째로 차지해서 복사 버튼 2개를 아랫줄로 밀어낸다 (복사 버튼 위치는 그대로) */
+.btn-save { flex: 1 0 100%; padding: 12px 8px; border: none; border-radius: 12px;
+  background: var(--success); color: #fff; font-weight: 800; font-size: 15px; }
+.btn-save:active { filter: brightness(0.9); }
 .btn-copy { flex: 1; padding: 14px 8px; border: none; border-radius: 12px; color: #fff; font-weight: 800; font-size: 15px; }
 .btn-copy-q { background: var(--warn); }
 .btn-copy-s { background: var(--primary); }
@@ -191,7 +195,7 @@ textarea { resize: vertical; }
 .modal .sheet-list button { padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; font-weight: 700; text-align: left; }
 .modal .sheet-list button.danger { color: var(--danger); }
 
-.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(20px); z-index: 60;
+.toast { position: fixed; left: 50%; bottom: 140px;  /* 현장 상세의 아래 고정바(저장+복사 2줄, 약 121px) 위로 */ transform: translateX(-50%) translateY(20px); z-index: 60;
   background: rgba(17,24,39,0.92); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
   opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
