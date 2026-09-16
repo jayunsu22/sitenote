@@ -94,7 +94,7 @@ function reset() {
   });
 
   console.log('site');
-  await test('addSite: 14개 항목 기본값, 색상 순환', () => {
+  await test('addSite: 15개 항목 기본값, 색상 순환', () => {
     reset();
     const a = Store.addClient('A');
     const s = Store.addSite(a.id);

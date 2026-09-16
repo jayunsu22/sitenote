@@ -507,10 +507,14 @@
     row.classList.toggle('is-empty', Share.isEmpty(s, key));
     if (key === 'name' || key === 'unit' || key === 'size') $('siteTitle').textContent = Share.titleLine(s);
   }
+  // 라벨 오른쪽 좁은 칸으로는 부족한 항목들 - 입력칸을 아래 줄로 내려 가로 폭을 꽉 채운다
+  var WIDE_TYPES = { multiline: 1, films: 1, link: 1 };
+
   function fieldRow(s, f) {
     var row = document.createElement('div');
-    // 메모처럼 긴 글을 쓰는 칸은 입력칸을 라벨 아래 줄로 내려서 가로 폭을 꽉 채운다 (frow-wide)
-    row.className = 'frow' + (f.key === 'name' ? ' frow-name' : '') + (f.type === 'multiline' ? ' frow-wide' : '');
+    // 긴 글·여러 칸이 들어가는 항목(메모, 필름/시공위치, 사진 링크)은 입력칸을
+    // 라벨 아래 줄로 내려서 화면 가로 폭을 꽉 채운다 (frow-wide)
+    row.className = 'frow' + (f.key === 'name' ? ' frow-name' : '') + (WIDE_TYPES[f.type] ? ' frow-wide' : '');
     var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'fcheck';
     cb.checked = !!checked[f.key]; cb.onchange = function () { checked[f.key] = cb.checked; };
     if (f.key === 'name') cb.style.visibility = 'hidden';
@@ -541,6 +545,17 @@
       var saveSel = function () { var p = {}; p[f.key] = { v: sel.value, memo: memo.value }; save(p); };
       sel.onchange = saveSel; memo.addEventListener('input', saveSel);
       box2.appendChild(sel); box2.appendChild(memo); ctl.appendChild(box2);
+    } else if (f.type === 'link') {
+      // 현장사진 갤러리 주소를 붙여넣는 칸. 옆의 '열기' 로 바로 확인할 수 있게 한다.
+      var box3 = document.createElement('div'); box3.className = 'with-btn';
+      var link = document.createElement('input');
+      link.type = 'text'; link.inputMode = 'url'; link.autocapitalize = 'off'; link.spellcheck = false;
+      link.placeholder = '사진 링크 붙여넣기';
+      link.value = s[f.key] || '';
+      link.addEventListener('input', function () { var p = {}; p[f.key] = link.value; save(p); });
+      var open = document.createElement('button'); open.className = 'mini'; open.type = 'button'; open.textContent = '열기';
+      open.onclick = function () { openLink(link.value); };
+      box3.appendChild(link); box3.appendChild(open); ctl.appendChild(box3);
     } else if (f.type === 'films') {
       renderFilms(ctl, s, save);
     } else { // multiline
@@ -581,6 +596,12 @@
     ctl.appendChild(add);
   }
   // 주소 복사 + 카카오맵 검색 열기 (폰에 카카오맵 앱이 있으면 앱으로 넘어감)
+  // 붙여넣은 주소 열기 (공유 문구와 같은 방식으로 https:// 를 보정 - Share.linkUrl)
+  function openLink(url) {
+    var u = Share.linkUrl(url);
+    if (!u) { toast('링크가 비어있습니다'); return; }
+    window.open(u, '_blank');
+  }
   function openNavi(addr) {
     addr = (addr || '').trim();
     if (!addr) { toast('주소가 비어있습니다'); return; }

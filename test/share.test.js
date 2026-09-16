@@ -12,7 +12,7 @@ const blank = () => ({
   id: 's1', clientId: 'c1', color: 0, createdAt: 1, updatedAt: 1,
   name: '', unit: '', size: '', address: '', date: '', pwLobby: '', pwUnit: '', gate: '',
   carReg: { v: '미확인', memo: '' }, parking: '', cargoEv: { v: '미확인', memo: '' },
-  toilet: '', films: [], memo: ''
+  toilet: '', films: [], photoUrl: '', memo: ''
 });
 const full = () => Object.assign(blank(), {
   name: '인천 청학동 시대아파트', unit: '104동 910호', size: '13평',
@@ -21,18 +21,19 @@ const full = () => Object.assign(blank(), {
   carReg: { v: '필요', memo: '관리실에 번호 알려줌' }, parking: '지상 방문자석',
   cargoEv: { v: '사용', memo: '' }, toilet: '지하1층 관리실 옆',
   films: [{ place: '현관문 뒷면', code: 'PS035' }, { place: '세탁실문 뒷면', code: '중백색' }],
+  photoUrl: 'https://songil.netlify.app/g/recABC',
   memo: '입니자 사진은 조대리가 찍어줌'
 });
 
 console.log('FIELDS');
-test('14개 항목, 순서 고정', () => {
+test('15개 항목, 순서 고정', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','unit','size','address','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','memo']);
+    ['name','unit','size','address','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','photoUrl','memo']);
 });
-test('DEFAULT_QUESTIONS에 name/memo 없음, 나머지 12개', () => {
+test('DEFAULT_QUESTIONS에 name/photoUrl/memo 없음, 나머지 12개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
   assert.strictEqual(k.length, 12);
-  assert.ok(!k.includes('name') && !k.includes('memo'));
+  assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('photoUrl'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');
 });
 
@@ -66,9 +67,9 @@ test('커스텀 문구 적용', () => {
   const out = Share.buildQuestion(s, ['toilet'], Object.assign({}, Share.DEFAULT_QUESTIONS, { toilet: '화장실 어디 써요?' }));
   assert.strictEqual(out, '[A]\n- 화장실 어디 써요?');
 });
-test('name/memo 키는 무시', () => {
+test('name/photoUrl/memo 키는 무시', () => {
   const s = blank(); s.name = 'A';
-  assert.strictEqual(Share.buildQuestion(s, ['name','memo'], Share.DEFAULT_QUESTIONS), '');
+  assert.strictEqual(Share.buildQuestion(s, ['name','photoUrl','memo'], Share.DEFAULT_QUESTIONS), '');
 });
 test('질문할 게 없으면 빈 문자열', () => {
   assert.strictEqual(Share.buildQuestion(full(), ['gate','toilet'], Share.DEFAULT_QUESTIONS), '');
@@ -88,6 +89,7 @@ test('채워진 항목만, 형식 고정', () => {
     '화물EV 사용\n' +
     '화장실: 지하1층 관리실 옆\n' +
     '필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색\n' +
+    '📷 현장사진: https://songil.netlify.app/g/recABC\n' +
     '입니자 사진은 조대리가 찍어줌');
 });
 test('비번 하나만 있으면 한 줄에 하나', () => {
@@ -111,6 +113,26 @@ test('선택형 메모 없으면 괄호 없음, 일반사용 표기', () => {
   const s = full(); s.carReg = { v: '불필요', memo: '' }; s.cargoEv = { v: '일반사용', memo: '예약 불필요' };
   assert.strictEqual(Share.buildShare(s, ['carReg','cargoEv']),
     '[인천 청학동 시대아파트 104동 910호 13평]\n차량등록 불필요\n화물EV 일반사용 (예약 불필요)');
+});
+
+test('linkUrl: http(s) 없으면 붙이고, 있으면 그대로, 빈값은 빈 문자열', () => {
+  assert.strictEqual(Share.linkUrl('songil.netlify.app/g/recABC'), 'https://songil.netlify.app/g/recABC');
+  assert.strictEqual(Share.linkUrl('https://songil.netlify.app/g/recABC'), 'https://songil.netlify.app/g/recABC');
+  assert.strictEqual(Share.linkUrl('http://a.b/c'), 'http://a.b/c');
+  assert.strictEqual(Share.linkUrl('  //songil.netlify.app/g/x '), 'https://songil.netlify.app/g/x');
+  assert.strictEqual(Share.linkUrl('   '), '');
+});
+test('공유문의 사진 링크는 http 없이 넣어도 https:// 가 붙어서 나간다', () => {
+  const s = full(); s.photoUrl = 'songil.netlify.app/g/recABC';
+  assert.strictEqual(Share.buildShare(s, ['photoUrl']),
+    '[인천 청학동 시대아파트 104동 910호 13평]\n📷 현장사진: https://songil.netlify.app/g/recABC');
+});
+test('현장사진 링크: 비어있으면 공유문에서 빠지고, 있으면 메모 앞줄에', () => {
+  const s = full();
+  assert.strictEqual(Share.isEmpty(s, 'photoUrl'), false);
+  s.photoUrl = '   ';
+  assert.strictEqual(Share.isEmpty(s, 'photoUrl'), true);
+  assert.strictEqual(Share.buildShare(s, ['photoUrl']), '[인천 청학동 시대아파트 104동 910호 13평]');
 });
 
 console.log('sortSites');

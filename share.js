@@ -4,9 +4,10 @@
 (function (root) {
   'use strict';
 
-  // 14개 항목 — 화면 순서 = 배열 순서 = 문구 출력 순서
-  // type: text | date | select | films | multiline
-  // question: 값이 비어있을 때 업자에게 보낼 기본 질문 문구 (name/memo 는 질문 대상 아님)
+  // 15개 항목 — 화면 순서 = 배열 순서 = 문구 출력 순서
+  // type: text | date | select | films | link | multiline
+  // question: 값이 비어있을 때 업자에게 보낼 기본 질문 문구
+  //           (name/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
   var FIELDS = [
     { key: 'name',    label: '현장명',        type: 'text' },
     { key: 'unit',    label: '동/호수',       type: 'text',   question: '동호수 알려주세요' },
@@ -23,6 +24,9 @@
       options: ['미확인', '사용', '일반사용'], shareLabel: '화물EV' },
     { key: 'toilet',  label: '화장실',        type: 'text',   question: '화장실 사용할 곳 위치 알려주세요' },
     { key: 'films',   label: '필름/시공위치', type: 'films',  question: '시공 위치별 필름 번호 알려주세요' },
+    // 현장사진 링크 - 블로그자동화(현장 품질관리)에서 뽑은 사진 갤러리 주소를 붙여넣는 칸.
+    // 업자에게 물어볼 항목이 아니라 우리가 채우는 칸이라 question 이 없다.
+    { key: 'photoUrl', label: '현장사진',     type: 'link' },
     { key: 'memo',    label: '메모',          type: 'multiline' }
   ];
 
@@ -83,6 +87,14 @@
 
   function str(v) { return (v == null ? '' : String(v)).trim(); }
 
+  // 붙여넣은 링크를 눌러서 열 수 있는 주소로. 주소창에서 복사하면 http(s) 가 빠지는 경우가
+  // 많은데, 그대로 카톡에 보내면 링크로 안 잡히는 일이 있어 없으면 https:// 를 붙인다.
+  function linkUrl(v) {
+    var u = str(v);
+    if (!u) return '';
+    return /^https?:\/\//i.test(u) ? u : 'https://' + u.replace(/^\/+/, '');
+  }
+
   // 비어있음 판정: 텍스트는 공백 제거 후 빈 문자열, 선택형은 '미확인', films는 코드가 있는 줄이 하나도 없음
   function isEmpty(site, key) {
     var f = FIELD_MAP[key];
@@ -117,7 +129,7 @@
   function buildQuestion(site, keys, questions) {
     var q = questions || DEFAULT_QUESTIONS;
     var lines = orderedKeys(keys)
-      .filter(function (k) { return k !== 'name' && k !== 'memo' && isEmpty(site, k); })
+      .filter(function (k) { return k !== 'name' && k !== 'memo' && k !== 'photoUrl' && isEmpty(site, k); })
       .map(function (k) { return '- ' + (str(q[k]) || DEFAULT_QUESTIONS[k]); });
     if (!lines.length) return '';
     return '[' + titleLine(site) + ']\n' + lines.join('\n');
@@ -153,6 +165,7 @@
         .map(function (r) { return [str(r.place), str(r.code)].filter(Boolean).join(' '); });
       lines.push('필름: ' + fl.join(', '));
     }
+    if (has.photoUrl) lines.push('📷 현장사진: ' + linkUrl(site.photoUrl));
     if (has.memo) lines.push(str(site.memo));
     return lines.join('\n');
   }
@@ -183,6 +196,7 @@
 
   var Share = {
     FIELDS: FIELDS,
+    linkUrl: linkUrl,
     FIELD_MAP: FIELD_MAP,
     DEFAULT_QUESTIONS: DEFAULT_QUESTIONS,
     COLOR_COUNT: COLOR_COUNT,

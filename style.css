@@ -147,8 +147,8 @@ textarea { resize: vertical; }
 .fctl .sel-row { display: flex; gap: 6px; }
 .fctl .sel-row select { flex: 0 0 110px; }
 .fctl .sel-row input { flex: 1; min-width: 0; }
-/* 메모처럼 긴 글을 쓰는 칸 - 라벨 오른쪽 좁은 칸(92px 라벨에 밀려 화면의 2/3)은 답답해서,
-   입력칸만 라벨 아래 줄로 내려 화면 가로 폭을 꽉 채우게 한다. */
+/* 메모·필름/시공위치·사진 링크처럼 넓게 써야 하는 칸 - 라벨 오른쪽 좁은 칸(92px 라벨에
+   밀려 화면의 2/3)으로는 글자가 잘려서, 입력칸만 라벨 아래 줄로 내려 가로 폭을 꽉 채운다. */
 .frow.frow-wide { grid-template-columns: 28px 1fr; }
 .frow.frow-wide .fctl { grid-column: 1 / -1; margin-top: 4px; }
 .film-row { display: flex; gap: 6px; margin-bottom: 6px; }
