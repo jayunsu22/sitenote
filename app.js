@@ -509,7 +509,8 @@
   }
   function fieldRow(s, f) {
     var row = document.createElement('div');
-    row.className = 'frow' + (f.key === 'name' ? ' frow-name' : '');
+    // 메모처럼 긴 글을 쓰는 칸은 입력칸을 라벨 아래 줄로 내려서 가로 폭을 꽉 채운다 (frow-wide)
+    row.className = 'frow' + (f.key === 'name' ? ' frow-name' : '') + (f.type === 'multiline' ? ' frow-wide' : '');
     var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'fcheck';
     cb.checked = !!checked[f.key]; cb.onchange = function () { checked[f.key] = cb.checked; };
     if (f.key === 'name') cb.style.visibility = 'hidden';
