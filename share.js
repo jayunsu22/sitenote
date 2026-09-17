@@ -11,8 +11,8 @@
   var FIELDS = [
     // 동/호수·평형 칸은 뺐다(2026-09-17). '군포 우륵아파트 704동 606호' 처럼
     // 현장명에 같이 적는 게 빠르다. 예전에 저장한 값은 titleLine 이 그대로 붙여준다.
+    // 현장주소 칸도 뺐다(2026-09-17). 네비에 직접 넣는 게 빠르다.
     { key: 'name',    label: '현장명',        type: 'text' },
-    { key: 'address', label: '현장주소',      type: 'text',   question: '현장 주소 알려주세요' },
     { key: 'date',    label: '시작날짜',      type: 'date',   question: '시공 날짜 언제인가요?' },
     { key: 'pwLobby', label: '공동현관 비번', type: 'text',   question: '공동현관 비번 알려주세요' },
     { key: 'pwUnit',  label: '세대 비번',     type: 'text',   question: '세대 현관 비번 알려주세요' },

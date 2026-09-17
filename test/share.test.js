@@ -26,13 +26,13 @@ const full = () => Object.assign(blank(), {
 });
 
 console.log('FIELDS');
-test('13개 항목, 순서 고정 (동/호수·평형은 현장명에 적는다)', () => {
+test('12개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','address','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','photoUrl','memo']);
+    ['name','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','photoUrl','memo']);
 });
-test('DEFAULT_QUESTIONS에 name/photoUrl/memo 없음, 나머지 10개', () => {
+test('DEFAULT_QUESTIONS에 name/photoUrl/memo 없음, 나머지 9개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
-  assert.strictEqual(k.length, 10);
+  assert.strictEqual(k.length, 9);
   assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('photoUrl'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');
 });
@@ -94,7 +94,6 @@ test('채워진 항목만, 형식 고정', () => {
   const out = Share.buildShare(full(), keys);
   assert.strictEqual(out,
     '[인천 청학동 시대아파트 104동 910호 13평] 8/18\n' +
-    '📍 인천광역시 부평구 마장로 164\n' +
     '공동현관: 0000*  세대: 1234*\n' +
     '출입: 정문 방문자 게이트\n' +
     '차량등록 필요 (관리실에 번호 알려줌)\n' +

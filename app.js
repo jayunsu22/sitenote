@@ -514,7 +514,8 @@
     var row = document.createElement('div');
     // 긴 글·여러 칸이 들어가는 항목(메모, 필름/시공위치, 사진 링크)은 입력칸을
     // 라벨 아래 줄로 내려서 화면 가로 폭을 꽉 채운다 (frow-wide)
-    row.className = 'frow' + (f.key === 'name' ? ' frow-name' : '') + (WIDE_TYPES[f.type] ? ' frow-wide' : '');
+    // 현장명은 '군포 우륵아파트 704동 606호 30평' 처럼 길어지므로 같이 내린다.
+    row.className = 'frow' + (f.key === 'name' ? ' frow-name frow-wide' : '') + (WIDE_TYPES[f.type] ? ' frow-wide' : '');
     var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'fcheck';
     cb.checked = !!checked[f.key]; cb.onchange = function () { checked[f.key] = cb.checked; };
     if (f.key === 'name') cb.style.visibility = 'hidden';
@@ -528,14 +529,9 @@
       var inp = document.createElement('input');
       inp.type = f.type === 'date' ? 'date' : 'text';
       inp.value = s[f.key] || '';
-      inp.placeholder = f.key === 'name' ? '현장명 (예: 인천 청학동 시대아파트)' : '';
+      inp.placeholder = f.key === 'name' ? '현장명 (예: 군포 우륵아파트 704동 606호 30평)' : '';
       inp.addEventListener('input', function () { var p = {}; p[f.key] = inp.value; save(p); });
-      if (f.key === 'address') {
-        var box = document.createElement('div'); box.className = 'with-btn';
-        var nav = document.createElement('button'); nav.className = 'mini'; nav.textContent = '네비'; nav.type = 'button';
-        nav.onclick = function () { openNavi(inp.value); };
-        box.appendChild(inp); box.appendChild(nav); ctl.appendChild(box);
-      } else ctl.appendChild(inp);
+      ctl.appendChild(inp);
     } else if (f.type === 'select') {
       var box2 = document.createElement('div'); box2.className = 'sel-row';
       var sel = document.createElement('select');
@@ -612,13 +608,6 @@
     var u = Share.linkUrl(url);
     if (!u) { toast('링크가 비어있습니다'); return; }
     window.open(u, '_blank');
-  }
-  function openNavi(addr) {
-    addr = (addr || '').trim();
-    if (!addr) { toast('주소가 비어있습니다'); return; }
-    var url = 'https://map.kakao.com/link/search/' + encodeURIComponent(addr);
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(addr).catch(function () {});
-    window.open(url, '_blank');
   }
 
   // ---------- 복사 버튼 ----------
