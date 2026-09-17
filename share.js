@@ -106,8 +106,16 @@
   }
 
   // 제목 줄: 현장명 동호수 평형 (빈 것 생략)
+  // 동/호수·평형 칸이 없어진 뒤로는 현장명에 같이 적으므로, 현장명에 이미 들어있는 값은 다시 붙이지 않는다
+  // (예전 데이터: unit='2동 501호' + 새로 적은 name='… 2동 501호' → 두 번 나오던 문제)
   function titleLine(site) {
-    var parts = [str(site.name), str(site.unit), str(site.size)].filter(Boolean);
+    var name = str(site.name);
+    var squash = function (s) { return s.replace(/\s+/g, ''); };
+    var parts = [name];
+    [str(site.unit), str(site.size)].forEach(function (v) {
+      if (v && squash(name).indexOf(squash(v)) === -1) parts.push(v);
+    });
+    parts = parts.filter(Boolean);
     return parts.length ? parts.join(' ') : '(이름없음)';
   }
 
@@ -160,10 +168,8 @@
     var lines = [head];
 
     if (has.address) lines.push('📍 ' + str(site.address));
-    var pw = [];
-    if (has.pwLobby) pw.push('공동현관: ' + str(site.pwLobby));
-    if (has.pwUnit) pw.push('세대: ' + str(site.pwUnit));
-    if (pw.length) lines.push(pw.join('  '));
+    if (has.pwLobby) lines.push('공동현관비번: ' + str(site.pwLobby));
+    if (has.pwUnit) lines.push('세대비번: ' + str(site.pwUnit));
     if (has.gate) lines.push('출입: ' + str(site.gate));
     if (has.carReg) lines.push(selectLine(FIELD_MAP.carReg, site.carReg));
     if (has.parking) lines.push('주차: ' + str(site.parking));

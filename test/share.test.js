@@ -52,6 +52,14 @@ console.log('titleLine');
 test('현장명+동호수+평형 (예전 데이터)', () => { assert.strictEqual(Share.titleLine(full()), '인천 청학동 시대아파트 104동 910호 13평'); });
 test('빈 것 생략', () => { const s = full(); s.size = ''; assert.strictEqual(Share.titleLine(s), '인천 청학동 시대아파트 104동 910호'); });
 test('전부 빈 경우 (이름없음)', () => { assert.strictEqual(Share.titleLine(blank()), '(이름없음)'); });
+test('현장명에 동호수가 이미 있으면 예전 unit 값을 다시 붙이지 않음', () => {
+  const s = full(); s.name = '인천 당하동 그랜드비스타 2동 501호'; s.unit = '2동 501호'; s.size = '';
+  assert.strictEqual(Share.titleLine(s), '인천 당하동 그랜드비스타 2동 501호');
+});
+test('현장명에 평형이 이미 있으면 size 도 안 붙임 (공백 차이 무시)', () => {
+  const s = full(); s.name = '시대아파트 104동910호 13평'; s.unit = '104동 910호'; s.size = '13평';
+  assert.strictEqual(Share.titleLine(s), '시대아파트 104동910호 13평');
+});
 
 console.log('filmOrderText');
 test('필름 번호만 한 줄에 하나씩', () => {
@@ -94,7 +102,8 @@ test('채워진 항목만, 형식 고정', () => {
   const out = Share.buildShare(full(), keys);
   assert.strictEqual(out,
     '[인천 청학동 시대아파트 104동 910호 13평] 8/18\n' +
-    '공동현관: 0000*  세대: 1234*\n' +
+    '공동현관비번: 0000*\n' +
+    '세대비번: 1234*\n' +
     '출입: 정문 방문자 게이트\n' +
     '차량등록 필요 (관리실에 번호 알려줌)\n' +
     '주차: 지상 방문자석\n' +
@@ -104,10 +113,10 @@ test('채워진 항목만, 형식 고정', () => {
     '📷 현장사진: https://songil.netlify.app/g/recABC\n' +
     '입니자 사진은 조대리가 찍어줌');
 });
-test('비번 하나만 있으면 한 줄에 하나', () => {
+test('비번 하나만 있으면 그 줄만', () => {
   const s = full(); s.pwLobby = '';
   const out = Share.buildShare(s, ['pwLobby','pwUnit']);
-  assert.strictEqual(out, '[인천 청학동 시대아파트 104동 910호 13평]\n세대: 1234*');
+  assert.strictEqual(out, '[인천 청학동 시대아파트 104동 910호 13평]\n세대비번: 1234*');
 });
 test('선택된 키 외에는 안 나옴 (date 미선택이면 제목에 날짜 없음)', () => {
   const out = Share.buildShare(full(), ['parking']);
