@@ -9,9 +9,9 @@
   // question: 값이 비어있을 때 업자에게 보낼 기본 질문 문구
   //           (name/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
   var FIELDS = [
+    // 동/호수·평형 칸은 뺐다(2026-09-17). '군포 우륵아파트 704동 606호' 처럼
+    // 현장명에 같이 적는 게 빠르다. 예전에 저장한 값은 titleLine 이 그대로 붙여준다.
     { key: 'name',    label: '현장명',        type: 'text' },
-    { key: 'unit',    label: '동/호수',       type: 'text',   question: '동호수 알려주세요' },
-    { key: 'size',    label: '평형',          type: 'text',   question: '평형 알려주세요' },
     { key: 'address', label: '현장주소',      type: 'text',   question: '현장 주소 알려주세요' },
     { key: 'date',    label: '시작날짜',      type: 'date',   question: '시공 날짜 언제인가요?' },
     { key: 'pwLobby', label: '공동현관 비번', type: 'text',   question: '공동현관 비번 알려주세요' },
@@ -109,6 +109,16 @@
   function titleLine(site) {
     var parts = [str(site.name), str(site.unit), str(site.size)].filter(Boolean);
     return parts.length ? parts.join(' ') : '(이름없음)';
+  }
+
+  // 필름 번호만 한 줄에 하나씩. 대리점에 주문할 때 붙여넣는 용도라 시공위치는 뺀다.
+  // 같은 번호가 여러 줄이면 한 번만(주문은 품목 목록이지 시공 목록이 아니다).
+  function filmOrderText(site) {
+    var seen = {};
+    return ((site && site.films) || [])
+      .map(function (r) { return r ? str(r.code) : ''; })
+      .filter(function (c) { if (!c || seen[c]) return false; seen[c] = true; return true; })
+      .join('\n');
   }
 
   // 'YYYY-MM-DD' → 'M/D'
@@ -213,6 +223,7 @@
     fmtBytes: fmtBytes,
     isEmpty: isEmpty,
     titleLine: titleLine,
+    filmOrderText: filmOrderText,
     shortDate: shortDate,
     buildQuestion: buildQuestion,
     buildShare: buildShare,

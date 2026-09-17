@@ -26,13 +26,13 @@ const full = () => Object.assign(blank(), {
 });
 
 console.log('FIELDS');
-test('15개 항목, 순서 고정', () => {
+test('13개 항목, 순서 고정 (동/호수·평형은 현장명에 적는다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','unit','size','address','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','photoUrl','memo']);
+    ['name','address','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','photoUrl','memo']);
 });
-test('DEFAULT_QUESTIONS에 name/photoUrl/memo 없음, 나머지 12개', () => {
+test('DEFAULT_QUESTIONS에 name/photoUrl/memo 없음, 나머지 10개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
-  assert.strictEqual(k.length, 12);
+  assert.strictEqual(k.length, 10);
   assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('photoUrl'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');
 });
@@ -48,9 +48,22 @@ test('films 코드 하나라도 있으면 채움', () => { assert.strictEqual(Sh
 test('undefined 필드도 빈값', () => { const s = blank(); delete s.toilet; assert.strictEqual(Share.isEmpty(s, 'toilet'), true); });
 
 console.log('titleLine');
-test('현장명+동호수+평형', () => { assert.strictEqual(Share.titleLine(full()), '인천 청학동 시대아파트 104동 910호 13평'); });
+// 칸은 뺐지만 예전에 저장한 unit/size 는 제목에 그대로 붙어야 한다
+test('현장명+동호수+평형 (예전 데이터)', () => { assert.strictEqual(Share.titleLine(full()), '인천 청학동 시대아파트 104동 910호 13평'); });
 test('빈 것 생략', () => { const s = full(); s.size = ''; assert.strictEqual(Share.titleLine(s), '인천 청학동 시대아파트 104동 910호'); });
 test('전부 빈 경우 (이름없음)', () => { assert.strictEqual(Share.titleLine(blank()), '(이름없음)'); });
+
+console.log('filmOrderText');
+test('필름 번호만 한 줄에 하나씩', () => {
+  assert.strictEqual(Share.filmOrderText(full()), 'PS035\n중백색');
+});
+test('빈 줄·공백은 빼고, 같은 번호는 한 번만', () => {
+  const s = blank();
+  s.films = [{ place: '현관', code: ' px454-2 ' }, { place: '문틀', code: 'ps101' }, { place: '', code: '' },
+             { place: '샤시틀', code: 'ps101' }, null];
+  assert.strictEqual(Share.filmOrderText(s), 'px454-2\nps101');
+});
+test('필름 없으면 빈 문자열', () => { assert.strictEqual(Share.filmOrderText(blank()), ''); });
 
 console.log('buildQuestion');
 test('빈 항목만 질문으로, 순서는 FIELDS 순', () => {

@@ -155,7 +155,10 @@ textarea { resize: vertical; }
 .film-row input { flex: 1; min-width: 0; }
 .film-row input.code { flex: 0.8; }
 .film-row .x { width: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
-.film-add { width: 100%; padding: 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background: transparent; color: var(--primary); font-weight: 700; font-size: 13px; }
+.film-actions { display: flex; gap: 6px; }
+.film-add { flex: 1 1 auto; padding: 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background: transparent; color: var(--primary); font-weight: 700; font-size: 13px; }
+/* 필름 번호만 복사(대리점 주문용). 줄 추가와 나란히, 실선으로 구분. */
+.film-copy { flex: 0 0 auto; padding: 8px 14px; border: 1.5px solid var(--primary); border-radius: 8px; background: #fff; color: var(--primary); font-weight: 700; font-size: 13px; }
 .site-fields .frow-name { background: #f8fafc; }
 .site-fields .frow-name input { font-weight: 800; font-size: 16px; }
 

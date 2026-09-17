@@ -587,13 +587,24 @@
       };
       ctl.appendChild(line);
     });
+    // 줄 추가 | 필름명 복사. 복사는 필름 번호만 한 줄에 하나씩 - 대리점 주문용이라
+    // 시공위치는 빼고 준다. 방금 친 값(films 배열)을 그대로 읽는다.
+    var acts = document.createElement('div'); acts.className = 'film-actions';
     var add = document.createElement('button'); add.type = 'button'; add.className = 'film-add'; add.textContent = '＋ 줄 추가';
     add.onclick = function () {
       films.push({ place: '', code: '' }); save({ films: films.slice() });
       renderFilms(ctl, Store.getSite(s.id), save);
       var ps = ctl.querySelectorAll('.place'); if (ps.length) ps[ps.length - 1].focus();
     };
-    ctl.appendChild(add);
+    var cp = document.createElement('button'); cp.type = 'button'; cp.className = 'film-copy'; cp.textContent = '필름명 복사';
+    cp.onclick = function () {
+      var text = Share.filmOrderText({ films: films });
+      if (!text) { toast('적힌 필름 번호가 없습니다'); return; }
+      copyText(text, '필름명 복사됨 — 대리점 주문에 붙여넣기 하세요');
+    };
+    acts.appendChild(add);
+    acts.appendChild(cp);
+    ctl.appendChild(acts);
   }
   // 주소 복사 + 카카오맵 검색 열기 (폰에 카카오맵 앱이 있으면 앱으로 넘어감)
   // 붙여넣은 주소 열기 (공유 문구와 같은 방식으로 https:// 를 보정 - Share.linkUrl)
