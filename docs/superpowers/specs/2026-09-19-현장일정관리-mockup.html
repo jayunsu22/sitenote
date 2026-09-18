@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>현장일정관리 샘플 화면</title>
+<style>
+:root { --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --primary:#2563eb; --danger:#dc2626; --success:#16a34a; --radius:12px;
+  --c0:#fff59d; --c1:#c5b3ff; --c2:#b2f0e2; --c3:#ffc9de; --c4:#bfe1ff; --c5:#ffd6a5; }
+* { box-sizing:border-box; }
+body { margin:0; padding:24px; background:#d9dde3; font-family:-apple-system,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif; font-size:15px; color:var(--text); }
+.row { display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
+.phone { width:390px; background:var(--bg); border:10px solid #222; border-radius:36px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); }
+.label { text-align:center; font-weight:800; margin:0 0 10px; color:#334155; }
+.topbar { display:flex; align-items:center; height:52px; padding:0 12px; background:var(--card); border-bottom:1px solid var(--border); gap:8px; }
+.topbar h1 { flex:1; margin:0; font-size:17px; font-weight:800; text-align:center; }
+.ib { width:40px; height:40px; font-size:20px; text-align:center; line-height:40px; }
+.body { padding:10px 12px 20px; }
+.day { font-weight:800; font-size:15px; margin:12px 4px 6px; display:flex; align-items:center; gap:8px; }
+.day .tag { font-size:11px; font-weight:800; color:#fff; background:var(--primary); border-radius:999px; padding:2px 8px; }
+.day .tag.tm { background:#0891b2; }
+.day .none { font-weight:500; color:var(--muted); font-size:13px; }
+.card { border-radius:var(--radius); padding:12px 14px; box-shadow:0 1px 2px rgba(0,0,0,.08); border:1px solid rgba(0,0,0,.06); margin-bottom:8px; }
+.card-title { font-size:16px; font-weight:800; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.card-title .client { font-size:12px; font-weight:700; color:#4b5563; white-space:nowrap; }
+.line { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; font-size:14px; }
+.line .ico { width:20px; }
+.chip { background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.15); border-radius:999px; padding:3px 10px; font-weight:700; font-size:13px; }
+.chip.add { color:var(--primary); border-style:dashed; }
+.chip.dup { background:#fee2e2; border-color:var(--danger); color:#991b1b; }
+.chk { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,.7); border-radius:8px; padding:4px 8px; font-size:13px; }
+.chk b { display:inline-block; width:18px; height:18px; border-radius:5px; border:2px solid #9ca3af; background:#fff; text-align:center; line-height:14px; font-size:13px; }
+.chk.on b { background:var(--success); border-color:var(--success); color:#fff; }
+.chk.on { text-decoration:line-through; color:#4b5563; }
+.sum { display:flex; align-items:center; gap:10px; background:var(--card); border-radius:10px; padding:10px 12px; margin-bottom:6px; font-size:14px; border-left:6px solid var(--c2); }
+.sum .n { flex:1; font-weight:700; }
+.sum .c { font-size:12px; color:var(--muted); }
+.dot { width:9px; height:9px; border-radius:50%; background:var(--danger); }
+.dot.ok { background:var(--success); }
+.more { text-align:center; color:var(--muted); font-size:13px; padding:8px; }
+/* 상세 */
+.frow { display:flex; align-items:center; gap:8px; background:var(--card); border-bottom:1px solid var(--border); padding:8px 10px; font-size:14px; }
+.frow .lb { width:92px; font-weight:700; color:#374151; flex:none; }
+.frow .val { flex:1; color:#111; }
+.sec { background:var(--card); margin-top:10px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.sec h3 { margin:0; padding:10px 12px 4px; font-size:14px; color:#374151; }
+.sec .r { display:flex; align-items:center; gap:8px; padding:6px 12px; font-size:14px; }
+.sec .r .d { font-weight:700; width:88px; }
+.sec .r .x { margin-left:auto; color:#9ca3af; }
+.btn { display:inline-block; margin:6px 12px 10px; padding:5px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:13px; color:var(--primary); font-weight:700; }
+.savebar { display:flex; gap:8px; padding:12px; }
+.savebar div { flex:1; text-align:center; padding:11px; border-radius:10px; font-weight:800; color:#fff; font-size:13px; }
+.b1 { background:#334155; } .b2 { background:#d97706; } .b3 { background:var(--primary); }
+.sheet { margin:10px 12px 0; background:#fff; border-radius:14px; box-shadow:0 -4px 20px rgba(0,0,0,.2); padding:12px; }
+.sheet h4 { margin:0 0 8px; font-size:14px; }
+.sheet .in { border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; color:#9ca3af; font-size:14px; margin-top:8px; }
+.note { font-size:12px; color:#475569; background:#fff; border-radius:8px; padding:8px 10px; margin:8px 0; border-left:4px solid var(--primary); }
+</style>
+</head>
+<body>
+<div class="row">
+
+<!-- ① 일정 화면 -->
+<div>
+<p class="label">① 새 화면: 📅 일정 (앱 열면 여기)</p>
+<div class="phone">
+  <div class="topbar"><span class="ib">←</span><h1>📅 일정</h1><span class="ib">⚙</span></div>
+  <div class="body">
+    <div class="day"><span class="tag">오늘</span> 9/19 (금)</div>
+    <div class="card" style="background:var(--c0)">
+      <div class="card-title"><span>군포 우륵아파트 704동 606호</span><span class="client">A인테리어</span></div>
+      <div class="line"><span class="ico">👤</span><span class="chip">김기사</span><span class="chip">박기사</span><span class="chip add">＋</span></div>
+      <div class="line"><span class="ico">🎞</span><span class="chk on"><b>✓</b>현관문 뒷면 PS035</span><span class="chk on"><b>✓</b>세탁실문 중백색</span><span class="chk"><b></b>붙박이장 W211</span></div>
+      <div class="line"><span class="ico">🧰</span><span class="chk on"><b>✓</b>본드</span><span class="chk"><b></b>장갑</span><span class="chk on"><b>✓</b>칼날</span></div>
+    </div>
+
+    <div class="day"><span class="tag tm">내일</span> 9/20 (토)</div>
+    <div class="card" style="background:var(--c4)">
+      <div class="card-title"><span>인천 청학동 시대아파트 104-910</span><span class="client">B인테리어</span></div>
+      <div class="line"><span class="ico">👤</span><span class="chip dup">김기사 ⚠</span><span class="chip">일당 최기사</span><span class="chip add">＋</span></div>
+      <div class="line"><span class="ico">🎞</span><span class="chk"><b></b>현관문 PS035</span><span class="chk"><b></b>중문 CW07</span></div>
+      <div class="line"><span class="ico">🧰</span><span class="chk"><b></b>본드</span><span class="chk"><b></b>장갑</span></div>
+    </div>
+    <div class="card" style="background:var(--c3)">
+      <div class="card-title"><span>부천 상동 팰리스 2일차</span><span class="client">고객</span></div>
+      <div class="line"><span class="ico">👤</span><span class="chip dup">김기사 ⚠</span><span class="chip add">＋</span></div>
+      <div class="line"><span class="ico">🎞</span><span class="chk on"><b>✓</b>싱크대 상판 H302</span></div>
+      <div class="line"><span class="ico">🧰</span><span class="chk on"><b>✓</b>본드</span><span class="chk on"><b>✓</b>장갑</span></div>
+    </div>
+    <div class="note">같은 날 두 현장에 "김기사"가 들어가 있어 빨갛게 표시됨</div>
+
+    <div class="day">9/21 (일)</div>
+    <div class="sum" style="border-left-color:var(--c1)"><span class="n">수원 영통 래미안 302-1204</span><span class="c">👤박기사 · 🎞 0/4 · 🧰 0/2</span><span class="dot"></span></div>
+    <div class="day">9/22 (월) <span class="none">현장 없음</span></div>
+    <div class="day">9/23 (화)</div>
+    <div class="sum" style="border-left-color:var(--c5)"><span class="n">안양 평촌 목련 1일차</span><span class="c">👤김기사,박기사 · 🎞 3/3 · 🧰 2/2</span><span class="dot ok"></span></div>
+    <div class="sum" style="border-left-color:var(--c2)"><span class="n">시흥 배곧 호반</span><span class="c">👤 (미배정) · 🎞 1/2 · 🧰 0/2</span><span class="dot"></span></div>
+    <div class="day">9/24 (수) <span class="none">현장 없음</span></div>
+    <div class="more">▸ 이후 일정 3건 (9/26 ~ 10/2)</div>
+  </div>
+</div>
+</div>
+
+<!-- ② 현장 상세 -->
+<div>
+<p class="label">② 현장 상세 (기존 화면에 붙는 부분)</p>
+<div class="phone">
+  <div class="topbar"><span class="ib">←</span><h1>군포 우륵아파트 704동 606호</h1><span class="ib">🎨</span></div>
+  <div class="body" style="padding:0 0 12px">
+    <div class="frow"><span class="lb">시작날짜</span><span class="val">2026-09-19</span><span>📅</span></div>
+    <div class="frow"><span class="lb">공동현관 비번</span><span class="val">0000*</span></div>
+    <div class="frow"><span class="lb">세대 비번</span><span class="val">1234*</span></div>
+    <div class="frow" style="color:#9ca3af"><span class="lb">… 기존 칸들</span></div>
+
+    <div class="sec">
+      <h3>필름/시공위치 <span style="font-weight:400;color:#6b7280">— 줄마다 ☑ 추가</span></h3>
+      <div class="r"><span class="chk on"><b>✓</b></span><span>현관문 뒷면</span><span>→</span><span>PS035</span><span class="x">✕</span></div>
+      <div class="r"><span class="chk on"><b>✓</b></span><span>세탁실문 뒷면</span><span>→</span><span>중백색</span><span class="x">✕</span></div>
+      <div class="r"><span class="chk"><b></b></span><span>붙박이장</span><span>→</span><span>W211</span><span class="x">✕</span></div>
+      <span class="btn">＋ 줄 추가</span>
+    </div>
+
+    <div class="sec">
+      <h3>일정·인원 <span style="font-weight:400;color:#6b7280">— 새 구역</span></h3>
+      <div class="r"><span class="d">1일차 9/19</span><span class="chip">김기사</span><span class="chip">박기사</span><span class="chip add">＋</span></div>
+      <div class="r"><span class="d">2일차 9/20</span><span class="chip">김기사</span><span class="chip add">＋</span><span class="x">✕</span></div>
+      <span class="btn">＋ 날 추가</span>
+    </div>
+
+    <div class="sec">
+      <h3>부자재 <span style="font-weight:400;color:#6b7280">— 새 구역 (기본 항목 자동)</span></h3>
+      <div class="r"><span class="chk on"><b>✓</b></span><span>본드</span><span class="x">✕</span></div>
+      <div class="r"><span class="chk"><b></b></span><span>장갑</span><span class="x">✕</span></div>
+      <div class="r"><span class="chk on"><b>✓</b></span><span>칼날</span><span class="x">✕</span></div>
+      <span class="btn">＋ 항목 추가</span>
+    </div>
+
+    <div class="savebar"><div class="b1">💾 저장</div><div class="b2">업자에게 질문</div><div class="b3">팀원에게 공유</div></div>
+
+    <div class="sheet">
+      <h4>👤 인원 선택 — 2일차 9/20</h4>
+      <div class="line" style="margin:0"><span class="chip" style="background:#dbeafe;border-color:var(--primary)">김기사 ✓</span><span class="chip">박기사</span><span class="chip">이기사</span><span class="chip">나</span></div>
+      <div class="in">명단에 없는 사람 이름 입력 (예: 일당 최기사)</div>
+    </div>
+    <div class="note">＋ 를 누르면 뜨는 선택창: 명단 칩을 탭하거나 아래에 즉석 입력</div>
+  </div>
+</div>
+</div>
+
+<!-- ③ 설정 -->
+<div>
+<p class="label">③ 설정에 추가되는 두 목록</p>
+<div class="phone" style="min-height:420px">
+  <div class="topbar"><span class="ib">←</span><h1>설정</h1><span class="ib"></span></div>
+  <div class="body" style="padding:0 0 12px">
+    <div class="sec" style="margin-top:0">
+      <h3>팀원 명단</h3>
+      <div class="r"><span>나</span><span class="x">✕</span></div>
+      <div class="r"><span>김기사</span><span class="x">✕</span></div>
+      <div class="r"><span>박기사</span><span class="x">✕</span></div>
+      <div class="r"><span>이기사</span><span class="x">✕</span></div>
+      <span class="btn">＋ 팀원 추가</span>
+    </div>
+    <div class="sec">
+      <h3>부자재 기본 항목 <span style="font-weight:400;color:#6b7280">— 새 현장에 자동으로 깔림</span></h3>
+      <div class="r"><span>본드</span><span class="x">✕</span></div>
+      <div class="r"><span>장갑</span><span class="x">✕</span></div>
+      <div class="r"><span>칼날</span><span class="x">✕</span></div>
+      <span class="btn">＋ 항목 추가</span>
+    </div>
+    <div class="frow" style="margin-top:10px;color:#9ca3af"><span class="lb">… 기존</span><span class="val">질문 문구 · 백업키 · 백업 상태</span></div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>
