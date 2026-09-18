@@ -235,5 +235,115 @@ test('fmtBytes', () => {
   assert.strictEqual(Share.fmtBytes(2.5 * 1024 * 1024), '2.5MB');
 });
 
+
+console.log('SCHEDULE — 날짜·일차');
+test('isIsoDate / addDays: 월말·연말·윤년 경계', () => {
+  assert.ok(Share.isIsoDate('2026-09-19'));
+  assert.ok(!Share.isIsoDate('2026-9-19'));
+  assert.ok(!Share.isIsoDate('2026-02-30'));
+  assert.ok(!Share.isIsoDate(''));
+  assert.strictEqual(Share.addDays('2026-09-30', 1), '2026-10-01');
+  assert.strictEqual(Share.addDays('2026-12-31', 1), '2027-01-01');
+  assert.strictEqual(Share.addDays('2028-02-28', 1), '2028-02-29');
+  assert.strictEqual(Share.addDays('2026-09-19', -1), '2026-09-18');
+  assert.strictEqual(Share.addDays('', 1), '');
+  assert.strictEqual(Share.addDays('abc', 1), '');
+});
+test('todayIso: 로컬 날짜', () => {
+  assert.strictEqual(Share.todayIso(new Date(2026, 8, 19, 23, 30)), '2026-09-19');
+  assert.strictEqual(Share.todayIso(new Date(2026, 0, 5)), '2026-01-05');
+});
+test('shiftDays: 시작을 옮기면 나머지 일차가 같은 일수만큼 밀리고 인원은 유지', () => {
+  const days = [{ date: '2026-09-19', staff: ['김기사'] }, { date: '2026-09-20', staff: ['박기사'] }];
+  const out = Share.shiftDays(days, '2026-09-22');
+  assert.deepStrictEqual(out, [{ date: '2026-09-22', staff: ['김기사'] }, { date: '2026-09-23', staff: ['박기사'] }]);
+  assert.notStrictEqual(out, days, '새 배열');
+  assert.strictEqual(days[0].date, '2026-09-19', '원본 유지');
+  assert.deepStrictEqual(Share.shiftDays([], '2026-09-22'), [{ date: '2026-09-22', staff: [] }]);
+  assert.deepStrictEqual(Share.shiftDays(days, ''), [{ date: '', staff: ['김기사'] }, { date: '2026-09-20', staff: ['박기사'] }], '시작을 지우면 1일차만 비움');
+  assert.deepStrictEqual(Share.shiftDays([{ date: '', staff: [] }, { date: '', staff: [] }], '2026-09-22'),
+    [{ date: '2026-09-22', staff: [] }, { date: '', staff: [] }], '원래 날짜가 없던 줄은 못 밀어서 그대로');
+});
+
+console.log('SCHEDULE — 날짜별 묶기');
+const site = (id, name, days, extra) => Object.assign(blank(), { id, name, createdAt: parseInt(id.slice(1), 10), days }, extra || {});
+const S = () => [
+  site('s1', '군포', [{ date: '2026-09-19', staff: ['김기사', '박기사'] }]),
+  site('s2', '인천', [{ date: '2026-09-20', staff: ['김기사'] }, { date: '2026-09-21', staff: ['김기사'] }]),
+  site('s3', '부천', [{ date: '2026-09-20', staff: ['김 기사', '최기사'] }]),
+  site('s4', '수원', [{ date: '2026-10-05', staff: [] }]),
+  site('s5', '미정', [{ date: '', staff: [] }]),
+  site('s6', '어제', [{ date: '2026-09-18', staff: ['박기사'] }]),
+  site('s7', '이상한날짜', [{ date: '9/25', staff: [] }])
+];
+test('groupByDate: 14일은 빈 날도 줄이 있고, 그 뒤는 later 로, 어제·날짜없음·잘못된 날짜는 빠짐', () => {
+  const g = Share.groupByDate(S(), '2026-09-19', 14);
+  assert.strictEqual(g.days.length, 14);
+  assert.strictEqual(g.days[0].date, '2026-09-19');
+  assert.strictEqual(g.days[13].date, '2026-10-02');
+  assert.deepStrictEqual(g.days[0].entries.map(e => e.site.id), ['s1']);
+  assert.deepStrictEqual(g.days[1].entries.map(e => e.site.id), ['s2', 's3'], '생성순');
+  assert.deepStrictEqual(g.days[1].entries.map(e => [e.dayIndex, e.dayCount]), [[0, 2], [0, 1]]);
+  assert.deepStrictEqual(g.days[2].entries.map(e => [e.site.id, e.dayIndex]), [['s2', 1]]);
+  assert.strictEqual(g.days[3].entries.length, 0);
+  assert.deepStrictEqual(g.later.map(d => d.date), ['2026-10-05']);
+  assert.deepStrictEqual(g.later[0].entries.map(e => e.site.id), ['s4']);
+  assert.strictEqual(g.laterCount, 1);
+  const all = g.days.concat(g.later).flatMap(d => d.entries.map(e => e.site.id));
+  ['s5', 's6', 's7'].forEach(id => assert.ok(!all.includes(id), id + ' 는 안 나와야'));
+});
+test('groupByDate: days 가 없는 구버전 현장은 date 를 1일차로 본다', () => {
+  const old = Object.assign(blank(), { id: 's9', name: '구버전', date: '2026-09-19' });
+  delete old.days;
+  const g = Share.groupByDate([old], '2026-09-19', 3);
+  assert.deepStrictEqual(g.days[0].entries.map(e => [e.site.id, e.dayIndex, e.dayCount]), [['s9', 0, 1]]);
+});
+test('findOverlaps: 같은 날 다른 현장의 같은 이름(공백 무시)만', () => {
+  const o = Share.findOverlaps(S());
+  assert.deepStrictEqual(o, { '2026-09-20': { '김기사': 2 } });
+  const same = [site('s1', 'a', [{ date: '2026-09-19', staff: ['김기사'] }, { date: '2026-09-19', staff: ['김기사'] }])];
+  assert.deepStrictEqual(Share.findOverlaps(same), {}, '같은 현장 안은 겹침 아님');
+  assert.deepStrictEqual(Share.findOverlaps([]), {});
+});
+
+console.log('SCHEDULE — 준비 상태');
+test('readyCount: 필름은 번호 빈 줄 제외', () => {
+  const s = Object.assign(blank(), {
+    films: [{ place: 'a', code: 'PS035', ready: true }, { place: 'b', code: '', ready: false }, { place: 'c', code: 'W211' }],
+    supplies: [{ name: '본드', ready: true }, { name: '장갑', ready: false }]
+  });
+  assert.deepStrictEqual(Share.readyCount(s), { films: [1, 2], supplies: [1, 2] });
+  assert.deepStrictEqual(Share.readyCount(blank()), { films: [0, 0], supplies: [0, 0] });
+});
+test('isReady: 전부 체크 + 인원 1명 이상', () => {
+  const s = Object.assign(blank(), {
+    films: [{ place: 'a', code: 'PS035', ready: true }], supplies: [{ name: '본드', ready: true }],
+    days: [{ date: '2026-09-19', staff: ['김기사'] }]
+  });
+  assert.ok(Share.isReady(s));
+  assert.ok(!Share.isReady(Object.assign(s, { days: [{ date: '2026-09-19', staff: [] }] })), '인원 0');
+  assert.ok(!Share.isReady(Object.assign(s, { days: [{ date: '2026-09-19', staff: ['김기사'] }], supplies: [{ name: '본드', ready: false }] })));
+  assert.ok(Share.isReady(Object.assign(blank(), { days: [{ date: '', staff: ['김기사'] }] })), '필름·부자재 없으면 인원만 보면 됨');
+});
+
+console.log('SCHEDULE — 공유 문구');
+test('staffLine: 하루 / 여러 날 / 빈 날 건너뜀 / 전부 빔', () => {
+  assert.strictEqual(Share.staffLine({ days: [{ date: '2026-09-19', staff: ['김기사', '박기사'] }] }), '👤 김기사·박기사');
+  assert.strictEqual(Share.staffLine({ days: [{ date: '2026-09-19', staff: ['김기사', '박기사'] }, { date: '2026-09-20', staff: ['김기사'] }] }),
+    '👤 9/19 김기사·박기사 / 9/20 김기사');
+  assert.strictEqual(Share.staffLine({ days: [{ date: '2026-09-19', staff: [] }, { date: '2026-09-20', staff: ['김기사'] }] }), '👤 9/20 김기사');
+  assert.strictEqual(Share.staffLine({ days: [{ date: '2026-09-19', staff: [] }] }), '');
+  assert.strictEqual(Share.staffLine({}), '');
+});
+test('buildShare: 인원 줄은 제목(날짜) 줄 바로 다음, days 없으면 예전 그대로', () => {
+  const s = Object.assign(full(), { days: [{ date: '2026-08-18', staff: ['김기사', '박기사'] }] });
+  const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n');
+  assert.strictEqual(lines[0], '[인천 청학동 시대아파트 104동 910호 13평] 8/18');
+  assert.strictEqual(lines[1], '👤 김기사·박기사');
+  assert.strictEqual(lines[2], '공동현관비번: 0000*');
+  assert.strictEqual(Share.buildShare(full(), ['name', 'date', 'pwLobby']).split('\n').length, 2);
+  assert.strictEqual(Share.buildShare(s, ['name', 'pwLobby']).split('\n')[1], '👤 김기사·박기사', '날짜 체크를 안 해도 인원은 나감');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

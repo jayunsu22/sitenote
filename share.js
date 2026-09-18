@@ -4,7 +4,7 @@
 (function (root) {
   'use strict';
 
-  // 15개 항목 — 화면 순서 = 배열 순서 = 문구 출력 순서
+  // 항목 정의 — 화면 순서 = 배열 순서 = 문구 출력 순서
   // type: text | date | select | films | link | multiline
   // question: 값이 비어있을 때 업자에게 보낼 기본 질문 문구
   //           (name/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
@@ -171,6 +171,8 @@
 
     var head = '[' + titleLine(site) + ']' + (has.date ? ' ' + shortDate(site.date) : '');
     var lines = [head];
+    var staff = staffLine(site); // 날짜별 인원 - 체크 여부와 상관없이 있으면 나간다
+    if (staff) lines.push(staff);
 
     if (has.address) lines.push('📍 ' + str(site.address));
     if (has.pwLobby) lines.push('공동현관비번: ' + str(site.pwLobby));
@@ -190,6 +192,122 @@
     if (has.photoUrl) lines.push('📷 현장사진: ' + linkUrl(site.photoUrl));
     if (has.memo) lines.push(str(site.memo));
     return lines.join('\n');
+  }
+
+  // ---------- 일정 (날짜별 인원·준비 상태) ----------
+  // 날짜는 전부 'YYYY-MM-DD' 문자열, 폰 로컬 시간 기준. Date 객체는 계산할 때만 잠깐 쓴다.
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function isoOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function isIsoDate(v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str(v));
+    if (!m) return false;
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    return isoOf(d) === m[0]; // 2026-02-30 같은 건 3월로 넘어가서 걸러짐
+  }
+  function todayIso(now) { return isoOf(now || new Date()); }
+  function addDays(iso, n) {
+    if (!isIsoDate(iso)) return '';
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    return isoOf(new Date(+m[1], +m[2] - 1, +m[3] + n));
+  }
+  function dayDiff(a, b) { // b - a (일)
+    var pa = a.split('-'), pb = b.split('-');
+    return Math.round((new Date(+pb[0], +pb[1] - 1, +pb[2]) - new Date(+pa[0], +pa[1] - 1, +pa[2])) / 86400000);
+  }
+  function normName(v) { return str(v).replace(/\s+/g, ''); }
+  function staffOf(day) { return ((day && day.staff) || []).map(str).filter(Boolean); }
+
+  // 시작날짜를 옮기면 2일차 이후도 같은 일수만큼 민다. 원본은 건드리지 않고 새 배열.
+  // days 가 비었으면 1일차 한 줄을 만든다. 시작을 지우면(newStart='') 1일차만 비우고 나머지는 둔다.
+  function shiftDays(days, newStart) {
+    var src = Array.isArray(days) ? days : [];
+    if (!src.length) return [{ date: str(newStart), staff: [] }];
+    var oldStart = str(src[0].date), ns = str(newStart);
+    var delta = (isIsoDate(oldStart) && isIsoDate(ns)) ? dayDiff(oldStart, ns) : null;
+    return src.map(function (d, i) {
+      var date = str(d.date);
+      if (i === 0) date = ns;
+      else if (delta !== null && isIsoDate(date)) date = addDays(date, delta);
+      return { date: date, staff: staffOf(d).slice() };
+    });
+  }
+
+  // days 가 없는 구버전 현장은 시작날짜 하나짜리로 본다
+  function daysOf(site) {
+    if (site && Array.isArray(site.days) && site.days.length) return site.days;
+    return [{ date: str(site && site.date), staff: [] }];
+  }
+
+  // 일정 화면용: from 부터 count 일은 현장이 없어도 줄을 만들고, 그 뒤는 later 로 따로 (있는 날만)
+  // from 이전 날짜와 날짜가 아닌 줄은 버린다. 같은 날 안에서는 현장 생성순.
+  function groupByDate(sites, from, count) {
+    var byDate = {};
+    (sites || []).slice().sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); }).forEach(function (s) {
+      var ds = daysOf(s);
+      ds.forEach(function (d, i) {
+        var date = str(d.date);
+        if (!isIsoDate(date) || date < from) return;
+        (byDate[date] = byDate[date] || []).push({ site: s, dayIndex: i, dayCount: ds.length });
+      });
+    });
+    var days = [], later = [], laterCount = 0, end = addDays(from, count - 1);
+    for (var i = 0; i < count; i++) {
+      var iso = addDays(from, i);
+      days.push({ date: iso, entries: byDate[iso] || [] });
+    }
+    Object.keys(byDate).sort().forEach(function (date) {
+      if (date <= end) return;
+      later.push({ date: date, entries: byDate[date] });
+      laterCount += byDate[date].length;
+    });
+    return { days: days, later: later, laterCount: laterCount };
+  }
+
+  // 같은 날 서로 다른 현장에 같은 이름(공백 무시)이 있으면 {date: {이름: 현장수}} — 2 이상만
+  function findOverlaps(sites) {
+    var seen = {}; // date -> name -> {siteId: true}
+    (sites || []).forEach(function (s) {
+      daysOf(s).forEach(function (d) {
+        var date = str(d.date);
+        if (!isIsoDate(date)) return;
+        staffOf(d).forEach(function (n) {
+          var k = normName(n);
+          var m = (seen[date] = seen[date] || {});
+          (m[k] = m[k] || {})[s.id] = true;
+        });
+      });
+    });
+    var out = {};
+    Object.keys(seen).forEach(function (date) {
+      Object.keys(seen[date]).forEach(function (k) {
+        var n = Object.keys(seen[date][k]).length;
+        if (n >= 2) (out[date] = out[date] || {})[k] = n;
+      });
+    });
+    return out;
+  }
+
+  // 준비 카운트: 필름은 번호가 빈 줄 제외
+  function readyCount(site) {
+    var films = ((site && site.films) || []).filter(function (r) { return r && str(r.code) !== ''; });
+    var sup = (site && site.supplies) || [];
+    var n = function (arr) { return arr.filter(function (r) { return r && r.ready; }).length; };
+    return { films: [n(films), films.length], supplies: [n(sup), sup.length] };
+  }
+  // 필름·부자재 전부 체크(없으면 통과) + 인원이 한 명이라도 있어야 준비 완료
+  function isReady(site) {
+    var c = readyCount(site);
+    if (c.films[0] !== c.films[1] || c.supplies[0] !== c.supplies[1]) return false;
+    return daysOf(site).some(function (d) { return staffOf(d).length > 0; });
+  }
+
+  // 팀원 공유용 인원 줄. 하루면 '👤 김기사·박기사', 여러 날이면 '👤 9/19 김기사·박기사 / 9/20 김기사'
+  // 인원이 빈 날은 건너뛰고, 전부 비면 ''
+  function staffLine(site) {
+    var ds = daysOf(site).filter(function (d) { return staffOf(d).length; });
+    if (!ds.length) return '';
+    if (daysOf(site).length === 1) return '👤 ' + staffOf(ds[0]).join('·');
+    return '👤 ' + ds.map(function (d) { return shortDate(d.date) + ' ' + staffOf(d).join('·'); }).join(' / ');
   }
 
   // 날짜 없는 현장 먼저(미정), 그 다음 날짜 오름차순, 동률은 최근 생성 우선. 원본 유지
@@ -241,7 +359,17 @@
     buildShare: buildShare,
     sortSites: sortSites,
     nextColor: nextColor,
-    mergeQueue: mergeQueue
+    mergeQueue: mergeQueue,
+    isIsoDate: isIsoDate,
+    todayIso: todayIso,
+    addDays: addDays,
+    shiftDays: shiftDays,
+    daysOf: daysOf,
+    groupByDate: groupByDate,
+    findOverlaps: findOverlaps,
+    readyCount: readyCount,
+    isReady: isReady,
+    staffLine: staffLine
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Share;
