@@ -528,8 +528,8 @@
     }
     if (!any) {
       var e = document.createElement('div'); e.className = 'empty-state';
-      e.textContent = '오늘 이후 일정이 없습니다. 현장에 시작날짜를 넣으면 여기에 날짜순으로 나옵니다.' +
-        (noDate ? ' (시작날짜가 없는 현장 ' + noDate + '건은 거래처 탭에 있습니다)' : '');
+      e.textContent = '오늘 이후 일정이 없습니다. 현장에 시공날짜를 넣으면 여기에 날짜순으로 나옵니다.' +
+        (noDate ? ' (시공날짜가 없는 현장 ' + noDate + '건은 거래처 탭에 있습니다)' : '');
       body.appendChild(e);
       return;
     }
@@ -671,41 +671,78 @@
   function dayLabel(i, date) {
     return (i + 1) + '일차' + (date ? ' ' + Share.shortDate(date) : '');
   }
-  // 현장 상세: 일정·인원 구역. 1일차 날짜는 시작날짜 칸이 주인이라 여기선 글자로만 보여준다
+  // 현장 상세: 일차별 인원 구역. 날짜 자체는 시공날짜 칸(달력)에서 고른다 — 여기서는 인원만
   function renderDaysSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
-    box.innerHTML = '<h3 class="sec-title">일정·인원</h3>';
+    box.innerHTML = '<h3 class="sec-title">날짜별 인원</h3>';
     var rerender = function () { renderDaysSection(box, siteId); };
     s.days.forEach(function (d, i) {
       var row = document.createElement('div'); row.className = 'sec-row';
       var lb = document.createElement('div'); lb.className = 'day-label';
-      if (i === 0) {
-        lb.textContent = dayLabel(0, d.date) || '1일차';
-        if (!d.date) lb.textContent = '1일차 (시작날짜 없음)';
-      } else {
-        // 2일차부터는 날짜를 바꿀 수 있다 - 라벨 위에 얹은 date 입력
-        var inp = document.createElement('input'); inp.type = 'date'; inp.className = 'day-date'; inp.value = d.date || '';
-        inp.onchange = function () { Store.setDayDate(siteId, i, inp.value); rerender(); };
-        var t = document.createElement('span'); t.textContent = (i + 1) + '일차';
-        lb.appendChild(t); lb.appendChild(inp);
-      }
+      lb.textContent = d.date ? dayLabel(i, d.date) : '날짜 없음';
       var chips = document.createElement('div'); chips.className = 'chips';
       renderChips(chips, d.staff, {
         onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
         onAdd: function () { openStaffPicker(siteId, i, rerender); }
       });
       row.appendChild(lb); row.appendChild(chips);
-      if (i > 0) {
-        var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '이 날 삭제';
-        x.onclick = function () { Store.removeDay(siteId, i); rerender(); };
-        row.appendChild(x);
-      }
       box.appendChild(row);
     });
-    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add'; add.textContent = '＋ 날 추가';
-    add.onclick = function () { Store.addDay(siteId); rerender(); };
-    box.appendChild(add);
+    if (!Share.isIsoDate(s.days[0].date)) {
+      var hint = document.createElement('div'); hint.className = 'sec-empty';
+      hint.textContent = '위 시공날짜 칸에서 날짜를 고르면 날마다 인원을 넣을 수 있습니다.';
+      box.appendChild(hint);
+    }
   }
+  // ---------- 달력 시트 (시공날짜 여러 날 고르기) ----------
+  // 탭 = 넣기/빼기, 고른 날엔 1·2·3 번호(날짜순). [초기화] 전부 지움, [확인] 저장, 바깥/✕ = 취소
+  var cal = { siteId: '', picked: {}, year: 0, month: 0, onDone: null };
+  function openCalendar(siteId, onDone) {
+    var s = Store.getSite(siteId); if (!s) return;
+    cal = { siteId: siteId, picked: {}, year: 0, month: 0, onDone: onDone };
+    s.days.forEach(function (d) { if (Share.isIsoDate(d.date)) cal.picked[d.date] = true; });
+    var base = Object.keys(cal.picked).sort()[0] || Share.todayIso();
+    cal.year = +base.slice(0, 4); cal.month = +base.slice(5, 7);
+    renderCalendar();
+    $('calSheet').hidden = false;
+  }
+  function closeCalendar(apply) {
+    if ($('calSheet').hidden) return;
+    $('calSheet').hidden = true;
+    if (apply) Store.setDays(cal.siteId, Object.keys(cal.picked));
+    var cb = cal.onDone; cal.onDone = null;
+    if (cb) cb();
+  }
+  function renderCalendar() {
+    $('calTitle').textContent = cal.year + '년 ' + cal.month + '월';
+    var picked = Object.keys(cal.picked).sort();
+    var order = {}; picked.forEach(function (d, i) { order[d] = i + 1; });
+    var today = Share.todayIso();
+    var grid = $('calGrid'); grid.innerHTML = '';
+    ['일', '월', '화', '수', '목', '금', '토'].forEach(function (w, i) {
+      var h = document.createElement('div'); h.className = 'cal-w' + (i === 0 ? ' sun' : i === 6 ? ' sat' : ''); h.textContent = w; grid.appendChild(h);
+    });
+    Share.monthGrid(cal.year, cal.month).forEach(function (week) {
+      week.forEach(function (iso, i) {
+        var c = document.createElement('button'); c.type = 'button'; c.className = 'cal-d';
+        if (!iso) { c.disabled = true; c.className += ' blank'; grid.appendChild(c); return; }
+        c.textContent = String(+iso.slice(8, 10));
+        if (i === 0) c.className += ' sun'; if (i === 6) c.className += ' sat';
+        if (iso === today) c.className += ' today';
+        if (order[iso]) { c.className += ' on'; c.innerHTML += '<span class="cal-n">' + order[iso] + '</span>'; }
+        c.onclick = function () { if (cal.picked[iso]) delete cal.picked[iso]; else cal.picked[iso] = true; renderCalendar(); };
+        grid.appendChild(c);
+      });
+    });
+    $('calSummary').textContent = picked.length ? picked.map(Share.shortDate).join(', ') + ' (' + picked.length + '일)' : '날짜를 탭해서 고르세요. 다시 탭하면 빠집니다.';
+  }
+  $('calPrev').onclick = function () { if (--cal.month < 1) { cal.month = 12; cal.year--; } renderCalendar(); };
+  $('calNext').onclick = function () { if (++cal.month > 12) { cal.month = 1; cal.year++; } renderCalendar(); };
+  $('calToday').onclick = function () { var t = Share.todayIso(); cal.year = +t.slice(0, 4); cal.month = +t.slice(5, 7); renderCalendar(); };
+  $('calClear').onclick = function () { cal.picked = {}; renderCalendar(); };
+  $('calOk').onclick = function () { closeCalendar(true); };
+  $('calClose').onclick = function () { closeCalendar(false); };
+  $('calSheet').addEventListener('click', function (e) { if (e.target === $('calSheet')) closeCalendar(false); });
   // 현장 상세: 부자재 체크리스트
   function renderSuppliesSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
@@ -826,16 +863,28 @@
 
     var save = function (patch) { s = Store.updateSite(s.id, patch) || s; refreshRowState(row, s, f.key); };
 
-    if (f.type === 'text' || f.type === 'date') {
+    if (f.type === 'date') {
+      // 시공날짜: 달력 시트에서 여러 날을 고른다 (탭 = 넣기/빼기, 초기화). 칸에는 요약만 보여준다
+      var db = document.createElement('button'); db.type = 'button'; db.className = 'date-btn';
+      var paint = function () {
+        var cur = Store.getSite(s.id) || s;
+        var line = Share.datesLine(cur);
+        var n = cur.days.filter(function (d) { return Share.isIsoDate(d.date); }).length;
+        db.textContent = n ? line + (n > 1 ? ' (' + n + '일)' : '') : '날짜 선택';
+        db.classList.toggle('empty', !n);
+        refreshRowState(row, cur, f.key);
+      };
+      db.onclick = function () {
+        openCalendar(s.id, function () { s = Store.getSite(s.id) || s; paint(); if ($('daysSec')) renderDaysSection($('daysSec'), s.id); });
+      };
+      paint();
+      ctl.appendChild(db);
+    } else if (f.type === 'text') {
       var inp = document.createElement('input');
-      inp.type = f.type === 'date' ? 'date' : 'text';
+      inp.type = 'text';
       inp.value = s[f.key] || '';
       inp.placeholder = f.key === 'name' ? '현장명 (예: 군포 우륵아파트 704동 606호 30평)' : '';
-      inp.addEventListener('input', function () {
-        var p = {}; p[f.key] = inp.value; save(p);
-        // 시작날짜가 바뀌면 일차 날짜도 밀리므로 일정·인원 구역을 다시 그린다
-        if (f.key === 'date' && $('daysSec')) renderDaysSection($('daysSec'), s.id);
-      });
+      inp.addEventListener('input', function () { var p = {}; p[f.key] = inp.value; save(p); });
       ctl.appendChild(inp);
     } else if (f.type === 'select') {
       var box2 = document.createElement('div'); box2.className = 'sel-row';

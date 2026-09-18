@@ -13,7 +13,8 @@
     // 현장명에 같이 적는 게 빠르다. 예전에 저장한 값은 titleLine 이 그대로 붙여준다.
     // 현장주소 칸도 뺐다(2026-09-17). 네비에 직접 넣는 게 빠르다.
     { key: 'name',    label: '현장명',        type: 'text' },
-    { key: 'date',    label: '시작날짜',      type: 'date',   question: '시공 날짜 언제인가요?' },
+    // 시공날짜: 달력에서 여러 날을 고를 수 있다(1일차, 2일차…). 값은 첫날(days[0].date)이고 전체는 site.days 에 있다
+    { key: 'date',    label: '시공날짜',      type: 'date',   question: '시공 날짜 언제인가요?' },
     { key: 'pwLobby', label: '공동현관 비번', type: 'text',   question: '공동현관 비번 알려주세요' },
     { key: 'pwUnit',  label: '세대 비번',     type: 'text',   question: '세대 현관 비번 알려주세요' },
     { key: 'gate',    label: '출입구',        type: 'text',   question: '방문객 차량 출입구가 따로 있나요?' },
@@ -169,7 +170,7 @@
     var has = {};
     ks.forEach(function (k) { has[k] = true; });
 
-    var head = '[' + titleLine(site) + ']' + (has.date ? ' ' + shortDate(site.date) : '');
+    var head = '[' + titleLine(site) + ']' + (has.date ? ' ' + datesLine(site) : '');
     var lines = [head];
     var staff = staffLine(site); // 날짜별 인원 - 체크 여부와 상관없이 있으면 나간다
     if (staff) lines.push(staff);
@@ -302,6 +303,25 @@
     return daysOf(site).some(function (d) { return staffOf(d).length > 0; });
   }
 
+  // 시공날짜 요약: 하루면 '9/18', 여러 날이면 '9/18, 9/19, 9/21'
+  function datesLine(site) {
+    var ds = daysOf(site).map(function (d) { return str(d.date); }).filter(isIsoDate);
+    if (!ds.length) return shortDate(site && site.date);
+    return ds.map(shortDate).join(', ');
+  }
+  // 달력 격자: 그 달의 주 단위 배열. 칸은 'YYYY-MM-DD' 또는 null(빈 칸). 일요일 시작
+  function monthGrid(year, month) { // month: 1~12
+    var first = new Date(year, month - 1, 1);
+    var last = new Date(year, month, 0).getDate();
+    var weeks = [], row = [];
+    for (var i = 0; i < first.getDay(); i++) row.push(null);
+    for (var d = 1; d <= last; d++) {
+      row.push(year + '-' + pad2(month) + '-' + pad2(d));
+      if (row.length === 7) { weeks.push(row); row = []; }
+    }
+    if (row.length) { while (row.length < 7) row.push(null); weeks.push(row); }
+    return weeks;
+  }
   // 팀원 공유용 인원 줄. 하루면 '👤 김기사·박기사', 여러 날이면 '👤 9/19 김기사·박기사 / 9/20 김기사'
   // 인원이 빈 날은 건너뛰고, 전부 비면 ''
   function staffLine(site) {
@@ -370,7 +390,9 @@
     findOverlaps: findOverlaps,
     readyCount: readyCount,
     isReady: isReady,
-    staffLine: staffLine
+    staffLine: staffLine,
+    datesLine: datesLine,
+    monthGrid: monthGrid
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Share;

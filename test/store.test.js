@@ -425,6 +425,22 @@ function reset() {
     assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-30', '2026-10-05']);
     assert.strictEqual(Store.getSite(s.id).date, '2026-09-30');
   });
+  await test('setDays: 날짜순 정렬, 남은 날 인원 유지, 빠진 날 인원 버림, 비면 1줄', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.setDays(s.id, ['2026-09-21', '2026-09-18', '2026-09-18']);
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-18', '2026-09-21']);
+    assert.strictEqual(Store.getSite(s.id).date, '2026-09-18');
+    Store.addStaff(s.id, 1, '김기사');
+    Store.setDays(s.id, ['2026-09-21', '2026-09-25']);
+    assert.deepStrictEqual(Store.getSite(s.id).days, [{ date: '2026-09-21', staff: ['김기사'] }, { date: '2026-09-25', staff: [] }]);
+    assert.strictEqual(Store.getSite(s.id).date, '2026-09-21');
+    Store.setDays(s.id, []);
+    assert.deepStrictEqual(Store.getSite(s.id).days, [{ date: '', staff: [] }]);
+    assert.strictEqual(Store.getSite(s.id).date, '');
+    Store.setDays(s.id, ['9/25', '']);
+    assert.deepStrictEqual(Store.getSite(s.id).days, [{ date: '', staff: [] }], '잘못된 날짜는 무시');
+  });
   await test('addDay: 시작날짜가 없으면 빈 날짜 줄', () => {
     reset();
     const c = Store.addClient('A'); const s = Store.addSite(c.id);

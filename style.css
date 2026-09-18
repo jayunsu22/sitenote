@@ -282,3 +282,23 @@ textarea { resize: vertical; }
 .sch-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .sch-sep { border-top: 2px dashed #cbd5e1; margin: 14px 0 4px; }
 .schedule-body .empty-state { padding: 32px 16px; }
+/* 시공날짜 칸 + 달력 시트 */
+.date-btn { width: 100%; text-align: left; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; font-size: 15px; font-weight: 700; color: var(--text); }
+.date-btn.empty { color: var(--muted); font-weight: 500; }
+.cal-sheet { max-height: 85vh; }
+.cal-sheet .sheet-head { gap: 4px; }
+.cal-sheet .sheet-head h3 { flex: 1; text-align: center; }
+.cal-today-btn { padding: 4px 8px; font-size: 12px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-w { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+.cal-w.sun, .cal-d.sun { color: var(--danger); }
+.cal-w.sat, .cal-d.sat { color: var(--primary); }
+.cal-d { position: relative; height: 44px; border: none; border-radius: 10px; background: #f8fafc; font-size: 15px; font-weight: 600; color: var(--text); }
+.cal-d.blank { background: transparent; }
+.cal-d.today { box-shadow: inset 0 0 0 2px #94a3b8; }
+.cal-d.on { background: var(--primary); color: #fff !important; }
+.cal-n { position: absolute; top: 3px; right: 4px; min-width: 16px; height: 16px; border-radius: 8px; background: #fff; color: var(--primary); font-size: 10px; font-weight: 800; line-height: 16px; text-align: center; padding: 0 3px; }
+.cal-summary { margin: 10px 2px 8px; font-size: 13px; color: #374151; min-height: 18px; }
+.cal-actions { display: flex; gap: 8px; }
+.cal-actions .btn-sm { flex: 1; padding: 11px; font-size: 14px; }
+.cal-actions .btn-sm.primary { background: var(--primary); color: #fff; border-color: var(--primary); }

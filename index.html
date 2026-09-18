@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260919b">
+  <link rel="stylesheet" href="style.css?v=20260919c">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -197,6 +197,25 @@
     </div>
   </div>
 
+  <!-- ========== 시공날짜 달력 (여러 날 고르기) ========== -->
+  <div id="calSheet" class="sheet-bg" hidden>
+    <div class="sheet cal-sheet">
+      <div class="sheet-head">
+        <button id="calPrev" class="icon-btn" title="이전 달">‹</button>
+        <h3 id="calTitle">2026년 9월</h3>
+        <button id="calNext" class="icon-btn" title="다음 달">›</button>
+        <button id="calToday" class="btn-sm cal-today-btn">오늘</button>
+        <button id="calClose" class="icon-btn" title="취소">✕</button>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div id="calSummary" class="cal-summary"></div>
+      <div class="cal-actions">
+        <button id="calClear" class="btn-sm">초기화</button>
+        <button id="calOk" class="btn-sm primary">확인</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== 공용 모달 ========== -->
   <div id="modal" class="modal-overlay" hidden>
     <div class="modal">
@@ -206,8 +225,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260919b"></script>
-  <script src="store.js?v=20260919b"></script>
-  <script src="app.js?v=20260919b"></script>
+  <script src="share.js?v=20260919c"></script>
+  <script src="store.js?v=20260919c"></script>
+  <script src="app.js?v=20260919c"></script>
 </body>
 </html>

@@ -349,6 +349,19 @@ test('staffLine: 하루 / 여러 날 / 빈 날 건너뜀 / 전부 빔', () => {
   assert.strictEqual(Share.staffLine({ days: [{ date: '2026-09-19', staff: [] }] }), '');
   assert.strictEqual(Share.staffLine({}), '');
 });
+test('datesLine / buildShare 제목: 여러 날이면 날짜를 쉼표로 나열', () => {
+  const s = Object.assign(full(), { days: [{ date: '2026-08-18', staff: [] }, { date: '2026-08-19', staff: [] }, { date: '2026-08-21', staff: [] }] });
+  assert.strictEqual(Share.datesLine(s), '8/18, 8/19, 8/21');
+  assert.strictEqual(Share.datesLine(full()), '8/18');
+  assert.strictEqual(Share.buildShare(s, ['name', 'date']).split('\n')[0], '[인천 청학동 시대아파트 104동 910호 13평] 8/18, 8/19, 8/21');
+});
+test('monthGrid: 2026년 9월은 화요일 시작, 5주', () => {
+  const g = Share.monthGrid(2026, 9);
+  assert.strictEqual(g.length, 5);
+  assert.deepStrictEqual(g[0], [null, null, '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
+  assert.deepStrictEqual(g[4], ['2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', null, null, null]);
+  assert.strictEqual(Share.monthGrid(2026, 2)[0][0], '2026-02-01', '일요일 시작이면 빈 칸 없음');
+});
 test('buildShare: 인원 줄은 제목(날짜) 줄 바로 다음, days 없으면 예전 그대로', () => {
   const s = Object.assign(full(), { days: [{ date: '2026-08-18', staff: ['김기사', '박기사'] }] });
   const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n');

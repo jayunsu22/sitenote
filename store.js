@@ -195,8 +195,9 @@
   function updateSite(id, patch) {
     var s = getSite(id);
     if (!s) return null;
-    // 시작날짜가 바뀌면 1일차가 따라가고 2일차 이후도 같은 일수만큼 밀린다
-    if (patch && Object.prototype.hasOwnProperty.call(patch, 'date') && String(patch.date || '') !== String(s.date || '')) {
+    // 시작날짜만 바뀌면(달력이 아니라 복원 등) 1일차가 따라가고 2일차 이후도 같은 일수만큼 밀린다.
+    // days 를 같이 넘기면(달력에서 고른 날짜들) 그대로 쓴다
+    if (patch && !patch.days && Object.prototype.hasOwnProperty.call(patch, 'date') && String(patch.date || '') !== String(s.date || '')) {
       patch = Object.assign({}, patch, { days: Share.shiftDays(s.days, patch.date || '') });
     }
     Object.assign(s, patch, { updatedAt: Date.now() });
@@ -217,6 +218,19 @@
     var days = dayRows(s);
     days[dayIndex].staff = days[dayIndex].staff.filter(function (n) { return n !== name; });
     return updateSite(siteId, { days: days });
+  }
+  // 달력에서 고른 날짜들로 일차를 다시 짠다 (날짜순). 남아있는 날짜의 인원은 유지, 빠진 날의 인원은 버림.
+  // 비면 1일차 한 줄(날짜 없음)만 남긴다. site.date 는 항상 첫날.
+  function setDays(siteId, dates) {
+    var s = getSite(siteId); if (!s) return null;
+    var uniq = {};
+    (dates || []).forEach(function (d) { if (Share.isIsoDate(d)) uniq[d] = true; });
+    var sorted = Object.keys(uniq).sort();
+    var staffByDate = {};
+    s.days.forEach(function (d) { if (d.date) staffByDate[d.date] = d.staff.slice(); });
+    var days = sorted.map(function (d) { return { date: d, staff: staffByDate[d] || [] }; });
+    if (!days.length) days = [{ date: '', staff: (s.days[0] && !s.days[0].date) ? s.days[0].staff.slice() : [] }];
+    return updateSite(siteId, { date: days[0].date, days: days });
   }
   // 마지막 일차 다음 날을 붙인다. 마지막 날짜가 비어있으면 빈 날짜로
   function addDay(siteId) {
@@ -497,7 +511,7 @@
     clients: clients, getClient: getClient, addClient: addClient, updateClient: updateClient,
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
-    addStaff: addStaff, removeStaff: removeStaff, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
+    addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
     toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
