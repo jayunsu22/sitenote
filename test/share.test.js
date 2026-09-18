@@ -291,6 +291,20 @@ test('groupByDate: 14일은 빈 날도 줄이 있고, 그 뒤는 later 로, 어�
   assert.strictEqual(g.laterCount, 1);
   const all = g.days.concat(g.later).flatMap(d => d.entries.map(e => e.site.id));
   ['s5', 's6', 's7'].forEach(id => assert.ok(!all.includes(id), id + ' 는 안 나와야'));
+  assert.deepStrictEqual(g.past.map(d => d.date), ['2026-09-18'], '어제는 past 로');
+  assert.deepStrictEqual(g.past[0].entries.map(e => e.site.id), ['s6']);
+  assert.strictEqual(g.pastCount, 1);
+});
+test('groupByDate: past 는 최근 날짜가 먼저', () => {
+  const sites = [
+    site('s1', 'a', [{ date: '2026-09-01', staff: [] }]),
+    site('s2', 'b', [{ date: '2026-09-10', staff: [] }, { date: '2026-09-11', staff: [] }]),
+    site('s3', 'c', [{ date: '2026-09-05', staff: [] }])
+  ];
+  const g = Share.groupByDate(sites, '2026-09-19', 14);
+  assert.deepStrictEqual(g.past.map(d => d.date), ['2026-09-11', '2026-09-10', '2026-09-05', '2026-09-01']);
+  assert.strictEqual(g.pastCount, 4);
+  assert.strictEqual(g.laterCount, 0);
 });
 test('groupByDate: days 가 없는 구버전 현장은 date 를 1일차로 본다', () => {
   const old = Object.assign(blank(), { id: 's9', name: '구버전', date: '2026-09-19' });

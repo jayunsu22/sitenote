@@ -484,6 +484,7 @@
   var SCHEDULE_DAYS = 14;
   var expandedIds = {};   // '현장id@날짜' → true/false (세션 동안만 기억)
   var showLater = false;  // '이후 일정 N건' 펼침 여부
+  var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
   function dayHeading(iso, today) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -503,12 +504,7 @@
     var g = Share.groupByDate(state.sites, today, SCHEDULE_DAYS);
     var dup = Share.findOverlaps(state.sites);
     var any = g.days.some(function (d) { return d.entries.length; }) || g.laterCount;
-    if (!any) {
-      var e = document.createElement('div'); e.className = 'empty-state';
-      e.textContent = '시작날짜가 있는 현장이 여기에 날짜순으로 나옵니다.';
-      body.appendChild(e);
-      return;
-    }
+    var noDate = state.sites.filter(function (s) { return !Share.isIsoDate(s.date); }).length;
     var renderDay = function (d) {
       var h = dayHeading(d.date, today);
       var head = document.createElement('div'); head.className = 'sch-day' + (h.tag ? ' sch-day-near' : '');
@@ -521,6 +517,22 @@
           : renderScheduleRow(entry, d.date));
       });
     };
+    // 지난 일정: 맨 위에 접어두고, 펼치면 최근 날짜부터 거꾸로
+    if (g.pastCount) {
+      var pastBtn = document.createElement('button'); pastBtn.type = 'button'; pastBtn.className = 'sch-more';
+      var pFirst = g.past[g.past.length - 1].date, pLast = g.past[0].date;
+      pastBtn.textContent = (showPast ? '▾' : '▸') + ' 지난 일정 ' + g.pastCount + '건 (' + Share.shortDate(pFirst) + ' ~ ' + Share.shortDate(pLast) + ')';
+      pastBtn.onclick = function () { showPast = !showPast; renderSchedule(); };
+      body.appendChild(pastBtn);
+      if (showPast) { g.past.forEach(renderDay); var sep = document.createElement('div'); sep.className = 'sch-sep'; body.appendChild(sep); }
+    }
+    if (!any) {
+      var e = document.createElement('div'); e.className = 'empty-state';
+      e.textContent = '오늘 이후 일정이 없습니다. 현장에 시작날짜를 넣으면 여기에 날짜순으로 나옵니다.' +
+        (noDate ? ' (시작날짜가 없는 현장 ' + noDate + '건은 거래처 탭에 있습니다)' : '');
+      body.appendChild(e);
+      return;
+    }
     g.days.forEach(renderDay);
     if (g.laterCount) {
       var more = document.createElement('button'); more.type = 'button'; more.className = 'sch-more';

@@ -280,3 +280,5 @@ textarea { resize: vertical; }
 .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
 .dot.ok { background: var(--success); }
 .sch-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
+.sch-sep { border-top: 2px dashed #cbd5e1; margin: 14px 0 4px; }
+.schedule-body .empty-state { padding: 32px 16px; }

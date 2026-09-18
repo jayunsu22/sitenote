@@ -239,28 +239,29 @@
   }
 
   // 일정 화면용: from 부터 count 일은 현장이 없어도 줄을 만들고, 그 뒤는 later 로 따로 (있는 날만)
-  // from 이전 날짜와 날짜가 아닌 줄은 버린다. 같은 날 안에서는 현장 생성순.
+  // from 이전은 past 로 (있는 날만, 최근 날짜가 먼저). 날짜가 아닌 줄은 버린다. 같은 날 안에서는 현장 생성순.
   function groupByDate(sites, from, count) {
     var byDate = {};
     (sites || []).slice().sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); }).forEach(function (s) {
       var ds = daysOf(s);
       ds.forEach(function (d, i) {
         var date = str(d.date);
-        if (!isIsoDate(date) || date < from) return;
+        if (!isIsoDate(date)) return;
         (byDate[date] = byDate[date] || []).push({ site: s, dayIndex: i, dayCount: ds.length });
       });
     });
-    var days = [], later = [], laterCount = 0, end = addDays(from, count - 1);
+    var days = [], later = [], laterCount = 0, past = [], pastCount = 0, end = addDays(from, count - 1);
     for (var i = 0; i < count; i++) {
       var iso = addDays(from, i);
       days.push({ date: iso, entries: byDate[iso] || [] });
     }
     Object.keys(byDate).sort().forEach(function (date) {
+      if (date < from) { past.unshift({ date: date, entries: byDate[date] }); pastCount += byDate[date].length; return; }
       if (date <= end) return;
       later.push({ date: date, entries: byDate[date] });
       laterCount += byDate[date].length;
     });
-    return { days: days, later: later, laterCount: laterCount };
+    return { days: days, later: later, laterCount: laterCount, past: past, pastCount: pastCount };
   }
 
   // 같은 날 서로 다른 현장에 같은 이름(공백 무시)이 있으면 {date: {이름: 현장수}} — 2 이상만
