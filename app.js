@@ -1,5 +1,5 @@
 // app.js — 화면 렌더·이벤트 (메인 / 현장 상세 / 설정)
-// 라우팅은 해시로: ''(메인) | '#site/<id>' | '#settings'  → 폰 뒤로가기 버튼이 그대로 동작
+// 라우팅은 해시로: ''(메인) | '#site/<id>' | '#settings' | '#schedule'  → 폰 뒤로가기 버튼이 그대로 동작
 (function () {
   'use strict';
 
@@ -89,14 +89,18 @@
     if (mp && Store.getPhoto(mp[1])) { showView('viewMain'); renderMain(); openPhotoViewer(mp[1]); return; }
     closePhotoViewer();
     if (h === '#settings') { showView('viewSettings'); renderSettings(); return; }
+    if (h === '#schedule') { rememberView('schedule'); showView('viewSchedule'); renderSchedule(); return; }
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
+    rememberView('main');
     showView('viewMain'); renderMain();
   }
   function showView(id) {
-    ['viewMain', 'viewSite', 'viewSettings'].forEach(function (v) { $(v).hidden = v !== id; });
+    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule'].forEach(function (v) { $(v).hidden = v !== id; });
     window.scrollTo(0, 0);
   }
+  // 앱을 다시 열 때 마지막에 본 화면(거래처/일정)으로 시작한다
+  function rememberView(v) { if (state.settings.lastView !== v) Store.setSettings({ lastView: v }); }
   function go(hash) { location.hash = hash; }
   function back() { if (history.length > 1) history.back(); else location.hash = ''; }
   window.addEventListener('hashchange', route);
@@ -471,6 +475,137 @@
   // ---------- 현장 상세 ----------
   $('btnBack').onclick = back;
   $('btnSettingsBack').onclick = back;
+  $('btnSchedule').onclick = function () { go('#schedule'); };
+  $('btnScheduleBack').onclick = function () { go(''); };
+  $('btnScheduleSettings').onclick = function () { go('#settings'); };
+
+  // ---------- 일정 화면 ----------
+  // 오늘·내일은 펼쳐서(인원 칩 + 필름/부자재 체크) 보여주고, 그 뒤는 한 줄 요약. 탭하면 펼침/접힘.
+  var SCHEDULE_DAYS = 14;
+  var expandedIds = {};   // '현장id@날짜' → true/false (세션 동안만 기억)
+  var showLater = false;  // '이후 일정 N건' 펼침 여부
+  var WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+  function dayHeading(iso, today) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    var d = new Date(+m[1], +m[2] - 1, +m[3]);
+    var text = Share.shortDate(iso) + ' (' + WEEKDAY[d.getDay()] + ')';
+    var tag = iso === today ? '오늘' : (iso === Share.addDays(today, 1) ? '내일' : '');
+    return { text: text, tag: tag };
+  }
+  function isExpanded(entry, date, today) {
+    var k = entry.site.id + '@' + date;
+    if (Object.prototype.hasOwnProperty.call(expandedIds, k)) return expandedIds[k];
+    return date === today || date === Share.addDays(today, 1);
+  }
+  function renderSchedule() {
+    var body = $('scheduleBody'); body.innerHTML = '';
+    var today = Share.todayIso();
+    var g = Share.groupByDate(state.sites, today, SCHEDULE_DAYS);
+    var dup = Share.findOverlaps(state.sites);
+    var any = g.days.some(function (d) { return d.entries.length; }) || g.laterCount;
+    if (!any) {
+      var e = document.createElement('div'); e.className = 'empty-state';
+      e.textContent = '시작날짜가 있는 현장이 여기에 날짜순으로 나옵니다.';
+      body.appendChild(e);
+      return;
+    }
+    var renderDay = function (d) {
+      var h = dayHeading(d.date, today);
+      var head = document.createElement('div'); head.className = 'sch-day' + (h.tag ? ' sch-day-near' : '');
+      head.innerHTML = (h.tag ? '<span class="sch-tag' + (h.tag === '내일' ? ' tm' : '') + '">' + h.tag + '</span>' : '') + esc(h.text) +
+        (d.entries.length ? '' : '<span class="sch-none">현장 없음</span>');
+      body.appendChild(head);
+      d.entries.forEach(function (entry) {
+        body.appendChild(isExpanded(entry, d.date, today)
+          ? renderScheduleCard(entry, d.date, dup[d.date] || {})
+          : renderScheduleRow(entry, d.date));
+      });
+    };
+    g.days.forEach(renderDay);
+    if (g.laterCount) {
+      var more = document.createElement('button'); more.type = 'button'; more.className = 'sch-more';
+      var first = g.later[0].date, last = g.later[g.later.length - 1].date;
+      more.textContent = (showLater ? '▾' : '▸') + ' 이후 일정 ' + g.laterCount + '건 (' + Share.shortDate(first) + ' ~ ' + Share.shortDate(last) + ')';
+      more.onclick = function () { showLater = !showLater; renderSchedule(); };
+      body.appendChild(more);
+      if (showLater) g.later.forEach(renderDay);
+    }
+  }
+  function entryTitle(entry) {
+    var t = Share.titleLine(entry.site);
+    if (entry.dayCount > 1) t += ' · ' + (entry.dayIndex + 1) + '일차';
+    return t;
+  }
+  function clientName(site) { var c = Store.getClient(site.clientId); return c ? c.name : ''; }
+  // 펼침 카드: 제목(탭 → 현장 상세) + 👤 칩 + 🎞 체크 + 🧰 체크. 체크·인원은 그 자리에서 바뀌고 즉시 저장
+  function renderScheduleCard(entry, date, dupNames) {
+    var s = entry.site, id = s.id;
+    var card = document.createElement('div'); card.className = 'sch-card color-' + (s.color || 0);
+    var head = document.createElement('div'); head.className = 'sch-card-head';
+    var title = document.createElement('button'); title.type = 'button'; title.className = 'sch-title'; title.textContent = entryTitle(entry);
+    title.onclick = function () { go('#site/' + id); };
+    var cl = document.createElement('span'); cl.className = 'sch-client'; cl.textContent = clientName(s);
+    var fold = document.createElement('button'); fold.type = 'button'; fold.className = 'sch-fold'; fold.textContent = '︿'; fold.title = '접기';
+    fold.onclick = function () { expandedIds[id + '@' + date] = false; renderSchedule(); };
+    head.appendChild(title); head.appendChild(cl); head.appendChild(fold);
+    card.appendChild(head);
+
+    var staffLine = document.createElement('div'); staffLine.className = 'sch-line';
+    staffLine.innerHTML = '<span class="sch-ico">👤</span>';
+    var chips = document.createElement('div'); chips.className = 'chips';
+    renderChips(chips, (s.days[entry.dayIndex] || {}).staff || [], {
+      dup: dupNames,
+      onRemove: function (n) { Store.removeStaff(id, entry.dayIndex, n); renderSchedule(); },
+      onAdd: function () { openStaffPicker(id, entry.dayIndex, renderSchedule); }
+    });
+    staffLine.appendChild(chips); card.appendChild(staffLine);
+
+    var filmLine = document.createElement('div'); filmLine.className = 'sch-line';
+    filmLine.innerHTML = '<span class="sch-ico">🎞</span>';
+    var films = document.createElement('div'); films.className = 'sch-checks';
+    var anyFilm = false;
+    s.films.forEach(function (r, i) {
+      if (!r || !String(r.code || '').trim()) return;
+      anyFilm = true;
+      films.appendChild(checkRow([r.place, r.code].filter(Boolean).join(' '), r.ready, function () {
+        var u = Store.toggleFilm(id, i); return u && u.films[i] && u.films[i].ready;
+      }));
+    });
+    if (!anyFilm) films.innerHTML = '<span class="sch-none">(없음)</span>';
+    filmLine.appendChild(films); card.appendChild(filmLine);
+
+    var supLine = document.createElement('div'); supLine.className = 'sch-line';
+    supLine.innerHTML = '<span class="sch-ico">🧰</span>';
+    var sups = document.createElement('div'); sups.className = 'sch-checks';
+    s.supplies.forEach(function (r, i) {
+      sups.appendChild(checkRow(r.name, r.ready, function () {
+        var u = Store.toggleSupply(id, i); return u && u.supplies[i] && u.supplies[i].ready;
+      }));
+    });
+    if (!s.supplies.length) sups.innerHTML = '<span class="sch-none">(없음)</span>';
+    supLine.appendChild(sups); card.appendChild(supLine);
+    return card;
+  }
+  // 라벨이 붙은 체크 항목 (일정 카드용). 탭하면 토글, 모양만 바꾼다
+  function checkRow(label, ready, onToggle) {
+    var w = document.createElement('button'); w.type = 'button'; w.className = 'sch-chk' + (ready ? ' on' : '');
+    w.innerHTML = '<span class="box"></span>' + esc(label);
+    w.onclick = function () { var r = onToggle(); w.classList.toggle('on', !!r); };
+    return w;
+  }
+  // 접힌 줄: 제목 · 👤이름 · 🎞 r/t · 🧰 r/t · 점(빨강=미준비/인원없음, 초록=준비 완료)
+  function renderScheduleRow(entry, date) {
+    var s = entry.site;
+    var row = document.createElement('button'); row.type = 'button'; row.className = 'sch-row color-b-' + (s.color || 0);
+    var c = Share.readyCount(s);
+    var staff = ((s.days[entry.dayIndex] || {}).staff || []);
+    var meta = '👤' + (staff.length ? staff.join(',') : '미배정') + ' · 🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
+    row.innerHTML = '<span class="sch-row-title">' + esc(entryTitle(entry)) + '</span>' +
+      '<span class="sch-row-meta">' + esc(meta) + '</span>' +
+      '<span class="dot' + (Share.isReady(s) ? ' ok' : '') + '"></span>';
+    row.onclick = function () { expandedIds[s.id + '@' + date] = true; renderSchedule(); };
+    return row;
+  }
 
   function renderSite() {
     var s = Store.getSite(currentSiteId); if (!s) { go(''); return; }
@@ -909,6 +1044,8 @@
 
   // ---------- 시작 ----------
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
+  // 첫 진입: 해시가 없고 마지막에 일정 화면을 봤으면 일정으로 시작
+  if ((!location.hash || location.hash === '#') && state.settings.lastView === 'schedule') location.replace('#schedule');
   route();
 
   if ('serviceWorker' in navigator) {

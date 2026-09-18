@@ -25,6 +25,7 @@
       <h1 class="topbar-title">거래처별 현장관리</h1>
       <div class="topbar-actions">
         <button id="syncBadge" class="sync-badge" hidden title="백업 상태"></button>
+        <button id="btnSchedule" class="icon-btn" title="일정">📅</button>
         <button id="btnSettings" class="icon-btn" title="설정">⚙</button>
       </div>
     </header>
@@ -102,6 +103,18 @@
       <button id="btnCopyQuestion" class="btn-copy btn-copy-q">업자에게 질문 복사</button>
       <button id="btnCopyShare" class="btn-copy btn-copy-s">팀원에게 공유 복사</button>
     </div>
+  </section>
+
+  <!-- ========== 일정 화면 (날짜별 현장·인원·준비 상태) ========== -->
+  <section id="viewSchedule" class="view" hidden>
+    <header class="topbar">
+      <button id="btnScheduleBack" class="icon-btn" title="거래처 화면">←</button>
+      <h1 class="topbar-title topbar-title-center">📅 일정</h1>
+      <div class="topbar-actions">
+        <button id="btnScheduleSettings" class="icon-btn" title="설정">⚙</button>
+      </div>
+    </header>
+    <div id="scheduleBody" class="schedule-body"></div>
   </section>
 
   <!-- ========== 설정 화면 ========== -->
