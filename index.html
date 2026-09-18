@@ -151,6 +151,21 @@
     <div id="pvMeta" class="pv-meta"></div>
   </div>
 
+  <!-- ========== 인원 선택 (바텀시트) ========== -->
+  <div id="staffSheet" class="sheet-bg" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="staffSheetTitle">👤 인원</h3>
+        <button id="staffClose" class="icon-btn" title="닫기">✕</button>
+      </div>
+      <div id="staffChips" class="chips chips-pick"></div>
+      <div class="sheet-input">
+        <input type="text" id="staffInput" placeholder="명단에 없는 사람 이름 (예: 일당 최기사)" autocomplete="off">
+        <button id="staffAdd" class="btn-sm">추가</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== 공용 모달 ========== -->
   <div id="modal" class="modal-overlay" hidden>
     <div class="modal">

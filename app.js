@@ -481,8 +481,162 @@
     $('colorPicker').hidden = true;
     renderColorPicker(s);
     var wrap = $('siteFields'); wrap.innerHTML = '';
-    Share.FIELDS.forEach(function (f) { wrap.appendChild(fieldRow(s, f)); });
+    Share.FIELDS.forEach(function (f) {
+      wrap.appendChild(fieldRow(s, f));
+      // 일정·인원 / 부자재 구역은 필름 줄 다음, 현장사진 앞에 둔다 (2026-09-19 일정관리)
+      if (f.key === 'films') {
+        var daysBox = document.createElement('div'); daysBox.className = 'sec'; daysBox.id = 'daysSec'; wrap.appendChild(daysBox);
+        renderDaysSection(daysBox, s.id);
+        var supBox = document.createElement('div'); supBox.className = 'sec'; wrap.appendChild(supBox);
+        renderSuppliesSection(supBox, s.id);
+      }
+    });
   }
+
+  // ---------- 일정·인원 / 부자재 (현장 상세 + 일정 화면 공용 조각) ----------
+  // 체크 버튼: 탭하면 onToggle → 새 ready 값을 돌려받아 모양만 바꾼다 (입력 포커스를 잃지 않게 전체 재렌더 안 함)
+  function checkBtn(ready, onToggle) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'chk' + (ready ? ' on' : '');
+    b.setAttribute('aria-label', '준비됨');
+    b.onclick = function (e) { e.stopPropagation(); var r = onToggle(); b.classList.toggle('on', !!r); };
+    return b;
+  }
+  // 이름 칩 목록. opts.dup: {정규화이름: true} 이면 빨간 겹침 표시, opts.onRemove(name), opts.onAdd()
+  function renderChips(container, names, opts) {
+    container.innerHTML = '';
+    var dup = (opts && opts.dup) || {};
+    (names || []).forEach(function (n) {
+      var c = document.createElement('button'); c.type = 'button';
+      var isDup = !!dup[String(n).replace(/\s+/g, '')];
+      c.className = 'chip' + (isDup ? ' dup' : '');
+      c.textContent = n + (isDup ? ' ⚠' : '');
+      c.title = isDup ? '같은 날 다른 현장에도 들어가 있음 — 탭하면 뺌' : '탭하면 뺌';
+      c.onclick = function (e) { e.stopPropagation(); opts && opts.onRemove && opts.onRemove(n); };
+      container.appendChild(c);
+    });
+    if (opts && opts.onAdd) {
+      var add = document.createElement('button'); add.type = 'button'; add.className = 'chip add'; add.textContent = '＋';
+      add.title = '인원 추가';
+      add.onclick = function (e) { e.stopPropagation(); opts.onAdd(); };
+      container.appendChild(add);
+    }
+  }
+  function dayLabel(i, date) {
+    return (i + 1) + '일차' + (date ? ' ' + Share.shortDate(date) : '');
+  }
+  // 현장 상세: 일정·인원 구역. 1일차 날짜는 시작날짜 칸이 주인이라 여기선 글자로만 보여준다
+  function renderDaysSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    box.innerHTML = '<h3 class="sec-title">일정·인원</h3>';
+    var rerender = function () { renderDaysSection(box, siteId); };
+    s.days.forEach(function (d, i) {
+      var row = document.createElement('div'); row.className = 'sec-row';
+      var lb = document.createElement('div'); lb.className = 'day-label';
+      if (i === 0) {
+        lb.textContent = dayLabel(0, d.date) || '1일차';
+        if (!d.date) lb.textContent = '1일차 (시작날짜 없음)';
+      } else {
+        // 2일차부터는 날짜를 바꿀 수 있다 - 라벨 위에 얹은 date 입력
+        var inp = document.createElement('input'); inp.type = 'date'; inp.className = 'day-date'; inp.value = d.date || '';
+        inp.onchange = function () { Store.setDayDate(siteId, i, inp.value); rerender(); };
+        var t = document.createElement('span'); t.textContent = (i + 1) + '일차';
+        lb.appendChild(t); lb.appendChild(inp);
+      }
+      var chips = document.createElement('div'); chips.className = 'chips';
+      renderChips(chips, d.staff, {
+        onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
+        onAdd: function () { openStaffPicker(siteId, i, rerender); }
+      });
+      row.appendChild(lb); row.appendChild(chips);
+      if (i > 0) {
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '이 날 삭제';
+        x.onclick = function () { Store.removeDay(siteId, i); rerender(); };
+        row.appendChild(x);
+      }
+      box.appendChild(row);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add'; add.textContent = '＋ 날 추가';
+    add.onclick = function () { Store.addDay(siteId); rerender(); };
+    box.appendChild(add);
+  }
+  // 현장 상세: 부자재 체크리스트
+  function renderSuppliesSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    box.innerHTML = '<h3 class="sec-title">부자재</h3>';
+    var rerender = function () { renderSuppliesSection(box, siteId); };
+    if (!s.supplies.length) {
+      var empty = document.createElement('div'); empty.className = 'sec-empty'; empty.textContent = '항목이 없습니다. 설정에서 기본 항목을 정해두면 새 현장에 자동으로 깔립니다.';
+      box.appendChild(empty);
+    }
+    s.supplies.forEach(function (r, i) {
+      var row = document.createElement('div'); row.className = 'sec-row';
+      row.appendChild(checkBtn(r.ready, function () { var u = Store.toggleSupply(siteId, i); return u && u.supplies[i] && u.supplies[i].ready; }));
+      var name = document.createElement('div'); name.className = 'sec-name'; name.textContent = r.name;
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
+      x.onclick = function () { Store.removeSupply(siteId, i); rerender(); };
+      row.appendChild(name); row.appendChild(x);
+      box.appendChild(row);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add'; add.textContent = '＋ 항목 추가';
+    add.onclick = function () {
+      modalPrompt('부자재 항목', '', '예: 칼날, 스퀴지').then(function (v) {
+        if (v == null) return;
+        Store.addSupply(siteId, v); rerender();
+      });
+    };
+    box.appendChild(add);
+  }
+  // 인원 선택창(바텀시트): 설정의 팀원 명단은 칩으로(들어간 사람은 강조), 명단에 없는 사람은 아래 칸에 직접 입력
+  var staffPicker = { siteId: '', dayIndex: 0, onDone: null };
+  function openStaffPicker(siteId, dayIndex, onDone) {
+    staffPicker = { siteId: siteId, dayIndex: dayIndex, onDone: onDone };
+    renderStaffPicker();
+    $('staffSheet').hidden = false;
+    $('staffInput').value = '';
+  }
+  function closeStaffPicker() {
+    if ($('staffSheet').hidden) return;
+    $('staffSheet').hidden = true;
+    var cb = staffPicker.onDone; staffPicker.onDone = null;
+    if (cb) cb();
+  }
+  function renderStaffPicker() {
+    var s = Store.getSite(staffPicker.siteId); if (!s) { closeStaffPicker(); return; }
+    var d = s.days[staffPicker.dayIndex] || { date: '', staff: [] };
+    $('staffSheetTitle').textContent = '👤 인원 — ' + dayLabel(staffPicker.dayIndex, d.date);
+    var wrap = $('staffChips'); wrap.innerHTML = '';
+    var team = state.settings.team || [];
+    // 명단 + (명단에 없지만 이미 들어간 즉석 인력)
+    var names = team.slice();
+    d.staff.forEach(function (n) { if (names.indexOf(n) === -1) names.push(n); });
+    if (!names.length) {
+      var hint = document.createElement('div'); hint.className = 'sec-empty';
+      hint.textContent = '설정에서 팀원을 등록해두면 여기서 탭으로 넣을 수 있습니다. 지금은 아래에 이름을 입력하세요.';
+      wrap.appendChild(hint);
+    }
+    names.forEach(function (n) {
+      var on = d.staff.indexOf(n) !== -1;
+      var c = document.createElement('button'); c.type = 'button'; c.className = 'chip pick' + (on ? ' on' : '');
+      c.textContent = n + (on ? ' ✓' : '');
+      c.onclick = function () {
+        if (on) Store.removeStaff(staffPicker.siteId, staffPicker.dayIndex, n);
+        else Store.addStaff(staffPicker.siteId, staffPicker.dayIndex, n);
+        renderStaffPicker();
+      };
+      wrap.appendChild(c);
+    });
+  }
+  function addStaffFromInput() {
+    var v = $('staffInput').value.trim();
+    if (!v) return;
+    Store.addStaff(staffPicker.siteId, staffPicker.dayIndex, v);
+    $('staffInput').value = '';
+    renderStaffPicker();
+  }
+  $('staffAdd').onclick = addStaffFromInput;
+  $('staffInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addStaffFromInput(); } });
+  $('staffClose').onclick = closeStaffPicker;
+  $('staffSheet').addEventListener('click', function (e) { if (e.target === $('staffSheet')) closeStaffPicker(); });
   function renderColorPicker(s) {
     var wrap = $('colorPicker'); wrap.innerHTML = '';
     for (var i = 0; i < Share.COLOR_COUNT; i++) {
@@ -530,7 +684,11 @@
       inp.type = f.type === 'date' ? 'date' : 'text';
       inp.value = s[f.key] || '';
       inp.placeholder = f.key === 'name' ? '현장명 (예: 군포 우륵아파트 704동 606호 30평)' : '';
-      inp.addEventListener('input', function () { var p = {}; p[f.key] = inp.value; save(p); });
+      inp.addEventListener('input', function () {
+        var p = {}; p[f.key] = inp.value; save(p);
+        // 시작날짜가 바뀌면 일차 날짜도 밀리므로 일정·인원 구역을 다시 그린다
+        if (f.key === 'date' && $('daysSec')) renderDaysSection($('daysSec'), s.id);
+      });
       ctl.appendChild(inp);
     } else if (f.type === 'select') {
       var box2 = document.createElement('div'); box2.className = 'sel-row';
@@ -565,15 +723,22 @@
   }
   function renderFilms(ctl, s, save) {
     ctl.innerHTML = '';
-    var films = (s.films || []).slice();
-    if (!films.length) films.push({ place: '', code: '' });
+    var films = (s.films || []).map(function (r) { return Object.assign({ place: '', code: '', ready: false }, r); });
+    if (!films.length) films.push({ place: '', code: '', ready: false });
     films.forEach(function (r, i) {
       var line = document.createElement('div'); line.className = 'film-row';
       line.innerHTML = '<input type="text" class="place" placeholder="시공위치 (현관문 뒷면)" value="' + esc(r.place) + '">' +
         '<input type="text" class="code" placeholder="필름번호 (PS035)" value="' + esc(r.code) + '">' +
         '<button type="button" class="x" title="줄 삭제">×</button>';
+      // 준비됨 ☑ — 줄 맨 앞. 아직 저장 안 된 빈 첫 줄이면 먼저 저장하고 토글한다
+      line.insertBefore(checkBtn(r.ready, function () {
+        if (!Store.getSite(s.id).films[i]) save({ films: films.slice() });
+        var u = Store.toggleFilm(s.id, i);
+        films[i].ready = !!(u && u.films[i] && u.films[i].ready);
+        return films[i].ready;
+      }), line.firstChild);
       var upd = function () {
-        films[i] = { place: line.querySelector('.place').value, code: line.querySelector('.code').value };
+        films[i] = { place: line.querySelector('.place').value, code: line.querySelector('.code').value, ready: !!films[i].ready };
         save({ films: films.slice() });
       };
       line.querySelector('.place').addEventListener('input', upd);
@@ -588,7 +753,7 @@
     var acts = document.createElement('div'); acts.className = 'film-actions';
     var add = document.createElement('button'); add.type = 'button'; add.className = 'film-add'; add.textContent = '＋ 줄 추가';
     add.onclick = function () {
-      films.push({ place: '', code: '' }); save({ films: films.slice() });
+      films.push({ place: '', code: '', ready: false }); save({ films: films.slice() });
       renderFilms(ctl, Store.getSite(s.id), save);
       var ps = ctl.querySelectorAll('.place'); if (ps.length) ps[ps.length - 1].focus();
     };
