@@ -20,20 +20,21 @@ const full = () => Object.assign(blank(), {
   pwLobby: '0000*', pwUnit: '1234*', gate: '정문 방문자 게이트',
   carReg: { v: '필요', memo: '관리실에 번호 알려줌' }, parking: '지상 방문자석',
   cargoEv: { v: '사용', memo: '' }, toilet: '지하1층 관리실 옆',
+  note: '앞집이 예민함. 조심조심 들어올 것',
   films: [{ place: '현관문 뒷면', code: 'PS035' }, { place: '세탁실문 뒷면', code: '중백색' }],
   photoUrl: 'https://songil.netlify.app/g/recABC',
   memo: '입니자 사진은 조대리가 찍어줌'
 });
 
 console.log('FIELDS');
-test('12개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
+test('13개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','films','photoUrl','memo']);
+    ['name','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','note','films','photoUrl','memo']);
 });
-test('DEFAULT_QUESTIONS에 name/photoUrl/memo 없음, 나머지 9개', () => {
+test('DEFAULT_QUESTIONS에 name/note/photoUrl/memo 없음, 나머지 9개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
   assert.strictEqual(k.length, 9);
-  assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('photoUrl'));
+  assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('photoUrl') && !k.includes('note'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');
 });
 
@@ -109,6 +110,7 @@ test('채워진 항목만, 형식 고정', () => {
     '주차: 지상 방문자석\n' +
     '화물EV 사용\n' +
     '화장실: 지하1층 관리실 옆\n' +
+    '⚠ 특이사항: 앞집이 예민함. 조심조심 들어올 것\n' +
     '필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색\n' +
     '📷 현장사진: https://songil.netlify.app/g/recABC\n' +
     '입니자 사진은 조대리가 찍어줌');

@@ -556,7 +556,7 @@
       renderFilms(ctl, s, save);
     } else { // multiline
       var ta = document.createElement('textarea'); ta.rows = 4; ta.value = s[f.key] || '';
-      ta.placeholder = '카톡 대화 복붙, 기타 메모';
+      ta.placeholder = f.placeholder || '카톡 대화 복붙, 기타 메모';
       ta.addEventListener('input', function () { var p = {}; p[f.key] = ta.value; save(p); });
       ctl.appendChild(ta);
     }

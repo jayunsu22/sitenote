@@ -23,6 +23,10 @@
     { key: 'cargoEv', label: '화물 엘리베이터', type: 'select', question: '짐 옮길 때 화물 엘리베이터 사용해야 하나요?',
       options: ['미확인', '사용', '일반사용'], shareLabel: '화물EV' },
     { key: 'toilet',  label: '화장실',        type: 'text',   question: '화장실 사용할 곳 위치 알려주세요' },
+    // 특이사항 전달 - 팀원에게 꼭 알려줄 주의점("앞집이 예민함, 조심조심 들어올 것").
+    // 우리가 채우는 칸이라 question 없음. 공유 문구에는 ⚠ 붙여서 나감.
+    { key: 'note',    label: '특이사항 전달', type: 'multiline', shareLabel: '⚠ 특이사항',
+      placeholder: '팀원에게 전달할 주의점 (예: 앞집이 예민함, 조심조심 들어올 것)' },
     { key: 'films',   label: '필름/시공위치', type: 'films',  question: '시공 위치별 필름 번호 알려주세요' },
     // 현장사진 링크 - 블로그자동화(현장 품질관리)에서 뽑은 사진 갤러리 주소를 붙여넣는 칸.
     // 업자에게 물어볼 항목이 아니라 우리가 채우는 칸이라 question 이 없다.
@@ -147,7 +151,8 @@
   function buildQuestion(site, keys, questions) {
     var q = questions || DEFAULT_QUESTIONS;
     var lines = orderedKeys(keys)
-      .filter(function (k) { return k !== 'name' && k !== 'memo' && k !== 'photoUrl' && isEmpty(site, k); })
+      // 질문 문구가 정의된 항목만 (name/note/photoUrl/memo 처럼 우리가 채우는 칸은 제외)
+      .filter(function (k) { return DEFAULT_QUESTIONS[k] && isEmpty(site, k); })
       .map(function (k) { return '- ' + (str(q[k]) || DEFAULT_QUESTIONS[k]); });
     if (!lines.length) return '';
     return '[' + titleLine(site) + ']\n' + lines.join('\n');
@@ -175,6 +180,7 @@
     if (has.parking) lines.push('주차: ' + str(site.parking));
     if (has.cargoEv) lines.push(selectLine(FIELD_MAP.cargoEv, site.cargoEv));
     if (has.toilet) lines.push('화장실: ' + str(site.toilet));
+    if (has.note) lines.push(FIELD_MAP.note.shareLabel + ': ' + str(site.note));
     if (has.films) {
       var fl = site.films
         .filter(function (r) { return r && str(r.code) !== ''; })
