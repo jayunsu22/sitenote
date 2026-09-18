@@ -128,6 +128,24 @@
         </div>
       </div>
       <div class="settings-section">
+        <h2>팀원 명단</h2>
+        <p class="hint">현장의 인원 선택창에 칩으로 나옵니다. 명단에 없는 사람은 그 자리에서 직접 입력할 수 있습니다.</p>
+        <div id="teamList" class="slist"></div>
+        <div class="row">
+          <input type="text" id="teamInput" placeholder="이름 (예: 김기사)" autocomplete="off">
+          <button id="btnAddTeam" class="btn-sm">추가</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>부자재 기본 항목</h2>
+        <p class="hint">새 현장을 만들 때 자동으로 깔리는 체크리스트입니다. 이미 만든 현장은 바뀌지 않습니다.</p>
+        <div id="supplyDefaultList" class="slist"></div>
+        <div class="row">
+          <input type="text" id="supplyInput" placeholder="항목 (예: 칼날)" autocomplete="off">
+          <button id="btnAddSupplyDefault" class="btn-sm">추가</button>
+        </div>
+      </div>
+      <div class="settings-section">
         <h2>업자에게 질문 문구</h2>
         <p class="hint">항목이 비어있을 때 복사되는 문구입니다. 내 말투로 바꿔도 됩니다.</p>
         <div id="questionList"></div>

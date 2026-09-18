@@ -240,3 +240,9 @@ textarea { resize: vertical; }
 .chips-pick { gap: 8px; margin-bottom: 12px; }
 .sheet-input { display: flex; gap: 6px; }
 .sheet-input input { flex: 1; min-width: 0; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
+/* 설정: 이름 목록 (팀원 명단 / 부자재 기본 항목) */
+.slist { margin-bottom: 8px; }
+.slist-row { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 4px; border-bottom: 1px solid var(--border); }
+.slist-row .slist-name { flex: 1; font-size: 14px; font-weight: 600; }
+.slist-row .x { width: 32px; height: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+.settings-section .row input[type="text"] { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }

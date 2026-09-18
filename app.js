@@ -803,9 +803,48 @@
   };
 
   // ---------- 설정 ----------
+  // 이름 목록(팀원 명단 / 부자재 기본 항목): 행마다 ✕, 아래 입력칸 + 추가. 빈 값·중복은 무시
+  function renderStringList(container, items, onChange) {
+    container.innerHTML = '';
+    if (!items.length) {
+      var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
+      container.appendChild(e);
+    }
+    items.forEach(function (name, i) {
+      var row = document.createElement('div'); row.className = 'slist-row';
+      var t = document.createElement('div'); t.className = 'slist-name'; t.textContent = name;
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
+      x.onclick = function () { var next = items.slice(); next.splice(i, 1); onChange(next); };
+      row.appendChild(t); row.appendChild(x);
+      container.appendChild(row);
+    });
+  }
+  function bindListAdder(inputId, btnId, getItems, onChange) {
+    var add = function () {
+      var v = $(inputId).value.trim();
+      if (!v) return;
+      var items = getItems();
+      if (items.indexOf(v) !== -1) { toast('이미 있습니다'); return; }
+      onChange(items.concat([v]));
+      $(inputId).value = '';
+    };
+    $(btnId).onclick = add;
+    $(inputId).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  }
+  function renderTeamList() {
+    renderStringList($('teamList'), state.settings.team || [], function (next) { Store.setSettings({ team: next }); renderTeamList(); });
+  }
+  function renderSupplyDefaultList() {
+    renderStringList($('supplyDefaultList'), state.settings.supplyDefaults || [], function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
+  }
+  bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); renderTeamList(); });
+  bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
+
   function renderSettings() {
     $('backupKey').value = state.settings.backupKey || '';
     renderSyncStatus();
+    renderTeamList();
+    renderSupplyDefaultList();
     var wrap = $('questionList'); wrap.innerHTML = '';
     Share.FIELDS.filter(function (f) { return f.question; }).forEach(function (f) {
       var row = document.createElement('div'); row.className = 'qrow';
