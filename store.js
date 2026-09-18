@@ -30,13 +30,23 @@
     return {
       questions: Object.assign({}, Share.DEFAULT_QUESTIONS),
       backupKey: '',
-      lastTab: ''
+      lastTab: '',
+      lastView: 'main',          // 앱을 다시 열 때 보여줄 화면: main | schedule
+      team: [],                  // 팀원 명단 (이름 문자열)
+      supplyDefaults: ['본드', '장갑']  // 새 현장에 자동으로 깔리는 부자재
     };
   }
   function defaultState() {
     return { version: 1, clients: [], sites: [], photos: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
   }
-  function blankSite(clientId, color) {
+  function supplyRows(names) {
+    return (names || []).map(function (n) { return { name: String(n || '').trim(), ready: false }; })
+      .filter(function (r) { return r.name; });
+  }
+  function currentSupplyDefaults() {
+    return (state && state.settings && state.settings.supplyDefaults) || defaultSettings().supplyDefaults;
+  }
+  function blankSite(clientId, color, supplyDefaults) {
     var now = Date.now();
     var s = { id: genId('s'), clientId: clientId, color: color, createdAt: now, updatedAt: now };
     Share.FIELDS.forEach(function (f) {
@@ -44,15 +54,34 @@
       else if (f.type === 'films') s[f.key] = [];
       else s[f.key] = '';
     });
+    // 일정: 1일차 = 시작날짜(비어있음), 부자재는 설정의 기본 항목 복사
+    s.days = [{ date: '', staff: [] }];
+    s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     return s;
   }
+  function cleanStaff(arr) {
+    var out = [];
+    (Array.isArray(arr) ? arr : []).forEach(function (n) {
+      var v = String(n == null ? '' : n).trim();
+      if (v && out.indexOf(v) === -1) out.push(v);
+    });
+    return out;
+  }
   // 서버/구버전에서 온 현장 객체에 누락된 항목을 기본값으로 채움
-  function normalizeSite(raw) {
-    var s = Object.assign(blankSite(raw.clientId, raw.color || 0), raw);
+  // 일정 필드(2026-09-19 추가): films[].ready, days, supplies 가 없던 현장을 보정한다
+  function normalizeSite(raw, supplyDefaults) {
+    var s = Object.assign(blankSite(raw.clientId, raw.color || 0, supplyDefaults), raw);
     Share.FIELDS.forEach(function (f) {
       if (f.type === 'select' && (!s[f.key] || typeof s[f.key] !== 'object')) s[f.key] = { v: '미확인', memo: '' };
       if (f.type === 'films' && !Array.isArray(s[f.key])) s[f.key] = [];
     });
+    s.films = s.films.map(function (r) { return Object.assign({ place: '', code: '', ready: false }, r || {}, { ready: !!(r && r.ready) }); });
+    if (!Array.isArray(s.days) || !s.days.length) s.days = [{ date: String(s.date || ''), staff: [] }];
+    s.days = s.days.map(function (d) { return { date: String((d && d.date) || ''), staff: cleanStaff(d && d.staff) }; });
+    // 1일차는 시작날짜 칸과 같아야 한다 (복원 등으로 어긋났으면 시작날짜 기준으로 밀기)
+    if (s.days[0].date !== String(s.date || '')) s.days = Share.shiftDays(s.days, s.date || '');
+    if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
+    else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     return s;
   }
   function normalizeClient(raw) {
@@ -76,11 +105,12 @@
     if (raw) { try { parsed = JSON.parse(raw); } catch (e) { parsed = null; } }
     state = defaultState();
     if (parsed) {
-      state.clients = (parsed.clients || []).map(normalizeClient);
-      state.sites = (parsed.sites || []).map(normalizeSite);
-      state.photos = (parsed.photos || []).map(normalizePhoto);
+      // 설정을 먼저 합쳐야 현장 보정(부자재 기본 항목)이 설정값을 쓸 수 있다
       state.settings = Object.assign(defaultSettings(), parsed.settings || {});
       state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (parsed.settings || {}).questions || {});
+      state.clients = (parsed.clients || []).map(normalizeClient);
+      state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
+      state.photos = (parsed.photos || []).map(normalizePhoto);
       state.syncQueue = parsed.syncQueue || [];
       seq = state.syncQueue.reduce(function (m, o) { return Math.max(m, o.seq || 0); }, seq);
       state.lastSyncAt = parsed.lastSyncAt || 0;
@@ -106,7 +136,7 @@
 
   // 설정 중 서버로 보낼 것만 (백업키·마지막 탭은 폰에만)
   function settingsForSync() {
-    return { questions: state.settings.questions };
+    return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults };
   }
 
   // ---------- 거래처 ----------
@@ -165,10 +195,71 @@
   function updateSite(id, patch) {
     var s = getSite(id);
     if (!s) return null;
+    // 시작날짜가 바뀌면 1일차가 따라가고 2일차 이후도 같은 일수만큼 밀린다
+    if (patch && Object.prototype.hasOwnProperty.call(patch, 'date') && String(patch.date || '') !== String(s.date || '')) {
+      patch = Object.assign({}, patch, { days: Share.shiftDays(s.days, patch.date || '') });
+    }
     Object.assign(s, patch, { updatedAt: Date.now() });
     commit({ op: 'upsert', type: 'site', id: s.id, data: s });
     return s;
   }
+  // ---------- 일정: 인원 / 일차 / 준비 체크 ----------
+  function dayRows(s) { return (s.days || []).map(function (d) { return { date: d.date, staff: d.staff.slice() }; }); }
+  function addStaff(siteId, dayIndex, name) {
+    var s = getSite(siteId); if (!s || !s.days[dayIndex]) return null;
+    var v = String(name == null ? '' : name).trim();
+    if (!v || s.days[dayIndex].staff.indexOf(v) !== -1) return s;
+    var days = dayRows(s); days[dayIndex].staff.push(v);
+    return updateSite(siteId, { days: days });
+  }
+  function removeStaff(siteId, dayIndex, name) {
+    var s = getSite(siteId); if (!s || !s.days[dayIndex]) return null;
+    var days = dayRows(s);
+    days[dayIndex].staff = days[dayIndex].staff.filter(function (n) { return n !== name; });
+    return updateSite(siteId, { days: days });
+  }
+  // 마지막 일차 다음 날을 붙인다. 마지막 날짜가 비어있으면 빈 날짜로
+  function addDay(siteId) {
+    var s = getSite(siteId); if (!s) return null;
+    var days = dayRows(s), last = days.length ? days[days.length - 1].date : '';
+    days.push({ date: Share.addDays(last, 1), staff: [] });
+    return updateSite(siteId, { days: days });
+  }
+  // 1일차(i=0)는 시작날짜 칸이 주인이라 여기서 못 지우고 못 바꾼다
+  function removeDay(siteId, i) {
+    var s = getSite(siteId); if (!s || i < 1 || !s.days[i]) return null;
+    var days = dayRows(s); days.splice(i, 1);
+    return updateSite(siteId, { days: days });
+  }
+  function setDayDate(siteId, i, iso) {
+    var s = getSite(siteId); if (!s || i < 1 || !s.days[i]) return null;
+    var days = dayRows(s); days[i].date = String(iso || '');
+    return updateSite(siteId, { days: days });
+  }
+  function toggleFilm(siteId, i) {
+    var s = getSite(siteId); if (!s || !s.films[i]) return null;
+    var films = s.films.map(function (r) { return Object.assign({}, r); });
+    films[i].ready = !films[i].ready;
+    return updateSite(siteId, { films: films });
+  }
+  function toggleSupply(siteId, i) {
+    var s = getSite(siteId); if (!s || !s.supplies[i]) return null;
+    var sup = s.supplies.map(function (r) { return Object.assign({}, r); });
+    sup[i].ready = !sup[i].ready;
+    return updateSite(siteId, { supplies: sup });
+  }
+  function addSupply(siteId, name) {
+    var s = getSite(siteId); if (!s) return null;
+    var v = String(name == null ? '' : name).trim();
+    if (!v || s.supplies.some(function (r) { return r.name === v; })) return s;
+    return updateSite(siteId, { supplies: s.supplies.concat([{ name: v, ready: false }]) });
+  }
+  function removeSupply(siteId, i) {
+    var s = getSite(siteId); if (!s || !s.supplies[i]) return null;
+    var sup = s.supplies.slice(); sup.splice(i, 1);
+    return updateSite(siteId, { supplies: sup });
+  }
+
   function deleteSite(id) {
     state.sites = state.sites.filter(function (s) { return s.id !== id; });
     commit({ op: 'delete', type: 'site', id: id });
@@ -361,9 +452,14 @@
         return res.json();
       })
       .then(function (data) {
-        var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab };
+        var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab, lastView: state.settings.lastView };
+        var ds = data.settings || {};
+        state.settings = Object.assign(defaultSettings(), { team: ds.team, supplyDefaults: ds.supplyDefaults }, keep);
+        if (!Array.isArray(state.settings.team)) state.settings.team = [];
+        if (!Array.isArray(state.settings.supplyDefaults)) state.settings.supplyDefaults = defaultSettings().supplyDefaults;
+        state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, ds.questions || {});
         state.clients = (data.clients || []).map(normalizeClient);
-        state.sites = (data.sites || []).map(normalizeSite);
+        state.sites = (data.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
         var metas = [], chunksById = {};
         (data.photos || []).forEach(function (r) {
           if (!r || !r.id) return;
@@ -375,8 +471,6 @@
           var joined = Share.joinChunks(chunksById[m.id]);
           return joined ? putFull(m.id, joined).catch(function () { /* 저장 실패해도 나머지는 복원 */ }) : null;
         }).filter(Boolean);
-        state.settings = Object.assign(defaultSettings(), keep);
-        state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (data.settings && data.settings.questions) || {});
         state.syncQueue = [];
         state.lastSyncAt = Date.now();
         state.lastSyncError = '';
@@ -403,6 +497,8 @@
     clients: clients, getClient: getClient, addClient: addClient, updateClient: updateClient,
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
+    addStaff: addStaff, removeStaff: removeStaff, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
+    toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
     setSettings: setSettings,

@@ -334,6 +334,119 @@ function reset() {
     assert.strictEqual(n, 2);
   });
 
+
+  console.log('일정 — 데이터 보정');
+  await test('구버전 현장 load: films.ready=false, days=[시작날짜], supplies=기본값', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '구', date: '2026-09-19', films: [{ place: 'a', code: 'b' }] }
+    ], settings: { questions: {} }, syncQueue: [] });
+    Store.load();
+    const s = Store.getSite('s1');
+    assert.strictEqual(s.films[0].ready, false);
+    assert.deepStrictEqual(s.days, [{ date: '2026-09-19', staff: [] }]);
+    assert.deepStrictEqual(s.supplies.map(x => x.name), ['본드', '장갑']);
+    assert.ok(s.supplies.every(x => x.ready === false));
+  });
+  await test('설정의 부자재 기본값이 3개면 보정도 3개, supplies 가 이미 있으면(빈 배열이라도) 그대로', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '구', date: '' },
+      { id: 's2', clientId: 'c1', color: 0, name: '빈', date: '', supplies: [] }
+    ], settings: { supplyDefaults: ['본드', '장갑', '칼날'] }, syncQueue: [] });
+    Store.load();
+    assert.strictEqual(Store.getSite('s1').supplies.length, 3);
+    assert.deepStrictEqual(Store.getSite('s2').supplies, []);
+  });
+  await test('days[0].date 가 시작날짜와 어긋나면 시작날짜 기준으로 민다', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '구', date: '2026-09-22',
+        days: [{ date: '2026-09-19', staff: ['김기사'] }, { date: '2026-09-20', staff: [' ', '박기사'] }] }
+    ], settings: {}, syncQueue: [] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite('s1').days, [{ date: '2026-09-22', staff: ['김기사'] }, { date: '2026-09-23', staff: ['박기사'] }]);
+  });
+  await test('addSite: supplies 는 기본값 복사본, days 1줄', () => {
+    reset();
+    const c = Store.addClient('A');
+    const s = Store.addSite(c.id);
+    assert.deepStrictEqual(s.days, [{ date: '', staff: [] }]);
+    assert.deepStrictEqual(s.supplies.map(x => x.name), ['본드', '장갑']);
+    s.supplies[0].name = '변경';
+    assert.strictEqual(Store.state.settings.supplyDefaults[0], '본드', '참조 공유 아님');
+  });
+  await test('settingsForSync: team/supplyDefaults 포함, backupKey/lastTab/lastView 제외', () => {
+    reset();
+    Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
+    const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
+    assert.strictEqual(op.type, 'settings');
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['questions', 'supplyDefaults', 'team']);
+    assert.deepStrictEqual(op.data.team, ['김기사']);
+  });
+
+  console.log('일정 — 현장 변경');
+  await test('updateSite({date}): 일차가 같이 밀리고 큐에 upsert 1건', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.updateSite(s.id, { date: '2026-09-19' });
+    Store.addDay(s.id);
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-19', '2026-09-20']);
+    const before = Store.state.syncQueue.length;
+    Store.updateSite(s.id, { date: '2026-09-22' });
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-22', '2026-09-23']);
+    assert.strictEqual(Store.state.syncQueue.length, before, '같은 현장 upsert 는 병합됨');
+  });
+  await test('addStaff/removeStaff: 공백 trim, 빈 값·중복 무시', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.addStaff(s.id, 0, ' 김기사 ');
+    Store.addStaff(s.id, 0, '김기사');
+    Store.addStaff(s.id, 0, '   ');
+    Store.addStaff(s.id, 0, '박기사');
+    assert.deepStrictEqual(Store.getSite(s.id).days[0].staff, ['김기사', '박기사']);
+    Store.removeStaff(s.id, 0, '김기사');
+    assert.deepStrictEqual(Store.getSite(s.id).days[0].staff, ['박기사']);
+    Store.addStaff(s.id, 5, '없는날'); // 없는 일차는 무시
+    assert.strictEqual(Store.getSite(s.id).days.length, 1);
+  });
+  await test('addDay/removeDay/setDayDate: 마지막 +1, 1일차는 못 지우고 못 바꿈', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.updateSite(s.id, { date: '2026-09-30' });
+    Store.addDay(s.id); Store.addDay(s.id);
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-30', '2026-10-01', '2026-10-02']);
+    Store.removeDay(s.id, 0);
+    assert.strictEqual(Store.getSite(s.id).days.length, 3);
+    Store.removeDay(s.id, 1);
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-30', '2026-10-02']);
+    Store.setDayDate(s.id, 1, '2026-10-05');
+    Store.setDayDate(s.id, 0, '2026-10-05');
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['2026-09-30', '2026-10-05']);
+    assert.strictEqual(Store.getSite(s.id).date, '2026-09-30');
+  });
+  await test('addDay: 시작날짜가 없으면 빈 날짜 줄', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.addDay(s.id);
+    assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['', '']);
+  });
+  await test('toggleFilm/toggleSupply/addSupply/removeSupply', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.updateSite(s.id, { films: [{ place: 'a', code: 'PS035' }] });
+    Store.toggleFilm(s.id, 0);
+    assert.strictEqual(Store.getSite(s.id).films[0].ready, true);
+    Store.toggleFilm(s.id, 0);
+    assert.strictEqual(Store.getSite(s.id).films[0].ready, false);
+    Store.toggleSupply(s.id, 1);
+    assert.strictEqual(Store.getSite(s.id).supplies[1].ready, true);
+    Store.addSupply(s.id, ' 칼날 '); Store.addSupply(s.id, ''); Store.addSupply(s.id, '칼날');
+    assert.deepStrictEqual(Store.getSite(s.id).supplies.map(x => x.name), ['본드', '장갑', '칼날']);
+    Store.removeSupply(s.id, 0);
+    assert.deepStrictEqual(Store.getSite(s.id).supplies.map(x => x.name), ['장갑', '칼날']);
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
