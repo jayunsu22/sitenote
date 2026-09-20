@@ -549,6 +549,19 @@
     return t;
   }
   function clientName(site) { var c = Store.getClient(site.clientId); return c ? c.name : ''; }
+  // 업체명 조각: 탭하면 그 업체 탭이 열린 거래처 화면으로 간다
+  function clientLink(site) {
+    var el = document.createElement('button'); el.type = 'button'; el.className = 'sch-client';
+    el.textContent = clientName(site) || '(거래처 없음)';
+    el.title = '이 업체의 현장 목록 보기';
+    el.onclick = function (e) {
+      e.stopPropagation();
+      currentClientId = site.clientId;
+      if (state.settings.lastTab !== site.clientId) Store.setSettings({ lastTab: site.clientId });
+      go('');
+    };
+    return el;
+  }
   // 펼침 카드: 제목(탭 → 현장 상세) + 👤 칩 + 🎞 체크 + 🧰 체크. 체크·인원은 그 자리에서 바뀌고 즉시 저장
   function renderScheduleCard(entry, date, dupNames) {
     var s = entry.site, id = s.id;
@@ -556,7 +569,7 @@
     var head = document.createElement('div'); head.className = 'sch-card-head';
     var title = document.createElement('button'); title.type = 'button'; title.className = 'sch-title'; title.textContent = entryTitle(entry);
     title.onclick = function () { go('#site/' + id); };
-    var cl = document.createElement('span'); cl.className = 'sch-client'; cl.textContent = clientName(s);
+    var cl = clientLink(s);
     var fold = document.createElement('button'); fold.type = 'button'; fold.className = 'sch-fold'; fold.textContent = '︿'; fold.title = '접기';
     fold.onclick = function () { expandedIds[id + '@' + date] = false; renderSchedule(); };
     head.appendChild(title); head.appendChild(cl); head.appendChild(fold);
@@ -612,13 +625,18 @@
   // 접힌 줄: 제목 · 👤이름 · 🎞 r/t · 🧰 r/t · 점(빨강=미준비/인원없음, 초록=준비 완료)
   function renderScheduleRow(entry, date) {
     var s = entry.site;
-    var row = document.createElement('button'); row.type = 'button'; row.className = 'sch-row color-b-' + (s.color || 0);
+    // 줄 전체가 탭 대상이지만 안에 업체명 버튼이 있어서 <button> 대신 div[role=button]
+    var row = document.createElement('div'); row.className = 'sch-row color-b-' + (s.color || 0);
+    row.setAttribute('role', 'button'); row.tabIndex = 0;
     var c = Share.readyCount(s);
     var staff = ((s.days[entry.dayIndex] || {}).staff || []);
     var meta = '👤' + (staff.length ? staff.join(',') : '미배정') + ' · 🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
-    row.innerHTML = '<span class="sch-row-title">' + esc(entryTitle(entry)) + '</span>' +
-      '<span class="sch-row-meta">' + esc(meta) + '</span>' +
-      '<span class="dot' + (Share.isReady(s) ? ' ok' : '') + '"></span>';
+    var head = document.createElement('span'); head.className = 'sch-row-head';
+    var t = document.createElement('span'); t.className = 'sch-row-title'; t.textContent = entryTitle(entry);
+    head.appendChild(t); head.appendChild(clientLink(s));
+    row.appendChild(head);
+    var m = document.createElement('span'); m.className = 'sch-row-meta'; m.textContent = meta; row.appendChild(m);
+    var dot = document.createElement('span'); dot.className = 'dot' + (Share.isReady(s) ? ' ok' : ''); row.appendChild(dot);
     var strip = document.createElement('span'); strip.className = 'stage-strip stage-strip-sm';
     renderStageStrip(strip, s, { short: true });
     row.appendChild(strip);

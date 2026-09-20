@@ -257,7 +257,12 @@ textarea { resize: vertical; }
 .sch-card { border-radius: var(--radius); padding: 10px 12px 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.06); }
 .sch-card-head { display: flex; align-items: flex-start; gap: 6px; }
 .sch-title { flex: 1; min-width: 0; text-align: left; border: none; background: transparent; padding: 0; font-size: 16px; font-weight: 800; color: var(--text); word-break: keep-all; line-height: 1.3; }
-.sch-client { flex: none; font-size: 12px; font-weight: 700; color: #4b5563; padding-top: 3px; }
+.sch-client { flex: none; border: 1px solid rgba(0,0,0,0.15); border-radius: 999px; background: rgba(255,255,255,0.6); padding: 3px 9px;
+  font-size: 12px; font-weight: 700; color: #374151; line-height: 1.2; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+.sch-client:active { background: #e5e7eb; }
+.sch-row-head { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.sch-row-head .sch-row-title { flex: 1; }
+.sch-row .sch-client { background: #f3f4f6; }
 .sch-fold { flex: none; width: 28px; height: 24px; border: none; background: transparent; color: #4b5563; font-size: 14px; padding: 0; }
 .sch-line { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; }
 .sch-ico { flex: none; width: 22px; font-size: 15px; line-height: 28px; }
@@ -270,7 +275,7 @@ textarea { resize: vertical; }
 .sch-chk.on .box::after { content: '✓'; display: block; color: #fff; font-size: 12px; font-weight: 800; line-height: 14px; text-align: center; }
 /* 접힌 줄 */
 /* 제목 한 줄 + 요약 한 줄, 오른쪽에 점. 제목이 잘리지 않게 두 줄로 */
-.sch-row { display: grid; grid-template-columns: 1fr 14px; grid-template-rows: auto auto auto; column-gap: 8px; row-gap: 2px; align-items: center; width: 100%; text-align: left;
+.sch-row { display: grid; grid-template-columns: 1fr 14px; grid-template-rows: auto auto auto; column-gap: 8px; row-gap: 2px; align-items: center; width: 100%; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none;
   border: none; border-left: 6px solid var(--c7); border-radius: 10px; background: var(--card); padding: 8px 12px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
 .sch-row-title { min-width: 0; font-size: 14px; font-weight: 700; color: var(--text); word-break: keep-all; line-height: 1.3; }
 .sch-row-meta { min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
