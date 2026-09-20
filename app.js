@@ -656,8 +656,8 @@
     w.onclick = function () { var r = onToggle(); w.classList.toggle('on', !!r); };
     return w;
   }
-  // 접힌 줄에서 가장 크게 보여줄 인원 줄: 👤 이름들 + 배치/필요 뱃지 + 부족 경고
-  // (인원 배정이 제일 중요해서 필름·부자재 줄보다 글씨를 키웠다)
+  // 접힌 줄에서 가장 크게 보여줄 인원 줄: 👤 이름들 + 배치/필요 뱃지
+  // 부족한 수는 빨간 뱃지(3/10)와 빨간 이름으로 이미 드러나서 '⚠ N명 부족' 알약은 안 붙인다 (2026-09-20)
   function staffBigLine(site, dayIndex) {
     var st = Share.staffStatus(site, dayIndex);
     var names = Share.daysOf(site)[dayIndex] ? (Share.daysOf(site)[dayIndex].staff || []) : [];
@@ -667,26 +667,20 @@
     nm.textContent = names.length ? names.join(' · ') : '미배정';
     line.appendChild(ico); line.appendChild(nm);
     line.appendChild(staffCountBadge(site, dayIndex, true));
-    if (st.short) {
-      var w = document.createElement('span'); w.className = 'sch-warn'; w.textContent = '⚠ ' + st.short + '명 부족';
-      line.appendChild(w);
-    }
     return line;
   }
-  // 접힌 줄: 제목 / 👤이름(크게) / 🎞 r/t · 🧰 r/t · 점(빨강=미준비/인원부족, 초록=준비 완료)
+  // 접힌 줄: 제목 / 👤이름(크게) / 점(빨강=미준비·인원부족, 초록=준비 완료) / 1일차면 필름 단계 띠
+  // 필름·부자재 개수(🎞 0/2 · 🧰 0/2)는 펼치면 체크박스로 보이니 접힌 줄에서는 뺐다 (2026-09-20)
   function renderScheduleRow(entry, date) {
     var s = entry.site;
     // 줄 전체가 탭 대상이지만 안에 업체명 버튼이 있어서 <button> 대신 div[role=button]
     var row = document.createElement('div'); row.className = 'sch-row color-b-' + (s.color || 0);
     row.setAttribute('role', 'button'); row.tabIndex = 0;
-    var c = Share.readyCount(s);
-    var meta = '🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
     var head = document.createElement('span'); head.className = 'sch-row-head';
     var t = document.createElement('span'); t.className = 'sch-row-title'; t.textContent = entryTitle(entry);
     head.appendChild(t); head.appendChild(clientLink(s));
     row.appendChild(head);
     row.appendChild(staffBigLine(s, entry.dayIndex));
-    var m = document.createElement('span'); m.className = 'sch-row-meta'; m.textContent = meta; row.appendChild(m);
     var dot = document.createElement('span'); dot.className = 'dot' + (Share.isReady(s) ? ' ok' : ''); row.appendChild(dot);
     if (entry.dayIndex === 0) { // 필름 단계 띠는 1일차에만
       var strip = document.createElement('span'); strip.className = 'stage-strip stage-strip-sm';
