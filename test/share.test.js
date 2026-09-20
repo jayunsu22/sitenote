@@ -341,6 +341,14 @@ test('isReady: 필름 수령 + 전부 체크 + 인원 1명 이상', () => {
   assert.ok(!Share.isReady(Object.assign(s, { days: [{ date: '2026-09-19', staff: ['김기사'] }], supplies: [{ name: '본드', ready: false }] })));
   assert.ok(Share.isReady(Object.assign(blank(), { days: [{ date: '', staff: ['김기사'] }], filmStage: 3 })), '필름·부자재 없으면 인원만 보면 됨');
 });
+test('isUrgent: 시공일 3일 전부터(오늘·지난 날 포함) true, 4일 전은 false, 날짜 없으면 false', () => {
+  const t = '2026-09-20';
+  assert.ok(Share.isUrgent('2026-09-23', t));
+  assert.ok(!Share.isUrgent('2026-09-24', t));
+  assert.ok(Share.isUrgent('2026-09-20', t));
+  assert.ok(Share.isUrgent('2026-09-01', t), '지났는데 미완료면 계속 급함');
+  assert.ok(!Share.isUrgent('', t));
+});
 test('filmStageOf: 0~3 만, 그 외는 0(미확정)', () => {
   assert.strictEqual(Share.FILM_STAGES.length, 4);
   assert.strictEqual(Share.filmStageOf({ filmStage: 2 }), 2);

@@ -576,7 +576,7 @@
     card.appendChild(head);
 
     var stageLine = document.createElement('div'); stageLine.className = 'stage-strip';
-    renderStageStrip(stageLine, s, { short: true, onPick: function (k) { Store.setFilmStage(id, k); renderSchedule(); } });
+    renderStageStrip(stageLine, s, { short: true, date: date, onPick: function (k) { Store.setFilmStage(id, k); renderSchedule(); } });
     card.appendChild(stageLine);
 
     var staffLine = document.createElement('div'); staffLine.className = 'sch-line';
@@ -638,7 +638,7 @@
     var m = document.createElement('span'); m.className = 'sch-row-meta'; m.textContent = meta; row.appendChild(m);
     var dot = document.createElement('span'); dot.className = 'dot' + (Share.isReady(s) ? ' ok' : ''); row.appendChild(dot);
     var strip = document.createElement('span'); strip.className = 'stage-strip stage-strip-sm';
-    renderStageStrip(strip, s, { short: true });
+    renderStageStrip(strip, s, { short: true, date: date });
     row.appendChild(strip);
     row.onclick = function () { expandedIds[s.id + '@' + date] = true; renderSchedule(); };
     return row;
@@ -671,11 +671,13 @@
   }
 
   // ---------- 필름 준비 단계 (현장 상세 + 일정 화면 공용) ----------
-  // 4칸 띠: 지난 단계·현재 단계는 파랑, 아직 안 온 단계는 빨강 깜빡임. 미확정(0)이면 네 칸 다 빨강.
+  // 4칸 띠: 지난 단계·현재 단계는 파랑, 아직 안 온 단계는 빨강. 미확정(0)이면 네 칸 다 빨강.
+  // 깜빡임은 눈이 아프니 시공일 3일 전부터만 (opts.date 기준, 없으면 site.date).
   // opts.onPick(k) 를 주면 탭해서 단계를 바꿀 수 있다
   function renderStageStrip(container, site, opts) {
     container.innerHTML = '';
     var k = Share.filmStageOf(site), last = Share.FILM_STAGES.length - 1;
+    var urgent = Share.isUrgent((opts && opts.date) || site.date);
     Share.FILM_STAGES.forEach(function (label, i) {
       var el = document.createElement(opts && opts.onPick ? 'button' : 'span');
       if (el.tagName === 'BUTTON') el.type = 'button';
@@ -684,6 +686,7 @@
       else if (i < k) cls += ' done';
       else if (i === k) cls += ' now';
       else cls += ' todo';
+      if (cls.indexOf('todo') !== -1 && urgent) cls += ' blink';
       if (i === last && k === last) cls += ' final';
       el.className = cls;
       el.textContent = (opts && opts.short) ? label.replace('필름 ', '') : label;

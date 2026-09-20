@@ -295,6 +295,12 @@
     var k = parseInt(site && site.filmStage, 10);
     return (k >= 0 && k < FILM_STAGES.length) ? k : 0;
   }
+  // 시공일이 3일 안(오늘·지난 날 포함)이면 '급함' — 이때만 미완료 단계가 깜빡인다. 그 전엔 빨간색만
+  var URGENT_DAYS = 3;
+  function isUrgent(dateIso, today) {
+    if (!isIsoDate(dateIso)) return false;
+    return dayDiff(today || todayIso(), dateIso) <= URGENT_DAYS;
+  }
   // 준비 카운트: 필름은 번호가 빈 줄 제외
   function readyCount(site) {
     var films = ((site && site.films) || []).filter(function (r) { return r && str(r.code) !== ''; });
@@ -400,6 +406,7 @@
     isReady: isReady,
     staffLine: staffLine,
     FILM_STAGES: FILM_STAGES,
+    isUrgent: isUrgent,
     filmStageOf: filmStageOf,
     datesLine: datesLine,
     monthGrid: monthGrid

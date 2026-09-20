@@ -318,7 +318,8 @@ textarea { resize: vertical; }
 .stage.done { background: #bfdbfe; color: #1e3a8a; }
 .stage.now { background: var(--primary); color: #fff; }
 .stage.final { background: var(--success); color: #fff; }
-.stage.todo { background: var(--danger); color: #fff; animation: stage-blink 1s ease-in-out infinite; }
+.stage.todo { background: var(--danger); color: #fff; }
+.stage.todo.blink { animation: stage-blink 1s ease-in-out infinite; }
 @keyframes stage-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .stage-strip-lg .stage.todo { animation-duration: 1.2s; }
 .btn-green { background: var(--success); color: #fff; border-color: var(--success); }
