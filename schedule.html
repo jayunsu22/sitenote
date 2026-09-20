@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>📅 현장 일정</title>
+  <!-- 홈 화면 바로가기용 얇은 페이지 (2026-09-20).
+       여는 즉시 일정 화면으로 보낸다. 아이콘을 따로 걸어둬서 '홈 화면에 추가' 로 만든
+       바로가기가 달력 아이콘(일정)으로 나온다 — 앱 아이콘과 구분되게. -->
+  <link rel="icon" href="icon-schedule-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-schedule-192.png">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="현장 일정">
+  <script>location.replace('./index.html#schedule');</script>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #2563eb; color: #fff; font-family: -apple-system, "Noto Sans KR", sans-serif; }
+    a { color: #fff; font-size: 18px; font-weight: 800; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <a href="./index.html#schedule">📅 일정 열기</a>
+</body>
+</html>
