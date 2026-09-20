@@ -583,8 +583,17 @@
     }
 
     // 👤 줄: 그날 배치된 사람 칩 + 오른쪽에 배치/필요(3/3) 뱃지. 모자라면 빨갛게
-    var staffLine = document.createElement('div'); staffLine.className = 'sch-line';
-    staffLine.innerHTML = '<span class="sch-ico">👤</span>';
+    // 인원 칸: 머리줄(👤 인원 · 배치/필요 · 부족 경고) + 그 아래 이름 칩. 카드에서 제일 눈에 띄게
+    var stf = Share.staffStatus(s, entry.dayIndex);
+    var staffLine = document.createElement('div'); staffLine.className = 'sch-staff-box' + (stf.ok ? '' : ' short');
+    var sHead = document.createElement('div'); sHead.className = 'sch-staff-head';
+    sHead.innerHTML = '<span class="sch-staff-ico">👤</span><span class="sch-staff-label">인원</span>';
+    sHead.appendChild(staffCountBadge(s, entry.dayIndex, true));
+    if (stf.short) {
+      var cw = document.createElement('span'); cw.className = 'sch-warn'; cw.textContent = '⚠ ' + stf.short + '명 부족';
+      sHead.appendChild(cw);
+    }
+    staffLine.appendChild(sHead);
     var chips = document.createElement('div'); chips.className = 'chips';
     renderChips(chips, (s.days[entry.dayIndex] || {}).staff || [], {
       dup: dupNames,
@@ -592,7 +601,6 @@
       onAdd: function () { openStaffPicker(id, entry.dayIndex, renderSchedule); }
     });
     staffLine.appendChild(chips);
-    staffLine.appendChild(staffCountBadge(s, entry.dayIndex));
     card.appendChild(staffLine);
     // 필요 인원을 정해둔 현장은 총 필요 인원과 날짜별 배치 계획을 한 줄로 (여러 날일 때만 — 하루면 위 뱃지로 충분)
     var plan = staffPlanLine(s, entry.dayIndex);
@@ -648,23 +656,36 @@
     w.onclick = function () { var r = onToggle(); w.classList.toggle('on', !!r); };
     return w;
   }
-  // 접힌 줄: 제목 · 👤이름 · 🎞 r/t · 🧰 r/t · 점(빨강=미준비/인원없음, 초록=준비 완료)
+  // 접힌 줄에서 가장 크게 보여줄 인원 줄: 👤 이름들 + 배치/필요 뱃지 + 부족 경고
+  // (인원 배정이 제일 중요해서 필름·부자재 줄보다 글씨를 키웠다)
+  function staffBigLine(site, dayIndex) {
+    var st = Share.staffStatus(site, dayIndex);
+    var names = Share.daysOf(site)[dayIndex] ? (Share.daysOf(site)[dayIndex].staff || []) : [];
+    var line = document.createElement('span'); line.className = 'sch-staff' + (st.ok ? '' : ' short');
+    var ico = document.createElement('span'); ico.className = 'sch-staff-ico'; ico.textContent = '👤';
+    var nm = document.createElement('span'); nm.className = 'sch-staff-names';
+    nm.textContent = names.length ? names.join(' · ') : '미배정';
+    line.appendChild(ico); line.appendChild(nm);
+    line.appendChild(staffCountBadge(site, dayIndex, true));
+    if (st.short) {
+      var w = document.createElement('span'); w.className = 'sch-warn'; w.textContent = '⚠ ' + st.short + '명 부족';
+      line.appendChild(w);
+    }
+    return line;
+  }
+  // 접힌 줄: 제목 / 👤이름(크게) / 🎞 r/t · 🧰 r/t · 점(빨강=미준비/인원부족, 초록=준비 완료)
   function renderScheduleRow(entry, date) {
     var s = entry.site;
     // 줄 전체가 탭 대상이지만 안에 업체명 버튼이 있어서 <button> 대신 div[role=button]
     var row = document.createElement('div'); row.className = 'sch-row color-b-' + (s.color || 0);
     row.setAttribute('role', 'button'); row.tabIndex = 0;
     var c = Share.readyCount(s);
-    var staff = ((s.days[entry.dayIndex] || {}).staff || []);
-    var st = Share.staffStatus(s, entry.dayIndex);
-    // 인원은 '이름들 (배치/필요)', 모자라면 몇 명 부족한지까지
-    var staffTxt = (staff.length ? staff.join(',') : '미배정') +
-      (st.need ? ' (' + st.have + '/' + st.need + (st.short ? ' ⚠' + st.short + '명 부족' : '') + ')' : '');
-    var meta = '👤' + staffTxt + ' · 🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
+    var meta = '🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
     var head = document.createElement('span'); head.className = 'sch-row-head';
     var t = document.createElement('span'); t.className = 'sch-row-title'; t.textContent = entryTitle(entry);
     head.appendChild(t); head.appendChild(clientLink(s));
     row.appendChild(head);
+    row.appendChild(staffBigLine(s, entry.dayIndex));
     var m = document.createElement('span'); m.className = 'sch-row-meta'; m.textContent = meta; row.appendChild(m);
     var dot = document.createElement('span'); dot.className = 'dot' + (Share.isReady(s) ? ' ok' : ''); row.appendChild(dot);
     if (entry.dayIndex === 0) { // 필름 단계 띠는 1일차에만
@@ -767,9 +788,9 @@
   }
   // 배치/필요 인원 뱃지 — '3/3'(초록) '1/3'(빨강) '4/3'(파랑), 필요 인원을 안 정했으면 '3명'(회색)
   // 현장 상세와 일정 화면에서 같이 쓴다
-  function staffCountBadge(site, dayIndex) {
+  function staffCountBadge(site, dayIndex, big) {
     var st = Share.staffStatus(site, dayIndex);
-    var cls = 'cnt';
+    var cls = 'cnt' + (big ? ' lg' : '');
     if (st.need) cls += st.short ? ' short' : (st.over ? ' over' : ' ok');
     else if (!st.have) cls += ' short';
     var el = document.createElement('span'); el.className = cls;
@@ -830,7 +851,7 @@
         onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
         onAdd: function () { openStaffPicker(siteId, i, rerender); }
       });
-      row.appendChild(lb); row.appendChild(chips); row.appendChild(staffCountBadge(s, i));
+      row.appendChild(lb); row.appendChild(chips); row.appendChild(staffCountBadge(s, i, true));
       box.appendChild(row);
     });
     if (!Share.isIsoDate(s.days[0].date)) {
