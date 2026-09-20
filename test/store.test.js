@@ -447,6 +447,21 @@ function reset() {
     Store.addDay(s.id);
     assert.deepStrictEqual(Store.getSite(s.id).days.map(d => d.date), ['', '']);
   });
+  await test('filmStage: 기본 0, 구버전 보정 0, setFilmStage 범위 밖은 0', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    assert.strictEqual(s.filmStage, 0);
+    Store.setFilmStage(s.id, 2);
+    assert.strictEqual(Store.getSite(s.id).filmStage, 2);
+    Store.setFilmStage(s.id, 9);
+    assert.strictEqual(Store.getSite(s.id).filmStage, 0);
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '구', date: '' }, { id: 's2', clientId: 'c1', color: 0, name: '구', date: '', filmStage: 3 }
+    ], settings: {}, syncQueue: [] });
+    Store.load();
+    assert.strictEqual(Store.getSite('s1').filmStage, 0);
+    assert.strictEqual(Store.getSite('s2').filmStage, 3);
+  });
   await test('toggleFilm/toggleSupply/addSupply/removeSupply', () => {
     reset();
     const c = Store.addClient('A'); const s = Store.addSite(c.id);

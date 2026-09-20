@@ -329,15 +329,25 @@ test('readyCount: 필름은 번호 빈 줄 제외', () => {
   assert.deepStrictEqual(Share.readyCount(s), { films: [1, 2], supplies: [1, 2] });
   assert.deepStrictEqual(Share.readyCount(blank()), { films: [0, 0], supplies: [0, 0] });
 });
-test('isReady: 전부 체크 + 인원 1명 이상', () => {
+test('isReady: 필름 수령 + 전부 체크 + 인원 1명 이상', () => {
   const s = Object.assign(blank(), {
     films: [{ place: 'a', code: 'PS035', ready: true }], supplies: [{ name: '본드', ready: true }],
-    days: [{ date: '2026-09-19', staff: ['김기사'] }]
+    days: [{ date: '2026-09-19', staff: ['김기사'] }], filmStage: 3
   });
   assert.ok(Share.isReady(s));
+  assert.ok(!Share.isReady(Object.assign({}, s, { filmStage: 2 })), '필름 주문 단계면 아직 아님');
+  assert.ok(!Share.isReady(Object.assign({}, s, { filmStage: undefined })), '단계 없으면 미확정');
   assert.ok(!Share.isReady(Object.assign(s, { days: [{ date: '2026-09-19', staff: [] }] })), '인원 0');
   assert.ok(!Share.isReady(Object.assign(s, { days: [{ date: '2026-09-19', staff: ['김기사'] }], supplies: [{ name: '본드', ready: false }] })));
-  assert.ok(Share.isReady(Object.assign(blank(), { days: [{ date: '', staff: ['김기사'] }] })), '필름·부자재 없으면 인원만 보면 됨');
+  assert.ok(Share.isReady(Object.assign(blank(), { days: [{ date: '', staff: ['김기사'] }], filmStage: 3 })), '필름·부자재 없으면 인원만 보면 됨');
+});
+test('filmStageOf: 0~3 만, 그 외는 0(미확정)', () => {
+  assert.strictEqual(Share.FILM_STAGES.length, 4);
+  assert.strictEqual(Share.filmStageOf({ filmStage: 2 }), 2);
+  assert.strictEqual(Share.filmStageOf({ filmStage: '3' }), 3);
+  assert.strictEqual(Share.filmStageOf({}), 0);
+  assert.strictEqual(Share.filmStageOf({ filmStage: 7 }), 0);
+  assert.strictEqual(Share.filmStageOf({ filmStage: -1 }), 0);
 });
 
 console.log('SCHEDULE — 공유 문구');

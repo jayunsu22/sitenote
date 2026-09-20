@@ -270,11 +270,11 @@ textarea { resize: vertical; }
 .sch-chk.on .box::after { content: '✓'; display: block; color: #fff; font-size: 12px; font-weight: 800; line-height: 14px; text-align: center; }
 /* 접힌 줄 */
 /* 제목 한 줄 + 요약 한 줄, 오른쪽에 점. 제목이 잘리지 않게 두 줄로 */
-.sch-row { display: grid; grid-template-columns: 1fr 14px; grid-template-rows: auto auto; column-gap: 8px; row-gap: 2px; align-items: center; width: 100%; text-align: left;
+.sch-row { display: grid; grid-template-columns: 1fr 14px; grid-template-rows: auto auto auto; column-gap: 8px; row-gap: 2px; align-items: center; width: 100%; text-align: left;
   border: none; border-left: 6px solid var(--c7); border-radius: 10px; background: var(--card); padding: 8px 12px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
 .sch-row-title { min-width: 0; font-size: 14px; font-weight: 700; color: var(--text); word-break: keep-all; line-height: 1.3; }
 .sch-row-meta { min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sch-row .dot { grid-column: 2; grid-row: 1 / span 2; }
+.sch-row .dot { grid-column: 2; grid-row: 1 / span 3; }
 .color-b-0 { border-left-color: var(--c0); } .color-b-1 { border-left-color: var(--c1); } .color-b-2 { border-left-color: var(--c2); } .color-b-3 { border-left-color: var(--c3); }
 .color-b-4 { border-left-color: var(--c4); } .color-b-5 { border-left-color: var(--c5); } .color-b-6 { border-left-color: var(--c6); } .color-b-7 { border-left-color: var(--c7); }
 .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
@@ -302,3 +302,18 @@ textarea { resize: vertical; }
 .cal-actions { display: flex; gap: 8px; }
 .cal-actions .btn-sm { flex: 1; padding: 11px; font-size: 14px; }
 .cal-actions .btn-sm.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* ---------- 필름 준비 단계 띠 (2026-09-20) ---------- */
+.sec-hint { font-weight: 400; color: var(--muted); }
+.stage-strip { display: flex; gap: 4px; }
+.stage-strip-lg { padding: 4px 12px 6px; }
+.stage-strip-sm { grid-column: 1; margin-top: 4px; }
+.stage { flex: 1; min-width: 0; text-align: center; border: none; border-radius: 6px; padding: 5px 2px; font-size: 12px; font-weight: 800;
+  line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #e5e7eb; color: #6b7280; }
+.stage-strip-lg .stage { padding: 12px 4px; font-size: 14px; border-radius: 10px; }
+.stage.done { background: #bfdbfe; color: #1e3a8a; }
+.stage.now { background: var(--primary); color: #fff; }
+.stage.final { background: var(--success); color: #fff; }
+.stage.todo { background: var(--danger); color: #fff; animation: stage-blink 1s ease-in-out infinite; }
+@keyframes stage-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.stage-strip-lg .stage.todo { animation-duration: 1.2s; }
+.btn-green { background: var(--success); color: #fff; border-color: var(--success); }

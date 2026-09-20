@@ -562,6 +562,10 @@
     head.appendChild(title); head.appendChild(cl); head.appendChild(fold);
     card.appendChild(head);
 
+    var stageLine = document.createElement('div'); stageLine.className = 'stage-strip';
+    renderStageStrip(stageLine, s, { short: true, onPick: function (k) { Store.setFilmStage(id, k); renderSchedule(); } });
+    card.appendChild(stageLine);
+
     var staffLine = document.createElement('div'); staffLine.className = 'sch-line';
     staffLine.innerHTML = '<span class="sch-ico">👤</span>';
     var chips = document.createElement('div'); chips.className = 'chips';
@@ -615,6 +619,9 @@
     row.innerHTML = '<span class="sch-row-title">' + esc(entryTitle(entry)) + '</span>' +
       '<span class="sch-row-meta">' + esc(meta) + '</span>' +
       '<span class="dot' + (Share.isReady(s) ? ' ok' : '') + '"></span>';
+    var strip = document.createElement('span'); strip.className = 'stage-strip stage-strip-sm';
+    renderStageStrip(strip, s, { short: true });
+    row.appendChild(strip);
     row.onclick = function () { expandedIds[s.id + '@' + date] = true; renderSchedule(); };
     return row;
   }
@@ -629,6 +636,11 @@
     renderColorPicker(s);
     var wrap = $('siteFields'); wrap.innerHTML = '';
     Share.FIELDS.forEach(function (f) {
+      // 필름준비과정알림: 필름/시공위치 바로 위. 4단계 중 하나를 탭해서 고른다 (2026-09-20)
+      if (f.key === 'films') {
+        var stageBox = document.createElement('div'); stageBox.className = 'sec'; stageBox.id = 'stageSec'; wrap.appendChild(stageBox);
+        renderStageSection(stageBox, s.id);
+      }
       wrap.appendChild(fieldRow(s, f));
       // 일정·인원 / 부자재 구역은 필름 줄 다음, 현장사진 앞에 둔다 (2026-09-19 일정관리)
       if (f.key === 'films') {
@@ -638,6 +650,35 @@
         renderSuppliesSection(supBox, s.id);
       }
     });
+  }
+
+  // ---------- 필름 준비 단계 (현장 상세 + 일정 화면 공용) ----------
+  // 4칸 띠: 지난 단계·현재 단계는 파랑, 아직 안 온 단계는 빨강 깜빡임. 미확정(0)이면 네 칸 다 빨강.
+  // opts.onPick(k) 를 주면 탭해서 단계를 바꿀 수 있다
+  function renderStageStrip(container, site, opts) {
+    container.innerHTML = '';
+    var k = Share.filmStageOf(site), last = Share.FILM_STAGES.length - 1;
+    Share.FILM_STAGES.forEach(function (label, i) {
+      var el = document.createElement(opts && opts.onPick ? 'button' : 'span');
+      if (el.tagName === 'BUTTON') el.type = 'button';
+      var cls = 'stage';
+      if (k === 0) cls += ' todo';                    // 아무것도 안 됨 - 전부 경고
+      else if (i < k) cls += ' done';
+      else if (i === k) cls += ' now';
+      else cls += ' todo';
+      if (i === last && k === last) cls += ' final';
+      el.className = cls;
+      el.textContent = (opts && opts.short) ? label.replace('필름 ', '') : label;
+      if (opts && opts.onPick) el.onclick = function (e) { e.stopPropagation(); opts.onPick(i); };
+      container.appendChild(el);
+    });
+  }
+  function renderStageSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    box.innerHTML = '<h3 class="sec-title">필름준비과정알림 <span class="sec-hint">— 지금 단계를 탭하세요</span></h3>';
+    var strip = document.createElement('div'); strip.className = 'stage-strip stage-strip-lg';
+    renderStageStrip(strip, s, { onPick: function (k) { Store.setFilmStage(siteId, k); renderStageSection(box, siteId); } });
+    box.appendChild(strip);
   }
 
   // ---------- 일정·인원 / 부자재 (현장 상세 + 일정 화면 공용 조각) ----------
@@ -820,6 +861,7 @@
   $('staffAdd').onclick = addStaffFromInput;
   $('staffInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addStaffFromInput(); } });
   $('staffClose').onclick = closeStaffPicker;
+  $('staffSave').onclick = closeStaffPicker;
   $('staffSheet').addEventListener('click', function (e) { if (e.target === $('staffSheet')) closeStaffPicker(); });
   function renderColorPicker(s) {
     var wrap = $('colorPicker'); wrap.innerHTML = '';

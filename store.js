@@ -57,6 +57,7 @@
     // 일정: 1일차 = 시작날짜(비어있음), 부자재는 설정의 기본 항목 복사
     s.days = [{ date: '', staff: [] }];
     s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
+    s.filmStage = 0; // 필름 미확정
     return s;
   }
   function cleanStaff(arr) {
@@ -80,6 +81,7 @@
     s.days = s.days.map(function (d) { return { date: String((d && d.date) || ''), staff: cleanStaff(d && d.staff) }; });
     // 1일차는 시작날짜 칸과 같아야 한다 (복원 등으로 어긋났으면 시작날짜 기준으로 밀기)
     if (s.days[0].date !== String(s.date || '')) s.days = Share.shiftDays(s.days, s.date || '');
+    s.filmStage = Share.filmStageOf(s);
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     return s;
@@ -249,6 +251,10 @@
     var s = getSite(siteId); if (!s || i < 1 || !s.days[i]) return null;
     var days = dayRows(s); days[i].date = String(iso || '');
     return updateSite(siteId, { days: days });
+  }
+  function setFilmStage(siteId, k) {
+    var s = getSite(siteId); if (!s) return null;
+    return updateSite(siteId, { filmStage: Share.filmStageOf({ filmStage: k }) });
   }
   function toggleFilm(siteId, i) {
     var s = getSite(siteId); if (!s || !s.films[i]) return null;
@@ -512,7 +518,7 @@
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
-    toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
+    setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
     setSettings: setSettings,

@@ -289,6 +289,12 @@
     return out;
   }
 
+  // 필름 준비 단계 (2026-09-20): 현장마다 하나. 수령(3)이 아니면 일정 화면에서 빨갛게 깜빡인다
+  var FILM_STAGES = ['필름 미확정', '필름 확정', '필름 주문', '필름 수령'];
+  function filmStageOf(site) {
+    var k = parseInt(site && site.filmStage, 10);
+    return (k >= 0 && k < FILM_STAGES.length) ? k : 0;
+  }
   // 준비 카운트: 필름은 번호가 빈 줄 제외
   function readyCount(site) {
     var films = ((site && site.films) || []).filter(function (r) { return r && str(r.code) !== ''; });
@@ -297,7 +303,9 @@
     return { films: [n(films), films.length], supplies: [n(sup), sup.length] };
   }
   // 필름·부자재 전부 체크(없으면 통과) + 인원이 한 명이라도 있어야 준비 완료
+  // 필름 단계가 '수령'이어야 준비 완료로 본다 (필름이 제 날짜에 없으면 공치는 일이라 가장 중요)
   function isReady(site) {
+    if (filmStageOf(site) !== FILM_STAGES.length - 1) return false;
     var c = readyCount(site);
     if (c.films[0] !== c.films[1] || c.supplies[0] !== c.supplies[1]) return false;
     return daysOf(site).some(function (d) { return staffOf(d).length > 0; });
@@ -391,6 +399,8 @@
     readyCount: readyCount,
     isReady: isReady,
     staffLine: staffLine,
+    FILM_STAGES: FILM_STAGES,
+    filmStageOf: filmStageOf,
     datesLine: datesLine,
     monthGrid: monthGrid
   };
