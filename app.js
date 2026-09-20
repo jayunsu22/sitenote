@@ -575,9 +575,12 @@
     head.appendChild(title); head.appendChild(cl); head.appendChild(fold);
     card.appendChild(head);
 
-    var stageLine = document.createElement('div'); stageLine.className = 'stage-strip';
-    renderStageStrip(stageLine, s, { short: true, date: date, onPick: function (k) { Store.setFilmStage(id, k); renderSchedule(); } });
-    card.appendChild(stageLine);
+    // 필름 단계 띠는 1일차에만 (필름은 1일차 전에 다 받아야 하니 2일차부터는 의미 없음)
+    if (entry.dayIndex === 0) {
+      var stageLine = document.createElement('div'); stageLine.className = 'stage-strip';
+      renderStageStrip(stageLine, s, { short: true, date: date, onPick: function (k) { Store.setFilmStage(id, k); renderSchedule(); } });
+      card.appendChild(stageLine);
+    }
 
     var staffLine = document.createElement('div'); staffLine.className = 'sch-line';
     staffLine.innerHTML = '<span class="sch-ico">👤</span>';
@@ -637,9 +640,11 @@
     row.appendChild(head);
     var m = document.createElement('span'); m.className = 'sch-row-meta'; m.textContent = meta; row.appendChild(m);
     var dot = document.createElement('span'); dot.className = 'dot' + (Share.isReady(s) ? ' ok' : ''); row.appendChild(dot);
-    var strip = document.createElement('span'); strip.className = 'stage-strip stage-strip-sm';
-    renderStageStrip(strip, s, { short: true, date: date });
-    row.appendChild(strip);
+    if (entry.dayIndex === 0) { // 필름 단계 띠는 1일차에만
+      var strip = document.createElement('span'); strip.className = 'stage-strip stage-strip-sm';
+      renderStageStrip(strip, s, { short: true, date: date });
+      row.appendChild(strip);
+    }
     row.onclick = function () { expandedIds[s.id + '@' + date] = true; renderSchedule(); };
     return row;
   }
