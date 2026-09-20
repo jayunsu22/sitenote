@@ -582,6 +582,7 @@
       card.appendChild(stageLine);
     }
 
+    // 👤 줄: 그날 배치된 사람 칩 + 오른쪽에 배치/필요(3/3) 뱃지. 모자라면 빨갛게
     var staffLine = document.createElement('div'); staffLine.className = 'sch-line';
     staffLine.innerHTML = '<span class="sch-ico">👤</span>';
     var chips = document.createElement('div'); chips.className = 'chips';
@@ -590,7 +591,12 @@
       onRemove: function (n) { Store.removeStaff(id, entry.dayIndex, n); renderSchedule(); },
       onAdd: function () { openStaffPicker(id, entry.dayIndex, renderSchedule); }
     });
-    staffLine.appendChild(chips); card.appendChild(staffLine);
+    staffLine.appendChild(chips);
+    staffLine.appendChild(staffCountBadge(s, entry.dayIndex));
+    card.appendChild(staffLine);
+    // 필요 인원을 정해둔 현장은 총 필요 인원과 날짜별 배치 계획을 한 줄로 (여러 날일 때만 — 하루면 위 뱃지로 충분)
+    var plan = staffPlanLine(s, entry.dayIndex);
+    if (plan) card.appendChild(plan);
 
     var filmLine = document.createElement('div'); filmLine.className = 'sch-line';
     filmLine.innerHTML = '<span class="sch-ico">🎞</span>';
@@ -618,6 +624,23 @@
     supLine.appendChild(sups); card.appendChild(supLine);
     return card;
   }
+  // 일정 카드 아래 한 줄: '총 3명 필요 · 1일차 3/3 · 2일차 2/3' — 여러 날 현장에서 배치 계획을 한눈에.
+  // 필요 인원을 안 정했거나 하루짜리면 위 뱃지로 충분하니 안 만든다 (null)
+  function staffPlanLine(site, dayIndex) {
+    var need = Share.needStaffOf(site);
+    var days = Share.daysOf(site);
+    if (!need || days.length < 2) return null;
+    var line = document.createElement('div'); line.className = 'sch-plan';
+    line.appendChild(document.createTextNode('총 ' + need + '명 필요'));
+    days.forEach(function (d, i) {
+      var st = Share.staffStatus(site, i);
+      var b = document.createElement('span');
+      b.className = 'plan-day' + (st.short ? ' short' : ' ok') + (i === dayIndex ? ' now' : '');
+      b.textContent = (i + 1) + '일차 ' + (d.date ? Share.shortDate(d.date) + ' ' : '') + st.have + '/' + st.need;
+      line.appendChild(b);
+    });
+    return line;
+  }
   // 라벨이 붙은 체크 항목 (일정 카드용). 탭하면 토글, 모양만 바꾼다
   function checkRow(label, ready, onToggle) {
     var w = document.createElement('button'); w.type = 'button'; w.className = 'sch-chk' + (ready ? ' on' : '');
@@ -633,7 +656,11 @@
     row.setAttribute('role', 'button'); row.tabIndex = 0;
     var c = Share.readyCount(s);
     var staff = ((s.days[entry.dayIndex] || {}).staff || []);
-    var meta = '👤' + (staff.length ? staff.join(',') : '미배정') + ' · 🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
+    var st = Share.staffStatus(s, entry.dayIndex);
+    // 인원은 '이름들 (배치/필요)', 모자라면 몇 명 부족한지까지
+    var staffTxt = (staff.length ? staff.join(',') : '미배정') +
+      (st.need ? ' (' + st.have + '/' + st.need + (st.short ? ' ⚠' + st.short + '명 부족' : '') + ')' : '');
+    var meta = '👤' + staffTxt + ' · 🎞 ' + c.films[0] + '/' + c.films[1] + ' · 🧰 ' + c.supplies[0] + '/' + c.supplies[1];
     var head = document.createElement('span'); head.className = 'sch-row-head';
     var t = document.createElement('span'); t.className = 'sch-row-title'; t.textContent = entryTitle(entry);
     head.appendChild(t); head.appendChild(clientLink(s));
@@ -738,11 +765,62 @@
   function dayLabel(i, date) {
     return (i + 1) + '일차' + (date ? ' ' + Share.shortDate(date) : '');
   }
+  // 배치/필요 인원 뱃지 — '3/3'(초록) '1/3'(빨강) '4/3'(파랑), 필요 인원을 안 정했으면 '3명'(회색)
+  // 현장 상세와 일정 화면에서 같이 쓴다
+  function staffCountBadge(site, dayIndex) {
+    var st = Share.staffStatus(site, dayIndex);
+    var cls = 'cnt';
+    if (st.need) cls += st.short ? ' short' : (st.over ? ' over' : ' ok');
+    else if (!st.have) cls += ' short';
+    var el = document.createElement('span'); el.className = cls;
+    el.textContent = Share.staffCountLabel(site, dayIndex);
+    el.title = st.need ? '배치 ' + st.have + '명 / 필요 ' + st.need + '명' + (st.short ? ' — ' + st.short + '명 부족' : '') : '배치 ' + st.have + '명';
+    return el;
+  }
+  // 현장 상세: 총 필요 인원 칸 (− ＋ 로 올리고 내린다). 0 이면 '미정'
+  function needStaffRow(siteId, rerender) {
+    var s = Store.getSite(siteId);
+    var need = Share.needStaffOf(s);
+    var row = document.createElement('div'); row.className = 'sec-row need-row';
+    var lb = document.createElement('div'); lb.className = 'day-label'; lb.textContent = '필요 인원';
+    var step = document.createElement('div'); step.className = 'stepper';
+    var bump = function (label, delta, title) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'step-btn'; b.textContent = label; b.title = title;
+      b.onclick = function () { Store.setNeedStaff(siteId, need + delta); rerender(); };
+      return b;
+    };
+    var val = document.createElement('div'); val.className = 'step-val' + (need ? '' : ' none');
+    val.textContent = need ? need + '명' : '미정';
+    // 숫자를 탭하면 직접 입력 (10명 넘는 현장은 ＋ 를 여러 번 누르기 번거롭다)
+    val.onclick = function () {
+      modalPrompt('총 필요 인원', need ? String(need) : '', '숫자만 (0 = 미정)').then(function (v) {
+        if (v == null) return;
+        Store.setNeedStaff(siteId, parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0);
+        rerender();
+      });
+    };
+    step.appendChild(bump('−', -1, '한 명 줄이기'));
+    step.appendChild(val);
+    step.appendChild(bump('＋', 1, '한 명 늘리기'));
+    row.appendChild(lb); row.appendChild(step);
+    return row;
+  }
   // 현장 상세: 일차별 인원 구역. 날짜 자체는 시공날짜 칸(달력)에서 고른다 — 여기서는 인원만
+  // 맨 위에 총 필요 인원을 정해두면 날마다 배치/필요(3/3)가 옆에 뜨고, 모자란 날은 빨갛게 나온다
   function renderDaysSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
     box.innerHTML = '<h3 class="sec-title">날짜별 인원</h3>';
     var rerender = function () { renderDaysSection(box, siteId); };
+    box.appendChild(needStaffRow(siteId, rerender));
+    var need = Share.needStaffOf(s);
+    var shortDays = Share.shortStaffDays(s);
+    var nh = document.createElement('div'); nh.className = 'sec-empty' + (shortDays.length ? ' warn' : '');
+    nh.textContent = !need ? '총 몇 명이 필요한지 정해두면 날마다 몇 명을 배치할지 계획하기 쉽습니다.'
+      : shortDays.length ? '⚠ ' + shortDays.map(function (r) {
+          return (r.date ? Share.shortDate(r.date) : (r.index + 1) + '일차') + ' ' + r.short + '명 부족';
+        }).join(', ')
+      : '✓ 날마다 ' + need + '명씩 다 채웠습니다.';
+    box.appendChild(nh);
     s.days.forEach(function (d, i) {
       var row = document.createElement('div'); row.className = 'sec-row';
       var lb = document.createElement('div'); lb.className = 'day-label';
@@ -752,7 +830,7 @@
         onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
         onAdd: function () { openStaffPicker(siteId, i, rerender); }
       });
-      row.appendChild(lb); row.appendChild(chips);
+      row.appendChild(lb); row.appendChild(chips); row.appendChild(staffCountBadge(s, i));
       box.appendChild(row);
     });
     if (!Share.isIsoDate(s.days[0].date)) {

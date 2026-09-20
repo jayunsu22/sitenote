@@ -323,3 +323,26 @@ textarea { resize: vertical; }
 @keyframes stage-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .stage-strip-lg .stage.todo { animation-duration: 1.2s; }
 .btn-green { background: var(--success); color: #fff; border-color: var(--success); }
+/* ---------- 총 필요 인원 / 날짜별 배치 (2026-09-20) ---------- */
+/* 필요 인원 −/＋ 칸 (현장 상세) */
+.need-row .stepper { display: flex; align-items: center; gap: 8px; }
+.need-row .step-btn { width: 40px; height: 36px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa;
+  font-size: 18px; font-weight: 800; color: var(--primary); line-height: 1; }
+.need-row .step-btn:active { background: #e5e7eb; }
+.need-row .step-val { min-width: 64px; text-align: center; padding: 7px 6px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; font-size: 15px; font-weight: 800; color: var(--text); }
+.need-row .step-val.none { color: var(--muted); font-weight: 600; }
+.sec-empty.warn { color: #991b1b; font-weight: 700; }
+/* 배치/필요 뱃지 — 현장 상세 줄 끝, 일정 카드 👤 줄 끝 */
+.cnt { flex: none; min-width: 44px; text-align: center; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 800;
+  background: #e5e7eb; color: #4b5563; line-height: 1.2; }
+.cnt.ok { background: var(--success); color: #fff; }
+.cnt.short { background: var(--danger); color: #fff; }
+.cnt.over { background: #dbeafe; color: #1e3a8a; }
+.sch-line .cnt { align-self: center; }
+/* 일정 카드: 총 필요 인원 + 날짜별 배치 계획 한 줄 (여러 날 현장) */
+.sch-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 0 28px; font-size: 12px; font-weight: 700; color: #4b5563; }
+.sch-plan .plan-day { border-radius: 999px; padding: 3px 8px; background: rgba(255,255,255,0.72); color: #4b5563; }
+.sch-plan .plan-day.short { background: #fee2e2; color: #991b1b; }
+.sch-plan .plan-day.ok { background: #dcfce7; color: #166534; }
+.sch-plan .plan-day.now { box-shadow: inset 0 0 0 2px rgba(0,0,0,0.25); }

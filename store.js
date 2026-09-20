@@ -58,6 +58,7 @@
     s.days = [{ date: '', staff: [] }];
     s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     s.filmStage = 0; // 필름 미확정
+    s.needStaff = 0; // 총 필요 인원 (0 = 아직 안 정함)
     return s;
   }
   function cleanStaff(arr) {
@@ -82,6 +83,7 @@
     // 1일차는 시작날짜 칸과 같아야 한다 (복원 등으로 어긋났으면 시작날짜 기준으로 밀기)
     if (s.days[0].date !== String(s.date || '')) s.days = Share.shiftDays(s.days, s.date || '');
     s.filmStage = Share.filmStageOf(s);
+    s.needStaff = Share.needStaffOf(s);
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     return s;
@@ -251,6 +253,11 @@
     var s = getSite(siteId); if (!s || i < 1 || !s.days[i]) return null;
     var days = dayRows(s); days[i].date = String(iso || '');
     return updateSite(siteId, { days: days });
+  }
+  // 총 필요 인원 (0 = 안 정함). 날짜별 배치 인원은 이 수와 견줘서 표시된다
+  function setNeedStaff(siteId, n) {
+    var s = getSite(siteId); if (!s) return null;
+    return updateSite(siteId, { needStaff: Share.needStaffOf({ needStaff: n }) });
   }
   function setFilmStage(siteId, k) {
     var s = getSite(siteId); if (!s) return null;
@@ -518,7 +525,7 @@
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
-    setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
+    setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
     setSettings: setSettings,

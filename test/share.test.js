@@ -390,5 +390,60 @@ test('buildShare: 인원 줄은 제목(날짜) 줄 바로 다음, days 없으면
   assert.strictEqual(Share.buildShare(s, ['name', 'pwLobby']).split('\n')[1], '👤 김기사·박기사', '날짜 체크를 안 해도 인원은 나감');
 });
 
+console.log('필요 인원 (총 필요 인원 대비 날짜별 배치)');
+test('needStaffOf: 숫자만, 0·음수·빈값은 0(미정), 99 넘으면 99', () => {
+  assert.strictEqual(Share.needStaffOf({ needStaff: 3 }), 3);
+  assert.strictEqual(Share.needStaffOf({ needStaff: '3' }), 3);
+  assert.strictEqual(Share.needStaffOf({}), 0);
+  assert.strictEqual(Share.needStaffOf({ needStaff: 0 }), 0);
+  assert.strictEqual(Share.needStaffOf({ needStaff: -2 }), 0);
+  assert.strictEqual(Share.needStaffOf({ needStaff: '가나' }), 0);
+  assert.strictEqual(Share.needStaffOf({ needStaff: 500 }), 99);
+});
+test('staffStatus: 모자람 / 딱 맞음 / 넘침 / 필요 인원 미정', () => {
+  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['가', '나'] }, { date: '2026-09-29', staff: ['가', '나', '다'] }, { date: '2026-09-30', staff: ['가', '나', '다', '라'] }] };
+  assert.deepStrictEqual(Share.staffStatus(s, 0), { have: 2, need: 3, short: 1, over: 0, ok: false });
+  assert.deepStrictEqual(Share.staffStatus(s, 1), { have: 3, need: 3, short: 0, over: 0, ok: true });
+  assert.deepStrictEqual(Share.staffStatus(s, 2), { have: 4, need: 3, short: 0, over: 1, ok: true });
+  const n = { days: [{ date: '2026-09-28', staff: ['가'] }, { date: '2026-09-29', staff: [] }] };
+  assert.deepStrictEqual(Share.staffStatus(n, 0), { have: 1, need: 0, short: 0, over: 0, ok: true });
+  assert.deepStrictEqual(Share.staffStatus(n, 1), { have: 0, need: 0, short: 0, over: 0, ok: false });
+});
+test('staffCountLabel: 필요 인원이 있으면 2/3, 없으면 2명 / 미배정', () => {
+  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['가', '나'] }] };
+  assert.strictEqual(Share.staffCountLabel(s, 0), '2/3');
+  assert.strictEqual(Share.staffCountLabel({ days: [{ date: '', staff: ['가', '나'] }] }, 0), '2명');
+  assert.strictEqual(Share.staffCountLabel({ days: [{ date: '', staff: [] }] }, 0), '미배정');
+});
+test('shortStaffDays: 모자란 날만, 필요 인원 미정이면 빈 배열', () => {
+  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['가', '나', '다'] }, { date: '2026-09-29', staff: ['가'] }] };
+  assert.deepStrictEqual(Share.shortStaffDays(s), [{ index: 1, date: '2026-09-29', have: 1, need: 3, short: 2 }]);
+  assert.deepStrictEqual(Share.shortStaffDays({ days: [{ date: '2026-09-29', staff: [] }] }), []);
+});
+test('isReady: 필요 인원을 정했으면 날마다 그 수를 채워야 준비 완료', () => {
+  const base = { filmStage: 3, films: [], supplies: [], needStaff: 3 };
+  const full3 = [{ date: '2026-09-28', staff: ['가', '나', '다'] }, { date: '2026-09-29', staff: ['가', '나', '다'] }];
+  assert.ok(Share.isReady(Object.assign({}, base, { days: full3 })));
+  assert.ok(!Share.isReady(Object.assign({}, base, { days: [full3[0], { date: '2026-09-29', staff: ['가'] }] })), '2일차 2명 부족');
+  assert.ok(Share.isReady(Object.assign({}, base, { needStaff: 0, days: [full3[0], { date: '2026-09-29', staff: [] }] })), '필요 인원 미정이면 예전대로 1명 이상');
+});
+test('staffLine / staffShortLine: 필요 인원을 정하면 공유 문구에도 나간다', () => {
+  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['서영호', '염문철', '문승규'] }, { date: '2026-09-29', staff: ['서영호'] }] };
+  assert.strictEqual(Share.staffLine(s), '👤 필요 3명 — 9/28 서영호·염문철·문승규 / 9/29 서영호');
+  assert.strictEqual(Share.staffShortLine(s), '⚠ 인원 부족: 9/29 1/3(2명)');
+  assert.strictEqual(Share.staffLine({ needStaff: 3, days: [{ date: '2026-09-28', staff: [] }] }), '👤 필요 3명 — 아직 미배정');
+  assert.strictEqual(Share.staffShortLine({ days: [{ date: '2026-09-28', staff: [] }] }), '', '필요 인원 미정이면 경고 없음');
+  const one = { needStaff: 2, days: [{ date: '2026-09-28', staff: ['서영호', '염문철'] }] };
+  assert.strictEqual(Share.staffLine(one), '👤 필요 2명 — 서영호·염문철');
+  assert.strictEqual(Share.staffShortLine(one), '');
+});
+test('buildShare: 인원 줄 다음에 부족 경고 줄', () => {
+  const s = Object.assign(full(), { needStaff: 3, days: [{ date: '2026-08-18', staff: ['김기사'] }] });
+  const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n');
+  assert.strictEqual(lines[1], '👤 필요 3명 — 김기사');
+  assert.strictEqual(lines[2], '⚠ 인원 부족: 8/18 1/3(2명)');
+  assert.strictEqual(lines[3], '공동현관비번: 0000*');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

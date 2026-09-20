@@ -174,6 +174,8 @@
     var lines = [head];
     var staff = staffLine(site); // 날짜별 인원 - 체크 여부와 상관없이 있으면 나간다
     if (staff) lines.push(staff);
+    var short = staffShortLine(site); // 필요 인원을 못 채운 날이 있으면 바로 아래에 경고 줄
+    if (short) lines.push(short);
 
     if (has.address) lines.push('📍 ' + str(site.address));
     if (has.pwLobby) lines.push('공동현관비번: ' + str(site.pwLobby));
@@ -289,6 +291,41 @@
     return out;
   }
 
+  // ---------- 총 필요 인원 (2026-09-20) ----------
+  // 현장마다 '이 일을 하려면 총 몇 명이 필요한가'를 하나 정해두고, 날짜별로 몇 명 배치했는지 견준다.
+  // 0 = 아직 안 정함 (예전에 만든 현장은 전부 0 이라 예전처럼 동작한다)
+  var MAX_NEED_STAFF = 99;
+  function needStaffOf(site) {
+    var n = parseInt(site && site.needStaff, 10);
+    if (!(n > 0)) return 0;
+    return Math.min(n, MAX_NEED_STAFF);
+  }
+  // 그날 배치 현황 — have 배치된 수, need 필요 인원(0이면 안 정함), short 모자란 수, over 넘친 수,
+  // ok 채웠는지(필요 인원을 안 정했으면 한 명이라도 있으면 ok)
+  function staffStatus(site, dayIndex) {
+    var have = staffOf(daysOf(site)[dayIndex]).length, need = needStaffOf(site);
+    return {
+      have: have, need: need,
+      short: need ? Math.max(0, need - have) : 0,
+      over: need ? Math.max(0, have - need) : 0,
+      ok: need ? have >= need : have > 0
+    };
+  }
+  // 배치/필요 표기 — 필요 인원을 정했으면 '2/3', 아니면 '2명' (아무도 없으면 '미배정')
+  function staffCountLabel(site, dayIndex) {
+    var st = staffStatus(site, dayIndex);
+    if (st.need) return st.have + '/' + st.need;
+    return st.have ? st.have + '명' : '미배정';
+  }
+  // 인원이 모자란 날 [{index, date, have, need, short}] — 필요 인원을 안 정했으면 빈 배열
+  function shortStaffDays(site) {
+    if (!needStaffOf(site)) return [];
+    return daysOf(site).map(function (d, i) {
+      var st = staffStatus(site, i);
+      return st.short ? { index: i, date: str(d.date), have: st.have, need: st.need, short: st.short } : null;
+    }).filter(Boolean);
+  }
+
   // 필름 준비 단계 (2026-09-20): 현장마다 하나. 수령(3)이 아니면 일정 화면에서 빨갛게 깜빡인다
   var FILM_STAGES = ['필름 미확정', '필름 확정', '필름 주문', '필름 수령'];
   function filmStageOf(site) {
@@ -310,10 +347,12 @@
   }
   // 필름·부자재 전부 체크(없으면 통과) + 인원이 한 명이라도 있어야 준비 완료
   // 필름 단계가 '수령'이어야 준비 완료로 본다 (필름이 제 날짜에 없으면 공치는 일이라 가장 중요)
+  // 필요 인원을 정해둔 현장은 날마다 그 수를 채워야 준비 완료 (한 명이라도 모자라면 빨간 점)
   function isReady(site) {
     if (filmStageOf(site) !== FILM_STAGES.length - 1) return false;
     var c = readyCount(site);
     if (c.films[0] !== c.films[1] || c.supplies[0] !== c.supplies[1]) return false;
+    if (needStaffOf(site)) return !shortStaffDays(site).length;
     return daysOf(site).some(function (d) { return staffOf(d).length > 0; });
   }
 
@@ -337,12 +376,23 @@
     return weeks;
   }
   // 팀원 공유용 인원 줄. 하루면 '👤 김기사·박기사', 여러 날이면 '👤 9/19 김기사·박기사 / 9/20 김기사'
-  // 인원이 빈 날은 건너뛰고, 전부 비면 ''
+  // 필요 인원을 정해뒀으면 앞에 '필요 3명 —' 이 붙는다. 인원이 빈 날은 건너뛰고, 전부 비면 ''
+  // (필요 인원만 정하고 아무도 안 넣었으면 '👤 필요 3명 — 아직 미배정')
   function staffLine(site) {
+    var need = needStaffOf(site);
+    var head = '👤 ' + (need ? '필요 ' + need + '명 — ' : '');
     var ds = daysOf(site).filter(function (d) { return staffOf(d).length; });
-    if (!ds.length) return '';
-    if (daysOf(site).length === 1) return '👤 ' + staffOf(ds[0]).join('·');
-    return '👤 ' + ds.map(function (d) { return shortDate(d.date) + ' ' + staffOf(d).join('·'); }).join(' / ');
+    if (!ds.length) return need ? head + '아직 미배정' : '';
+    if (daysOf(site).length === 1) return head + staffOf(ds[0]).join('·');
+    return head + ds.map(function (d) { return shortDate(d.date) + ' ' + staffOf(d).join('·'); }).join(' / ');
+  }
+  // 팀원 공유용 부족 인원 줄 — '⚠ 인원 부족: 9/19 2/3(1명), 9/20 0/3(3명)'. 모자란 날이 없으면 ''
+  function staffShortLine(site) {
+    var rows = shortStaffDays(site);
+    if (!rows.length) return '';
+    return '⚠ 인원 부족: ' + rows.map(function (r) {
+      return (r.date ? shortDate(r.date) + ' ' : (r.index + 1) + '일차 ') + r.have + '/' + r.need + '(' + r.short + '명)';
+    }).join(', ');
   }
 
   // 날짜 없는 현장 먼저(미정), 그 다음 날짜 오름차순, 동률은 최근 생성 우선. 원본 유지
@@ -405,6 +455,12 @@
     readyCount: readyCount,
     isReady: isReady,
     staffLine: staffLine,
+    staffShortLine: staffShortLine,
+    MAX_NEED_STAFF: MAX_NEED_STAFF,
+    needStaffOf: needStaffOf,
+    staffStatus: staffStatus,
+    staffCountLabel: staffCountLabel,
+    shortStaffDays: shortStaffDays,
     FILM_STAGES: FILM_STAGES,
     isUrgent: isUrgent,
     filmStageOf: filmStageOf,

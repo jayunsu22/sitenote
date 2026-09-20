@@ -478,6 +478,28 @@ function reset() {
     assert.deepStrictEqual(Store.getSite(s.id).supplies.map(x => x.name), ['장갑', '칼날']);
   });
 
+  await test('setNeedStaff: 0(미정)부터 99까지, 잘못된 값은 0, 새 현장·구버전 현장은 0', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    assert.strictEqual(s.needStaff, 0);
+    Store.setNeedStaff(s.id, 3);
+    assert.strictEqual(Store.getSite(s.id).needStaff, 3);
+    Store.setNeedStaff(s.id, -1);
+    assert.strictEqual(Store.getSite(s.id).needStaff, 0, '0 아래로는 안 내려감');
+    Store.setNeedStaff(s.id, 500);
+    assert.strictEqual(Store.getSite(s.id).needStaff, 99);
+    Store.setNeedStaff(s.id, '가나');
+    assert.strictEqual(Store.getSite(s.id).needStaff, 0);
+  });
+  await test('구버전 현장 load: needStaff 없으면 0', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '옛현장', date: '2026-09-19' }
+    ], settings: { questions: {} }, syncQueue: [] });
+    Store.load();
+    assert.strictEqual(Store.getSite('s1').needStaff, 0);
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
