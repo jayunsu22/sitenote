@@ -414,6 +414,9 @@
     });
   };
 
+  // 고정값(단가·주의사항) 저장 - 현장 상세의 저장과 같은 동작.
+  // 견적앱이 이 주의사항을 백업에서 읽어가므로, 적고 바로 눌러 올릴 수 있어야 한다.
+  $('btnSaveFixed').onclick = saveNow;
   $('btnRenameClient').onclick = function () { renameClient(currentClientId); };
   $('btnDeleteClient').onclick = function () { deleteClient(currentClientId); };
 
@@ -1138,7 +1141,7 @@
   function checkedKeys() { return Object.keys(checked).filter(function (k) { return checked[k]; }); }
   // 저장 버튼 - 칸마다 이미 자동저장되고 있지만, 눌러서 확인할 수 있게 둔 버튼.
   // 실제로 하는 일: 키보드 내리기(마지막 입력 확정) + 백업 대기분을 3초 기다리지 않고 바로 전송.
-  $('btnSaveSite').onclick = function () {
+  function saveNow() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     if (!state.settings.backupKey) { toast('저장됨 (백업키가 없어 폰에만 저장)'); return; }
     if (!Store.pendingCount()) { toast('저장됨 — 백업까지 완료'); return; }
@@ -1146,7 +1149,8 @@
     Store.flush().then(function (ok) {
       toast(ok ? '저장됨 — 백업까지 완료' : '폰에 저장됨 — 백업은 잠시 뒤 다시 보냅니다');
     });
-  };
+  }
+  $('btnSaveSite').onclick = saveNow;
 
   $('btnCopyQuestion').onclick = function () {
     var s = Store.getSite(currentSiteId); if (!s) return;

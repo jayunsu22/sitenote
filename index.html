@@ -71,6 +71,9 @@
             <textarea id="fxSiteNote" data-fx="siteNote" rows="2"></textarea>
           </div>
           <div class="fixed-danger">
+            <!-- 칸마다 즉시 자동저장되지만, 눌러서 확인할 수 있는 저장 버튼을 따로 둔다
+                 (현장 상세의 💾 저장과 같은 동작). 이름변경·삭제와 헷갈리지 않게 왼쪽 끝에 둔다. -->
+            <button id="btnSaveFixed" class="btn-sm btn-save-sm">💾 저장</button>
             <button id="btnRenameClient" class="btn-sm">거래처 이름 변경</button>
             <button id="btnDeleteClient" class="btn-sm btn-danger">거래처 삭제</button>
           </div>

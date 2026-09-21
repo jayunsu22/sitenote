@@ -109,6 +109,9 @@ textarea { resize: vertical; }
 .btn-sm { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-weight: 700; font-size: 13px; color: var(--text); }
 .btn-sm:active { background: var(--bg); }
 .btn-danger { color: var(--danger); border-color: #fecaca; }
+/* 고정값 저장 - 같은 줄의 이름변경·삭제와 떨어뜨려 왼쪽 끝에 두고, 눌러야 하는 버튼이라 색을 준다 */
+.btn-save-sm { margin-right: auto; color: #fff; background: var(--success); border-color: var(--success); }
+.btn-save-sm:active { filter: brightness(0.9); }
 .row { display: flex; gap: 8px; align-items: center; }
 .row > input { flex: 1; min-width: 0; }
 
