@@ -73,6 +73,13 @@ test('빈 줄·공백은 빼고, 같은 번호는 한 번만', () => {
   assert.strictEqual(Share.filmOrderText(s), 'px454-2\nps101');
 });
 test('필름 없으면 빈 문자열', () => { assert.strictEqual(Share.filmOrderText(blank()), ''); });
+test('☑ 된 줄이 있으면 그 줄들만, 없으면 전부', () => {
+  const s = blank();
+  s.films = [{ place: 'a', code: 'hp604', ready: false }, { place: 'b', code: 'px449', ready: true }, { place: 'c', code: 'px454-2', ready: true }, { place: 'd', code: 'px454-2', ready: false }];
+  assert.strictEqual(Share.filmOrderText(s), 'px449\npx454-2');
+  s.films.forEach(r => { r.ready = false; });
+  assert.strictEqual(Share.filmOrderText(s), 'hp604\npx449\npx454-2');
+});
 
 console.log('buildQuestion');
 test('빈 항목만 질문으로, 순서는 FIELDS 순', () => {

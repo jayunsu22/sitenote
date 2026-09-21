@@ -1118,7 +1118,9 @@
     cp.onclick = function () {
       var text = Share.filmOrderText({ films: films });
       if (!text) { toast('적힌 필름 번호가 없습니다'); return; }
-      copyText(text, '필름명 복사됨 — 대리점 주문에 붙여넣기 하세요');
+      // ☑ 된 줄이 있으면 그것만 복사되므로 토스트로 어느 쪽인지 알려준다
+      var picked = films.filter(function (r) { return r.ready && String(r.code || '').trim(); }).length;
+      copyText(text, (picked ? '체크한 ' + picked + '줄만 ' : '전체 ') + '필름명 복사됨 — 대리점 주문에 붙여넣기 하세요');
     };
     acts.appendChild(add);
     acts.appendChild(cp);

@@ -126,10 +126,14 @@
 
   // 필름 번호만 한 줄에 하나씩. 대리점에 주문할 때 붙여넣는 용도라 시공위치는 뺀다.
   // 같은 번호가 여러 줄이면 한 번만(주문은 품목 목록이지 시공 목록이 아니다).
+  // ☑ 된 줄이 하나라도 있으면 그 줄들만 복사한다 (골라서 주문). 하나도 없으면 전부.
   function filmOrderText(site) {
     var seen = {};
-    return ((site && site.films) || [])
-      .map(function (r) { return r ? str(r.code) : ''; })
+    var rows = ((site && site.films) || []).filter(function (r) { return r && str(r.code) !== ''; });
+    var picked = rows.filter(function (r) { return r.ready; });
+    if (picked.length) rows = picked;
+    return rows
+      .map(function (r) { return str(r.code); })
       .filter(function (c) { if (!c || seen[c]) return false; seen[c] = true; return true; })
       .join('\n');
   }
