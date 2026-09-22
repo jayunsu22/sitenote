@@ -701,25 +701,21 @@
     return el;
   }
 
-  // 아바타에 넣을 두 글자. 동그라미 안에 세 글자는 안 들어간다.
-  // 전체 이름은 title 로 달아두고, 탭하면 인원 화면에서 전체를 본다.
-  function avatarText(name) {
-    var n = String(name || '').replace(/\s+/g, '');
-    return n.length > 2 ? n.slice(0, 2) : (n || '?');
-  }
-
   /* 이어진 날 한 묶음 = 카드 한 장.
      머리줄 색은 준비 상태다 — 초록이면 필름·부자재·인원이 다 됐다는 뜻이라
      목록을 훑으면서 손볼 곳만 골라낼 수 있다. */
   function renderRunCard(run, dupAll) {
     var s = run.site, id = s.id;
     var multi = run.dates.length > 1;
+    // 머리줄·제목 색은 현장색(8색)이다. 다 검정이면 목록에서 어디서 어디까지가
+    // 한 현장인지 눈으로 안 갈린다. 파스텔은 흰 글씨가 안 읽혀서 짙은 짝(--d0~7)을 쓴다.
+    var ci = s.color || 0;
     var card = document.createElement('div');
-    card.className = 'sch-card' + (Share.isReady(s) ? ' ready' : '');
+    card.className = 'sch-card';
     card.setAttribute('data-run-start', run.start);
     run.dates.forEach(function (d) { card.setAttribute('data-run-has', d); });
 
-    var head = document.createElement('div'); head.className = 'sch-head';
+    var head = document.createElement('div'); head.className = 'sch-head h' + ci;
     var when = document.createElement('span'); when.className = 'sch-when';
     when.textContent = multi
       ? Share.shortDate(run.start) + ' ' + weekdayOf(run.start) + ' – ' + Share.shortDate(run.end) + ' ' + weekdayOf(run.end)
@@ -727,13 +723,20 @@
     var span = document.createElement('span'); span.className = 'sch-span';
     span.textContent = multi ? run.dates.length + '일 연속' : '하루';
     head.appendChild(when); head.appendChild(span);
+    // 준비 완료는 머리줄 색으로 알리던 것을 배지로 옮겼다 (색은 현장 구분에 썼다)
+    if (Share.isReady(s)) {
+      var done = document.createElement('span'); done.className = 'sch-done';
+      done.textContent = '✓ 준비됨';
+      done.title = '필름·부자재·인원이 다 됐습니다';
+      head.appendChild(done);
+    }
     head.appendChild(clientLink(s, 'sch-client'));
     card.appendChild(head);
 
     var body = document.createElement('div'); body.className = 'sch-body';
 
     var title = document.createElement('button');
-    title.type = 'button'; title.className = 'sch-title';
+    title.type = 'button'; title.className = 'sch-title t' + ci;
     title.textContent = Share.titleLine(s) +
       (run.dayCount > run.dates.length ? ' · ' + (run.dayIndexes[0] + 1) + '일차부터' : '');
     title.onclick = function () { go('#site/' + id); };
@@ -746,26 +749,25 @@
     var line = document.createElement('div'); line.className = 'sch-people';
     var lab = document.createElement('span'); lab.className = 'sch-lab'; lab.textContent = '인원';
     line.appendChild(lab);
+    // 이름은 이 칸 안에서만 줄바꿈한다. 배치 수는 바깥에 둬야 오른쪽 위에 남는다
+    var namesBox = document.createElement('div'); namesBox.className = 'sch-names';
+    line.appendChild(namesBox);
     names.forEach(function (n) {
       var isDup = !!dupNames[String(n).replace(/\s+/g, '')];
       var a = document.createElement('button');
       a.type = 'button';
-      a.className = 'sch-av' + (Share.isReady(s) ? ' ok' : '') + (isDup ? ' dup' : '');
-      a.textContent = avatarText(n);
+      a.className = 'sch-name' + (isDup ? ' dup' : '');
+      a.textContent = n + (isDup ? ' ⚠' : '');
       a.title = isDup ? n + ' — 같은 날 다른 현장에도 들어가 있음' : n;
       a.onclick = function (e) { e.stopPropagation(); openStaffPicker(id, first, renderSchedule); };
-      line.appendChild(a);
+      namesBox.appendChild(a);
     });
-    var addAv = document.createElement('button');
-    addAv.type = 'button'; addAv.className = 'sch-av add'; addAv.textContent = '＋';
-    addAv.setAttribute('aria-label', '인원 넣기');
-    addAv.onclick = function (e) { e.stopPropagation(); openStaffPicker(id, first, renderSchedule); };
-    line.appendChild(addAv);
-    if (!multi) {
-      var gap = document.createElement('span'); gap.className = 'sch-grow';
-      line.appendChild(gap);
-      line.appendChild(staffCountBadge(s, first, true));
-    }
+    var addName = document.createElement('button');
+    addName.type = 'button'; addName.className = 'sch-name add'; addName.textContent = '＋';
+    addName.setAttribute('aria-label', '인원 넣기');
+    addName.onclick = function (e) { e.stopPropagation(); openStaffPicker(id, first, renderSchedule); };
+    namesBox.appendChild(addName);
+    if (!multi) line.appendChild(staffCountBadge(s, first, true));
     body.appendChild(line);
 
     // 여러 날이면 날마다 배치 현황을 따로 — 1일차는 찼는데 2일차가 빈 경우가 흔하다
