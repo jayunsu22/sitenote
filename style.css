@@ -249,43 +249,93 @@ textarea { resize: vertical; }
 .slist-row .slist-name { flex: 1; font-size: 14px; font-weight: 600; }
 .slist-row .x { width: 32px; height: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
 .settings-section .row input[type="text"] { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
-/* ---------- 일정 화면 ---------- */
-.schedule-body { padding: 6px 12px 40px; }
-.sch-day { display: flex; align-items: center; gap: 8px; margin: 14px 2px 6px; font-size: 15px; font-weight: 800; color: #1f2937; }
-.sch-day-near { font-size: 16px; }
-.sch-tag { font-size: 11px; font-weight: 800; color: #fff; background: var(--primary); border-radius: 999px; padding: 2px 8px; }
-.sch-tag.tm { background: #0891b2; }
-.sch-none { font-size: 13px; font-weight: 500; color: var(--muted); }
-/* 펼침 카드 (현장색 배경 = .color-N 재사용) */
-.sch-card { border-radius: var(--radius); padding: 10px 12px 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.06); }
-.sch-card-head { display: flex; align-items: flex-start; gap: 6px; }
-.sch-title { flex: 1; min-width: 0; text-align: left; border: none; background: transparent; padding: 0; font-size: 16px; font-weight: 800; color: var(--text); word-break: keep-all; line-height: 1.3; }
-.sch-client { flex: none; border: 1px solid rgba(0,0,0,0.15); border-radius: 999px; background: rgba(255,255,255,0.6); padding: 3px 9px;
-  font-size: 12px; font-weight: 700; color: #374151; line-height: 1.2; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
-.sch-client:active { background: #e5e7eb; }
-.sch-row-head { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
-.sch-row-head .sch-row-title { flex: 1; }
-.sch-row .sch-client { background: #f3f4f6; }
-.sch-fold { flex: none; width: 28px; height: 24px; border: none; background: transparent; color: #4b5563; font-size: 14px; padding: 0; }
-.sch-line { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; }
-.sch-ico { flex: none; width: 22px; font-size: 15px; line-height: 28px; }
-.sch-line .chips { flex: 1; min-height: 28px; align-items: center; }
-.sch-checks { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 28px; }
-.sch-chk { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 4px 9px 4px 6px; background: rgba(255,255,255,0.72); font-size: 13px; font-weight: 600; color: var(--text); }
-.sch-chk .box { width: 18px; height: 18px; border-radius: 5px; border: 2px solid #9ca3af; background: #fff; box-sizing: border-box; flex: none; }
-.sch-chk.on { color: #4b5563; text-decoration: line-through; }
-.sch-chk.on .box { background: var(--success); border-color: var(--success); }
-.sch-chk.on .box::after { content: '✓'; display: block; color: #fff; font-size: 12px; font-weight: 800; line-height: 14px; text-align: center; }
-/* 접힌 줄 */
-/* 제목 한 줄 + 요약 한 줄, 오른쪽에 점. 제목이 잘리지 않게 두 줄로 */
-.sch-row { display: grid; grid-template-columns: 1fr 14px; grid-template-rows: auto auto auto; column-gap: 8px; row-gap: 2px; align-items: center; width: 100%; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none;
-  border: none; border-left: 6px solid var(--c7); border-radius: 10px; background: var(--card); padding: 8px 12px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
-.sch-row-title { min-width: 0; font-size: 14px; font-weight: 700; color: var(--text); word-break: keep-all; line-height: 1.3; }
-.sch-row .dot { grid-column: 2; grid-row: 1 / -1; }
-.color-b-0 { border-left-color: var(--c0); } .color-b-1 { border-left-color: var(--c1); } .color-b-2 { border-left-color: var(--c2); } .color-b-3 { border-left-color: var(--c3); }
-.color-b-4 { border-left-color: var(--c4); } .color-b-5 { border-left-color: var(--c5); } .color-b-6 { border-left-color: var(--c6); } .color-b-7 { border-left-color: var(--c7); }
-.dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
-.dot.ok { background: var(--success); }
+/* ---------- 일정 화면 (2026-09-23 개편) ---------- */
+/* 위: 날짜 띠(주간)/달력(월간) — 날짜마다 그날 현장 수. 빈 날은 점선 동그라미.
+   아래: 현장 카드 — 이어진 날은 한 장으로 묶는다. */
+.sch-cal { position: sticky; top: 0; z-index: 15; background: var(--card); border-bottom: 1px solid var(--border); }
+.schcal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 2px 8px 8px; }
+.schcal-nav { display: flex; align-items: center; gap: 6px; padding: 2px 14px 2px 8px; }
+.schcal-arrow { width: 36px; height: 36px; border: 0; background: transparent; font-size: 20px; font-weight: 800; color: #374151; padding: 0; line-height: 1; }
+.schcal-month { font-size: 15.5px; font-weight: 800; }
+.schcal-sum { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #4b5563; white-space: nowrap; }
+.schcal-sum b { color: var(--text); }
+.schcal-wds { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 2px 8px 4px; }
+.schcal-wds .schcal-wd { text-align: center; }
+.schcal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 0 8px 8px; }
+
+.schcal-cell { border: 0; background: transparent; border-radius: 12px; padding: 6px 0 7px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.schcal-wd { font-size: 10.5px; font-weight: 700; color: var(--muted); line-height: 1; }
+.schcal-wd.sun { color: #b91c1c; } .schcal-wd.sat { color: #1d4ed8; }
+.schcal-day { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1; }
+.schcal-day.sun { color: #b91c1c; }
+/* 지난 날은 흐리게 — 오늘 이후에 눈이 가야 한다 */
+.schcal-cell.past .schcal-day { font-weight: 600; color: #9ca3af; }
+.schcal-cell.past .schcal-day.sun { color: #d1a0a0; }
+/* 현장이 있는 날은 옅게 깔아 준다 — 숫자만으로는 훑을 때 안 걸린다.
+   지난 날은 파랗게 두면 앞으로 잡힌 일정과 헷갈리니 회색으로 */
+.schcal-cell.has { background: #eef2ff; }
+.schcal-cell.past.has { background: #f3f4f6; }
+.schcal-cell.today { background: var(--primary); }
+.schcal-cell.today .schcal-day, .schcal-cell.today .schcal-wd { color: #fff; font-weight: 800; }
+.schcal-cell.picked { background: #eef2ff; box-shadow: inset 0 0 0 2px var(--primary); }
+.schcal-cell.picked .schcal-day { color: #1e3a8a; font-weight: 800; }
+/* 건수 배지 — 이 숫자가 '그날 현장 수'. 없으면 점선 동그라미(= 넣을 수 있는 날) */
+.schcal-n { min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box; border-radius: 999px;
+  background: var(--primary); color: #fff; font-size: 11.5px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.schcal-n.past { background: var(--border); color: #4b5563; }
+.schcal-free { width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box; }
+.schcal-blank { width: 19px; height: 19px; }
+.schcal-cell.today .schcal-free { border-color: rgba(255,255,255,0.7); }
+.schcal-cell.today .schcal-n { background: #fff; color: var(--primary-dark); }
+.schcal-cell.picked .schcal-free { border-color: var(--primary); }
+.schcal-grid .schcal-n, .schcal-grid .schcal-free, .schcal-grid .schcal-blank { width: 17px; min-width: 17px; height: 17px; font-size: 10.5px; }
+.schcal-grid .schcal-day { font-size: 14px; }
+.sheet-hint { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.schcal-toggle { display: block; width: 100%; border: 0; border-top: 1px solid #f3f4f6; background: var(--card);
+  padding: 9px 0 10px; font-size: 12.5px; font-weight: 800; color: var(--primary); }
+
+.schedule-body { padding: 10px 12px 40px; }
+/* 고른 날이 비어 있을 때 뜨는 줄 — 이 화면을 여는 큰 이유가 '빈 날 찾아 배정' 이다 */
+.sch-pick { display: flex; align-items: center; gap: 10px; background: #eef2ff; border: 1.5px solid #bfdbfe;
+  border-radius: 14px; padding: 11px 13px; margin-bottom: 11px; }
+.sch-pick-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sch-pick-txt b { font-size: 14px; font-weight: 800; color: #1e3a8a; }
+.sch-pick-txt span { font-size: 12px; font-weight: 700; color: #4b5563; }
+.sch-pick-add { flex: none; border: 0; background: var(--primary); color: #fff; border-radius: 10px;
+  padding: 10px 14px; font-size: 13.5px; font-weight: 800; }
+
+/* 카드: 머리줄 색이 준비 상태다 (검정 = 손볼 게 남음, 초록 = 다 됐음) */
+.sch-card { background: var(--card); border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.10);
+  overflow: hidden; margin-bottom: 11px; }
+.sch-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #111827; color: #fff; }
+.sch-card.ready .sch-head { background: #3f6212; }
+.sch-when { font-size: 13.5px; font-weight: 800; white-space: nowrap; }
+.sch-span { flex: none; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.2); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.sch-head .sch-client { margin-left: auto; border: 0; background: transparent; color: #fff; opacity: 0.88;
+  padding: 2px 0; font-size: 11.5px; font-weight: 700; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sch-body { padding: 13px 14px 14px; }
+.sch-title { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 0;
+  font-size: 17px; font-weight: 800; color: var(--text); line-height: 1.3; word-break: keep-all; margin-bottom: 12px; }
+.sch-lab { flex: none; width: 34px; font-size: 11.5px; font-weight: 800; color: #4b5563; }
+.sch-grow { flex: 1; }
+.sch-people { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 11px; }
+.sch-av { width: 30px; height: 30px; border: 0; border-radius: 50%; padding: 0;
+  background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800; line-height: 1; }
+.sch-av.ok { background: #dcfce7; color: #14532d; }
+.sch-av.dup { box-shadow: 0 0 0 2px var(--danger); }
+.sch-av.add { background: transparent; border: 2px dashed #cbd5e1; color: var(--muted); font-size: 15px; font-weight: 700; }
+.sch-people .cnt { margin-left: auto; }
+/* 날마다 배치 현황 — 1일차는 찼는데 2일차가 빈 경우가 흔하다 */
+.sch-days { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.sch-dcell { flex: 1 1 130px; min-width: 0; display: flex; align-items: center; gap: 7px; text-align: left;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 8px 10px; }
+.sch-dlab { flex: 1; min-width: 0; font-size: 11px; font-weight: 700; color: var(--muted); }
+.sch-film { display: flex; align-items: center; gap: 8px; }
+.sch-film .stage-strip { flex: 1; min-width: 0; }
+.sch-client:active { opacity: 0.6; }
+
 .sch-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .sch-sep { border-top: 2px dashed #cbd5e1; margin: 14px 0 4px; }
 .schedule-body .empty-state { padding: 32px 16px; }
@@ -344,24 +394,3 @@ textarea { resize: vertical; }
 /* 큰 뱃지 — 인원 배정이 제일 중요해서 일정·상세 모두 크게 */
 .cnt.lg { min-width: 58px; padding: 6px 12px; font-size: 15px; }
 /* 접힌 줄의 인원 줄 — 제목 다음으로 크게. 이름은 굵은 검정, 모자라면 빨강 */
-.sch-staff { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; margin: 3px 0 1px; }
-.sch-staff-ico { font-size: 16px; line-height: 1.2; }
-.sch-staff-names { font-size: 16px; font-weight: 800; color: #111827; line-height: 1.3; word-break: keep-all; }
-.sch-staff.short .sch-staff-names { color: #991b1b; }
-.sch-warn { font-size: 13px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 999px; padding: 3px 9px; line-height: 1.2; }
-/* 펼침 카드의 인원 칸 — 흰 판 위에 머리줄(👤 인원 3/10 ⚠부족) + 이름 칩, 모자라면 빨간 테두리 */
-.sch-staff-box { background: rgba(255,255,255,0.6); border-radius: 12px; padding: 8px 10px 10px; margin-top: 10px; }
-.sch-staff-box.short { box-shadow: inset 0 0 0 2px var(--danger); }
-.sch-staff-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
-.sch-staff-head .sch-staff-ico { font-size: 18px; }
-.sch-staff-label { font-size: 14px; font-weight: 800; color: #374151; margin-right: 2px; }
-.sch-staff-box .chips { gap: 8px; }
-.sch-staff-box .chip { font-size: 15px; padding: 8px 15px; background: #fff; }
-.sch-staff-box .chip.add { background: transparent; }
-.sch-line .cnt { align-self: center; }
-/* 일정 카드: 총 필요 인원 + 날짜별 배치 계획 한 줄 (여러 날 현장) */
-.sch-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 0 28px; font-size: 12px; font-weight: 700; color: #4b5563; }
-.sch-plan .plan-day { border-radius: 999px; padding: 3px 8px; background: rgba(255,255,255,0.72); color: #4b5563; }
-.sch-plan .plan-day.short { background: #fee2e2; color: #991b1b; }
-.sch-plan .plan-day.ok { background: #dcfce7; color: #166534; }
-.sch-plan .plan-day.now { box-shadow: inset 0 0 0 2px rgba(0,0,0,0.25); }

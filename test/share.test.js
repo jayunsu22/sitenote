@@ -452,5 +452,91 @@ test('buildShare: 인원 줄 다음에 부족 경고 줄', () => {
   assert.strictEqual(lines[3], '공동현관비번: 0000*');
 });
 
+// ---------- 날짜별 건수 · 이어진 날 묶기 (2026-09-23 일정 화면) ----------
+const siteOn = (id, dates, extra) => Object.assign(blank(), {
+  id: id, createdAt: 1, date: dates[0],
+  days: dates.map((d) => ({ date: d, staff: [] }))
+}, extra || {});
+
+test('dateCounts: 날짜마다 현장 수를 센다 (여러 날 현장은 날마다 1건)', () => {
+  const c = Share.dateCounts([
+    siteOn('a', ['2026-09-28', '2026-09-29']),
+    siteOn('b', ['2026-09-28'])
+  ]);
+  assert.deepStrictEqual(c, { '2026-09-28': 2, '2026-09-29': 1 });
+});
+test('dateCounts: 날짜가 없거나 엉터리면 안 센다', () => {
+  assert.deepStrictEqual(Share.dateCounts([siteOn('a', ['', '2026-02-30', '헛것'])]), {});
+  assert.deepStrictEqual(Share.dateCounts([]), {});
+  assert.deepStrictEqual(Share.dateCounts(null), {});
+});
+
+test('siteRuns: 이어진 날은 한 묶음, 하루 건너뛰면 다른 묶음', () => {
+  const runs = Share.siteRuns(siteOn('a', ['2026-09-18', '2026-09-19', '2026-09-21']));
+  assert.strictEqual(runs.length, 2);
+  assert.deepStrictEqual(runs[0].dates, ['2026-09-18', '2026-09-19']);
+  assert.deepStrictEqual(runs[0].dayIndexes, [0, 1]);
+  assert.strictEqual(runs[0].start, '2026-09-18');
+  assert.strictEqual(runs[0].end, '2026-09-19');
+  assert.deepStrictEqual(runs[1].dates, ['2026-09-21']);
+  assert.deepStrictEqual(runs[1].dayIndexes, [2]);
+  assert.strictEqual(runs[0].dayCount, 3, '현장 전체 일수는 그대로 들고 있는다');
+});
+test('siteRuns: 날짜를 거꾸로 넣어도 날짜순으로 묶는다', () => {
+  const runs = Share.siteRuns(siteOn('a', ['2026-09-29', '2026-09-28']));
+  assert.strictEqual(runs.length, 1);
+  assert.deepStrictEqual(runs[0].dates, ['2026-09-28', '2026-09-29']);
+  assert.deepStrictEqual(runs[0].dayIndexes, [1, 0]);
+});
+test('siteRuns: 날짜 없는 현장은 묶음이 없다', () => {
+  assert.deepStrictEqual(Share.siteRuns(blank()), []);
+});
+test('siteRuns: 달을 넘겨도 이어진 것으로 본다', () => {
+  const runs = Share.siteRuns(siteOn('a', ['2026-09-30', '2026-10-01']));
+  assert.strictEqual(runs.length, 1);
+  assert.deepStrictEqual(runs[0].dates, ['2026-09-30', '2026-10-01']);
+});
+
+test('scheduleRuns: 창 안은 runs, 그 전은 past, 그 뒤는 later', () => {
+  const g = Share.scheduleRuns([
+    siteOn('past', ['2026-09-17', '2026-09-18']),
+    siteOn('now', ['2026-09-28', '2026-09-29']),
+    siteOn('far', ['2026-11-02'])
+  ], '2026-09-23', 14);
+  assert.deepStrictEqual(g.runs.map((r) => r.site.id), ['now']);
+  assert.deepStrictEqual(g.past.map((r) => r.site.id), ['past']);
+  assert.deepStrictEqual(g.later.map((r) => r.site.id), ['far']);
+  assert.strictEqual(g.pastCount, 2, '지난 건수는 날 수로 센다');
+  assert.strictEqual(g.laterCount, 1);
+});
+test('scheduleRuns: 어제 시작해 오늘 끝나는 현장은 목록에 남는다', () => {
+  const g = Share.scheduleRuns([siteOn('a', ['2026-09-22', '2026-09-23'])], '2026-09-23', 14);
+  assert.deepStrictEqual(g.runs.map((r) => r.site.id), ['a']);
+  assert.strictEqual(g.pastCount, 0);
+});
+test('scheduleRuns: 창 마지막 날에 시작하는 것도 runs 에 든다', () => {
+  const g = Share.scheduleRuns([siteOn('a', ['2026-10-06'])], '2026-09-23', 14);
+  assert.deepStrictEqual(g.runs.map((r) => r.site.id), ['a']);
+  const h = Share.scheduleRuns([siteOn('a', ['2026-10-07'])], '2026-09-23', 14);
+  assert.strictEqual(h.runs.length, 0);
+  assert.strictEqual(h.laterCount, 1);
+});
+test('scheduleRuns: runs 는 시작날짜 순, past 는 최근 것이 먼저', () => {
+  const g = Share.scheduleRuns([
+    siteOn('b', ['2026-09-30']),
+    siteOn('a', ['2026-09-28']),
+    siteOn('p1', ['2026-09-17']),
+    siteOn('p2', ['2026-09-19'])
+  ], '2026-09-23', 14);
+  assert.deepStrictEqual(g.runs.map((r) => r.site.id), ['a', 'b']);
+  assert.deepStrictEqual(g.past.map((r) => r.site.id), ['p2', 'p1']);
+});
+test('scheduleRuns: 한 현장이 창 앞뒤로 나뉘면 묶음별로 갈린다', () => {
+  const g = Share.scheduleRuns([siteOn('a', ['2026-09-17', '2026-09-28'])], '2026-09-23', 14);
+  assert.strictEqual(g.past.length, 1);
+  assert.strictEqual(g.runs.length, 1);
+  assert.deepStrictEqual(g.runs[0].dayIndexes, [1]);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

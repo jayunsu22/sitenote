@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>현장 일정 화면 — C안 목업 (주간 · 월간)</title>
+<style>
+
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; background: #f3f4f6; }
+a { color: #1d4ed8; } a:hover { color: #1e3a8a; }
+
+body { padding: 24px; background: #d9dde3; }
+.row { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.label { font-weight: 800; color: #334155; font-size: 15px; margin: 0; }
+.note { width: 390px; font-size: 13px; line-height: 1.6; color: #475569; background: #fff;
+  border-radius: 12px; padding: 12px 14px; box-sizing: border-box; }
+.note b { color: #0f172a; }
+.phone { width: 390px; height: 844px; border: 10px solid #222; border-radius: 36px;
+  overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.3); background: #f3f4f6; }
+h1.top { text-align: center; font-size: 20px; color: #1e293b; margin: 0 0 6px; }
+p.sub { text-align: center; color: #475569; margin: 0 0 22px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<h1 class="top">현장 일정 화면 — C안</h1>
+<p class="sub">2026-09-23 · 날짜별 건수 · 주간↔월간 · 필름 단계는 기존 4칸 띠 그대로</p>
+<div class="row">
+  <div class="col">
+    <p class="label">주간 (기본)</p>
+    <div class="phone">
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #f3f4f6; color: #111827; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="flex: none; background: #ffffff; border-bottom: 1px solid #e5e7eb;">
+    <div style="height: 52px; display: flex; align-items: center; gap: 4px; padding: 0 6px;">
+      <button type="button" aria-label="뒤로" style="width: 44px; height: 44px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+      </button>
+      <h1 style="flex-grow: 1; margin: 0; font-size: 17px; font-weight: 800; text-align: center; letter-spacing: -0.01em;">일정</h1>
+      <button type="button" aria-label="설정" style="width: 44px; height: 44px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+
+    <div style="padding: 0 8px 8px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px;">
+      <button type="button" style="border: 0; background: #2563eb; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #dbeafe;">수</span>
+        <span style="font-size: 16px; font-weight: 800; color: #ffffff; line-height: 1;">23</span>
+        <span style="width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed rgba(255,255,255,0.65); box-sizing: border-box;"></span>
+      </button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #6b7280;">목</span>
+        <span style="font-size: 16px; font-weight: 700; color: #374151; line-height: 1;">24</span>
+        <span style="width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span>
+      </button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #6b7280;">금</span>
+        <span style="font-size: 16px; font-weight: 700; color: #374151; line-height: 1;">25</span>
+        <span style="width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span>
+      </button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #1d4ed8;">토</span>
+        <span style="font-size: 16px; font-weight: 700; color: #374151; line-height: 1;">26</span>
+        <span style="width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span>
+      </button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #b91c1c;">일</span>
+        <span style="font-size: 16px; font-weight: 700; color: #374151; line-height: 1;">27</span>
+        <span style="width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span>
+      </button>
+      <button type="button" style="border: 0; background: #eef2ff; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #4b5563;">월</span>
+        <span style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1;">28</span>
+        <span style="min-width: 19px; height: 19px; border-radius: 999px; background: #2563eb; color: #ffffff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; box-sizing: border-box;">1</span>
+      </button>
+      <button type="button" style="border: 0; background: #eef2ff; border-radius: 12px; padding: 7px 0 7px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <span style="font-size: 10.5px; font-weight: 700; color: #4b5563;">화</span>
+        <span style="font-size: 16px; font-weight: 800; color: #111827; line-height: 1;">29</span>
+        <span style="min-width: 19px; height: 19px; border-radius: 999px; background: #2563eb; color: #ffffff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; box-sizing: border-box;">1</span>
+      </button>
+    </div>
+
+    <button type="button" style="width: 100%; border: 0; border-top: 1px solid #f3f4f6; background: #ffffff; padding: 9px 0 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      <span style="font-size: 12.5px; font-weight: 800; color: #2563eb;">월간으로 보기</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+  </div>
+
+  <div style="flex-grow: 1; padding: 10px 12px 16px; display: flex; flex-direction: column; gap: 11px;">
+
+    <div style="display: flex; align-items: center; gap: 7px; padding: 0 2px;">
+      <span style="width: 15px; height: 15px; border-radius: 999px; border: 1.5px dashed #9ca3af; box-sizing: border-box; flex: none;"></span>
+      <span style="font-size: 12px; font-weight: 700; color: #4b5563;">현장 없는 날 — 눌러서 배정</span>
+      <span style="flex-grow: 1;"></span>
+      <button type="button" style="border: 0; background: transparent; padding: 4px 2px; font-size: 12.5px; font-weight: 700; color: #4b5563; display: flex; align-items: center; gap: 5px;">
+        지난 4건
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+      </button>
+    </div>
+
+    <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.10); overflow: hidden;">
+      <div style="background: #111827; color: #ffffff; padding: 8px 14px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13.5px; font-weight: 800;">9/28 월 – 9/29 화</span>
+        <span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.2); border-radius: 999px; padding: 2px 8px;">2일 연속</span>
+        <span style="flex-grow: 1;"></span>
+        <span style="font-size: 11.5px; font-weight: 700; opacity: 0.85;">이레토탈</span>
+      </div>
+      <div style="padding: 13px 14px 14px;">
+        <div style="font-size: 17px; font-weight: 800; line-height: 1.3; word-break: keep-all; margin-bottom: 12px;">인천 도림로8 벽산블루밍 104동 901호</div>
+
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 11px;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #4b5563; flex: none; width: 34px;">인원</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">서영</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">염문</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">문승</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">김정</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed #cbd5e1; box-sizing: border-box; color: #6b7280; font-size: 15px; font-weight: 700;">＋</span>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <div style="flex-grow: 1; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 7px;">
+            <span style="font-size: 11px; font-weight: 700; color: #6b7280;">1일차 9/28</span>
+            <span style="flex-grow: 1;"></span>
+            <span style="font-size: 14px; font-weight: 800; color: #b91c1c;">4 / 10</span>
+          </div>
+          <div style="flex-grow: 1; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 7px;">
+            <span style="font-size: 11px; font-weight: 700; color: #6b7280;">2일차 9/29</span>
+            <span style="flex-grow: 1;"></span>
+            <span style="font-size: 14px; font-weight: 800; color: #b91c1c;">4 / 10</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #4b5563; flex: none; width: 34px;">필름</span>
+          <div style="flex-grow: 1; display: flex; gap: 4px;">
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">미확정</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">확정</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #2563eb; color: #ffffff;">주문</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #dc2626; color: #ffffff;">수령</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.10); overflow: hidden;">
+      <div style="background: #3f6212; color: #ffffff; padding: 8px 14px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13.5px; font-weight: 800;">9/30 수</span>
+        <span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.2); border-radius: 999px; padding: 2px 8px;">하루</span>
+        <span style="flex-grow: 1;"></span>
+        <span style="font-size: 11.5px; font-weight: 700; opacity: 0.9;">룩스디자인 인천</span>
+      </div>
+      <div style="padding: 13px 14px 14px;">
+        <div style="font-size: 17px; font-weight: 800; line-height: 1.3; word-break: keep-all; margin-bottom: 12px;">청라 호반 베르디움</div>
+
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 11px;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #4b5563; flex: none; width: 34px;">인원</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #dcfce7; color: #14532d; font-size: 11.5px; font-weight: 800;">박민</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #dcfce7; color: #14532d; font-size: 11.5px; font-weight: 800;">이도</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #dcfce7; color: #14532d; font-size: 11.5px; font-weight: 800;">최강</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed #cbd5e1; box-sizing: border-box; color: #6b7280; font-size: 15px; font-weight: 700;">＋</span>
+          <span style="flex-grow: 1;"></span>
+          <span style="font-size: 14px; font-weight: 800; color: #15803d;">3 / 3</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #4b5563; flex: none; width: 34px;">필름</span>
+          <div style="flex-grow: 1; display: flex; gap: 4px;">
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">미확정</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">확정</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">주문</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #16a34a; color: #ffffff;">수령</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+    <div class="note">· 날짜마다 <b>그날 현장 수</b>를 숫자로<br>· 현장 없는 날은 <b>빈 점선 동그라미</b> — 눌러서 배정<br>· <b>월간으로 보기</b> 로 펼침<br>· 이어진 날(9/28·9/29)은 카드 한 장으로 묶음<br>· 필름은 기존 4칸 띠(미확정·확정·주문·수령) 그대로</div>
+  </div>
+  <div class="col">
+    <p class="label">월간 (펼침)</p>
+    <div class="phone">
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #f3f4f6; color: #111827; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="flex: none; background: #ffffff; border-bottom: 1px solid #e5e7eb;">
+    <div style="height: 52px; display: flex; align-items: center; gap: 4px; padding: 0 6px;">
+      <button type="button" aria-label="뒤로" style="width: 44px; height: 44px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+      </button>
+      <h1 style="flex-grow: 1; margin: 0; font-size: 17px; font-weight: 800; text-align: center; letter-spacing: -0.01em;">일정</h1>
+      <button type="button" aria-label="설정" style="width: 44px; height: 44px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+
+    <div style="padding: 0 14px 4px 8px; display: flex; align-items: center; gap: 6px;">
+      <button type="button" aria-label="이전 달" style="width: 36px; height: 36px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
+      <span style="font-size: 15.5px; font-weight: 800;">2026년 9월</span>
+      <button type="button" aria-label="다음 달" style="width: 36px; height: 36px; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+      </button>
+      <span style="flex-grow: 1;"></span>
+      <span style="font-size: 11.5px; font-weight: 700; color: #4b5563; white-space: nowrap;">이번 달 <b style="color: #111827;">7건</b></span>
+    </div>
+
+    <div style="padding: 2px 8px 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;">
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #b91c1c; padding-bottom: 4px;">일</span>
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #6b7280; padding-bottom: 4px;">월</span>
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #6b7280; padding-bottom: 4px;">화</span>
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #6b7280; padding-bottom: 4px;">수</span>
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #6b7280; padding-bottom: 4px;">목</span>
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #6b7280; padding-bottom: 4px;">금</span>
+      <span style="text-align: center; font-size: 11px; font-weight: 800; color: #1d4ed8; padding-bottom: 4px;">토</span>
+    </div>
+
+    <div style="padding: 0 8px 8px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;">
+
+      <span></span>
+      <span></span>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">1</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">2</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">3</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">4</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">5</span><span style="height: 17px;"></span></button>
+
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #d1a0a0; line-height: 1;">6</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">7</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">8</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">9</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">10</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">11</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">12</span><span style="height: 17px;"></span></button>
+
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #d1a0a0; line-height: 1;">13</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">14</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">15</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">16</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #6b7280; line-height: 1;">17</span><span style="min-width: 17px; height: 17px; border-radius: 999px; background: #e5e7eb; color: #4b5563; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">1</span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #6b7280; line-height: 1;">18</span><span style="min-width: 17px; height: 17px; border-radius: 999px; background: #e5e7eb; color: #4b5563; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">2</span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #6b7280; line-height: 1;">19</span><span style="min-width: 17px; height: 17px; border-radius: 999px; background: #e5e7eb; color: #4b5563; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">1</span></button>
+
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #d1a0a0; line-height: 1;">20</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">21</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 600; color: #9ca3af; line-height: 1;">22</span><span style="height: 17px;"></span></button>
+      <button type="button" style="border: 0; background: #2563eb; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 800; color: #ffffff; line-height: 1;">23</span><span style="width: 17px; height: 17px; border-radius: 999px; border: 1.5px dashed rgba(255,255,255,0.7); box-sizing: border-box;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 700; color: #111827; line-height: 1;">24</span><span style="width: 17px; height: 17px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span></button>
+      <button type="button" style="border: 2px solid #2563eb; background: #eef2ff; border-radius: 10px; padding: 3px 0 4px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 800; color: #1e3a8a; line-height: 1;">25</span><span style="width: 17px; height: 17px; border-radius: 999px; border: 1.5px dashed #2563eb; box-sizing: border-box;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 700; color: #111827; line-height: 1;">26</span><span style="width: 17px; height: 17px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span></button>
+
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 700; color: #b91c1c; line-height: 1;">27</span><span style="width: 17px; height: 17px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box;"></span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 800; color: #111827; line-height: 1;">28</span><span style="min-width: 17px; height: 17px; border-radius: 999px; background: #2563eb; color: #ffffff; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">1</span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 800; color: #111827; line-height: 1;">29</span><span style="min-width: 17px; height: 17px; border-radius: 999px; background: #2563eb; color: #ffffff; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">1</span></button>
+      <button type="button" style="border: 0; background: transparent; border-radius: 10px; padding: 5px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;"><span style="font-size: 14px; font-weight: 800; color: #111827; line-height: 1;">30</span><span style="min-width: 17px; height: 17px; border-radius: 999px; background: #2563eb; color: #ffffff; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">1</span></button>
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <button type="button" style="width: 100%; border: 0; border-top: 1px solid #f3f4f6; background: #ffffff; padding: 9px 0 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      <span style="font-size: 12.5px; font-weight: 800; color: #2563eb;">주간으로 접기</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"></path></svg>
+    </button>
+  </div>
+
+  <div style="flex-grow: 1; padding: 10px 12px 16px; display: flex; flex-direction: column; gap: 11px;">
+
+    <div style="background: #eef2ff; border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 11px 13px; display: flex; align-items: center; gap: 10px;">
+      <div style="flex-grow: 1; min-width: 0;">
+        <div style="font-size: 14px; font-weight: 800; color: #1e3a8a; margin-bottom: 2px;">9/25 (금) 고름</div>
+        <div style="font-size: 12px; font-weight: 700; color: #4b5563;">이 날은 현장이 없습니다</div>
+      </div>
+      <button type="button" style="flex: none; border: 0; background: #2563eb; color: #ffffff; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; font-weight: 800;">현장 넣기</button>
+    </div>
+
+    <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.10); overflow: hidden;">
+      <div style="background: #111827; color: #ffffff; padding: 8px 14px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13.5px; font-weight: 800;">9/28 월 – 9/29 화</span>
+        <span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.2); border-radius: 999px; padding: 2px 8px;">2일 연속</span>
+        <span style="flex-grow: 1;"></span>
+        <span style="font-size: 11.5px; font-weight: 700; opacity: 0.85;">이레토탈</span>
+      </div>
+      <div style="padding: 13px 14px 14px;">
+        <div style="font-size: 17px; font-weight: 800; line-height: 1.3; word-break: keep-all; margin-bottom: 12px;">인천 도림로8 벽산블루밍 104동 901호</div>
+
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 11px;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #4b5563; flex: none; width: 34px;">인원</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">서영</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">염문</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">문승</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11.5px; font-weight: 800;">김정</span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed #cbd5e1; box-sizing: border-box; color: #6b7280; font-size: 15px; font-weight: 700;">＋</span>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <div style="flex-grow: 1; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 7px;">
+            <span style="font-size: 11px; font-weight: 700; color: #6b7280;">1일차 9/28</span>
+            <span style="flex-grow: 1;"></span>
+            <span style="font-size: 14px; font-weight: 800; color: #b91c1c;">4 / 10</span>
+          </div>
+          <div style="flex-grow: 1; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 7px;">
+            <span style="font-size: 11px; font-weight: 700; color: #6b7280;">2일차 9/29</span>
+            <span style="flex-grow: 1;"></span>
+            <span style="font-size: 14px; font-weight: 800; color: #b91c1c;">4 / 10</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #4b5563; flex: none; width: 34px;">필름</span>
+          <div style="flex-grow: 1; display: flex; gap: 4px;">
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">미확정</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #bfdbfe; color: #1e3a8a;">확정</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #2563eb; color: #ffffff;">주문</span>
+            <span style="flex-grow: 1; text-align: center; border-radius: 6px; padding: 6px 2px; font-size: 12px; font-weight: 800; background: #dc2626; color: #ffffff;">수령</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+    <div class="note">· 한 달 전체 건수를 한눈에<br>· 지난 날은 회색 숫자, 앞으로는 파란 숫자<br>· 빈 날을 고르면 아래에 <b>현장 넣기</b> 가 뜸<br>· <b>주간으로 접기</b> 로 되돌림</div>
+  </div>
+</div>
+</body>
+</html>

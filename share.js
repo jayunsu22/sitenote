@@ -271,6 +271,70 @@
     return { days: days, later: later, laterCount: laterCount, past: past, pastCount: pastCount };
   }
 
+  // 날짜별 현장 수 {'2026-09-28': 1} — 달력 칸의 건수 배지에 쓴다.
+  // 사장님이 '비어 있는 날'을 찾아 현장을 배정하는 게 이 화면의 주된 쓰임이라,
+  // 숫자가 없는 날이 곧 '넣을 수 있는 날' 이 된다.
+  function dateCounts(sites) {
+    var out = {};
+    (sites || []).forEach(function (s) {
+      daysOf(s).forEach(function (d) {
+        var date = str(d.date);
+        if (isIsoDate(date)) out[date] = (out[date] || 0) + 1;
+      });
+    });
+    return out;
+  }
+
+  // 한 현장의 '이어진 날' 묶음. 9/28·9/29 를 두 줄로 따로 보여주면 같은 현장인 줄
+  // 모르고 인원을 두 번 부르는 일이 생긴다. 하루라도 건너뛰면 다른 묶음이다.
+  // [{site, dates:['2026-09-28','2026-09-29'], dayIndexes:[0,1], start, end, dayCount}]
+  function siteRuns(site) {
+    var all = daysOf(site);
+    var rows = all.map(function (d, i) { return { date: str(d.date), index: i }; })
+      .filter(function (x) { return isIsoDate(x.date); })
+      .sort(function (a, b) {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+        return a.index - b.index;
+      });
+    var runs = [];
+    rows.forEach(function (x) {
+      var last = runs[runs.length - 1];
+      if (last && addDays(last.dates[last.dates.length - 1], 1) === x.date) {
+        last.dates.push(x.date); last.dayIndexes.push(x.index);
+      } else {
+        runs.push({ dates: [x.date], dayIndexes: [x.index] });
+      }
+    });
+    return runs.map(function (r) {
+      return {
+        site: site, dates: r.dates, dayIndexes: r.dayIndexes,
+        start: r.dates[0], end: r.dates[r.dates.length - 1], dayCount: all.length
+      };
+    });
+  }
+
+  // 일정 화면용: 창(from 부터 count 일)에 걸치는 묶음은 runs, 그 전은 past(최근 먼저), 그 뒤는 later.
+  // 창에 '걸친다' 는 건 시작이 창 끝보다 앞이고 끝이 창 시작보다 뒤라는 뜻 —
+  // 어제 시작해 내일 끝나는 현장이 목록에서 빠지면 안 된다.
+  // past/laterCount 는 날 수로 센다 ('지난 일정 4건' 이 4일치라는 뜻)
+  function scheduleRuns(sites, from, count) {
+    var end = addDays(from, count - 1);
+    var all = [];
+    (sites || []).slice()
+      .sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); })
+      .forEach(function (s) { siteRuns(s).forEach(function (r) { all.push(r); }); });
+    var runs = [], later = [], past = [], laterCount = 0, pastCount = 0;
+    all.forEach(function (r) {
+      if (r.end < from) { past.push(r); pastCount += r.dates.length; return; }
+      if (r.start > end) { later.push(r); laterCount += r.dates.length; return; }
+      runs.push(r);
+    });
+    var asc = function (a, b) { return a.start < b.start ? -1 : (a.start > b.start ? 1 : 0); };
+    runs.sort(asc); later.sort(asc);
+    past.sort(function (a, b) { return a.start < b.start ? 1 : (a.start > b.start ? -1 : 0); });
+    return { runs: runs, later: later, laterCount: laterCount, past: past, pastCount: pastCount };
+  }
+
   // 같은 날 서로 다른 현장에 같은 이름(공백 무시)이 있으면 {date: {이름: 현장수}} — 2 이상만
   function findOverlaps(sites) {
     var seen = {}; // date -> name -> {siteId: true}
@@ -455,6 +519,9 @@
     shiftDays: shiftDays,
     daysOf: daysOf,
     groupByDate: groupByDate,
+    dateCounts: dateCounts,
+    siteRuns: siteRuns,
+    scheduleRuns: scheduleRuns,
     findOverlaps: findOverlaps,
     readyCount: readyCount,
     isReady: isReady,
