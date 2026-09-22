@@ -489,14 +489,13 @@
   // 아래에는 현장 카드. 이어진 날(9/28·9/29)은 한 장으로 묶는다 — 두 줄로 따로 두면
   // 같은 현장인 줄 모르고 인원을 두 번 부른다.
   var SCHEDULE_DAYS = 14;
-  // 띠에 보여줄 날 수. 목록(SCHEDULE_DAYS)과 반드시 같아야 한다 —
-  // 띠가 더 짧으면 그 뒤 날짜에 넣은 일정이 카드로만 나오고 달력엔 안 잡혀서
-  // '달력에 적용이 안 된다' 로 보인다. 7칸 격자라 두 줄로 깔린다.
-  var WEEK_DAYS = SCHEDULE_DAYS;
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
+  // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
+  // 월간과 세로줄이 안 맞는다. 달력처럼 일~토 한 주를 그대로 보여준다.
+  var calWeek = '';
   var pickedDate = '';    // 달력에서 고른 날 (빈 날이면 '현장 넣기' 가 뜬다)
   var WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -506,6 +505,11 @@
     return WEEKDAY[new Date(+m[1], +m[2] - 1, +m[3]).getDay()];
   }
   function ymOf(iso) { return String(iso || '').slice(0, 7); }
+  function sundayOf(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return iso;
+    return Share.addDays(iso, -new Date(+m[1], +m[2] - 1, +m[3]).getDay());
+  }
   // 'YYYY-MM' 에 n 달을 더한다. 달력 넘기기에 쓴다
   function addMonths(ym, n) {
     var p = String(ym || '').split('-');
@@ -560,6 +564,16 @@
   // 날짜를 고르면: 현장이 있는 날은 그 카드로 데려가고, 빈 날은 '현장 넣기' 를 띄운다
   function pickDate(iso) {
     pickedDate = (pickedDate === iso) ? '' : iso;
+    // 고른 날의 현장이 '지난'·'이후' 접힘 속에 있으면 펼쳐 준다.
+    // 안 그러면 달력에는 건수가 찍혀 있는데 목록엔 안 보여서 없는 줄 안다.
+    if (pickedDate) {
+      var g = Share.scheduleRuns(state.sites, Share.todayIso(), SCHEDULE_DAYS);
+      var has = function (list) {
+        return list.some(function (r) { return r.dates.indexOf(pickedDate) !== -1; });
+      };
+      if (has(g.past)) showPast = true;
+      if (has(g.later)) showLater = true;
+    }
     renderSchedule();
     if (!pickedDate) return;
     var card = document.querySelector('[data-run-start="' + pickedDate + '"], [data-run-has="' + pickedDate + '"]');
@@ -571,8 +585,14 @@
     t.type = 'button'; t.className = 'schcal-toggle';
     t.textContent = calMode === 'week' ? '월간으로 보기 ⌄' : '주간으로 접기 ⌃';
     t.onclick = function () {
-      calMode = calMode === 'week' ? 'month' : 'week';
-      if (calMode === 'month' && !calMonth) calMonth = ymOf(pickedDate || Share.todayIso());
+      // 보고 있던 날을 놓치지 않게 서로 이어 준다 (월간에서 고른 날 → 그 주로 접힘)
+      if (calMode === 'week') {
+        calMonth = ymOf(pickedDate || calWeek || Share.todayIso());
+        calMode = 'month';
+      } else {
+        calWeek = sundayOf(pickedDate || Share.todayIso());
+        calMode = 'week';
+      }
       renderSchedule();
     };
     return t;
@@ -582,10 +602,39 @@
     var box = $('scheduleCal'); box.innerHTML = '';
     var counts = Share.dateCounts(state.sites);
     if (calMode === 'week') {
+      if (!calWeek) calWeek = sundayOf(Share.todayIso());
+      var wEnd = Share.addDays(calWeek, 6);
+
+      var wnav = document.createElement('div'); wnav.className = 'schcal-nav';
+      var wp = document.createElement('button');
+      wp.type = 'button'; wp.className = 'schcal-arrow'; wp.textContent = '‹';
+      wp.setAttribute('aria-label', '지난 주');
+      wp.onclick = function () { calWeek = Share.addDays(calWeek, -7); renderSchedule(); };
+      var wlab = document.createElement('span'); wlab.className = 'schcal-month';
+      wlab.textContent = Share.shortDate(calWeek) + ' – ' + Share.shortDate(wEnd);
+      var wn = document.createElement('button');
+      wn.type = 'button'; wn.className = 'schcal-arrow'; wn.textContent = '›';
+      wn.setAttribute('aria-label', '다음 주');
+      wn.onclick = function () { calWeek = Share.addDays(calWeek, 7); renderSchedule(); };
+      wnav.appendChild(wp); wnav.appendChild(wlab); wnav.appendChild(wn);
+      // 앞뒤로 넘기다 보면 어디까지 갔는지 모른다. 이번 주가 아닐 때만 돌아가는 길을 둔다
+      if (calWeek !== sundayOf(Share.todayIso())) {
+        var back = document.createElement('button');
+        back.type = 'button'; back.className = 'schcal-today'; back.textContent = '오늘';
+        back.onclick = function () { calWeek = sundayOf(Share.todayIso()); renderSchedule(); };
+        wnav.appendChild(back);
+      } else {
+        var wsum = document.createElement('span'); wsum.className = 'schcal-sum';
+        var weekTotal = 0;
+        for (var wi = 0; wi < 7; wi++) weekTotal += counts[Share.addDays(calWeek, wi)] || 0;
+        wsum.innerHTML = '이번 주 <b>' + weekTotal + '건</b>';
+        wnav.appendChild(wsum);
+      }
+      box.appendChild(wnav);
+
       var strip = document.createElement('div'); strip.className = 'schcal-week';
-      var from = Share.todayIso();
-      for (var i = 0; i < WEEK_DAYS; i++) {
-        var iso = Share.addDays(from, i);
+      for (var i = 0; i < 7; i++) {
+        var iso = Share.addDays(calWeek, i);
         strip.appendChild(calCell(iso, { count: counts[iso] || 0, weekday: true }));
       }
       box.appendChild(strip);

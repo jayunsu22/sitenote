@@ -263,11 +263,14 @@ textarea { resize: vertical; }
 /* 위: 날짜 띠(주간)/달력(월간) — 날짜마다 그날 현장 수. 빈 날은 점선 동그라미.
    아래: 현장 카드 — 이어진 날은 한 장으로 묶는다. */
 .sch-cal { position: sticky; top: 0; z-index: 15; background: var(--card); border-bottom: 1px solid var(--border); }
-.schcal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); column-gap: 4px; row-gap: 2px; padding: 2px 8px 8px; }
+.schcal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 0 8px 8px; }
 .schcal-nav { display: flex; align-items: center; gap: 6px; padding: 2px 14px 2px 8px; }
 .schcal-arrow { width: 36px; height: 36px; border: 0; background: transparent; font-size: 20px; font-weight: 800; color: #374151; padding: 0; line-height: 1; }
 .schcal-month { font-size: 15.5px; font-weight: 800; }
 .schcal-sum { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #4b5563; white-space: nowrap; }
+/* 앞뒤 주로 넘기다 길을 잃지 않게. 이번 주가 아닐 때만 뜬다 */
+.schcal-today { margin-left: auto; border: 1px solid var(--primary); background: transparent;
+  color: var(--primary); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 800; }
 .schcal-sum b { color: var(--text); }
 .schcal-wds { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 2px 8px 4px; }
 .schcal-wds .schcal-wd { text-align: center; }
