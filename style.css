@@ -263,7 +263,7 @@ textarea { resize: vertical; }
 /* 위: 날짜 띠(주간)/달력(월간) — 날짜마다 그날 현장 수. 빈 날은 점선 동그라미.
    아래: 현장 카드 — 이어진 날은 한 장으로 묶는다. */
 .sch-cal { position: sticky; top: 0; z-index: 15; background: var(--card); border-bottom: 1px solid var(--border); }
-.schcal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 2px 8px 8px; }
+.schcal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); column-gap: 4px; row-gap: 2px; padding: 2px 8px 8px; }
 .schcal-nav { display: flex; align-items: center; gap: 6px; padding: 2px 14px 2px 8px; }
 .schcal-arrow { width: 36px; height: 36px; border: 0; background: transparent; font-size: 20px; font-weight: 800; color: #374151; padding: 0; line-height: 1; }
 .schcal-month { font-size: 15.5px; font-weight: 800; }
@@ -277,7 +277,9 @@ textarea { resize: vertical; }
   display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .schcal-wd { font-size: 10.5px; font-weight: 700; color: var(--muted); line-height: 1; }
 .schcal-wd.sun { color: #b91c1c; } .schcal-wd.sat { color: #1d4ed8; }
-.schcal-day { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1; }
+.schcal-day { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1; white-space: nowrap; }
+/* 달이 바뀌는 칸은 '10/1' 이라 한 글자 더 들어간다 — 칸을 넘지 않게 조금 줄인다 */
+.schcal-week .schcal-day { font-size: 14.5px; }
 .schcal-day.sun { color: #b91c1c; }
 /* 지난 날은 흐리게 — 오늘 이후에 눈이 가야 한다 */
 .schcal-cell.past .schcal-day { font-weight: 600; color: #9ca3af; }
@@ -317,8 +319,11 @@ textarea { resize: vertical; }
   padding: 10px 14px; font-size: 13.5px; font-weight: 800; }
 
 /* 카드: 머리줄 색이 준비 상태다 (검정 = 손볼 게 남음, 초록 = 다 됐음) */
-.sch-card { background: var(--card); border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.10);
-  overflow: hidden; margin-bottom: 11px; }
+/* 카드 사이를 넉넉히 띄운다. 붙여두면 어디서 한 일정이 끝나고 다음이 시작하는지
+   눈이 못 잡는다. 그림자만으로는 안 갈린다 */
+.sch-card { background: var(--card); border-radius: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+  overflow: hidden; margin-bottom: 26px; }
+.sch-card:last-child { margin-bottom: 8px; }
 .sch-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--d7); color: #fff; }
 .sch-head.h0 { background: var(--d0); } .sch-head.h1 { background: var(--d1); }
 .sch-head.h2 { background: var(--d2); } .sch-head.h3 { background: var(--d3); }
@@ -360,7 +365,7 @@ textarea { resize: vertical; }
 .sch-film .stage-strip { flex: 1; min-width: 0; }
 .sch-client:active { opacity: 0.6; }
 
-.sch-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
+.sch-more { display: block; width: 100%; margin: 4px 0 22px; padding: 12px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
 .sch-sep { border-top: 2px dashed #cbd5e1; margin: 14px 0 4px; }
 .schedule-body .empty-state { padding: 32px 16px; }
 /* 시공날짜 칸 + 달력 시트 */

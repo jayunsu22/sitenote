@@ -489,7 +489,10 @@
   // 아래에는 현장 카드. 이어진 날(9/28·9/29)은 한 장으로 묶는다 — 두 줄로 따로 두면
   // 같은 현장인 줄 모르고 인원을 두 번 부른다.
   var SCHEDULE_DAYS = 14;
-  var WEEK_DAYS = 7;      // 주간 띠에 보여줄 날 수 (오늘부터)
+  // 띠에 보여줄 날 수. 목록(SCHEDULE_DAYS)과 반드시 같아야 한다 —
+  // 띠가 더 짧으면 그 뒤 날짜에 넣은 일정이 카드로만 나오고 달력엔 안 잡혀서
+  // '달력에 적용이 안 된다' 로 보인다. 7칸 격자라 두 줄로 깔린다.
+  var WEEK_DAYS = SCHEDULE_DAYS;
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calMode = 'week';   // 'week' | 'month'
@@ -540,7 +543,9 @@
     }
     var d = document.createElement('span');
     d.className = 'schcal-day' + (!o.weekday && weekdayOf(iso) === '일' ? ' sun' : '');
-    d.textContent = String(+iso.slice(8, 10));
+    var dd = +iso.slice(8, 10);
+    // 띠가 달을 넘어가면 '1' 이 이번 달 1일인지 다음 달 1일인지 모른다. 1일에만 달을 붙인다
+    d.textContent = (o.weekday && dd === 1) ? (+iso.slice(5, 7)) + '/1' : String(dd);
     b.appendChild(d);
     var mark = document.createElement('span');
     if (n) { mark.className = 'schcal-n' + (past ? ' past' : ''); mark.textContent = n; }
@@ -721,7 +726,14 @@
       ? Share.shortDate(run.start) + ' ' + weekdayOf(run.start) + ' – ' + Share.shortDate(run.end) + ' ' + weekdayOf(run.end)
       : Share.shortDate(run.start) + ' ' + weekdayOf(run.start);
     var span = document.createElement('span'); span.className = 'sch-span';
-    span.textContent = multi ? run.dates.length + '일 연속' : '하루';
+    // 날이 떨어져 있어 한 현장이 카드 여러 장으로 갈릴 때가 있다.
+    // 그때는 '2일 연속' 대신 전체에서 몇 일차인지 밝혀야 딴 현장으로 안 읽힌다.
+    if (run.dayCount > run.dates.length) {
+      var a = run.dayIndexes[0] + 1, z = run.dayIndexes[run.dayIndexes.length - 1] + 1;
+      span.textContent = (a === z ? a + '일차' : a + '~' + z + '일차') + ' / 총 ' + run.dayCount + '일';
+    } else {
+      span.textContent = multi ? run.dates.length + '일 연속' : '하루';
+    }
     head.appendChild(when); head.appendChild(span);
     // 준비 완료는 머리줄 색으로 알리던 것을 배지로 옮겼다 (색은 현장 구분에 썼다)
     if (Share.isReady(s)) {
@@ -737,8 +749,7 @@
 
     var title = document.createElement('button');
     title.type = 'button'; title.className = 'sch-title t' + ci;
-    title.textContent = Share.titleLine(s) +
-      (run.dayCount > run.dates.length ? ' · ' + (run.dayIndexes[0] + 1) + '일차부터' : '');
+    title.textContent = Share.titleLine(s);
     title.onclick = function () { go('#site/' + id); };
     body.appendChild(title);
 
