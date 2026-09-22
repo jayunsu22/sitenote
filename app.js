@@ -488,7 +488,9 @@
   // '몇 건인가'가 날짜 옆에 바로 붙어 있어야 한다.
   // 아래에는 현장 카드. 이어진 날(9/28·9/29)은 한 장으로 묶는다 — 두 줄로 따로 두면
   // 같은 현장인 줄 모르고 인원을 두 번 부른다.
-  var SCHEDULE_DAYS = 14;
+  // 목록에 카드로 펼쳐 보여줄 기간. 이 뒤는 '이후 일정' 으로 접힌다.
+  // 일정이 띄엄띄엄 잡히는 일이라 2주로는 다음 건이 접힘 뒤로 숨는 때가 많다.
+  var SCHEDULE_DAYS = 30;
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calMode = 'week';   // 'week' | 'month'
@@ -720,7 +722,7 @@
 
     if (!g.runs.length && !g.laterCount) {
       var e = document.createElement('div'); e.className = 'empty-state';
-      e.textContent = '앞으로 2주 안에 현장이 없습니다. 위 달력에서 날짜를 눌러 현장을 넣으세요.' +
+      e.textContent = '앞으로 한 달 안에 현장이 없습니다. 위 달력에서 날짜를 눌러 현장을 넣으세요.' +
         (noDate ? ' (시공날짜가 없는 현장 ' + noDate + '건은 거래처 탭에 있습니다)' : '');
       body.appendChild(e);
       return;
