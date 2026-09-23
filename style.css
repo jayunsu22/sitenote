@@ -80,14 +80,22 @@ textarea { resize: vertical; }
 .field-label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
 .fixed-body textarea, .fixed-body input[type="text"] { width: 100%; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
 .fixed-body textarea:focus, input:focus, textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
-.contact-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
-.contact-row { display: flex; gap: 6px; align-items: center; }
-.contact-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
-.contact-row input.phone { flex: 1.2; }
-.contact-row a.tel { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 38px;
+.contact-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+/* 이름은 한 줄 통째로, 번호와 버튼들이 그 아래 한 줄.
+   '룩스디자인 실장' 같은 이름과 버튼 셋을 한 줄에 다 넣으면 이름이 잘려서 안 보인다 */
+.contact-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.contact-row input { min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
+.contact-row input.name { flex: 1 1 100%; }
+/* 기준폭을 작게 잡아야 번호칸이 늘어나 버튼(복사·전화·삭제)을 다음 줄로 밀지 않는다 */
+.contact-row input.phone { flex: 1 1 90px; }
+.contact-row a.tel { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
   border-radius: 8px; background: var(--success); color: #fff; text-decoration: none; font-size: 18px; }
 .contact-row a.tel.disabled { background: #cbd5e1; pointer-events: none; }
-.contact-row .x { width: 32px; height: 38px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+/* 이름·연락처 복사 - 전화 버튼과 같은 크기, 색만 다르게 해서 헷갈리지 않게 */
+.contact-row .cp { flex: none; width: 38px; height: 38px; border: 1.5px solid var(--border);
+  border-radius: 8px; background: #fff; font-size: 16px; line-height: 1; padding: 0; }
+.contact-row .cp:active { border-color: var(--primary); background: #eff6ff; }
+.contact-row .x { flex: none; width: 26px; height: 38px; border: none; background: transparent; color: var(--muted); font-size: 18px; padding: 0; }
 /* 고정값 사진 (명함 등) */
 .photo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 8px; }
 .photo-item { padding: 0; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; overflow: hidden;
@@ -295,11 +303,15 @@ textarea { resize: vertical; }
 .schcal-n { min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box; border-radius: 999px;
   background: var(--primary); color: #fff; font-size: 11.5px; font-weight: 800;
   display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+/* 두 건 이상인 날 — 인원·필름을 나눠 써야 해서 특별히 챙겨야 한다.
+   .past 를 뒤에 둬서 지난 날은 빨강이 아니라 회색으로 남는다 */
+.schcal-n.many { background: var(--danger); }
 .schcal-n.past { background: var(--border); color: #4b5563; }
 .schcal-free { width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box; }
 .schcal-blank { width: 19px; height: 19px; }
 .schcal-cell.today .schcal-free { border-color: rgba(255,255,255,0.7); }
 .schcal-cell.today .schcal-n { background: #fff; color: var(--primary-dark); }
+.schcal-cell.today .schcal-n.many { background: #fff; color: var(--danger); }
 .schcal-cell.picked .schcal-free { border-color: var(--primary); }
 .schcal-grid .schcal-n, .schcal-grid .schcal-free, .schcal-grid .schcal-blank { width: 17px; min-width: 17px; height: 17px; font-size: 10.5px; }
 .schcal-grid .schcal-day { font-size: 14px; }

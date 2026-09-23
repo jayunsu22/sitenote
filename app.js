@@ -211,6 +211,7 @@
       var tel = (ct.phone || '').replace(/[^0-9+]/g, '');
       row.innerHTML = '<input type="text" class="name" placeholder="이름" value="' + esc(ct.name) + '">' +
         '<input type="tel" class="phone" placeholder="전화번호" value="' + esc(ct.phone) + '">' +
+        '<button class="cp" title="이름·연락처 복사">📋</button>' +
         '<a class="tel' + (tel ? '' : ' disabled') + '" href="tel:' + esc(tel) + '" title="전화걸기">📞</a>' +
         '<button class="x" title="삭제">×</button>';
       var save = function () {
@@ -222,6 +223,15 @@
       };
       row.querySelector('.name').addEventListener('input', save);
       row.querySelector('.phone').addEventListener('input', save);
+      /* 담당자를 다른 사람에게 알려줄 때 쓴다 — '룩스디자인 실장 010-7132-3491'.
+         칸에 적힌 값을 그대로 읽는다. 저장을 안 눌렀어도 방금 고친 게 복사돼야 한다. */
+      row.querySelector('.cp').onclick = function () {
+        var 이름 = row.querySelector('.name').value.trim();
+        var 번호 = row.querySelector('.phone').value.trim();
+        var t = [이름, 번호].filter(Boolean).join(' ');
+        if (!t) { toast('이름과 연락처가 비어 있습니다'); return; }
+        copyText(t, '복사됨 — ' + t);
+      };
       row.querySelector('.x').onclick = function () {
         var contacts = c.contacts.slice(); contacts.splice(i, 1);
         Store.updateClient(c.id, { contacts: contacts }); renderContacts(Store.getClient(c.id));
@@ -555,11 +565,13 @@
     d.textContent = (o.weekday && dd === 1) ? (+iso.slice(5, 7)) + '/1' : String(dd);
     b.appendChild(d);
     var mark = document.createElement('span');
-    if (n) { mark.className = 'schcal-n' + (past ? ' past' : ''); mark.textContent = n; }
+    // 하루에 두 건 이상이면 빨강 — 특별히 챙겨야 하는 날이라 눈에 띄어야 한다.
+    // 지난 날은 끝난 일이라 그대로 회색 (아래 .past 가 .many 를 덮는다)
+    if (n) { mark.className = 'schcal-n' + (n >= 2 ? ' many' : '') + (past ? ' past' : ''); mark.textContent = n; }
     else if (past) mark.className = 'schcal-blank';
     else mark.className = 'schcal-free';
     b.appendChild(mark);
-    b.title = dateLabel(iso) + ' · ' + (n ? '현장 ' + n + '건' : '현장 없음');
+    b.title = dateLabel(iso) + ' · ' + (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') : '현장 없음');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
     b.onclick = function () { if (민직후) return; pickDate(iso); };
     return b;
