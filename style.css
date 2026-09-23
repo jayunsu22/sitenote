@@ -326,8 +326,9 @@ textarea { resize: vertical; }
 .schcal-foot .schcal-toggle + .schcal-toggle { border-left: 1px solid #f3f4f6; }
 /* 시공지역 — AS 를 어느 날에 붙일지 보려고 건수 자리에 동네 이름을 적는다.
    칸이 좁으니 넘치면 잘라 준다. 전체는 칸을 길게 눌렀을 때 뜨는 설명에 있다 */
-.schcal-rg { max-width: 100%; font-size: 10px; font-weight: 800; line-height: 1.15;
-  color: var(--primary-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schcal-rg { max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 10px; font-weight: 800; line-height: 1.15; color: var(--primary-dark); }
+.schcal-rgl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .schcal-rg.many { color: var(--danger); }
 .schcal-rg.past { color: #9ca3af; }
 .schcal-cell.today .schcal-rg { color: #fff; }

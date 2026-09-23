@@ -572,10 +572,17 @@
     // 지역 보기: 건수 자리에 동네 이름. 일은 있는데 현장명에 지역이 없으면
     // 건수를 그대로 보여준다 — 빈 동그라미를 띄우면 '일 없는 날' 로 읽힌다
     if (calShow === 'region' && rgs.length) {
-      // 칸이 좁다. 동네가 둘 이상이면 '당하동+1' 로 줄이고 빨갛게 — 하루에 동네가
-      // 갈리면 AS 를 붙이기 나쁜 날이다. 전체 이름은 칸을 길게 누르면 뜬다
+      // 동네 이름은 두 줄까지 넣는다 (칸이 52×48, 한 줄 10px 이라 둘은 들어간다).
+      // 셋 이상이면 둘째 줄에 '+N' - 전체 이름은 칸을 길게 누르면 뜬다.
+      // 동네가 갈리는 날은 빨갛게: 한 번 나가서 두 곳을 도는 날이라 눈에 띄어야 한다
       mark.className = 'schcal-rg' + (rgs.length > 1 ? ' many' : '') + (past ? ' past' : '');
-      mark.textContent = rgs.length > 1 ? rgs[0] + '+' + (rgs.length - 1) : rgs[0];
+      var 줄 = rgs.slice(0, 2);
+      if (rgs.length > 2) 줄[1] = 줄[1] + '+' + (rgs.length - 2);
+      줄.forEach(function (t) {
+        var l = document.createElement('span');
+        l.className = 'schcal-rgl'; l.textContent = t;
+        mark.appendChild(l);
+      });
     }
     // 하루에 두 건 이상이면 빨강 — 특별히 챙겨야 하는 날이라 눈에 띄어야 한다.
     // 지난 날은 끝난 일이라 그대로 회색 (아래 .past 가 .many 를 덮는다)
