@@ -436,6 +436,34 @@
     if (!ds.length) return shortDate(site && site.date);
     return ds.map(shortDate).join(', ');
   }
+  /* 메인 카드의 시공 줄 — '9/18 (3일) 👤 2명' (2026-09-23)
+     첫날짜만 봐서는 며칠짜리 일인지, 몇 명 붙는 일인지 알 수가 없다.
+     일수는 날짜가 들어간 날만 센다(중복 날짜는 한 번). 아직 날짜를 안 넣은
+     2일차 줄까지 세면 '3일' 이라고 거짓말을 하게 된다.
+     인원은 정해둔 필요 인원을 쓰고, 안 정했으면 실제 배정한 사람 수를 센다
+     (여러 날에 같은 사람이 나오면 한 명으로). 둘 다 없으면 인원은 뺀다. */
+  function workSummary(site) {
+    var ds = daysOf(site).map(function (d) { return str(d.date); }).filter(isIsoDate);
+    var 날짜 = {}, 날수 = 0, 첫날 = '';
+    ds.forEach(function (d) {
+      if (날짜[d]) return;
+      날짜[d] = 1; 날수++;
+      if (!첫날 || d < 첫날) 첫날 = d;
+    });
+    if (!첫날) 첫날 = isIsoDate(site && site.date) ? str(site.date) : '';
+    if (!첫날) return '';
+    var out = shortDate(첫날);
+    if (날수) out += ' (' + 날수 + '일)';
+    var n = needStaffOf(site);
+    if (!n) {
+      var 사람 = {};
+      daysOf(site).forEach(function (d) { staffOf(d).forEach(function (x) { 사람[x] = 1; }); });
+      n = Object.keys(사람).length;
+    }
+    if (n) out += ' 👤 ' + n + '명';
+    return out;
+  }
+
   // 달력 격자: 그 달의 주 단위 배열. 칸은 'YYYY-MM-DD' 또는 null(빈 칸). 일요일 시작
   function monthGrid(year, month) { // month: 1~12
     var first = new Date(year, month - 1, 1);
@@ -470,12 +498,15 @@
   }
 
   // 날짜 없는 현장 먼저(미정), 그 다음 날짜 오름차순, 동률은 최근 생성 우선. 원본 유지
+  // 날짜 없는 현장(아직 안 잡힌 일)이 맨 위, 그 다음 날짜 내림차순 —
+  // 최근에 한 현장이 맨 위로 온다 (2026-09-23). 지난 현장을 다시 볼 일이
+  // 많은데 예전에는 오름차순이라 최근 것이 맨 아래에 처박혔다.
   function sortSites(sites) {
     return sites.slice().sort(function (a, b) {
       var da = str(a.date), db = str(b.date);
       if (!da && db) return -1;
       if (da && !db) return 1;
-      if (da !== db) return da < db ? -1 : 1;
+      if (da !== db) return da > db ? -1 : 1;
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
   }
@@ -542,6 +573,7 @@
     isUrgent: isUrgent,
     filmStageOf: filmStageOf,
     datesLine: datesLine,
+    workSummary: workSummary,
     monthGrid: monthGrid
   };
 

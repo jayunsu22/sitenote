@@ -423,7 +423,8 @@
   // ---------- 메인: 현장 카드 ----------
   function cardSummary(s) {
     var lines = [];
-    if (s.date) lines.push('📅 ' + Share.shortDate(s.date));
+    var 시공 = Share.workSummary(s); // '9/18 (3일) 👤 2명'
+    if (시공) lines.push('📅 ' + 시공);
     if (s.address && s.address.trim()) lines.push('📍 ' + s.address.trim());
     var films = (s.films || []).filter(function (r) { return r && (r.code || '').trim(); })
       .map(function (r) { return [r.place, r.code].filter(Boolean).join(' '); });

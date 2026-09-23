@@ -181,15 +181,56 @@ test('현장사진 링크: 비어있으면 공유문에서 빠지고, 있으면 
 });
 
 console.log('sortSites');
-test('날짜 없음 우선, 날짜 오름차순, 동률은 최근 생성 우선', () => {
+test('날짜 없음 우선, 날짜 내림차순(최근이 위), 동률은 최근 생성 우선', () => {
   const mk = (id, date, createdAt) => Object.assign(blank(), { id, date, createdAt });
   const out = Share.sortSites([mk('a','2026-09-20',1), mk('b','',1), mk('c','2026-09-01',1), mk('d','',5), mk('e','2026-09-01',9)]);
-  assert.deepStrictEqual(out.map(s => s.id), ['d','b','e','c','a']);
+  assert.deepStrictEqual(out.map(s => s.id), ['d','b','a','e','c']);
 });
 test('원본 배열 변경 안 함', () => {
   const arr = [Object.assign(blank(), { id: 'a', date: '2026-01-02' }), Object.assign(blank(), { id: 'b', date: '2026-01-01' })];
   Share.sortSites(arr);
   assert.deepStrictEqual(arr.map(s => s.id), ['a','b']);
+});
+
+console.log('workSummary');
+test('하루짜리: 날짜 (1일)', () => {
+  const s = Object.assign(blank(), { date: '2026-09-18', days: [{ date: '2026-09-18', staff: [] }] });
+  assert.strictEqual(Share.workSummary(s), '9/18 (1일)');
+});
+test('여러 날 + 필요 인원', () => {
+  const s = Object.assign(blank(), {
+    date: '2026-09-18', needStaff: 2,
+    days: [{ date: '2026-09-18', staff: [] }, { date: '2026-09-19', staff: [] }, { date: '2026-10-07', staff: [] }]
+  });
+  assert.strictEqual(Share.workSummary(s), '9/18 (3일) 👤 2명');
+});
+test('필요 인원을 안 정했으면 배정한 사람 수 (여러 날 겹치면 한 명)', () => {
+  const s = Object.assign(blank(), {
+    date: '2026-09-18',
+    days: [{ date: '2026-09-18', staff: ['김기사', '박기사'] }, { date: '2026-09-19', staff: ['김기사'] }]
+  });
+  assert.strictEqual(Share.workSummary(s), '9/18 (2일) 👤 2명');
+});
+test('날짜 안 넣은 2일차 줄은 일수에 안 센다', () => {
+  const s = Object.assign(blank(), {
+    date: '2026-09-18',
+    days: [{ date: '2026-09-18', staff: [] }, { date: '', staff: [] }]
+  });
+  assert.strictEqual(Share.workSummary(s), '9/18 (1일)');
+});
+test('시작날짜가 2일차보다 뒤여도 첫날은 가장 이른 날', () => {
+  const s = Object.assign(blank(), {
+    date: '2026-10-07',
+    days: [{ date: '2026-10-07', staff: [] }, { date: '2026-09-30', staff: [] }]
+  });
+  assert.strictEqual(Share.workSummary(s), '9/30 (2일)');
+});
+test('days 없이 date 만 있는 예전 데이터', () => {
+  const s = Object.assign(blank(), { date: '2026-09-18' });
+  assert.strictEqual(Share.workSummary(s), '9/18 (1일)');
+});
+test('날짜가 아예 없으면 빈 문자열', () => {
+  assert.strictEqual(Share.workSummary(blank()), '');
 });
 
 console.log('nextColor');

@@ -118,7 +118,8 @@ function reset() {
     const s1 = Store.addSite(a.id); Store.updateSite(s1.id, { date: '2026-09-20' });
     const s2 = Store.addSite(a.id); Store.updateSite(s2.id, { date: '2026-09-01' });
     const s3 = Store.addSite(a.id);
-    assert.deepStrictEqual(Store.sitesOf(a.id).map(s => s.id), [s3.id, s2.id, s1.id]);
+    // 날짜 없는 현장이 맨 위, 그 다음 최근 날짜순
+    assert.deepStrictEqual(Store.sitesOf(a.id).map(s => s.id), [s3.id, s1.id, s2.id]);
   });
   await test('deleteSite', () => {
     reset();
