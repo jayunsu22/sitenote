@@ -25,8 +25,8 @@
      현장색(--c0~7)을 쓰면 거래처마다 0번부터 매겨져서(nextColor) 거래처가
      다른 첫 현장끼리 같은 색이 되고, 앞뒤 카드가 같은 색으로 붙는다.
      파스텔은 흰 글씨가 안 읽혀서 짙은 색을 따로 둔다 (흰색 대비 6.7 / 7.1) */
-  --sch1: #1d4ed8; /* 파랑 */
-  --sch2: #6d28d9; /* 보라 */
+  --sch1: #9f1239; /* 버건디 */
+  --sch2: #4d7c0f; /* 올리브 */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
