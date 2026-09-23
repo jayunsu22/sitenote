@@ -43,7 +43,8 @@ class WidgetPreview {
             .putLong("fetchedAt", 1790202960000L)   // 2026-09-24 07:36 KST
             .commit()
         val today = LocalDate.parse(System.getenv("PREVIEW_TODAY") ?: "2026-09-24")
-        val board = build(json, today)
+        val week = System.getenv("PREVIEW_WEEK")?.toIntOrNull() ?: 0   // 넘겨 본 주를 그려 볼 때
+        val board = build(json, today, weekOffset = week)
 
         val host = FrameLayout(ctx)
         val frame = ScheduleWidget.frame(ctx, 1, board, withList = false).apply(ctx, host)

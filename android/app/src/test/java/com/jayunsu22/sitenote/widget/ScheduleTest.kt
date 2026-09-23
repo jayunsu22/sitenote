@@ -42,6 +42,25 @@ class ScheduleTest {
         assertEquals(3, b.weekTotal)
     }
 
+    @Test fun 주를_넘기면_위쪽_띠만_옮기고_목록은_그대로() {
+        val json = data(
+            site("a", "이번주", listOf("2026-09-24")),
+            site("b", "다음주", listOf("2026-09-28", "2026-09-29")),
+            site("c", "다다음주", listOf("2026-10-05")),
+        )
+        val now = build(json, today)
+        val next = build(json, today, weekOffset = 1)
+        val prev = build(json, today, weekOffset = -1)
+        assertEquals(LocalDate.of(2026, 9, 27), next.week.first().date)
+        assertEquals(listOf(0, 1, 1, 0, 0, 0, 0), next.week.map { it.count })
+        assertEquals(2, next.weekTotal)
+        assertEquals(LocalDate.of(2026, 9, 13), prev.week.first().date)
+        assertEquals(1, next.weekOffset)
+        // 목록은 주를 넘겨도 '오늘부터 남은 현장' 그대로 (앱과 같다)
+        assertEquals(now.rows.map { it.siteId }, next.rows.map { it.siteId })
+        assertEquals(now.rows.map { it.siteId }, prev.rows.map { it.siteId })
+    }
+
     @Test fun 다_지난_현장은_빼고_남은_첫날_순서() {
         val b = build(data(
             site("late", "늦은", listOf("2026-10-05")),

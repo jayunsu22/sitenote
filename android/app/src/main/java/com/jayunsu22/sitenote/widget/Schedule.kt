@@ -48,7 +48,8 @@ data class DayCell(val date: LocalDate, val count: Int)
 
 data class Board(
     val today: LocalDate,
-    val week: List<DayCell>,    // 이번 주 일~토 (앱 일정 화면 위쪽 띠와 같다)
+    val weekOffset: Int,        // 0 = 이번 주, 1 = 다음 주, -1 = 지난 주
+    val week: List<DayCell>,    // 보고 있는 주 일~토 (앱 일정 화면 위쪽 띠와 같다)
     val weekTotal: Int,
     val rows: List<Row>,        // 오늘 이후로 남은 날이 있는 현장, 남은 첫 날 순
     val siteCount: Int,
@@ -95,7 +96,8 @@ private fun daysOf(site: JSONObject): List<DayRow> {
     }.sortedWith(compareBy({ it.date }, { it.index }))
 }
 
-fun build(json: String, today: LocalDate, maxRows: Int = 40): Board {
+/** weekOffset 은 위쪽 띠만 옮긴다. 아래 목록은 늘 '오늘부터 남은 현장' — 앱과 같다 */
+fun build(json: String, today: LocalDate, maxRows: Int = 40, weekOffset: Int = 0): Board {
     val root = JSONObject(json)
     val clients = HashMap<String, String>()
     root.optJSONArray("clients")?.let { a ->
@@ -111,7 +113,7 @@ fun build(json: String, today: LocalDate, maxRows: Int = 40): Board {
     val counts = HashMap<LocalDate, Int>()
     for (s in sites) for (d in daysOf(s).map { it.date }.toSet()) counts[d] = (counts[d] ?: 0) + 1
 
-    val sun = sundayOf(today)
+    val sun = sundayOf(today).plusWeeks(weekOffset.toLong())
     val week = (0L until 7L).map { sun.plusDays(it) }.map { DayCell(it, counts[it] ?: 0) }
 
     val rows = sites
@@ -120,7 +122,7 @@ fun build(json: String, today: LocalDate, maxRows: Int = 40): Board {
         .sortedBy { it.next }                                            // 안정 정렬 — 위 순서가 유지된다
         .take(maxRows)
 
-    return Board(today, week, week.sumOf { it.count }, rows, sites.size)
+    return Board(today, weekOffset, week, week.sumOf { it.count }, rows, sites.size)
 }
 
 private fun rowOf(site: JSONObject, clients: Map<String, String>, today: LocalDate): Row? {
