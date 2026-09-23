@@ -375,6 +375,7 @@ textarea { resize: vertical; }
 .cal-sheet .sheet-head { gap: 4px; }
 .cal-sheet .sheet-head h3 { flex: 1; text-align: center; }
 .cal-today-btn { padding: 4px 8px; font-size: 12px; }
+.cal-swipe { overflow: hidden; touch-action: pan-y; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-w { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
 .cal-w.sun, .cal-d.sun { color: var(--danger); }

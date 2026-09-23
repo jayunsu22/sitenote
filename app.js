@@ -1162,14 +1162,20 @@
         if (i === 0) c.className += ' sun'; if (i === 6) c.className += ' sat';
         if (iso === today) c.className += ' today';
         if (order[iso]) { c.className += ' on'; c.innerHTML += '<span class="cal-n">' + order[iso] + '</span>'; }
-        c.onclick = function () { if (cal.picked[iso]) delete cal.picked[iso]; else cal.picked[iso] = true; renderCalendar(); };
+        c.onclick = function () { if (민직후) return; if (cal.picked[iso]) delete cal.picked[iso]; else cal.picked[iso] = true; renderCalendar(); };
         grid.appendChild(c);
       });
     });
     $('calSummary').textContent = picked.length ? picked.map(Share.shortDate).join(', ') + ' (' + picked.length + '일)' : '날짜를 탭해서 고르세요. 다시 탭하면 빠집니다.';
   }
-  $('calPrev').onclick = function () { if (--cal.month < 1) { cal.month = 12; cal.year--; } renderCalendar(); };
-  $('calNext').onclick = function () { if (++cal.month > 12) { cal.month = 1; cal.year++; } renderCalendar(); };
+  // 달 넘기기 — 위의 ‹ › 버튼과 좌우로 미는 손짓이 같은 길을 쓴다
+  function calMonthPrev() { if (--cal.month < 1) { cal.month = 12; cal.year--; } renderCalendar(); }
+  function calMonthNext() { if (++cal.month > 12) { cal.month = 1; cal.year++; } renderCalendar(); }
+  $('calPrev').onclick = calMonthPrev;
+  $('calNext').onclick = calMonthNext;
+  // 일정 화면 달력과 같은 손짓: 오른쪽으로 밀면 지난 달, 왼쪽으로 밀면 다음 달.
+  // 세로로 그으면 시트가 그대로 스크롤된다 (bindSwipe 가 세로면 손을 뗀다)
+  bindSwipe($('calSwipe'), $('calGrid'), calMonthPrev, calMonthNext);
   $('calToday').onclick = function () { var t = Share.todayIso(); cal.year = +t.slice(0, 4); cal.month = +t.slice(5, 7); renderCalendar(); };
   $('calClear').onclick = function () { cal.picked = {}; renderCalendar(); };
   $('calOk').onclick = function () { closeCalendar(true); };

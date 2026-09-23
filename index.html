@@ -226,7 +226,11 @@
         <button id="calToday" class="btn-sm cal-today-btn">오늘</button>
         <button id="calClose" class="icon-btn" title="취소">✕</button>
       </div>
-      <div id="calGrid" class="cal-grid"></div>
+      <!-- 좌우로 밀어서 달을 넘긴다. 격자를 감싸는 칸이 따로 있어야
+           넘어가는 동안 칸이 시트 밖으로 삐져나가지 않는다 -->
+      <div id="calSwipe" class="cal-swipe">
+        <div id="calGrid" class="cal-grid"></div>
+      </div>
       <div id="calSummary" class="cal-summary"></div>
       <div class="cal-actions">
         <button id="calClear" class="btn-sm">초기화</button>
