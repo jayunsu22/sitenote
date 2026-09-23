@@ -747,6 +747,7 @@
   /* ---------- 아래쪽 목록 ---------- */
   function renderScheduleList() {
     var body = $('scheduleBody'); body.innerHTML = '';
+    var 차례 = 0;   // 지난·앞으로·이후를 통틀어 이어 센다 — 접힘 경계에서 색이 겹치면 안 된다
     var today = Share.todayIso();
     var g = Share.scheduleSites(state.sites, today, SCHEDULE_DAYS);
     var dup = Share.findOverlaps(state.sites);
@@ -775,7 +776,7 @@
       pastBtn.onclick = function () { showPast = !showPast; renderScheduleList(); };
       body.appendChild(pastBtn);
       if (showPast) {
-        g.past.forEach(function (r) { body.appendChild(renderRunCard(r, dup)); });
+        g.past.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
         var sep = document.createElement('div'); sep.className = 'sch-sep'; body.appendChild(sep);
       }
     }
@@ -788,7 +789,7 @@
       return;
     }
 
-    g.runs.forEach(function (r) { body.appendChild(renderRunCard(r, dup)); });
+    g.runs.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
 
     if (g.laterCount) {
       var more = document.createElement('button');
@@ -797,7 +798,7 @@
         Share.shortDate(g.later[0].start) + ' ~ ' + Share.shortDate(g.later[g.later.length - 1].end) + ')';
       more.onclick = function () { showLater = !showLater; renderScheduleList(); };
       body.appendChild(more);
-      if (showLater) g.later.forEach(function (r) { body.appendChild(renderRunCard(r, dup)); });
+      if (showLater) g.later.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
     }
   }
 
@@ -820,12 +821,13 @@
   /* 이어진 날 한 묶음 = 카드 한 장.
      머리줄 색은 준비 상태다 — 초록이면 필름·부자재·인원이 다 됐다는 뜻이라
      목록을 훑으면서 손볼 곳만 골라낼 수 있다. */
-  function renderRunCard(run, dupAll) {
+  function renderRunCard(run, dupAll, 차례) {
     var s = run.site, id = s.id;
     var multi = run.dates.length > 1;
-    // 머리줄·제목 색은 현장색(8색)이다. 다 검정이면 목록에서 어디서 어디까지가
-    // 한 현장인지 눈으로 안 갈린다. 파스텔은 흰 글씨가 안 읽혀서 짙은 짝(--d0~7)을 쓴다.
-    var ci = s.color || 0;
+    // 머리줄·제목 색은 목록 차례대로 두 색을 번갈아 쓴다.
+    // 현장색(s.color)을 쓰면 거래처마다 0번부터 매겨지는 탓에(Share.nextColor)
+    // 거래처가 다른 첫 현장끼리 같은 색이 되어 앞뒤 카드가 같은 색으로 붙는다.
+    var ci = (차례 || 0) % 2;
     var card = document.createElement('div');
     card.className = 'sch-card';
     card.setAttribute('data-run-start', run.start);

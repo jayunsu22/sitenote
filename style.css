@@ -21,16 +21,12 @@
   --c5: #ffd6a5; /* 살구 */
   --c6: #d4f5b0; /* 연두 */
   --c7: #e5e7eb; /* 회색 */
-  /* 같은 8색의 짙은 짝 — 일정 카드 머리줄(흰 글씨)과 현장 제목에 쓴다.
-     파스텔은 흰 글씨가 안 읽혀서 따로 둔다. 흰색 대비 4.99~10.3 */
-  --d0: #92400e; /* 노랑 */
-  --d1: #6d28d9; /* 보라 */
-  --d2: #0f766e; /* 민트 */
-  --d3: #be185d; /* 분홍 */
-  --d4: #1d4ed8; /* 하늘 */
-  --d5: #c2410c; /* 살구 */
-  --d6: #4d7c0f; /* 연두 */
-  --d7: #374151; /* 회색 */
+  /* 일정 카드 머리줄(흰 글씨)·제목 색. 목록 차례대로 번갈아 쓴다.
+     현장색(--c0~7)을 쓰면 거래처마다 0번부터 매겨져서(nextColor) 거래처가
+     다른 첫 현장끼리 같은 색이 되고, 앞뒤 카드가 같은 색으로 붙는다.
+     파스텔은 흰 글씨가 안 읽혀서 짙은 색을 따로 둔다 (흰색 대비 6.7 / 7.1) */
+  --sch1: #1d4ed8; /* 파랑 */
+  --sch2: #6d28d9; /* 보라 */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -330,11 +326,8 @@ textarea { resize: vertical; }
 .sch-card { background: var(--card); border-radius: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.10);
   overflow: hidden; margin-bottom: 26px; }
 .sch-card:last-child { margin-bottom: 8px; }
-.sch-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--d7); color: #fff; }
-.sch-head.h0 { background: var(--d0); } .sch-head.h1 { background: var(--d1); }
-.sch-head.h2 { background: var(--d2); } .sch-head.h3 { background: var(--d3); }
-.sch-head.h4 { background: var(--d4); } .sch-head.h5 { background: var(--d5); }
-.sch-head.h6 { background: var(--d6); } .sch-head.h7 { background: var(--d7); }
+.sch-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--sch1); color: #fff; }
+.sch-head.h1 { background: var(--sch2); }
 /* 준비 완료 표시. 머리줄 색이 현장색으로 갔으니 상태는 이 배지가 맡는다 */
 .sch-done { flex: none; font-size: 11px; font-weight: 800; background: rgba(255,255,255,0.22);
   border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
@@ -344,11 +337,8 @@ textarea { resize: vertical; }
   padding: 2px 0; font-size: 11.5px; font-weight: 700; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sch-body { padding: 13px 14px 14px; }
 .sch-title { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 0;
-  font-size: 17px; font-weight: 800; color: var(--d7); line-height: 1.3; word-break: keep-all; margin-bottom: 12px; }
-.sch-title.t0 { color: var(--d0); } .sch-title.t1 { color: var(--d1); }
-.sch-title.t2 { color: var(--d2); } .sch-title.t3 { color: var(--d3); }
-.sch-title.t4 { color: var(--d4); } .sch-title.t5 { color: var(--d5); }
-.sch-title.t6 { color: var(--d6); } .sch-title.t7 { color: var(--d7); }
+  font-size: 17px; font-weight: 800; color: var(--sch1); line-height: 1.3; word-break: keep-all; margin-bottom: 12px; }
+.sch-title.t1 { color: var(--sch2); }
 .sch-lab { flex: none; width: 34px; font-size: 11.5px; font-weight: 800; color: #4b5563; }
 /* 이름이 길어 줄이 넘어가도 배치 수(3/3)는 오른쪽 위에 붙어 있어야 한다.
    한 줄에 다 넣으려고 wrap 을 주면 그 숫자가 이름들 뒤로 밀려 내려간다. */
