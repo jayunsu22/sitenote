@@ -559,7 +559,8 @@
     else mark.className = 'schcal-free';
     b.appendChild(mark);
     b.title = dateLabel(iso) + ' · ' + (n ? '현장 ' + n + '건' : '현장 없음');
-    b.onclick = function () { pickDate(iso); };
+    // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
+    b.onclick = function () { if (민직후) return; pickDate(iso); };
     return b;
   }
 
@@ -580,6 +581,61 @@
     if (!pickedDate) return;
     var card = document.querySelector('[data-run-start="' + pickedDate + '"], [data-run-has="' + pickedDate + '"]');
     if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center' });
+  }
+
+  /* 좌우로 밀어서 주·달을 넘긴다. 현장에서 장갑 낀 손으로 작은 화살표를
+     정확히 누르기 어렵다. 화살표는 그대로 두고 미는 길을 하나 더 낸다.
+
+     세로로 긋는 건 화면 스크롤이다. 방향이 가로라고 확실해진 뒤에만 가로채고,
+     세로면 그 손짓은 아예 놓아준다 — 안 그러면 목록이 안 스크롤된다. */
+  // 민 직후에 손가락이 얹힌 날짜 칸이 눌리는 것을 막는다.
+  // 시계를 견주지 않고 타이머로 끈다 — Date.now() 차이로 재면 기기 시계가
+  // 어긋나거나 멈춘 환경에서 탭이 영영 안 먹는다.
+  var 민직후 = false, 민타이머 = null;
+  function bindSwipe(wrap, inner, onPrev, onNext) {
+    var x0 = 0, y0 = 0, dx = 0, 가로 = null, 끄는중 = false;
+    var 넘김 = 45;   // 이만큼 밀어야 넘어간다 (톡 누른 건 안 넘긴다)
+    var 최대 = 26;   // 끌리는 느낌만 조금. 많이 따라오면 칸이 잘려 보인다
+    wrap.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { 끄는중 = false; return; }
+      끄는중 = true; 가로 = null; dx = 0;
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+      inner.style.transition = '';
+    }, { passive: true });
+    wrap.addEventListener('touchmove', function (e) {
+      if (!끄는중) return;
+      var ax = e.touches[0].clientX - x0, ay = e.touches[0].clientY - y0;
+      if (가로 === null) {
+        if (Math.abs(ax) < 8 && Math.abs(ay) < 8) return;   // 아직 방향을 모른다
+        가로 = Math.abs(ax) > Math.abs(ay);
+        if (!가로) { 끄는중 = false; return; }               // 세로 = 화면 스크롤. 손 뗀다
+      }
+      dx = ax;
+      e.preventDefault();   // 가로일 때만. 안 막으면 화면이 같이 움직인다
+      inner.style.transform = 'translateX(' + Math.max(-최대, Math.min(최대, dx * 0.35)) + 'px)';
+    }, { passive: false });
+    var 놓음 = function () {
+      if (!끄는중) return;
+      끄는중 = false;
+      inner.style.transition = 'transform .16s ease-out';
+      inner.style.transform = '';
+      if (가로 && Math.abs(dx) > 8) {
+        민직후 = true;
+        clearTimeout(민타이머);
+        민타이머 = setTimeout(function () { 민직후 = false; }, 400);
+      }
+      if (가로 && Math.abs(dx) >= 넘김) (dx > 0 ? onPrev : onNext)();
+      가로 = null; dx = 0;
+    };
+    wrap.addEventListener('touchend', 놓음);
+    wrap.addEventListener('touchcancel', 놓음);
+  }
+  // 미는 칸을 감싸 준다. 넘어가는 동안 칸이 밖으로 삐져나가면 안 된다
+  function swipeBox(inner, onPrev, onNext) {
+    var wrap = document.createElement('div'); wrap.className = 'schcal-swipe';
+    wrap.appendChild(inner);
+    bindSwipe(wrap, inner, onPrev, onNext);
+    return wrap;
   }
 
   function calToggleBtn() {
@@ -639,7 +695,9 @@
         var iso = Share.addDays(calWeek, i);
         strip.appendChild(calCell(iso, { count: counts[iso] || 0, weekday: true }));
       }
-      box.appendChild(strip);
+      box.appendChild(swipeBox(strip,
+        function () { calWeek = Share.addDays(calWeek, -7); renderSchedule(); },
+        function () { calWeek = Share.addDays(calWeek, 7); renderSchedule(); }));
     } else {
       if (!calMonth) calMonth = ymOf(Share.todayIso());
       var y = +calMonth.slice(0, 4), mo = +calMonth.slice(5, 7);
@@ -679,7 +737,9 @@
           grid.appendChild(calCell(iso, { count: counts[iso] || 0 }));
         });
       });
-      box.appendChild(grid);
+      box.appendChild(swipeBox(grid,
+        function () { calMonth = addMonths(calMonth, -1); renderSchedule(); },
+        function () { calMonth = addMonths(calMonth, 1); renderSchedule(); }));
     }
     box.appendChild(calToggleBtn());
   }
