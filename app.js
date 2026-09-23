@@ -1214,12 +1214,15 @@
     ['일', '월', '화', '수', '목', '금', '토'].forEach(function (w, i) {
       var h = document.createElement('div'); h.className = 'cal-w' + (i === 0 ? ' sun' : i === 6 ? ' sat' : ''); h.textContent = w; grid.appendChild(h);
     });
-    Share.monthGrid(cal.year, cal.month).forEach(function (week) {
+    // 빈 칸 없이 앞뒤 달 날짜까지 — 9/30 다음 날인 10/1 을 고르려고 달을 넘기지 않아도 된다.
+    // 앞뒤 달 날짜도 그대로 골라진다 (달이 바뀌는 현장이 흔하다)
+    var 이번달 = cal.year + '-' + String(cal.month).padStart(2, '0');
+    Share.monthGridFull(cal.year, cal.month).forEach(function (week) {
       week.forEach(function (iso, i) {
         var c = document.createElement('button'); c.type = 'button'; c.className = 'cal-d';
-        if (!iso) { c.disabled = true; c.className += ' blank'; grid.appendChild(c); return; }
         c.textContent = String(+iso.slice(8, 10));
         if (i === 0) c.className += ' sun'; if (i === 6) c.className += ' sat';
+        if (iso.slice(0, 7) !== 이번달) c.className += ' out';
         if (iso === today) c.className += ' today';
         if (order[iso]) { c.className += ' on'; c.innerHTML += '<span class="cal-n">' + order[iso] + '</span>'; }
         c.onclick = function () { if (민직후) return; if (cal.picked[iso]) delete cal.picked[iso]; else cal.picked[iso] = true; renderCalendar(); };
