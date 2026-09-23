@@ -12,7 +12,7 @@ const blank = () => ({
   id: 's1', clientId: 'c1', color: 0, createdAt: 1, updatedAt: 1,
   name: '', unit: '', size: '', address: '', date: '', pwLobby: '', pwUnit: '', gate: '',
   carReg: { v: '미확인', memo: '' }, parking: '', cargoEv: { v: '미확인', memo: '' },
-  toilet: '', films: [], quoteUrl: '', photoUrl: '', memo: ''
+  calRegion: '', toilet: '', films: [], quoteUrl: '', photoUrl: '', memo: ''
 });
 const full = () => Object.assign(blank(), {
   name: '인천 청학동 시대아파트', unit: '104동 910호', size: '13평',
@@ -28,15 +28,15 @@ const full = () => Object.assign(blank(), {
 });
 
 console.log('FIELDS');
-test('14개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
+test('15개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','note','films','quoteUrl','photoUrl','memo']);
+    ['name','calRegion','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','note','films','quoteUrl','photoUrl','memo']);
 });
-test('DEFAULT_QUESTIONS에 name/note/quoteUrl/photoUrl/memo 없음, 나머지 9개', () => {
+test('DEFAULT_QUESTIONS에 name/calRegion/note/quoteUrl/photoUrl/memo 없음, 나머지 9개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
   assert.strictEqual(k.length, 9);
   assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('quoteUrl')
-    && !k.includes('photoUrl') && !k.includes('note'));
+    && !k.includes('photoUrl') && !k.includes('note') && !k.includes('calRegion'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');
 });
 
@@ -98,9 +98,9 @@ test('커스텀 문구 적용', () => {
   const out = Share.buildQuestion(s, ['toilet'], Object.assign({}, Share.DEFAULT_QUESTIONS, { toilet: '화장실 어디 써요?' }));
   assert.strictEqual(out, '[A]\n- 화장실 어디 써요?');
 });
-test('name/quoteUrl/photoUrl/memo 키는 무시', () => {
+test('name/calRegion/quoteUrl/photoUrl/memo 키는 무시', () => {
   const s = blank(); s.name = 'A';
-  assert.strictEqual(Share.buildQuestion(s, ['name','quoteUrl','photoUrl','memo'], Share.DEFAULT_QUESTIONS), '');
+  assert.strictEqual(Share.buildQuestion(s, ['name','calRegion','quoteUrl','photoUrl','memo'], Share.DEFAULT_QUESTIONS), '');
 });
 test('질문할 게 없으면 빈 문자열', () => {
   assert.strictEqual(Share.buildQuestion(full(), ['gate','toilet'], Share.DEFAULT_QUESTIONS), '');
@@ -268,6 +268,28 @@ test('dateRegions: 날짜별로, 같은 동네는 한 번만', () => {
 test('dateRegions: 날짜 없는 줄은 건너뛴다', () => {
   const a = rgSite({ id: 'a', name: '인천 당하동 1084-2', days: [{ date: '', staff: [] }] });
   assert.deepStrictEqual(Share.dateRegions([a]), {});
+});
+
+test('달력지역 칸에 적은 게 있으면 그게 이긴다', () => {
+  const s = rgSite({ name: '인천 도림로8 벽산블루밍 104동 901호', calRegion: '인천 송도동' });
+  assert.strictEqual(Share.autoRegion(s), '인천', '현장명에서 뽑으면 인천까지밖에 안 나온다');
+  assert.strictEqual(Share.regionOf(s), '인천 송도동');
+});
+test('달력지역이 비었거나 공백뿐이면 현장명에서 뽑은 것', () => {
+  assert.strictEqual(Share.regionOf(rgSite({ name: '인천 당하동 1084-2', calRegion: '' })), '당하동');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '인천 당하동 1084-2', calRegion: '   ' })), '당하동');
+});
+test('현장명에서 못 뽑는 현장도 달력지역을 적으면 달력에 뜬다', () => {
+  assert.strictEqual(Share.regionOf(rgSite({ name: '룩스디자인' })), '');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '룩스디자인', calRegion: '부평구' })), '부평구');
+});
+test('dateRegions 도 달력지역 칸을 따른다', () => {
+  const a = rgSite({ id: 'a', name: '월곡래미안', calRegion: '성북구', days: [{ date: '2026-10-05', staff: [] }] });
+  assert.deepStrictEqual(Share.dateRegions([a]), { '2026-10-05': ['성북구'] });
+});
+test('공유 문구에는 달력지역이 안 나간다', () => {
+  const s = rgSite({ name: '인천 당하동 1084-2', calRegion: '인천 송도동' });
+  assert.strictEqual(Share.buildShare(s, ['calRegion']), '[인천 당하동 1084-2]');
 });
 
 console.log('nextColor');

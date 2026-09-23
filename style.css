@@ -329,6 +329,10 @@ textarea { resize: vertical; }
 .schcal-rg { max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1px;
   font-size: 10px; font-weight: 800; line-height: 1.15; color: var(--primary-dark); }
 .schcal-rgl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 동네가 하나면 두 줄까지 쓴다. keep-all 로 낱말 안에서는 안 쪼갠다 —
+   '송도 아이파크' 가 '송도 아이파 / 크' 로 갈리면 못 읽는다 */
+.schcal-rg.one .schcal-rgl { white-space: normal; word-break: keep-all; overflow-wrap: anywhere;
+  text-overflow: clip; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .schcal-rg.many { color: var(--danger); }
 .schcal-rg.past { color: #9ca3af; }
 .schcal-cell.today .schcal-rg { color: #fff; }

@@ -7,12 +7,16 @@
   // 항목 정의 — 화면 순서 = 배열 순서 = 문구 출력 순서
   // type: text | date | select | films | link | multiline
   // question: 값이 비어있을 때 업자에게 보낼 기본 질문 문구
-  //           (name/quoteUrl/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
+  //           (name/calRegion/quoteUrl/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
   var FIELDS = [
     // 동/호수·평형 칸은 뺐다(2026-09-17). '군포 우륵아파트 704동 606호' 처럼
     // 현장명에 같이 적는 게 빠르다. 예전에 저장한 값은 titleLine 이 그대로 붙여준다.
     // 현장주소 칸도 뺐다(2026-09-17). 네비에 직접 넣는 게 빠르다.
     { key: 'name',    label: '현장명',        type: 'text' },
+    // 달력지역 - 일정 화면 '지역 보기' 칸에 뜰 이름. 비워두면 현장명에서 알아서 뽑는다.
+    // 뽑은 게 마음에 안 들 때('인천'만 잡힌다든지) 여기에 직접 적으면 그게 뜬다.
+    // 공유 문구에는 안 나간다 - 우리가 일정 잡으려고 쓰는 칸이라 업자·팀원과 상관없다
+    { key: 'calRegion', label: '달력지역',     type: 'text' },
     // 시공날짜: 달력에서 여러 날을 고를 수 있다(1일차, 2일차…). 값은 첫날(days[0].date)이고 전체는 site.days 에 있다
     { key: 'date',    label: '시공날짜',      type: 'date',   question: '시공 날짜 언제인가요?' },
     { key: 'pwLobby', label: '공동현관 비번', type: 'text',   question: '공동현관 비번 알려주세요' },
@@ -300,7 +304,8 @@
        '룩스디자인'                                → '' (지역을 안 적은 현장) */
   var 동읍면 = /^[가-힣]{1,5}(동|읍|면|리)$/;   // 가장 좁은 단위 - AS 묶기에 제일 쓸모 있다
   var 시군구 = /^[가-힣]{1,5}(시|군|구)$/;
-  function regionOf(site) {
+  // 현장명·주소에서 알아서 뽑은 지역 (달력지역 칸이 비었을 때 쓰는 값)
+  function autoRegion(site) {
     var src = str(site && site.address) || str(site && site.name);
     var ts = src.split(/\s+/).filter(Boolean);
     // 한글만 받으므로 '104동' '2동' 같은 건물 동은 저절로 빠진다.
@@ -311,6 +316,10 @@
     // 낱말이 하나뿐이면 상호일 뿐이라 지역이 없다고 본다 ('룩스디자인')
     if (ts.length >= 2 && /^[가-힣]{2,4}$/.test(ts[0])) return ts[0];
     return '';
+  }
+  // 달력에 뜰 지역 — 직접 적은 게 있으면 그것, 없으면 현장명에서 뽑은 것
+  function regionOf(site) {
+    return str(site && site.calRegion).trim() || autoRegion(site);
   }
   // 날짜별 시공지역 { 'YYYY-MM-DD': ['당하동','부평구'] } — 같은 동네는 한 번만
   function dateRegions(sites) {
@@ -595,6 +604,7 @@
     daysOf: daysOf,
     groupByDate: groupByDate,
     dateCounts: dateCounts,
+    autoRegion: autoRegion,
     regionOf: regionOf,
     dateRegions: dateRegions,
     siteSchedule: siteSchedule,

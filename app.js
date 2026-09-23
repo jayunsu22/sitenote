@@ -575,7 +575,9 @@
       // 동네 이름은 두 줄까지 넣는다 (칸이 52×48, 한 줄 10px 이라 둘은 들어간다).
       // 셋 이상이면 둘째 줄에 '+N' - 전체 이름은 칸을 길게 누르면 뜬다.
       // 동네가 갈리는 날은 빨갛게: 한 번 나가서 두 곳을 도는 날이라 눈에 띄어야 한다
-      mark.className = 'schcal-rg' + (rgs.length > 1 ? ' many' : '') + (past ? ' past' : '');
+      // 동네가 하나면 두 줄을 다 써도 된다 — 직접 적은 이름('송도 아이파크')이
+      // 한 줄에 안 들어가는 일이 많다. 둘이면 각자 한 줄씩이라 못 늘린다
+      mark.className = 'schcal-rg' + (rgs.length > 1 ? ' many' : ' one') + (past ? ' past' : '');
       var 줄 = rgs.slice(0, 2);
       if (rgs.length > 2) 줄[1] = 줄[1] + '+' + (rgs.length - 2);
       줄.forEach(function (t) {
@@ -1350,7 +1352,8 @@
     row.className = 'frow' + (f.key === 'name' ? ' frow-name frow-wide' : '') + (WIDE_TYPES[f.type] ? ' frow-wide' : '');
     var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'fcheck';
     cb.checked = !!checked[f.key]; cb.onchange = function () { checked[f.key] = cb.checked; };
-    if (f.key === 'name') cb.style.visibility = 'hidden';
+    // 현장명·달력지역은 공유 문구에 안 나가는 칸이라 고를 체크박스가 필요 없다
+    if (f.key === 'name' || f.key === 'calRegion') cb.style.visibility = 'hidden';
     var label = document.createElement('div'); label.className = 'flabel'; label.textContent = f.label;
     var ctl = document.createElement('div'); ctl.className = 'fctl';
     row.appendChild(cb); row.appendChild(label); row.appendChild(ctl);
@@ -1377,8 +1380,24 @@
       var inp = document.createElement('input');
       inp.type = 'text';
       inp.value = s[f.key] || '';
-      inp.placeholder = f.key === 'name' ? '현장명 (예: 군포 우륵아파트 704동 606호 30평)' : '';
-      inp.addEventListener('input', function () { var p = {}; p[f.key] = inp.value; save(p); });
+      if (f.key === 'name') inp.placeholder = '현장명 (예: 군포 우륵아파트 704동 606호 30평)';
+      else if (f.key === 'calRegion') {
+        // 비워두면 현장명에서 뽑은 게 뜬다. 뭐가 뜰지 미리 보여줘야 적을지 말지 안다
+        var 자동 = Share.autoRegion(s);
+        inp.placeholder = 자동 ? '비워두면 ' + 자동 : '예: 인천 송도동';
+      } else inp.placeholder = f.placeholder || '';
+      inp.addEventListener('input', function () {
+        var p = {}; p[f.key] = inp.value; save(p);
+        // 현장명을 고치면 달력지역의 '비워두면 OO' 도 따라 바뀐다
+        if (f.key === 'name') {
+          var rg = document.querySelector('#siteFields input[data-k="calRegion"]');
+          if (rg) {
+            var a = Share.autoRegion(Store.getSite(s.id) || s);
+            rg.placeholder = a ? '비워두면 ' + a : '예: 인천 송도동';
+          }
+        }
+      });
+      if (f.key === 'calRegion') inp.dataset.k = 'calRegion';
       ctl.appendChild(inp);
     } else if (f.type === 'select') {
       var box2 = document.createElement('div'); box2.className = 'sel-row';
