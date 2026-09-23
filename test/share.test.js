@@ -12,7 +12,7 @@ const blank = () => ({
   id: 's1', clientId: 'c1', color: 0, createdAt: 1, updatedAt: 1,
   name: '', unit: '', size: '', address: '', date: '', pwLobby: '', pwUnit: '', gate: '',
   carReg: { v: '미확인', memo: '' }, parking: '', cargoEv: { v: '미확인', memo: '' },
-  toilet: '', films: [], photoUrl: '', memo: ''
+  toilet: '', films: [], quoteUrl: '', photoUrl: '', memo: ''
 });
 const full = () => Object.assign(blank(), {
   name: '인천 청학동 시대아파트', unit: '104동 910호', size: '13평',
@@ -22,19 +22,21 @@ const full = () => Object.assign(blank(), {
   cargoEv: { v: '사용', memo: '' }, toilet: '지하1층 관리실 옆',
   note: '앞집이 예민함. 조심조심 들어올 것',
   films: [{ place: '현관문 뒷면', code: 'PS035' }, { place: '세탁실문 뒷면', code: '중백색' }],
+  quoteUrl: 'https://songil.netlify.app/q/ab12cd34',
   photoUrl: 'https://songil.netlify.app/g/recABC',
   memo: '입니자 사진은 조대리가 찍어줌'
 });
 
 console.log('FIELDS');
-test('13개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
+test('14개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','note','films','photoUrl','memo']);
+    ['name','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','note','films','quoteUrl','photoUrl','memo']);
 });
-test('DEFAULT_QUESTIONS에 name/note/photoUrl/memo 없음, 나머지 9개', () => {
+test('DEFAULT_QUESTIONS에 name/note/quoteUrl/photoUrl/memo 없음, 나머지 9개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
   assert.strictEqual(k.length, 9);
-  assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('photoUrl') && !k.includes('note'));
+  assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('quoteUrl')
+    && !k.includes('photoUrl') && !k.includes('note'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');
 });
 
@@ -96,9 +98,9 @@ test('커스텀 문구 적용', () => {
   const out = Share.buildQuestion(s, ['toilet'], Object.assign({}, Share.DEFAULT_QUESTIONS, { toilet: '화장실 어디 써요?' }));
   assert.strictEqual(out, '[A]\n- 화장실 어디 써요?');
 });
-test('name/photoUrl/memo 키는 무시', () => {
+test('name/quoteUrl/photoUrl/memo 키는 무시', () => {
   const s = blank(); s.name = 'A';
-  assert.strictEqual(Share.buildQuestion(s, ['name','photoUrl','memo'], Share.DEFAULT_QUESTIONS), '');
+  assert.strictEqual(Share.buildQuestion(s, ['name','quoteUrl','photoUrl','memo'], Share.DEFAULT_QUESTIONS), '');
 });
 test('질문할 게 없으면 빈 문자열', () => {
   assert.strictEqual(Share.buildQuestion(full(), ['gate','toilet'], Share.DEFAULT_QUESTIONS), '');
@@ -119,6 +121,7 @@ test('채워진 항목만, 형식 고정', () => {
     '화장실: 지하1층 관리실 옆\n' +
     '⚠ 특이사항: 앞집이 예민함. 조심조심 들어올 것\n' +
     '필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색\n' +
+    '📄 견적서: https://songil.netlify.app/q/ab12cd34\n' +
     '📷 현장사진: https://songil.netlify.app/g/recABC\n' +
     '입니자 사진은 조대리가 찍어줌');
 });
@@ -156,6 +159,18 @@ test('공유문의 사진 링크는 http 없이 넣어도 https:// 가 붙어서
   const s = full(); s.photoUrl = 'songil.netlify.app/g/recABC';
   assert.strictEqual(Share.buildShare(s, ['photoUrl']),
     '[인천 청학동 시대아파트 104동 910호 13평]\n📷 현장사진: https://songil.netlify.app/g/recABC');
+});
+test('견적서 링크: 붙여넣은 주소가 현장사진 바로 앞줄로 나간다', () => {
+  const s = full();
+  assert.strictEqual(Share.buildShare(s, ['quoteUrl', 'photoUrl']),
+    '[인천 청학동 시대아파트 104동 910호 13평]\n' +
+    '📄 견적서: https://songil.netlify.app/q/ab12cd34\n' +
+    '📷 현장사진: https://songil.netlify.app/g/recABC');
+});
+test('견적서 링크: 비어있으면 공유문에서 빠진다', () => {
+  const s = full(); s.quoteUrl = '   ';
+  assert.strictEqual(Share.isEmpty(s, 'quoteUrl'), true);
+  assert.strictEqual(Share.buildShare(s, ['quoteUrl']), '[인천 청학동 시대아파트 104동 910호 13평]');
 });
 test('현장사진 링크: 비어있으면 공유문에서 빠지고, 있으면 메모 앞줄에', () => {
   const s = full();

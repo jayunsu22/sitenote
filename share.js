@@ -7,7 +7,7 @@
   // 항목 정의 — 화면 순서 = 배열 순서 = 문구 출력 순서
   // type: text | date | select | films | link | multiline
   // question: 값이 비어있을 때 업자에게 보낼 기본 질문 문구
-  //           (name/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
+  //           (name/quoteUrl/photoUrl/memo 는 우리가 채우는 칸이라 질문 대상 아님)
   var FIELDS = [
     // 동/호수·평형 칸은 뺐다(2026-09-17). '군포 우륵아파트 704동 606호' 처럼
     // 현장명에 같이 적는 게 빠르다. 예전에 저장한 값은 titleLine 이 그대로 붙여준다.
@@ -31,7 +31,11 @@
     { key: 'films',   label: '필름/시공위치', type: 'films',  question: '시공 위치별 필름 번호 알려주세요' },
     // 현장사진 링크 - 블로그자동화(현장 품질관리)에서 뽑은 사진 갤러리 주소를 붙여넣는 칸.
     // 업자에게 물어볼 항목이 아니라 우리가 채우는 칸이라 question 이 없다.
-    { key: 'photoUrl', label: '현장사진',     type: 'link' },
+    // 견적서 링크 - 현장견적 앱에서 '링크 복사'한 주소를 붙여넣는 칸 (2026-09-23).
+    // 서버에서 자동으로 끌어오지 않고 손으로 붙여넣는다: 붙여넣기 한 번이면 끝이고
+    // 통신·백업키가 없어도 되고, 예전에 발행해 둔 견적도 그냥 붙이면 된다.
+    { key: 'quoteUrl', label: '견적서',       type: 'link', placeholder: '견적서 링크 붙여넣기' },
+    { key: 'photoUrl', label: '현장사진',     type: 'link', placeholder: '사진 링크 붙여넣기' },
     { key: 'memo',    label: '메모',          type: 'multiline' }
   ];
 
@@ -196,6 +200,7 @@
         .map(function (r) { return [str(r.place), str(r.code)].filter(Boolean).join(' '); });
       lines.push('필름: ' + fl.join(', '));
     }
+    if (has.quoteUrl) lines.push('📄 견적서: ' + linkUrl(site.quoteUrl));
     if (has.photoUrl) lines.push('📷 현장사진: ' + linkUrl(site.photoUrl));
     if (has.memo) lines.push(str(site.memo));
     return lines.join('\n');

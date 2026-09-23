@@ -13,7 +13,6 @@
   var RESTORE_URL = N8N_BASE + '/webhook/sitenote-restore';
   // 현장견적 앱이 발행한 견적 목록을 현장 id 로 찾아온다 (2026-09-23).
   // 읽기만 한다 - 이 앱 데이터는 손대지 않는다.
-  var QUOTES_URL = N8N_BASE + '/webhook/pro-quotes';
   var DEBOUNCE_MS = 3000;
   var FETCH_TIMEOUT_MS = 15000;
 
@@ -471,24 +470,6 @@
       });
   }
 
-  /* 이 현장에 딸린 견적 목록. 견적은 현장견적 앱이 에어테이블에 쌓아둔 것이고
-     여기서는 읽기만 한다 — 이 앱 데이터에 견적코드를 써 넣는 길은 없다
-     (서버→폰 반영이 restore 하나뿐인데 그건 폰 데이터를 통째로 덮어쓴다).
-     통신이 안 되면 그냥 빈 목록으로 둔다. 견적이 안 보인다고 현장 화면이
-     멈추면 안 된다. */
-  function quotesOfSite(siteId) {
-    var id = String(siteId || '');
-    if (!id || !state.settings.backupKey) return Promise.resolve([]);
-    var url = QUOTES_URL + '?key=' + encodeURIComponent(state.settings.backupKey) +
-      '&siteId=' + encodeURIComponent(id);
-    return fetchWithTimeout(url, { method: 'GET' })
-      .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function (j) { return (j && Array.isArray(j.목록)) ? j.목록 : []; });
-  }
-
   // 서버에서 전체를 받아 폰 데이터를 교체. force 가 아니면 폰에 데이터가 있을 때 거부(null)
   function restore(force) {
     if (!state.settings.backupKey) return Promise.reject(new Error('백업키가 없습니다'));
@@ -550,7 +531,7 @@
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
     setSettings: setSettings,
-    pendingCount: pendingCount, flush: flush, restore: restore, quotesOfSite: quotesOfSite,
+    pendingCount: pendingCount, flush: flush, restore: restore,
     onChange: onChange,
     SYNC_URL: SYNC_URL, RESTORE_URL: RESTORE_URL
   };
