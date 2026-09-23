@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#f3f4f6"
+    android:fillViewport="true">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="📅 현장 일정 위젯"
+            android:textColor="#111827"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:lineSpacingExtra="3dp"
+            android:text="현장관리 앱의 일정을 홈 화면 위젯으로 띄웁니다.\n앱이 자동으로 올려 두는 백업을 받아 와서 보여줍니다."
+            android:textColor="#6b7280"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="① 백업키"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="현장관리 앱 ⚙ 설정에 넣어 둔 것과 같은 키"
+            android:textColor="#6b7280"
+            android:textSize="12.5sp" />
+        <EditText
+            android:id="@+id/key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:hint="백업키"
+            android:importantForAutofill="no"
+            android:inputType="text"
+            android:singleLine="true" />
+        <Button
+            android:id="@+id/save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="저장하고 불러오기" />
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#0f766e"
+            android:textSize="13.5sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="② 홈 화면에 올리기"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+        <Button
+            android:id="@+id/pin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="홈 화면에 위젯 추가" />
+        <TextView
+            android:id="@+id/pinHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="2dp"
+            android:text="이 폰은 버튼으로 바로 못 올립니다.\n홈 화면 빈 곳을 길게 누르기 → 위젯 → '현장 일정' 을 끌어다 놓으세요."
+            android:textColor="#dc2626"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:lineSpacingExtra="3dp"
+            android:text="• 위젯은 30분마다, 또는 위젯의 ⟳ 를 누르면 새로 받아 옵니다.\n• 앱에서 고친 내용은 백업된 뒤(보통 몇 초) 반영됩니다.\n• 현장을 누르면 그 현장이 앱에서 열립니다.\n• 위젯 크기는 길게 눌러 늘리고 줄일 수 있습니다."
+            android:textColor="#6b7280"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/open"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="현장관리 앱 열기" />
+    </LinearLayout>
+</ScrollView>

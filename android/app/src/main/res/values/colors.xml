@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 현장관리 웹앱 style.css 의 색과 같은 값. 한쪽만 바꾸면 위젯과 앱이 따로 논다 -->
+<resources>
+    <color name="text">#111827</color>
+    <color name="muted">#6b7280</color>
+    <color name="faint">#9ca3af</color>
+    <color name="white">#ffffff</color>
+    <color name="danger">#dc2626</color>
+    <color name="success">#16a34a</color>
+    <color name="sch1">#0f766e</color>   <!-- 청록: 목록 1·3·5번째 카드 -->
+    <color name="sch2">#334155</color>   <!-- 먹색: 2·4·6번째 카드 -->
+    <color name="sun">#dc2626</color>
+    <color name="sat">#1d4ed8</color>
+    <color name="staff">#334155</color>
+    <color name="badge_past_text">#4b5563</color>
+    <color name="badge_plain_text">#374151</color>
+</resources>
