@@ -551,6 +551,7 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'schcal-cell' +
+      (o.out ? ' out' : '') +    // 앞뒤 달 날짜 — 날짜만 흐리게, 일정 표시는 그대로 보여준다
       (n ? ' has' : '') +
       (isToday ? ' today' : '') +
       (past ? ' past' : '') +
@@ -788,10 +789,12 @@
       box.appendChild(head);
 
       var grid = document.createElement('div'); grid.className = 'schcal-grid';
-      Share.monthGrid(y, mo).forEach(function (week) {
+      // 줄 끝을 비워 두지 않는다 — 9/30 다음 칸에 10/1·2·3 이 그대로 이어진다
+      Share.monthGridFull(y, mo).forEach(function (week) {
         week.forEach(function (iso) {
-          if (!iso) { grid.appendChild(document.createElement('span')); return; }
-          grid.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso] }));
+          grid.appendChild(calCell(iso, {
+            count: counts[iso] || 0, regions: regions[iso], out: ymOf(iso) !== calMonth
+          }));
         });
       });
       box.appendChild(swipeBox(grid,

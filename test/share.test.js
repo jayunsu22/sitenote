@@ -292,6 +292,32 @@ test('공유 문구에는 달력지역이 안 나간다', () => {
   assert.strictEqual(Share.buildShare(s, ['calRegion']), '[인천 당하동 1084-2]');
 });
 
+console.log('monthGridFull');
+test('빈 칸 없이 앞뒤 달 날짜로 채운다 (9/30 다음에 10/1·2·3)', () => {
+  const g = Share.monthGridFull(2026, 9);
+  assert.strictEqual(g.length, 5);
+  assert.ok(g.every(w => w.length === 7 && w.every(Boolean)), '빈 칸이 없어야');
+  assert.deepStrictEqual(g[0].slice(0, 3), ['2026-08-30', '2026-08-31', '2026-09-01']);
+  assert.deepStrictEqual(g[4].slice(3), ['2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03']);
+});
+test('1일이 일요일이고 28일인 달은 딱 4줄 (군더더기 줄 없음)', () => {
+  const g = Share.monthGridFull(2026, 2);
+  assert.strictEqual(g.length, 4);
+  assert.strictEqual(g[0][0], '2026-02-01');
+  assert.strictEqual(g[3][6], '2026-02-28');
+});
+test('해를 넘어가도 이어진다', () => {
+  const g = Share.monthGridFull(2026, 12);
+  assert.strictEqual(g[0][0], '2026-11-29');
+  assert.ok(g[g.length - 1].some(d => d.startsWith('2027-01')));
+});
+test('모든 칸이 하루씩 이어진다', () => {
+  const all = Share.monthGridFull(2027, 2).flat();
+  for (let i = 1; i < all.length; i++) {
+    assert.strictEqual(all[i], Share.addDays(all[i - 1], 1), all[i - 1] + ' 다음은 ' + all[i]);
+  }
+});
+
 console.log('nextColor');
 test('거래처 내 현장 수 mod 8', () => {
   const sites = [];

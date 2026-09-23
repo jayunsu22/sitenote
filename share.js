@@ -524,6 +524,22 @@
     if (row.length) { while (row.length < 7) row.push(null); weeks.push(row); }
     return weeks;
   }
+  /* 빈 칸 없이 앞뒤 달 날짜로 채운 격자 (2026-09-23).
+     9/30 이 수요일이면 그 줄의 목·금·토가 비어서, 10/1·2·3 에 일이 있어도
+     달을 넘겨야 보인다. 달이 바뀌는 자리가 제일 헷갈리는 자리다.
+     칸이 이번 달인지는 iso 앞 7글자('2026-09')로 가린다. */
+  function monthGridFull(year, month) { // month: 1~12
+    var first = new Date(year, month - 1, 1);
+    var last = new Date(year, month, 0).getDate();
+    var 칸수 = Math.ceil((first.getDay() + last) / 7) * 7;
+    var weeks = [], row = [];
+    for (var i = 0; i < 칸수; i++) {
+      var d = new Date(year, month - 1, 1 - first.getDay() + i);
+      row.push(isoOf(d));
+      if (row.length === 7) { weeks.push(row); row = []; }
+    }
+    return weeks;
+  }
   // 팀원 공유용 인원 줄. 하루면 '👤 김기사·박기사', 여러 날이면 '👤 9/19 김기사·박기사 / 9/20 김기사'
   // 필요 인원을 정해뒀으면 앞에 '필요 3명 —' 이 붙는다. 인원이 빈 날은 건너뛰고, 전부 비면 ''
   // (필요 인원만 정하고 아무도 안 넣었으면 '👤 필요 3명 — 아직 미배정')
@@ -624,7 +640,8 @@
     filmStageOf: filmStageOf,
     datesLine: datesLine,
     workSummary: workSummary,
-    monthGrid: monthGrid
+    monthGrid: monthGrid,
+    monthGridFull: monthGridFull
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Share;

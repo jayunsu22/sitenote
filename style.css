@@ -297,6 +297,9 @@ textarea { resize: vertical; }
 .schcal-cell.past.has { background: #f3f4f6; }
 .schcal-cell.today { background: var(--primary); }
 .schcal-cell.today .schcal-day, .schcal-cell.today .schcal-wd { color: #fff; font-weight: 800; }
+/* 앞뒤 달 날짜 — 이번 달이 아니라는 건 숫자 흐리기로 알리고, 그날 일정(건수·지역)은
+   그대로 보여준다. 다 흐리게 해 버리면 이 칸을 채운 뜻이 없다 */
+.schcal-cell.out .schcal-day, .schcal-cell.out .schcal-wd { color: #c3cad6; }
 .schcal-cell.picked { background: #eef2ff; box-shadow: inset 0 0 0 2px var(--primary); }
 .schcal-cell.picked .schcal-day { color: #1e3a8a; font-weight: 800; }
 /* 건수 배지 — 이 숫자가 '그날 현장 수'. 없으면 점선 동그라미(= 넣을 수 있는 날) */
