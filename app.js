@@ -984,7 +984,60 @@
         renderDaysSection(daysBox, s.id);
         var supBox = document.createElement('div'); supBox.className = 'sec'; wrap.appendChild(supBox);
         renderSuppliesSection(supBox, s.id);
+        var quoteBox = document.createElement('div'); quoteBox.className = 'sec'; quoteBox.id = 'quoteSec'; wrap.appendChild(quoteBox);
+        renderQuoteSection(quoteBox, s.id);
       }
+    });
+  }
+
+  /* ---------- 이 현장의 견적서 (2026-09-23) ----------
+     현장견적 앱에서 이 현장을 골라 발행한 견적을 불러와 보여준다. 읽기만 한다.
+     현장견적 앱에서 '업체 → 현장' 을 고르고 발행해야 여기에 잡힌다 —
+     현장 id 로 묶기 때문에 이름만 같게 적은 건은 안 잡힌다. */
+  var QUOTE_BASE = 'https://songil.netlify.app/q/';
+  function quoteMoney(n) { return Math.round(n || 0).toLocaleString('ko-KR') + '원'; }
+  function quoteWhen(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  function renderQuoteSection(box, siteId) {
+    box.innerHTML = '<h3 class="sec-title">견적서 <span class="sec-hint">— 현장견적 앱에서 발행한 것</span></h3>';
+    var body = document.createElement('div');
+    box.appendChild(body);
+    var 말 = function (t, cls) {
+      body.innerHTML = '';
+      var e = document.createElement('div'); e.className = 'sec-empty' + (cls ? ' ' + cls : '');
+      e.textContent = t; body.appendChild(e);
+    };
+    if (!state.settings.backupKey) { 말('백업키를 넣으면 이 현장의 견적서를 여기서 볼 수 있습니다.'); return; }
+    말('불러오는 중…');
+    Store.quotesOfSite(siteId).then(function (rows) {
+      if (!rows.length) {
+        말('아직 이 현장으로 발행한 견적서가 없습니다. 현장견적 앱에서 업체와 현장을 고르고 발행하면 여기에 쌓입니다.');
+        return;
+      }
+      body.innerHTML = '';
+      rows.forEach(function (q) {
+        var row = document.createElement('div'); row.className = 'sec-row quote-row';
+        var left = document.createElement('div'); left.className = 'quote-main';
+        var amt = document.createElement('b');
+        amt.textContent = quoteMoney(q.총액) + (q.부가세_별도표기 ? ' (VAT 별도)' : '');
+        var sub = document.createElement('span');
+        sub.textContent = [quoteWhen(q.발행일시), q.거래처명].filter(Boolean).join(' · ');
+        left.appendChild(amt); left.appendChild(sub);
+        var open = document.createElement('a');
+        open.className = 'btn-sm quote-open';
+        open.href = QUOTE_BASE + encodeURIComponent(q.견적코드);
+        open.target = '_blank'; open.rel = 'noopener';
+        open.textContent = '열기';
+        row.appendChild(left); row.appendChild(open);
+        body.appendChild(row);
+      });
+    }).catch(function () {
+      // 통신이 안 될 때. 견적이 안 보인다고 현장 화면이 멈추면 안 된다
+      말('견적서를 불러오지 못했습니다. 통신 상태를 확인해 주세요.', 'warn');
     });
   }
 
