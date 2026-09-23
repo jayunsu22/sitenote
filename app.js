@@ -504,6 +504,7 @@
   var SCHEDULE_DAYS = 30;
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
+  var calShow = 'count';   // 달력 칸에 건수를 볼까 시공지역을 볼까 (설정에 기억해 둔다)
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
@@ -532,6 +533,8 @@
   function dateLabel(iso) { return Share.shortDate(iso) + ' (' + weekdayOf(iso) + ')'; }
 
   function renderSchedule() {
+    // 폰에 기억해 둔 보기 방식을 그린다 (다른 기기에서 바꾼 게 restore 로 들어와도 맞춘다)
+    calShow = (state.settings.calShow === 'region') ? 'region' : 'count';
     renderScheduleCal();
     renderScheduleList();
   }
@@ -565,13 +568,24 @@
     d.textContent = (o.weekday && dd === 1) ? (+iso.slice(5, 7)) + '/1' : String(dd);
     b.appendChild(d);
     var mark = document.createElement('span');
+    var rgs = o.regions || [];
+    // 지역 보기: 건수 자리에 동네 이름. 일은 있는데 현장명에 지역이 없으면
+    // 건수를 그대로 보여준다 — 빈 동그라미를 띄우면 '일 없는 날' 로 읽힌다
+    if (calShow === 'region' && rgs.length) {
+      // 칸이 좁다. 동네가 둘 이상이면 '당하동+1' 로 줄이고 빨갛게 — 하루에 동네가
+      // 갈리면 AS 를 붙이기 나쁜 날이다. 전체 이름은 칸을 길게 누르면 뜬다
+      mark.className = 'schcal-rg' + (rgs.length > 1 ? ' many' : '') + (past ? ' past' : '');
+      mark.textContent = rgs.length > 1 ? rgs[0] + '+' + (rgs.length - 1) : rgs[0];
+    }
     // 하루에 두 건 이상이면 빨강 — 특별히 챙겨야 하는 날이라 눈에 띄어야 한다.
     // 지난 날은 끝난 일이라 그대로 회색 (아래 .past 가 .many 를 덮는다)
-    if (n) { mark.className = 'schcal-n' + (n >= 2 ? ' many' : '') + (past ? ' past' : ''); mark.textContent = n; }
+    else if (n) { mark.className = 'schcal-n' + (n >= 2 ? ' many' : '') + (past ? ' past' : ''); mark.textContent = n; }
     else if (past) mark.className = 'schcal-blank';
     else mark.className = 'schcal-free';
     b.appendChild(mark);
-    b.title = dateLabel(iso) + ' · ' + (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') : '현장 없음');
+    b.title = dateLabel(iso) + ' · ' +
+      (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') + (rgs.length ? ' — ' + rgs.join(', ') : '')
+         : '현장 없음');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
     b.onclick = function () { if (민직후) return; pickDate(iso); };
     return b;
@@ -669,9 +683,30 @@
     return t;
   }
 
+  /* 건수 ↔ 시공지역. AS 를 나갈 때 '그날 어느 동네인가' 가 보여야 같은 동네 일에
+     붙여서 잡을 수 있다. 어느 쪽을 보고 있었는지는 폰에 기억해 둔다 */
+  function calShowBtn() {
+    var t = document.createElement('button');
+    t.type = 'button'; t.className = 'schcal-toggle';
+    t.textContent = calShow === 'count' ? '지역 보기 📍' : '건수 보기 🔢';
+    t.onclick = function () {
+      calShow = (calShow === 'count') ? 'region' : 'count';
+      Store.setSettings({ calShow: calShow });
+      renderSchedule();
+    };
+    return t;
+  }
+  function calFoot() {
+    var row = document.createElement('div'); row.className = 'schcal-foot';
+    row.appendChild(calToggleBtn());
+    row.appendChild(calShowBtn());
+    return row;
+  }
+
   function renderScheduleCal() {
     var box = $('scheduleCal'); box.innerHTML = '';
     var counts = Share.dateCounts(state.sites);
+    var regions = Share.dateRegions(state.sites);
     if (calMode === 'week') {
       if (!calWeek) calWeek = sundayOf(Share.todayIso());
       var wEnd = Share.addDays(calWeek, 6);
@@ -706,7 +741,7 @@
       var strip = document.createElement('div'); strip.className = 'schcal-week';
       for (var i = 0; i < 7; i++) {
         var iso = Share.addDays(calWeek, i);
-        strip.appendChild(calCell(iso, { count: counts[iso] || 0, weekday: true }));
+        strip.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso], weekday: true }));
       }
       box.appendChild(swipeBox(strip,
         function () { calWeek = Share.addDays(calWeek, -7); renderSchedule(); },
@@ -747,14 +782,14 @@
       Share.monthGrid(y, mo).forEach(function (week) {
         week.forEach(function (iso) {
           if (!iso) { grid.appendChild(document.createElement('span')); return; }
-          grid.appendChild(calCell(iso, { count: counts[iso] || 0 }));
+          grid.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso] }));
         });
       });
       box.appendChild(swipeBox(grid,
         function () { calMonth = addMonths(calMonth, -1); renderSchedule(); },
         function () { calMonth = addMonths(calMonth, 1); renderSchedule(); }));
     }
-    box.appendChild(calToggleBtn());
+    box.appendChild(calFoot());
   }
 
   /* ---------- 아래쪽 목록 ---------- */
@@ -765,6 +800,7 @@
     var g = Share.scheduleSites(state.sites, today, SCHEDULE_DAYS);
     var dup = Share.findOverlaps(state.sites);
     var counts = Share.dateCounts(state.sites);
+    var regions = Share.dateRegions(state.sites);
     var noDate = state.sites.filter(function (s) { return !Share.isIsoDate(s.date); }).length;
 
     // 고른 날이 비어 있으면 바로 넣을 수 있게 한다 — 이 화면을 여는 큰 이유다

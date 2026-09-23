@@ -233,6 +233,43 @@ test('날짜가 아예 없으면 빈 문자열', () => {
   assert.strictEqual(Share.workSummary(blank()), '');
 });
 
+console.log('regionOf / dateRegions');
+const rgSite = (o) => Object.assign(blank(), o);
+test('현장명에 동·구가 있으면 그것 (건물 동은 빼고)', () => {
+  assert.strictEqual(Share.regionOf(rgSite({ name: '인천 당하동 1084-2 그랜드비스타 2동 501호' })), '당하동');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '인천 부평구 삼산동 래미안 104동 901호' })), '삼산동', '구보다 동이 좁아서 낫다');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '인천 부평구 래미안 104동 901호' })), '부평구', '동이 없으면 구');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '송도동 더샵 2동 1503호' })), '송도동');
+});
+test('동·구가 없으면 첫 낱말이 지역', () => {
+  assert.strictEqual(Share.regionOf(rgSite({ name: '군포 우륵아파트 704동 606호 30평' })), '군포');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '청라 호반 베르디움' })), '청라');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '인천 도림로8 벽산블루밍 104동 901호' })), '인천');
+});
+test('상호만 적힌 현장은 지역 없음', () => {
+  assert.strictEqual(Share.regionOf(rgSite({ name: '룩스디자인' })), '');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '월곡래미안' })), '');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '' })), '');
+  assert.strictEqual(Share.regionOf(rgSite({ name: '테스트현장 101동 1001호' })), '', '첫 낱말이 길면 지역으로 안 본다');
+});
+test('주소가 있으면 주소를 먼저 본다', () => {
+  assert.strictEqual(Share.regionOf(rgSite({ name: '룩스디자인', address: '인천 연수구 송도동 123' })), '송도동');
+});
+test('dateRegions: 날짜별로, 같은 동네는 한 번만', () => {
+  const a = rgSite({ id: 'a', name: '인천 당하동 1084-2', days: [{ date: '2026-10-05', staff: [] }, { date: '2026-10-06', staff: [] }] });
+  const b = rgSite({ id: 'b', name: '인천 당하동 900', days: [{ date: '2026-10-05', staff: [] }] });
+  const c = rgSite({ id: 'c', name: '부평구 삼산동 101동', days: [{ date: '2026-10-05', staff: [] }] });
+  const d = rgSite({ id: 'd', name: '룩스디자인', days: [{ date: '2026-10-05', staff: [] }] });
+  assert.deepStrictEqual(Share.dateRegions([a, b, c, d]), {
+    '2026-10-05': ['당하동', '삼산동'],
+    '2026-10-06': ['당하동']
+  });
+});
+test('dateRegions: 날짜 없는 줄은 건너뛴다', () => {
+  const a = rgSite({ id: 'a', name: '인천 당하동 1084-2', days: [{ date: '', staff: [] }] });
+  assert.deepStrictEqual(Share.dateRegions([a]), {});
+});
+
 console.log('nextColor');
 test('거래처 내 현장 수 mod 8', () => {
   const sites = [];

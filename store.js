@@ -34,6 +34,7 @@
       backupKey: '',
       lastTab: '',
       lastView: 'main',          // 앱을 다시 열 때 보여줄 화면: main | schedule
+      calShow: 'count',          // 일정 달력 칸에 뭘 보여줄까: count(건수) | region(시공지역)
       team: [],                  // 팀원 명단 (이름 문자열)
       supplyDefaults: ['본드', '장갑']  // 새 현장에 자동으로 깔리는 부자재
     };
@@ -481,7 +482,8 @@
         return res.json();
       })
       .then(function (data) {
-        var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab, lastView: state.settings.lastView };
+        var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab,
+          lastView: state.settings.lastView, calShow: state.settings.calShow };
         var ds = data.settings || {};
         state.settings = Object.assign(defaultSettings(), { team: ds.team, supplyDefaults: ds.supplyDefaults }, keep);
         if (!Array.isArray(state.settings.team)) state.settings.team = [];

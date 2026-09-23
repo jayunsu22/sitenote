@@ -290,6 +290,44 @@
     return out;
   }
 
+  /* ---------- 시공지역 (2026-09-23) ----------
+     AS 를 나갈 때 '그날 어느 동네에 가 있나' 를 달력에서 보려고 뽑는다.
+     같은 동네 일이 있는 날에 AS 를 붙이면 한 번 나가서 두 건을 본다.
+     따로 적는 칸은 안 만든다 — 한 칸 더 늘리면 안 적게 되고, 현장명에
+     이미 '인천 당하동 …' 처럼 적고 계신다. 주소가 있으면 주소를 먼저 본다.
+       '인천 당하동 1084-2 그랜드비스타 2동 501호' → 당하동
+       '군포 우륵아파트 704동 606호 30평'          → 군포
+       '룩스디자인'                                → '' (지역을 안 적은 현장) */
+  var 동읍면 = /^[가-힣]{1,5}(동|읍|면|리)$/;   // 가장 좁은 단위 - AS 묶기에 제일 쓸모 있다
+  var 시군구 = /^[가-힣]{1,5}(시|군|구)$/;
+  function regionOf(site) {
+    var src = str(site && site.address) || str(site && site.name);
+    var ts = src.split(/\s+/).filter(Boolean);
+    // 한글만 받으므로 '104동' '2동' 같은 건물 동은 저절로 빠진다.
+    // '인천 부평구 삼산동 …' 이면 구보다 동이 낫다 - 좁을수록 같이 묶을 만하다
+    for (var i = 0; i < ts.length; i++) if (동읍면.test(ts[i])) return ts[i];
+    for (var j = 0; j < ts.length; j++) if (시군구.test(ts[j])) return ts[j];
+    // 꼬리가 없으면 첫 낱말이 지역이다 ('청라 호반 베르디움', '군포 우륵아파트').
+    // 낱말이 하나뿐이면 상호일 뿐이라 지역이 없다고 본다 ('룩스디자인')
+    if (ts.length >= 2 && /^[가-힣]{2,4}$/.test(ts[0])) return ts[0];
+    return '';
+  }
+  // 날짜별 시공지역 { 'YYYY-MM-DD': ['당하동','부평구'] } — 같은 동네는 한 번만
+  function dateRegions(sites) {
+    var out = {}, seen = {};
+    (sites || []).forEach(function (s) {
+      var r = regionOf(s);
+      if (!r) return;
+      daysOf(s).forEach(function (d) {
+        var date = str(d.date);
+        if (!isIsoDate(date) || seen[date + '|' + r]) return;
+        seen[date + '|' + r] = 1;
+        (out[date] = out[date] || []).push(r);
+      });
+    });
+    return out;
+  }
+
   // 현장 하나 = 목록의 한 줄. 날이 떨어져 있어도(1·2일차 9/28·9/29, 3일차 10/7)
   // 한 현장이면 한 덩어리로 다룬다 — 쪼개 놓으면 같은 현장이 딴 현장으로 읽힌다.
   // { site, dates:[날짜순], dayIndexes, start, end, dayCount, next, 이어짐 }
@@ -557,6 +595,8 @@
     daysOf: daysOf,
     groupByDate: groupByDate,
     dateCounts: dateCounts,
+    regionOf: regionOf,
+    dateRegions: dateRegions,
     siteSchedule: siteSchedule,
     scheduleSites: scheduleSites,
     findOverlaps: findOverlaps,
