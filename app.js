@@ -569,7 +569,7 @@
     // 고른 날의 현장이 '지난'·'이후' 접힘 속에 있으면 펼쳐 준다.
     // 안 그러면 달력에는 건수가 찍혀 있는데 목록엔 안 보여서 없는 줄 안다.
     if (pickedDate) {
-      var g = Share.scheduleRuns(state.sites, Share.todayIso(), SCHEDULE_DAYS);
+      var g = Share.scheduleSites(state.sites, Share.todayIso(), SCHEDULE_DAYS);
       var has = function (list) {
         return list.some(function (r) { return r.dates.indexOf(pickedDate) !== -1; });
       };
@@ -688,7 +688,7 @@
   function renderScheduleList() {
     var body = $('scheduleBody'); body.innerHTML = '';
     var today = Share.todayIso();
-    var g = Share.scheduleRuns(state.sites, today, SCHEDULE_DAYS);
+    var g = Share.scheduleSites(state.sites, today, SCHEDULE_DAYS);
     var dup = Share.findOverlaps(state.sites);
     var counts = Share.dateCounts(state.sites);
     var noDate = state.sites.filter(function (s) { return !Share.isIsoDate(s.date); }).length;
@@ -773,18 +773,16 @@
 
     var head = document.createElement('div'); head.className = 'sch-head h' + ci;
     var when = document.createElement('span'); when.className = 'sch-when';
-    when.textContent = multi
+    // 머리줄 날짜는 '다음에 일하는 날' 이다. 목록도 그 순서로 세우므로 둘이 맞아야 한다 —
+    // 1·2일차가 끝난 현장에 시작일(9/28)을 걸어두면 이미 지난 날짜가 목록 아래쪽에 앉아 헷갈린다.
+    // 떨어진 날에 '9/28 – 10/7' 이라고 쓰면 열흘 내내 하는 일로도 읽힌다.
+    // 아직 하루도 안 지났고 날이 이어진 때만 기간으로 적는다 (날짜는 아래 일차 칸이 다 보여준다).
+    var lead = run.next || run.end;
+    when.textContent = (multi && run.이어짐 && run.next === run.start)
       ? Share.shortDate(run.start) + ' ' + weekdayOf(run.start) + ' – ' + Share.shortDate(run.end) + ' ' + weekdayOf(run.end)
-      : Share.shortDate(run.start) + ' ' + weekdayOf(run.start);
+      : Share.shortDate(lead) + ' ' + weekdayOf(lead);
     var span = document.createElement('span'); span.className = 'sch-span';
-    // 날이 떨어져 있어 한 현장이 카드 여러 장으로 갈릴 때가 있다.
-    // 그때는 '2일 연속' 대신 전체에서 몇 일차인지 밝혀야 딴 현장으로 안 읽힌다.
-    if (run.dayCount > run.dates.length) {
-      var a = run.dayIndexes[0] + 1, z = run.dayIndexes[run.dayIndexes.length - 1] + 1;
-      span.textContent = (a === z ? a + '일차' : a + '~' + z + '일차') + ' / 총 ' + run.dayCount + '일';
-    } else {
-      span.textContent = multi ? run.dates.length + '일 연속' : '하루';
-    }
+    span.textContent = !multi ? '하루' : (run.이어짐 ? run.dates.length + '일 연속' : '총 ' + run.dates.length + '일');
     head.appendChild(when); head.appendChild(span);
     // 준비 완료는 머리줄 색으로 알리던 것을 배지로 옮겼다 (색은 현장 구분에 썼다)
     if (Share.isReady(s)) {
@@ -805,9 +803,11 @@
     body.appendChild(title);
 
     // 인원 줄: 묶음 첫날 기준. 날마다 다르면 아래 일차 칸의 숫자로 갈린다
-    var first = run.dayIndexes[0];
+    // 인원 줄은 '남은 첫 날' 기준. 이미 끝난 날 인원을 맨 위에 두면 다음에 부를 사람과 헷갈린다
+    var firstAt = run.dates.indexOf(run.next);
+    var first = run.dayIndexes[firstAt >= 0 ? firstAt : 0];
     var names = (Share.daysOf(s)[first] || {}).staff || [];
-    var dupNames = dupAll[run.dates[0]] || {};
+    var dupNames = dupAll[run.dates[firstAt >= 0 ? firstAt : 0]] || {};
     var line = document.createElement('div'); line.className = 'sch-people';
     var lab = document.createElement('span'); lab.className = 'sch-lab'; lab.textContent = '인원';
     line.appendChild(lab);
@@ -834,13 +834,16 @@
 
     // 여러 날이면 날마다 배치 현황을 따로 — 1일차는 찼는데 2일차가 빈 경우가 흔하다
     if (multi) {
+      var oneToday = Share.todayIso();
       var daysRow = document.createElement('div'); daysRow.className = 'sch-days';
       run.dates.forEach(function (d, k) {
         var di = run.dayIndexes[k];
         var cell = document.createElement('button');
-        cell.type = 'button'; cell.className = 'sch-dcell';
+        cell.type = 'button';
+        // 지난 날은 흐리게 — 며칠까지 했고 어디부터 남았는지가 바로 보여야 한다
+        cell.className = 'sch-dcell' + (d < oneToday ? ' done' : '');
         var dl = document.createElement('span'); dl.className = 'sch-dlab';
-        dl.textContent = (di + 1) + '일차 ' + Share.shortDate(d);
+        dl.textContent = (di + 1) + '일차 ' + Share.shortDate(d) + ' ' + weekdayOf(d);
         cell.appendChild(dl);
         cell.appendChild(staffCountBadge(s, di, false));
         cell.title = '탭하면 그날 인원을 고칩니다';
@@ -850,8 +853,7 @@
       body.appendChild(daysRow);
     }
 
-    // 필름 단계는 1일차가 든 묶음에만 (필름은 1일차 전에 다 받아야 해서 그 뒤론 의미가 없다)
-    if (run.dayIndexes.indexOf(0) !== -1) {
+    {
       var filmRow = document.createElement('div'); filmRow.className = 'sch-film';
       var flab = document.createElement('span'); flab.className = 'sch-lab'; flab.textContent = '필름';
       filmRow.appendChild(flab);

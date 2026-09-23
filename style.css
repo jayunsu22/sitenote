@@ -364,6 +364,10 @@ textarea { resize: vertical; }
 .sch-dcell { flex: 1 1 130px; min-width: 0; display: flex; align-items: center; gap: 7px; text-align: left;
   border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 8px 10px; }
 .sch-dlab { flex: 1; min-width: 0; font-size: 11px; font-weight: 700; color: var(--muted); }
+/* 이미 지난 날. 며칠까지 했고 어디부터 남았는지 한눈에 갈리게 흐려 둔다 */
+.sch-dcell.done { background: #f8fafc; border-color: #eef2f6; }
+.sch-dcell.done .sch-dlab { color: #9ca3af; }
+.sch-dcell.done .cnt { opacity: 0.5; }
 .sch-film { display: flex; align-items: center; gap: 8px; }
 .sch-film .stage-strip { flex: 1; min-width: 0; }
 .sch-client:active { opacity: 0.6; }

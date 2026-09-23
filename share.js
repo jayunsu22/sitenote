@@ -285,10 +285,12 @@
     return out;
   }
 
-  // 한 현장의 '이어진 날' 묶음. 9/28·9/29 를 두 줄로 따로 보여주면 같은 현장인 줄
-  // 모르고 인원을 두 번 부르는 일이 생긴다. 하루라도 건너뛰면 다른 묶음이다.
-  // [{site, dates:['2026-09-28','2026-09-29'], dayIndexes:[0,1], start, end, dayCount}]
-  function siteRuns(site) {
+  // 현장 하나 = 목록의 한 줄. 날이 떨어져 있어도(1·2일차 9/28·9/29, 3일차 10/7)
+  // 한 현장이면 한 덩어리로 다룬다 — 쪼개 놓으면 같은 현장이 딴 현장으로 읽힌다.
+  // { site, dates:[날짜순], dayIndexes, start, end, dayCount, next, 이어짐 }
+  //   next  : 오늘 이후로 남은 첫 날 (없으면 '' — 다 지난 현장)
+  //   이어짐: 날들이 하루도 안 건너뛰고 붙어 있는가
+  function siteSchedule(site, from) {
     var all = daysOf(site);
     var rows = all.map(function (d, i) { return { date: str(d.date), index: i }; })
       .filter(function (x) { return isIsoDate(x.date); })
@@ -296,42 +298,41 @@
         if (a.date !== b.date) return a.date < b.date ? -1 : 1;
         return a.index - b.index;
       });
-    var runs = [];
-    rows.forEach(function (x) {
-      var last = runs[runs.length - 1];
-      if (last && addDays(last.dates[last.dates.length - 1], 1) === x.date) {
-        last.dates.push(x.date); last.dayIndexes.push(x.index);
-      } else {
-        runs.push({ dates: [x.date], dayIndexes: [x.index] });
-      }
-    });
-    return runs.map(function (r) {
-      return {
-        site: site, dates: r.dates, dayIndexes: r.dayIndexes,
-        start: r.dates[0], end: r.dates[r.dates.length - 1], dayCount: all.length
-      };
-    });
+    if (!rows.length) return null;
+    var dates = rows.map(function (x) { return x.date; });
+    var next = '';
+    for (var i = 0; i < dates.length; i++) {
+      if (dates[i] >= from) { next = dates[i]; break; }
+    }
+    var 이어짐 = dates.every(function (d, i) { return i === 0 || addDays(dates[i - 1], 1) === d; });
+    return {
+      site: site,
+      dates: dates,
+      dayIndexes: rows.map(function (x) { return x.index; }),
+      start: dates[0], end: dates[dates.length - 1],
+      dayCount: all.length, next: next, 이어짐: 이어짐
+    };
   }
 
-  // 일정 화면용: 창(from 부터 count 일)에 걸치는 묶음은 runs, 그 전은 past(최근 먼저), 그 뒤는 later.
-  // 창에 '걸친다' 는 건 시작이 창 끝보다 앞이고 끝이 창 시작보다 뒤라는 뜻 —
-  // 어제 시작해 내일 끝나는 현장이 목록에서 빠지면 안 된다.
+  // 일정 화면용. 남은 날이 창(from 부터 count 일) 안에 있으면 runs,
+  // 다 지났으면 past(최근 먼저), 남은 첫 날이 창 뒤면 later.
+  // 순서는 '남은 첫 날' 기준 — 목록을 위에서부터 할 일 순서로 읽는다.
   // past/laterCount 는 날 수로 센다 ('지난 일정 4건' 이 4일치라는 뜻)
-  function scheduleRuns(sites, from, count) {
+  function scheduleSites(sites, from, count) {
     var end = addDays(from, count - 1);
-    var all = [];
+    var runs = [], later = [], past = [], laterCount = 0, pastCount = 0;
     (sites || []).slice()
       .sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); })
-      .forEach(function (s) { siteRuns(s).forEach(function (r) { all.push(r); }); });
-    var runs = [], later = [], past = [], laterCount = 0, pastCount = 0;
-    all.forEach(function (r) {
-      if (r.end < from) { past.push(r); pastCount += r.dates.length; return; }
-      if (r.start > end) { later.push(r); laterCount += r.dates.length; return; }
-      runs.push(r);
-    });
-    var asc = function (a, b) { return a.start < b.start ? -1 : (a.start > b.start ? 1 : 0); };
-    runs.sort(asc); later.sort(asc);
-    past.sort(function (a, b) { return a.start < b.start ? 1 : (a.start > b.start ? -1 : 0); });
+      .forEach(function (s) {
+        var r = siteSchedule(s, from);
+        if (!r) return;
+        if (!r.next) { past.push(r); pastCount += r.dates.length; return; }
+        if (r.next > end) { later.push(r); laterCount += r.dates.length; return; }
+        runs.push(r);
+      });
+    var byNext = function (a, b) { return a.next < b.next ? -1 : (a.next > b.next ? 1 : 0); };
+    runs.sort(byNext); later.sort(byNext);
+    past.sort(function (a, b) { return a.end < b.end ? 1 : (a.end > b.end ? -1 : 0); });
     return { runs: runs, later: later, laterCount: laterCount, past: past, pastCount: pastCount };
   }
 
@@ -520,8 +521,8 @@
     daysOf: daysOf,
     groupByDate: groupByDate,
     dateCounts: dateCounts,
-    siteRuns: siteRuns,
-    scheduleRuns: scheduleRuns,
+    siteSchedule: siteSchedule,
+    scheduleSites: scheduleSites,
     findOverlaps: findOverlaps,
     readyCount: readyCount,
     isReady: isReady,
