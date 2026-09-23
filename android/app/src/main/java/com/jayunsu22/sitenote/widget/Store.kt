@@ -33,20 +33,23 @@ object Store {
     fun lastError(c: Context): String = prefs(c).getString("lastError", "") ?: ""
 
     /*
-     * 위젯마다 보고 있는 주 (0 = 이번 주). 넘겨 본 뒤 10분이 지나면 이번 주로 돌아온다 —
-     * 다음 주를 보다가 그대로 두면, 나중에 홈 화면을 봤을 때 이번 주인 줄 알고 잘못 읽는다.
+     * 위젯마다 보고 있는 주·달 (0 = 이번 주·이번 달). 넘겨 본 뒤 10분이 지나면 제자리로 돌아온다 —
+     * 다음 달을 보다가 그대로 두면, 나중에 홈 화면을 봤을 때 이번 달인 줄 알고 잘못 읽는다.
      */
-    private const val WEEK_KEEP_MS = 10 * 60 * 1000L
-    fun weekOffset(c: Context, widgetId: Int): Int {
+    private const val NAV_KEEP_MS = 10 * 60 * 1000L
+    private fun navOffset(c: Context, kind: String, widgetId: Int): Int {
         val p = prefs(c)
-        val at = p.getLong("wkAt_$widgetId", 0L)
-        if (System.currentTimeMillis() - at > WEEK_KEEP_MS) return 0
-        return p.getInt("wk_$widgetId", 0)
+        if (System.currentTimeMillis() - p.getLong("${kind}At_$widgetId", 0L) > NAV_KEEP_MS) return 0
+        return p.getInt("${kind}_$widgetId", 0)
     }
-    fun setWeekOffset(c: Context, widgetId: Int, n: Int) = prefs(c).edit()
-        .putInt("wk_$widgetId", n.coerceIn(-52, 52))
-        .putLong("wkAt_$widgetId", System.currentTimeMillis())
+    private fun setNavOffset(c: Context, kind: String, widgetId: Int, n: Int) = prefs(c).edit()
+        .putInt("${kind}_$widgetId", n.coerceIn(-60, 60))
+        .putLong("${kind}At_$widgetId", System.currentTimeMillis())
         .apply()
+    fun weekOffset(c: Context, widgetId: Int) = navOffset(c, "wk", widgetId)
+    fun setWeekOffset(c: Context, widgetId: Int, n: Int) = setNavOffset(c, "wk", widgetId, n)
+    fun monthOffset(c: Context, widgetId: Int) = navOffset(c, "mo", widgetId)
+    fun setMonthOffset(c: Context, widgetId: Int, n: Int) = setNavOffset(c, "mo", widgetId, n)
 
     fun siteUrl(siteId: String) = "$APP_URL#site/$siteId"
     fun scheduleUrl() = "$APP_URL#schedule"

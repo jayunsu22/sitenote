@@ -20,6 +20,12 @@ class RealDataDump {
         out.append("WEEK\t").append(b.week.joinToString(",") { "${it.date}=${it.count}" }).append('\n')
         for (r in b.rows) out.append(listOf(r.siteId, r.next, r.dates.joinToString(","), r.staffLabel,
             r.whenText, r.spanText, r.filmStage, r.client).joinToString("\t")).append('\n')
+        // 달력: 이번 달·다음 달 칸마다 건수와 동네 (share.js dateCounts / dateRegions / monthGridFull 과 견준다)
+        for (off in 0..1) {
+            val m = buildMonth(File(src).readText(), today, off)
+            out.append("MONTH\t${m.month}\t${m.monthTotal}\n")
+            for (c in m.cells) out.append("${c.date}\t${if (c.inMonth) 1 else 0}\t${c.count}\t${c.regions.joinToString("|")}\n")
+        }
         File(System.getenv("SITENOTE_DUMP") ?: "dump.tsv").writeText(out.toString())
     }
 }

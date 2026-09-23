@@ -33,7 +33,8 @@ class MainActivity : Activity() {
         keyBox.setText(Store.key(this))
 
         findViewById<Button>(R.id.save).setOnClickListener { saveAndLoad() }
-        findViewById<Button>(R.id.pin).setOnClickListener { pinWidget() }
+        findViewById<Button>(R.id.pin).setOnClickListener { pinWidget(ScheduleWidget::class.java) }
+        findViewById<Button>(R.id.pinMonth).setOnClickListener { pinWidget(MonthWidget::class.java) }
         findViewById<Button>(R.id.open).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Store.scheduleUrl())))
         }
@@ -48,7 +49,7 @@ class MainActivity : Activity() {
         status.text = "불러오는 중…"
         thread {
             val r = Store.refresh(this)
-            ScheduleWidget.updateAll(this)
+            Widgets.updateAll(this)
             RefreshWorker.schedule(this)
             runOnUiThread {
                 if (r is Store.Result.Fail) status.text = "⚠ ${r.message}"
@@ -70,10 +71,10 @@ class MainActivity : Activity() {
     }
 
     /** 안드로이드 8 이상은 버튼 한 번으로 홈 화면에 올릴 수 있다 (런처가 지원하면) */
-    private fun pinWidget() {
+    private fun pinWidget(provider: Class<*>) {
         val mgr = AppWidgetManager.getInstance(this)
         val ok = mgr.isRequestPinAppWidgetSupported &&
-            mgr.requestPinAppWidget(ComponentName(this, ScheduleWidget::class.java), null, null)
+            mgr.requestPinAppWidget(ComponentName(this, provider), null, null)
         findViewById<TextView>(R.id.pinHint).visibility = if (ok) View.GONE else View.VISIBLE
     }
 }

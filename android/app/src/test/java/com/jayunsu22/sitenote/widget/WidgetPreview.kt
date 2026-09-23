@@ -43,10 +43,16 @@ class WidgetPreview {
             .putLong("fetchedAt", 1790202960000L)   // 2026-09-24 07:36 KST
             .commit()
         val today = LocalDate.parse(System.getenv("PREVIEW_TODAY") ?: "2026-09-24")
-        val week = System.getenv("PREVIEW_WEEK")?.toIntOrNull() ?: 0   // 넘겨 본 주를 그려 볼 때
+        val week = System.getenv("PREVIEW_WEEK")?.toIntOrNull() ?: 0   // 넘겨 본 주·달을 그려 볼 때
+        val host = FrameLayout(ctx)
+        if (System.getenv("PREVIEW_KIND") == "month") {
+            // 현장 달력 위젯: 목록이 없어서 RemoteViews 를 그대로 그리면 된다
+            val month = MonthWidget.frame(ctx, 1, buildMonth(json, today, week)).apply(ctx, host)
+            draw(ctx, month, emptyList(), 360, 430)
+            return
+        }
         val board = build(json, today, weekOffset = week)
 
-        val host = FrameLayout(ctx)
         val frame = ScheduleWidget.frame(ctx, 1, board, withList = false).apply(ctx, host)
         val rows = board.rows.mapIndexed { i, r -> ScheduleWidget.row(ctx, r, i).apply(ctx, host) }
         frame.findViewById<ListView>(R.id.list).adapter = object : BaseAdapter() {
@@ -56,7 +62,10 @@ class WidgetPreview {
             override fun getView(p: Int, c: View?, parent: ViewGroup?) = rows[p]
         }
         frame.findViewById<View>(R.id.empty).visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
+        draw(ctx, frame, rows, 360, 460)
+    }
 
+    private fun draw(ctx: Context, frame: View, rows: List<View>, wDp: Int, hDp: Int) {
         // 한글 글꼴이 없는 환경이면 지정한 글꼴을 입힌다 (굵기는 그대로)
         System.getenv("PREVIEW_FONT")?.let { path ->
             val tf = Typeface.createFromFile(path)
@@ -67,9 +76,9 @@ class WidgetPreview {
             walk(frame); rows.forEach { walk(it) }
         }
 
-        // 4×4 칸 위젯 크기쯤 (가로 360dp, 세로 460dp) 을 홈 화면 배경 위에 그린다
+        // 4×4 칸 위젯 크기쯤을 홈 화면 배경 위에 그린다
         val dm = ctx.resources.displayMetrics
-        val w = (360 * dm.density).toInt(); val h = (460 * dm.density).toInt(); val pad = (14 * dm.density).toInt()
+        val w = (wDp * dm.density).toInt(); val h = (hDp * dm.density).toInt(); val pad = (14 * dm.density).toInt()
         frame.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
                       View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
         frame.layout(0, 0, w, h)

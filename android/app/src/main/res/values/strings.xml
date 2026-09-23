@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">현장 일정</string>
+    <string name="month_widget_name">현장 달력</string>
+    <string name="month_widget_desc">한 달 날짜별 시공 지역과 빈 날 — 새 일·AS 잡을 때</string>
     <string name="widget_desc">이번 주 날짜별 건수와 앞으로 잡힌 현장·인원을 홈 화면에 띄웁니다</string>
 </resources>

@@ -16,8 +16,8 @@ android {
         applicationId = "com.jayunsu22.sitenote.widget"
         minSdk = 26          // 안드로이드 8 이상 — java.time 을 그냥 쓸 수 있다
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     signingConfigs {
@@ -49,7 +49,7 @@ android {
         unitTests.isIncludeAndroidResources = true   // Robolectric 으로 위젯을 실제로 그려 본다
         unitTests.all { t ->
             // 미리보기 그리기(WidgetPreview)에 쓰는 값들 — 환경변수로만 받는다
-            listOf("RENDER_PREVIEW", "PREVIEW_JSON", "PREVIEW_OUT", "PREVIEW_TODAY", "PREVIEW_FONT", "PREVIEW_WEEK", "PREVIEW_DENSITY", "PREVIEW_BG")
+            listOf("RENDER_PREVIEW", "PREVIEW_JSON", "PREVIEW_OUT", "PREVIEW_TODAY", "PREVIEW_FONT", "PREVIEW_WEEK", "PREVIEW_DENSITY", "PREVIEW_BG", "PREVIEW_KIND")
                 .forEach { k -> System.getenv(k)?.let { t.environment(k, it) } }
             System.getenv("ROBOLECTRIC_REPO")?.let { t.systemProperty("robolectric.dependency.repo.url", it) }
         }

@@ -14,4 +14,6 @@
     <color name="staff">#334155</color>
     <color name="badge_past_text">#4b5563</color>
     <color name="badge_plain_text">#374151</color>
+    <color name="out">#c3cad6</color>        <!-- 앞뒤 달 날짜 -->
+    <color name="sun_past">#d1a0a0</color>   <!-- 지난 일요일 -->
 </resources>

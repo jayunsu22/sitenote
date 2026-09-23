@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 class RefreshWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
         Store.refresh(applicationContext)
-        ScheduleWidget.updateAll(applicationContext)   // 실패해도 다시 그린다 — '갱신 실패' 를 보여줘야 한다
+        Widgets.updateAll(applicationContext)   // 실패해도 다시 그린다 — '갱신 실패' 를 보여줘야 한다
         // 실패를 retry 로 돌리지 않는다: 키가 틀린 경우엔 몇 번을 다시 해도 똑같고,
         // 통신 문제는 다음 주기(30분)에 어차피 다시 한다
         return Result.success()

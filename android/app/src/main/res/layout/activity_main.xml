@@ -72,17 +72,22 @@
             android:textSize="15sp"
             android:textStyle="bold" />
         <Button
-            android:id="@+id/pin"
+            android:id="@+id/pinMonth"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="홈 화면에 위젯 추가" />
+            android:text="📅 달력 위젯 추가 (한 달 · 지역 · 빈 날)" />
+        <Button
+            android:id="@+id/pin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📋 목록 위젯 추가 (이번 주 · 현장 · 인원)" />
         <TextView
             android:id="@+id/pinHint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:lineSpacingExtra="2dp"
-            android:text="이 폰은 버튼으로 바로 못 올립니다.\n홈 화면 빈 곳을 길게 누르기 → 위젯 → '현장 일정' 을 끌어다 놓으세요."
+            android:text="이 폰은 버튼으로 바로 못 올립니다.\n홈 화면 빈 곳을 길게 누르기 → 위젯 → '현장 일정' 에서 달력·목록 중 골라 끌어다 놓으세요."
             android:textColor="#dc2626"
             android:textSize="13sp"
             android:visibility="gone" />
@@ -92,7 +97,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:lineSpacingExtra="3dp"
-            android:text="• 위젯은 30분마다, 또는 위젯의 ⟳ 를 누르면 새로 받아 옵니다.\n• 앱에서 고친 내용은 백업된 뒤(보통 몇 초) 반영됩니다.\n• 현장을 누르면 그 현장이 앱에서 열립니다.\n• 위젯 크기는 길게 눌러 늘리고 줄일 수 있습니다."
+            android:text="• 달력·목록 위젯은 둘 다 올려도 되고 하나만 올려도 됩니다.\n• 위젯은 30분마다, 또는 위젯의 ⟳ 를 누르면 새로 받아 옵니다.\n• 앱에서 고친 내용은 백업된 뒤(보통 몇 초) 반영됩니다.\n• ‹ › 로 주·달을 넘깁니다 (위젯은 밀어서 넘기기가 안 됩니다).\n• 현장을 누르면 그 현장이 앱에서 열립니다.\n• 위젯 크기는 길게 눌러 늘리고 줄일 수 있습니다."
             android:textColor="#6b7280"
             android:textSize="13sp" />
 

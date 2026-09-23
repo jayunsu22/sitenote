@@ -55,7 +55,7 @@ data class Board(
     val siteCount: Int,
 )
 
-private fun str(v: Any?): String = if (v == null || v == JSONObject.NULL) "" else v.toString().trim()
+internal fun str(v: Any?): String = if (v == null || v == JSONObject.NULL) "" else v.toString().trim()
 
 private fun isoDate(s: String): LocalDate? =
     if (Regex("""^\d{4}-\d{2}-\d{2}$""").matches(s)) runCatching { LocalDate.parse(s) }.getOrNull() else null
@@ -82,10 +82,10 @@ fun titleLine(site: JSONObject): String {
     return t.ifEmpty { "(이름없음)" }
 }
 
-private class DayRow(val date: LocalDate, val index: Int, val staff: List<String>)
+internal class DayRow(val date: LocalDate, val index: Int, val staff: List<String>)
 
 /** share.js daysOf — days 가 비었으면 시작날짜(date) 한 줄로 본다 (예전 데이터) */
-private fun daysOf(site: JSONObject): List<DayRow> {
+internal fun daysOf(site: JSONObject): List<DayRow> {
     val arr = site.optJSONArray("days")
     val raw = if (arr != null && arr.length() > 0)
         (0 until arr.length()).map { arr.optJSONObject(it) ?: JSONObject() }

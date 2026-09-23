@@ -9,10 +9,7 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
-import java.text.SimpleDateFormat
 import java.time.LocalDate
-import java.util.Date
-import java.util.Locale
 
 class ScheduleWidget : AppWidgetProvider() {
 
@@ -28,34 +25,26 @@ class ScheduleWidget : AppWidgetProvider() {
         RefreshWorker.now(ctx)
     }
 
-    // 마지막 위젯을 치웠으면 30분마다 받아 오는 것도 멈춘다
-    override fun onDisabled(ctx: Context) = RefreshWorker.cancel(ctx)
+    // 목록·달력 위젯을 다 치웠으면 30분마다 받아 오는 것도 멈춘다
+    override fun onDisabled(ctx: Context) { if (!Widgets.anyPlaced(ctx)) RefreshWorker.cancel(ctx) }
 
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
         if (intent.action == ACTION_WEEK) {
             val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
-            val d = intent.getIntExtra(EXTRA_DELTA, 0)
+            val d = intent.getIntExtra(Widgets.EXTRA_DELTA, 0)
             Store.setWeekOffset(ctx, id, if (d == 0) 0 else Store.weekOffset(ctx, id) + d)
             // 위쪽(머리줄·주간 띠)만 다시 그린다 — 목록까지 다시 붙이면 내려 둔 스크롤이 맨 위로 튄다
             AppWidgetManager.getInstance(ctx).partiallyUpdateAppWidget(id, frame(ctx, id, withList = false))
             return
         }
-        if (intent.action == ACTION_REFRESH) {
-            refreshing = true
-            updateAll(ctx)          // '불러오는 중…' 부터 보여 준다 — 눌렀는데 아무 반응 없으면 또 누른다
-            refreshing = false
-            RefreshWorker.now(ctx)
-        }
+        if (intent.action == Widgets.ACTION_REFRESH) Widgets.onRefreshTapped(ctx)
     }
 
     companion object {
-        const val ACTION_REFRESH = "com.jayunsu22.sitenote.widget.REFRESH"
         const val ACTION_WEEK = "com.jayunsu22.sitenote.widget.WEEK"
         const val EXTRA_URL = "url"
-        const val EXTRA_DELTA = "delta"   // -1 지난 주, +1 다음 주, 0 이번 주로
-        @Volatile private var refreshing = false
 
         private val STRIPS = intArrayOf(R.drawable.strip_0, R.drawable.strip_1)
         private val SCH = intArrayOf(R.color.sch1, R.color.sch2)   // 청록 · 먹색 (앱과 같다)
@@ -80,8 +69,6 @@ class ScheduleWidget : AppWidgetProvider() {
         }
 
         /** 위젯 틀: 머리줄 · 이번 주 띠 · 목록(행은 ScheduleRowsService 가 채운다) */
-        private fun Context.c(id: Int) = getColor(id)
-
         fun frame(ctx: Context, widgetId: Int, given: Board? = null, withList: Boolean = true): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_schedule)
             val off = given?.weekOffset ?: Store.weekOffset(ctx, widgetId)
@@ -89,28 +76,19 @@ class ScheduleWidget : AppWidgetProvider() {
             val hasKey = Store.key(ctx).isNotEmpty()
 
             // 머리줄 — 언제 받아 온 내용인지 늘 보여준다. 위젯은 백업본이라 몇 분 늦을 수 있다
-            val at = Store.fetchedAt(ctx)
             val today0 = board?.today ?: LocalDate.now()
             val shownSun = sundayOf(today0).plusWeeks(off.toLong())
-            v.setTextViewText(R.id.updated, when {
-                refreshing -> "불러오는 중…"
+            v.setTextViewText(R.id.updated,
                 // 다른 주를 볼 때는 그 주가 언제인지가 먼저다 (날짜 숫자만으로는 몇 월인지 모른다)
-                off != 0 -> "${shortDate(shownSun)} – ${shortDate(shownSun.plusDays(6))}"
-                at > 0 -> SimpleDateFormat("M/d HH:mm", Locale.KOREA).format(Date(at)) + " 기준"
-                else -> ""
-            })
+                if (off != 0 && !Widgets.refreshing) "${shortDate(shownSun)} – ${shortDate(shownSun.plusDays(6))}"
+                else Widgets.fetchedLabel(ctx))
             v.setTextColor(R.id.updated, ctx.c(if (off != 0) R.color.text else R.color.faint))
             v.setViewVisibility(R.id.thisWeek, if (off != 0) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.prevWeek, weekIntent(ctx, widgetId, -1))
             v.setOnClickPendingIntent(R.id.nextWeek, weekIntent(ctx, widgetId, +1))
             v.setOnClickPendingIntent(R.id.thisWeek, weekIntent(ctx, widgetId, 0))
             val err = Store.lastError(ctx)
-            val notice = when {
-                !hasKey -> "앱을 열어 백업키를 넣어 주세요"
-                err.isNotEmpty() && at > 0 -> "⚠ 새로 못 받음: $err (아래는 전에 받은 내용)"
-                err.isNotEmpty() -> "⚠ $err"
-                else -> ""
-            }
+            val notice = Widgets.notice(ctx)
             v.setTextViewText(R.id.notice, notice)
             v.setViewVisibility(R.id.notice, if (notice.isEmpty()) View.GONE else View.VISIBLE)
 
@@ -121,15 +99,12 @@ class ScheduleWidget : AppWidgetProvider() {
 
             // 누르는 곳: 제목·주간 띠 → 앱 일정 화면, ⟳ → 새로 받기
             // 키가 없으면 어디를 눌러도 이 앱 설정으로 (거기서 키를 넣는다)
-            val openTop = if (hasKey) viewUrl(ctx, Store.scheduleUrl(), 1) else openSettings(ctx)
+            val openTop = if (hasKey) Widgets.viewUrl(ctx, Store.scheduleUrl(), 1) else Widgets.openSettings(ctx)
             v.setOnClickPendingIntent(R.id.title, openTop)
             v.setOnClickPendingIntent(R.id.week, openTop)
-            v.setOnClickPendingIntent(R.id.notice, if (hasKey && err.isEmpty()) openTop else openSettings(ctx))
-            v.setOnClickPendingIntent(R.id.empty, if (hasKey) openTop else openSettings(ctx))
-            v.setOnClickPendingIntent(R.id.refresh, PendingIntent.getBroadcast(
-                ctx, 0,
-                Intent(ctx, ScheduleWidget::class.java).setAction(ACTION_REFRESH),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            v.setOnClickPendingIntent(R.id.notice, if (hasKey && err.isEmpty()) openTop else Widgets.openSettings(ctx))
+            v.setOnClickPendingIntent(R.id.empty, if (hasKey) openTop else Widgets.openSettings(ctx))
+            v.setOnClickPendingIntent(R.id.refresh, Widgets.refreshIntent(ctx, ScheduleWidget::class.java))
 
             v.setTextViewText(R.id.empty, when {
                 !hasKey -> "앱을 열어 백업키를 넣어 주세요"
@@ -244,21 +219,7 @@ class ScheduleWidget : AppWidgetProvider() {
 
         private fun dLabel(n: Int): String = when (n) { 0 -> "오늘"; 1 -> "내일"; else -> "D-$n" }
 
-        private fun viewUrl(ctx: Context, url: String, req: Int): PendingIntent =
-            // 위젯에서 여는 화면은 부르는 액티비티가 없으니 새 작업으로 띄운다
-            PendingIntent.getActivity(ctx, req, Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        // 위젯마다, 방향마다 다른 PendingIntent 여야 한다 (extra 만 다르면 같은 것으로 합쳐진다)
         private fun weekIntent(ctx: Context, widgetId: Int, delta: Int): PendingIntent =
-            PendingIntent.getBroadcast(ctx, widgetId * 4 + (delta + 2),
-                Intent(ctx, ScheduleWidget::class.java).setAction(ACTION_WEEK)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                    .putExtra(EXTRA_DELTA, delta),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        private fun openSettings(ctx: Context): PendingIntent =
-            PendingIntent.getActivity(ctx, 3, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            Widgets.navIntent(ctx, ScheduleWidget::class.java, ACTION_WEEK, widgetId, delta)
     }
 }

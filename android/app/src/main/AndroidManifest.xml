@@ -41,6 +41,19 @@
                 android:resource="@xml/schedule_widget_info" />
         </receiver>
 
+        <!-- 현장 달력: 한 달 날짜별 시공 지역과 빈 날 -->
+        <receiver
+            android:name=".MonthWidget"
+            android:exported="false"
+            android:label="@string/month_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/month_widget_info" />
+        </receiver>
+
         <service
             android:name=".ScheduleRowsService"
             android:exported="false"
