@@ -18,7 +18,7 @@ class ScheduleRowsService : RemoteViewsService() {
         override fun onDestroy() { rows = emptyList() }
         override fun getCount() = rows.size
         override fun getViewAt(position: Int): RemoteViews? =
-            rows.getOrNull(position)?.let { ScheduleWidget.row(ctx, it, position) }
+            rows.getOrNull(position)?.let { ScheduleWidget.row(ctx, it, ScheduleWidget.colorIndex(rows, position)) }
         override fun getLoadingView(): RemoteViews? = null
         override fun getViewTypeCount() = 1
         override fun getItemId(position: Int) = position.toLong()

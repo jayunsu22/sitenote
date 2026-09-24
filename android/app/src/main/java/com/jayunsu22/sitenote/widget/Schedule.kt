@@ -27,6 +27,9 @@ fun sundayOf(d: LocalDate): LocalDate =
 /** 인원 배치 상태 — 배지 색을 정한다 (앱의 staffCountBadge 와 같은 뜻) */
 enum class StaffState { NONE, SHORT, FULL, PLAIN }
 
+/** 목록 한 줄의 종류 — 현장 / 날짜 잡힌 AS·추가작업 / AS 대기(날짜 없거나 지났는데 안 끝남) */
+enum class RowKind { SITE, SERVICE, WAITING }
+
 data class Row(
     val siteId: String,
     val title: String,
@@ -42,16 +45,19 @@ data class Row(
     val staffState: StaffState,
     val filmStage: Int,
     val filmUrgent: Boolean,    // 3일 안인데 필름이 아직 안 왔다
+    val kind: RowKind = RowKind.SITE,
+    val request: String = "",   // AS 요청 내용
+    val overdue: Boolean = false, // AS 대기 중 날짜가 이미 지난 것
 )
 
-data class DayCell(val date: LocalDate, val count: Int)
+data class DayCell(val date: LocalDate, val count: Int, val services: Int = 0)   // services: 그날 AS 수 (🔧)
 
 data class Board(
     val today: LocalDate,
     val weekOffset: Int,        // 0 = 이번 주, 1 = 다음 주, -1 = 지난 주
     val week: List<DayCell>,    // 보고 있는 주 일~토 (앱 일정 화면 위쪽 띠와 같다)
     val weekTotal: Int,
-    val rows: List<Row>,        // 오늘 이후로 남은 날이 있는 현장, 남은 첫 날 순
+    val rows: List<Row>,        // AS 대기 → (현장·AS 를 날짜순으로, 같은 날이면 현장 먼저)
     val siteCount: Int,
 )
 
@@ -109,17 +115,33 @@ fun build(json: String, today: LocalDate, maxRows: Int = 40, weekOffset: Int = 0
     val sites = root.optJSONArray("sites")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }
         ?: emptyList()
 
-    // 날짜별 건수 — share.js dateCounts: 현장 하나가 그날 일이 있으면 1
+    // 날짜별 건수 — share.js dateCounts: 현장 하나가 그날 일이 있으면 1, AS 도 한 건씩
     val counts = HashMap<LocalDate, Int>()
-    for (s in sites) for (d in daysOf(s).map { it.date }.toSet()) counts[d] = (counts[d] ?: 0) + 1
+    val svcCounts = HashMap<LocalDate, Int>()
+    for (s in sites) {
+        for (d in daysOf(s).map { it.date }.toSet()) counts[d] = (counts[d] ?: 0) + 1
+        for (v in servicesOf(s)) v.date?.let { d ->
+            counts[d] = (counts[d] ?: 0) + 1
+            svcCounts[d] = (svcCounts[d] ?: 0) + 1
+        }
+    }
 
     val sun = sundayOf(today).plusWeeks(weekOffset.toLong())
-    val week = (0L until 7L).map { sun.plusDays(it) }.map { DayCell(it, counts[it] ?: 0) }
+    val week = (0L until 7L).map { sun.plusDays(it) }.map { DayCell(it, counts[it] ?: 0, svcCounts[it] ?: 0) }
 
-    val rows = sites
-        .sortedBy { (it.opt("createdAt") as? Number)?.toLong() ?: 0L }   // 같은 날이면 먼저 만든 현장이 위
-        .mapNotNull { s -> rowOf(s, clients, today) }
-        .sortedBy { it.next }                                            // 안정 정렬 — 위 순서가 유지된다
+    val byCreated = sites.sortedBy { (it.opt("createdAt") as? Number)?.toLong() ?: 0L }   // 같은 날이면 먼저 만든 것이 위
+    val siteRows = byCreated.mapNotNull { s -> rowOf(s, clients, today) }
+    // AS: 날짜 잡힌 것은 현장 사이에 날짜순으로 (share.js upcomingServices + app.js 끼우기와 같다)
+    val svcAll = sites.flatMap { s -> servicesOf(s).map { s to it } }
+    val upcoming = svcAll.filter { (_, v) -> !v.done && v.date != null && !v.date.isBefore(today) }
+        .sortedWith(compareBy({ it.second.date }, { it.second.createdAt }))
+        .map { (s, v) -> serviceRow(s, v, clients, today, RowKind.SERVICE) }
+    // AS 대기: 지난 것 먼저(날짜순), 그다음 날짜 없는 것(접수순) — share.js waitingServices
+    val waiting = svcAll.filter { (_, v) -> !v.done && (v.date == null || v.date.isBefore(today)) }
+        .sortedWith(compareBy({ if (it.second.date != null) 0 else 1 }, { it.second.date }, { it.second.createdAt }))
+        .map { (s, v) -> serviceRow(s, v, clients, today, RowKind.WAITING) }
+    val rows = waiting + (siteRows + upcoming)
+        .sortedWith(compareBy({ it.next }, { it.kind.ordinal }))            // 안정 정렬 — 같은 날이면 현장 먼저
         .take(maxRows)
 
     return Board(today, weekOffset, week, week.sumOf { it.count }, rows, sites.size)
@@ -166,5 +188,51 @@ private fun rowOf(site: JSONObject, clients: Map<String, String>, today: LocalDa
         whenText = whenText, spanText = spanText, dday = dday, daysUntil = until,
         staffNames = names, staffLabel = label, staffState = state,
         filmStage = stage, filmUrgent = urgent,
+    )
+}
+
+/* ---------- AS·추가작업 (share.js servicesOf / serviceLabel 와 같다) ---------- */
+internal class Svc(val id: String, val kind: String, val request: String, val date: LocalDate?,
+                   val staff: List<String>, val done: Boolean, val createdAt: Long)
+
+internal fun servicesOf(site: JSONObject): List<Svc> {
+    val a = site.optJSONArray("services") ?: return emptyList()
+    return (0 until a.length()).mapNotNull { i ->
+        val v = a.optJSONObject(i) ?: return@mapNotNull null
+        val id = str(v.opt("id")).ifEmpty { return@mapNotNull null }
+        Svc(id, if (str(v.opt("kind")) == "추가") "추가" else "AS", str(v.opt("request")),
+            isoDate(str(v.opt("date"))), strings(v.optJSONArray("staff")),
+            v.optBoolean("done", false), (v.opt("createdAt") as? Number)?.toLong() ?: 0L)
+    }
+}
+
+fun serviceLabel(kind: String) = if (kind == "추가") "추가작업" else "AS"
+
+private fun serviceRow(site: JSONObject, v: Svc, clients: Map<String, String>, today: LocalDate, kind: RowKind): Row {
+    val label = serviceLabel(v.kind)
+    val d = v.date
+    val until = if (d != null) ChronoUnit.DAYS.between(today, d).toInt() else 0
+    return Row(
+        siteId = str(site.opt("id")),
+        title = titleLine(site),
+        client = clients[str(site.opt("clientId"))] ?: "",
+        dates = listOfNotNull(d),
+        next = d ?: today,
+        whenText = if (kind == RowKind.WAITING) "🔧 $label 대기" else "🔧 $label ${shortDate(d!!)} ${weekdayOf(d)}",
+        spanText = when {
+            kind != RowKind.WAITING -> ""
+            d == null -> "날짜 미정"
+            else -> "${shortDate(d)} 지남"
+        },
+        dday = if (kind == RowKind.SERVICE) when (until) { 0 -> "오늘"; 1 -> "내일"; else -> "" } else "",
+        daysUntil = until,
+        staffNames = v.staff,
+        staffLabel = "",
+        staffState = if (v.staff.isEmpty()) StaffState.NONE else StaffState.PLAIN,
+        filmStage = 0,
+        filmUrgent = false,
+        kind = kind,
+        request = v.request,
+        overdue = kind == RowKind.WAITING && d != null,
     )
 }

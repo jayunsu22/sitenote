@@ -5,12 +5,23 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /** colors.xml 의 색 (웹앱 style.css 와 같은 값) */
 internal fun Context.c(id: Int) = getColor(id)
+
+/** 날짜 숫자 옆에 작은 🔧 — AS·추가작업이 잡힌 날 (앱 달력의 .schcal-svc 와 같다) */
+internal fun withWrench(day: String, services: Int): CharSequence {
+    if (services <= 0) return day
+    val t = SpannableString("$day🔧")
+    t.setSpan(RelativeSizeSpan(0.72f), day.length, t.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    return t
+}
 
 /*
  * 두 위젯(현장 일정 = 목록, 현장 달력 = 월간)이 같이 쓰는 것.

@@ -14,8 +14,9 @@ import java.time.YearMonth
 data class MonthCell(
     val date: LocalDate,
     val inMonth: Boolean,       // 앞뒤 달 날짜면 false (숫자만 흐리게, 일정 표시는 그대로)
-    val count: Int,             // 그날 현장 수
+    val count: Int,             // 그날 일 수 (현장 + AS·추가작업)
     val regions: List<String>,  // 그날 동네 (같은 동네는 한 번만, 적힌 순)
+    val services: Int = 0,      // 그중 AS·추가작업 수 — 날짜 옆에 🔧
 )
 
 data class MonthBoard(
@@ -57,13 +58,20 @@ fun buildMonth(json: String, today: LocalDate, monthOffset: Int = 0): MonthBoard
         ?: emptyList()
 
     val counts = HashMap<LocalDate, Int>()
+    val svcCounts = HashMap<LocalDate, Int>()
     val regions = LinkedHashMap<LocalDate, MutableList<String>>()
     for (s in sites) {                              // 백업에 적힌 순서 그대로 — 앱과 같은 순서로 동네가 나온다
         val dates = daysOf(s).map { it.date }.toSet()   // 날짜 없는 줄은 daysOf 가 버린다
         for (d in dates) counts[d] = (counts[d] ?: 0) + 1
+        // AS·추가작업도 그날 잡힌 일이다 (share.js dateCounts / dateServices) — 끝난 것도 센다, 앱과 같다
+        val svcDates = servicesOf(s).mapNotNull { it.date }
+        for (d in svcDates) {
+            counts[d] = (counts[d] ?: 0) + 1
+            svcCounts[d] = (svcCounts[d] ?: 0) + 1
+        }
         val r = regionOf(s)
         if (r.isEmpty()) continue
-        for (d in dates) {
+        for (d in dates + svcDates) {               // AS 도 그 현장 동네로 가는 일이다
             val list = regions.getOrPut(d) { mutableListOf() }
             if (r !in list) list.add(r)
         }
@@ -71,7 +79,7 @@ fun buildMonth(json: String, today: LocalDate, monthOffset: Int = 0): MonthBoard
 
     val ym = YearMonth.from(today).plusMonths(monthOffset.toLong())
     val cells = monthGridFull(ym).map { d ->
-        MonthCell(d, YearMonth.from(d) == ym, counts[d] ?: 0, regions[d] ?: emptyList())
+        MonthCell(d, YearMonth.from(d) == ym, counts[d] ?: 0, regions[d] ?: emptyList(), svcCounts[d] ?: 0)
     }
     val total = counts.entries.sumOf { (d, n) -> if (YearMonth.from(d) == ym) n else 0 }
     return MonthBoard(today, ym, monthOffset, cells, total)

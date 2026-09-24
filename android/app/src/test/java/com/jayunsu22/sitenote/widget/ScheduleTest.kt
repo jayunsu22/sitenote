@@ -165,4 +165,61 @@ class ScheduleTest {
         assertEquals(LocalDate.of(2026, 9, 20), sundayOf(LocalDate.of(2026, 9, 20)))
         assertEquals(LocalDate.of(2026, 9, 20), sundayOf(LocalDate.of(2026, 9, 26)))
     }
+
+    /* ---------- AS·추가작업 (share.js upcomingServices / waitingServices 와 같은 규칙) ---------- */
+    private fun svc(id: String, date: String = "", kind: String = "AS", request: String = "실리콘 들뜸",
+                    staff: List<String> = emptyList(), done: Boolean = false, createdAt: Long = 1) = JSONObject()
+        .put("id", id).put("kind", kind).put("request", request).put("date", date)
+        .put("staff", JSONArray(staff)).put("done", done).put("createdAt", createdAt)
+
+    private fun JSONObject.withSvc(vararg v: JSONObject) = put("services", JSONArray(v.toList()))
+
+    @Test fun AS는_대기가_맨위_날짜잡힌건_현장사이에_날짜순() {
+        val b = build(data(
+            site("old", "인천 당하동 끝난현장", listOf("2026-08-01")).withSvc(
+                svc("v1", "2026-09-28", staff = listOf("김반장")),        // 잡힌 AS
+                svc("v2", "", createdAt = 5),                              // 날짜 미정
+                svc("v3", "2026-09-21", createdAt = 9),                    // 날짜 지남
+                svc("v4", "2026-09-25", done = true),                      // 끝남 — 안 싣는다
+            ),
+            site("a", "A현장", listOf("2026-09-28")),
+            site("b", "B현장", listOf("2026-09-25")),
+        ), today)
+        assertEquals(
+            listOf("WAITING:old", "WAITING:old", "SITE:b", "SITE:a", "SERVICE:old"),
+            b.rows.map { "${it.kind}:${it.siteId}" })
+        val (over, undated) = b.rows
+        assertTrue(over.overdue); assertEquals("9/21 지남", over.spanText); assertEquals("🔧 AS 대기", over.whenText)
+        assertFalse(undated.overdue); assertEquals("날짜 미정", undated.spanText)
+        val sv = b.rows[4]
+        assertEquals("🔧 AS 9/28 월", sv.whenText)
+        assertEquals("", sv.spanText)
+        assertEquals(listOf("김반장"), sv.staffNames)
+        assertEquals("실리콘 들뜸", sv.request)
+        assertEquals("인천 당하동 끝난현장", sv.title)
+        assertEquals("이레토탈 인테리어", sv.client)
+    }
+
+    @Test fun AS도_주간띠_건수에_들고_따로_세어_공구표시를_붙인다() {
+        val b = build(data(
+            site("old", "끝난현장", listOf("2026-08-01")).withSvc(
+                svc("v1", "2026-09-24", kind = "추가"), svc("v2", "2026-09-25", done = true)),
+            site("a", "A", listOf("2026-09-24")),
+        ), today)
+        assertEquals(listOf(0, 0, 0, 0, 2, 1, 0), b.week.map { it.count })
+        assertEquals(listOf(0, 0, 0, 0, 1, 1, 0), b.week.map { it.services })   // 끝난 AS 도 그날 표시는 남긴다 (앱과 같다)
+        val today1 = b.rows.first { it.kind == RowKind.SERVICE }
+        assertEquals("🔧 추가작업 9/24 목", today1.whenText)
+        assertEquals("오늘", today1.dday)
+    }
+
+    @Test fun 서비스가_없거나_모양이_이상해도_괜찮다() {
+        val odd = site("x", "X", listOf("2026-09-25")).put("services", JSONArray(listOf(
+            JSONObject().put("kind", "AS"),              // id 없음 — 버린다
+            "문자열", JSONObject.NULL,
+            JSONObject().put("id", "ok").put("date", "9월 30일"))))   // 날짜 모양이 틀리면 날짜 미정
+        val b = build(data(odd, site("y", "Y", listOf("2026-09-26")).put("services", JSONObject.NULL)), today)
+        assertEquals(listOf(RowKind.WAITING, RowKind.SITE, RowKind.SITE), b.rows.map { it.kind })
+        assertEquals("날짜 미정", b.rows[0].spanText)
+    }
 }

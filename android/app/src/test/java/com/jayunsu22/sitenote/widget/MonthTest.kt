@@ -79,4 +79,17 @@ class MonthTest {
         val b = buildMonth(data(s), today)
         assertEquals(1, b.cells.sumOf { it.count })
     }
+
+    @Test fun AS_날도_건수와_그_현장_동네에_들고_공구표시_수를_센다() {
+        val old = site("o", "인천 당하동 1084-2", listOf("2026-08-01")).put("services", JSONArray(listOf(
+            JSONObject().put("id", "v1").put("date", "2026-09-30"),
+            JSONObject().put("id", "v2").put("date", ""))))
+        val b = buildMonth(data(old, site("a", "군포 우륵아파트", listOf("2026-09-30"))), today)
+        val c = b.cells.first { it.date == LocalDate.of(2026, 9, 30) }
+        assertEquals(2, c.count)
+        assertEquals(1, c.services)
+        assertEquals(listOf("당하동", "군포"), c.regions)
+        assertEquals(2, b.monthTotal)
+        assertEquals(0, b.cells.first { it.date == LocalDate.of(2026, 9, 29) }.services)
+    }
 }
