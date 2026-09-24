@@ -1591,6 +1591,20 @@
       };
       wrap.appendChild(c);
     });
+    // 이 날 들어간 사람의 연락처·차량번호 — 여기서 바로 적는다 (설정 팀원 명단과 같은 곳에 저장).
+    // 현장의 '연락처 보내기'(업자에게 · 관리실 차량등록) 문구에 들어간다
+    var pbox = $('staffPeople'); pbox.innerHTML = '';
+    if (d.staff.length) {
+      var h = document.createElement('div'); h.className = 'staff-people-head';
+      h.innerHTML = '📇 연락처·차량번호 <span>— 한 번 적으면 다른 현장에도 그대로</span>';
+      pbox.appendChild(h);
+      d.staff.forEach(function (n) {
+        var row = document.createElement('div'); row.className = 'staff-person';
+        var t = document.createElement('div'); t.className = 'staff-person-name'; t.textContent = n;
+        row.appendChild(t); row.appendChild(personInputs(n));
+        pbox.appendChild(row);
+      });
+    }
   }
   function addStaffFromInput() {
     var v = $('staffInput').value.trim();
@@ -1834,6 +1848,23 @@
      명단 자체는 예전처럼 이름만 둔다 — 인원 칩이 이 이름을 쓰고, 인원 칸에는 명단에 없는 사람도
      들어간다. 연락처·차량은 이름으로 찾는 표(settings.people)에 둔다. 현장의 '연락처 보내기'
      문구(업자에게 작업자 연락처 · 관리실 차량등록)가 여기서 채워진다 */
+  // 연락처·차량번호 입력 두 칸 — 설정 팀원 명단과 인원 선택창이 같이 쓴다. 적는 대로 저장
+  function personInputs(name) {
+    var p = Share.personOf(state.settings.people, name);
+    var info = document.createElement('div'); info.className = 'team-info';
+    var ph = document.createElement('input'); ph.type = 'tel'; ph.placeholder = '연락처 010-…'; ph.value = p.phone;
+    var car = document.createElement('input'); car.type = 'text'; car.placeholder = '차량번호 12가3456'; car.value = p.car;
+    car.autocomplete = 'off';
+    var save = function () {
+      var people = Object.assign({}, state.settings.people);
+      var v = { phone: ph.value.trim(), car: car.value.trim() };
+      if (v.phone || v.car) people[name] = v; else delete people[name];
+      Store.setSettings({ people: people });
+    };
+    ph.addEventListener('input', save); car.addEventListener('input', save);
+    info.appendChild(ph); info.appendChild(car);
+    return info;
+  }
   function renderTeamList() {
     var box = $('teamList'); box.innerHTML = '';
     var team = state.settings.team || [];
@@ -1848,24 +1879,13 @@
       var t = document.createElement('div'); t.className = 'slist-name'; t.textContent = name;
       var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
       top.appendChild(t); top.appendChild(x);
-      var info = document.createElement('div'); info.className = 'team-info';
-      var ph = document.createElement('input'); ph.type = 'tel'; ph.placeholder = '연락처 010-…'; ph.value = p.phone;
-      var car = document.createElement('input'); car.type = 'text'; car.placeholder = '차량번호 12가3456'; car.value = p.car;
-      car.autocomplete = 'off';
-      var save = function () {
-        var people = Object.assign({}, state.settings.people);
-        var v = { phone: ph.value.trim(), car: car.value.trim() };
-        if (v.phone || v.car) people[name] = v; else delete people[name];
-        Store.setSettings({ people: people });
-      };
-      ph.addEventListener('input', save); car.addEventListener('input', save);
+      var info = personInputs(name);
       x.onclick = function () {
         var next = team.slice(); next.splice(i, 1);
         var people = Object.assign({}, state.settings.people); delete people[name];   // 연락처도 같이 지운다
         Store.setSettings({ team: next, people: people });
         renderTeamList();
       };
-      info.appendChild(ph); info.appendChild(car);
       row.appendChild(top); row.appendChild(info);
       box.appendChild(row);
     });

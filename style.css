@@ -270,6 +270,11 @@ textarea { resize: vertical; }
 .team-info { display: flex; gap: 6px; margin-top: 4px; }
 .team-info input { flex: 1; min-width: 0; padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px;
   background: #fafafa; font-size: 14px; }
+/* 인원 선택창: 이 날 인원의 연락처·차량 */
+.staff-people-head { margin: 16px 0 4px; font-size: 13.5px; font-weight: 800; }
+.staff-people-head span { font-weight: 400; color: var(--muted); font-size: 12px; }
+.staff-person { padding: 6px 0 8px; border-bottom: 1px solid var(--border); }
+.staff-person-name { font-size: 14px; font-weight: 700; }
 /* 현장: 연락처 보내기 — 버튼 셋이 한 줄 */
 .contact-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 12px; }
 .contact-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 4px;
