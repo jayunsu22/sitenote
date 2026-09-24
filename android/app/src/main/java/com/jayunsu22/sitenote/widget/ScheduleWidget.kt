@@ -134,7 +134,7 @@ class ScheduleWidget : AppWidgetProvider() {
             val wdName = weekdayOf(cell.date)
             v.setTextViewText(WD[i], wdName)
             // 1일에만 달을 붙인다 — 띠가 달을 넘어가면 '1' 이 어느 달 1일인지 모른다 (앱과 같다)
-            v.setTextViewText(DN[i], if (cell.date.dayOfMonth == 1) shortDate(cell.date) else cell.date.dayOfMonth.toString())
+            v.setTextViewText(DN[i], withWrench(if (cell.date.dayOfMonth == 1) shortDate(cell.date) else cell.date.dayOfMonth.toString(), cell.services))
             v.setInt(CELL[i], "setBackgroundResource", when {
                 isToday -> R.drawable.cell_today
                 cell.count > 0 && past -> R.drawable.cell_has_past
@@ -177,45 +177,63 @@ class ScheduleWidget : AppWidgetProvider() {
             }
         }
 
-        /** 목록 한 줄. i 는 목록 차례 — 앱처럼 청록·먹색을 번갈아 쓴다 */
+        /** 목록 한 줄. i 는 목록 차례 — 앱처럼 청록·먹색을 번갈아 쓴다. AS·추가작업은 늘 호박색.
+         *  줄은 재활용되므로(reapply) 어느 종류가 바꾸는 표시든 모든 줄에서 다시 정한다 */
         fun row(ctx: Context, r: Row, i: Int): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_row)
+            val svc = r.kind != RowKind.SITE
             val ci = i % 2
-            v.setInt(R.id.strip, "setBackgroundResource", STRIPS[ci])
+            val tint = ctx.c(if (svc) R.color.svc else SCH[ci])
+            v.setInt(R.id.strip, "setBackgroundResource", if (svc) R.drawable.strip_as else STRIPS[ci])
             v.setTextViewText(R.id.whenText, r.whenText)
             v.setTextViewText(R.id.span, r.spanText)
+            v.setViewVisibility(R.id.span, if (r.spanText.isEmpty()) View.GONE else View.VISIBLE)
             v.setTextViewText(R.id.client, r.client)
             v.setViewVisibility(R.id.dday, if (r.dday.isEmpty()) View.GONE else View.VISIBLE)
             v.setTextViewText(R.id.dday, r.dday)
-            v.setTextColor(R.id.dday, ctx.c(SCH[ci]))
+            v.setTextColor(R.id.dday, tint)
 
             v.setTextViewText(R.id.site, r.title)
-            v.setTextColor(R.id.site, ctx.c(SCH[ci]))
+            v.setTextColor(R.id.site, tint)
 
             // 인원: 이름을 늘어놓고 오른쪽에 배치 수. 아무도 없으면 이름 자리에 안내
-            v.setTextViewText(R.id.staff, if (r.staffNames.isEmpty()) "👤 인원 미배정" else "👤 " + r.staffNames.joinToString(" · "))
-            v.setTextColor(R.id.staff, ctx.c(if (r.staffNames.isEmpty()) R.color.faint else R.color.staff))
-            v.setTextViewText(R.id.count, r.staffLabel)
-            v.setInt(R.id.count, "setBackgroundResource", when (r.staffState) {
-                StaffState.FULL -> R.drawable.badge_green
-                StaffState.PLAIN -> R.drawable.badge_gray
-                StaffState.SHORT, StaffState.NONE -> R.drawable.badge_red
-            })
-            v.setTextColor(R.id.count, ctx.c(if (r.staffState == StaffState.PLAIN) R.color.badge_plain_text else R.color.white))
+            if (svc) {
+                // AS 는 필요 인원이 없다 — 배지 없이 이름만. 아무도 없으면 '담당 미정' 빨강
+                v.setTextViewText(R.id.staff, if (r.staffNames.isEmpty()) "👤 담당 미정" else "👤 " + r.staffNames.joinToString(" · "))
+                v.setTextColor(R.id.staff, ctx.c(if (r.staffNames.isEmpty()) R.color.danger else R.color.staff))
+                v.setViewVisibility(R.id.count, View.GONE)
+                // 필름 자리에 요청 내용
+                v.setTextViewText(R.id.film, if (r.request.isEmpty()) "요청 내용 없음" else r.request)
+                v.setTextColor(R.id.film, ctx.c(if (r.request.isEmpty()) R.color.faint else R.color.text))
+            } else {
+                v.setTextViewText(R.id.staff, if (r.staffNames.isEmpty()) "👤 인원 미배정" else "👤 " + r.staffNames.joinToString(" · "))
+                v.setTextColor(R.id.staff, ctx.c(if (r.staffNames.isEmpty()) R.color.faint else R.color.staff))
+                v.setViewVisibility(R.id.count, View.VISIBLE)
+                v.setTextViewText(R.id.count, r.staffLabel)
+                v.setInt(R.id.count, "setBackgroundResource", when (r.staffState) {
+                    StaffState.FULL -> R.drawable.badge_green
+                    StaffState.PLAIN -> R.drawable.badge_gray
+                    StaffState.SHORT, StaffState.NONE -> R.drawable.badge_red
+                })
+                v.setTextColor(R.id.count, ctx.c(if (r.staffState == StaffState.PLAIN) R.color.badge_plain_text else R.color.white))
 
-            // 필름: 받았으면 초록, 3일 안인데 아직이면 빨강, 그 전엔 회색
-            val film = FILM_STAGES[r.filmStage]
-            v.setTextViewText(R.id.film, if (r.filmUrgent) "🎞 $film — 시공 ${dLabel(r.daysUntil)}" else "🎞 $film")
-            v.setTextColor(R.id.film, when {
-                r.filmStage == FILM_STAGES.size - 1 -> ctx.c(R.color.success)
-                r.filmUrgent -> ctx.c(R.color.danger)
-                else -> ctx.c(R.color.muted)
-            })
+                // 필름: 받았으면 초록, 3일 안인데 아직이면 빨강, 그 전엔 회색
+                val film = FILM_STAGES[r.filmStage]
+                v.setTextViewText(R.id.film, if (r.filmUrgent) "🎞 $film — 시공 ${dLabel(r.daysUntil)}" else "🎞 $film")
+                v.setTextColor(R.id.film, when {
+                    r.filmStage == FILM_STAGES.size - 1 -> ctx.c(R.color.success)
+                    r.filmUrgent -> ctx.c(R.color.danger)
+                    else -> ctx.c(R.color.muted)
+                })
+            }
 
             // 누르면 이 현장을 앱에서 연다 (위 setPendingIntentTemplate 에 채워 넣는다)
             v.setOnClickFillInIntent(R.id.row, Intent().putExtra(EXTRA_URL, Store.siteUrl(r.siteId)))
             return v
         }
+
+        /** 청록·먹색 번갈이는 현장 카드끼리만 센다 — 사이에 AS 가 끼어도 앱(app.js 차례)과 같은 색이 나온다 */
+        fun colorIndex(rows: List<Row>, position: Int) = rows.take(position).count { it.kind == RowKind.SITE }
 
         private fun dLabel(n: Int): String = when (n) { 0 -> "오늘"; 1 -> "내일"; else -> "D-$n" }
 

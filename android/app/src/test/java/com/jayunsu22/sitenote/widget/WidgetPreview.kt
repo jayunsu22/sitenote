@@ -54,7 +54,7 @@ class WidgetPreview {
         val board = build(json, today, weekOffset = week)
 
         val frame = ScheduleWidget.frame(ctx, 1, board, withList = false).apply(ctx, host)
-        val rows = board.rows.mapIndexed { i, r -> ScheduleWidget.row(ctx, r, i).apply(ctx, host) }
+        val rows = board.rows.mapIndexed { i, r -> ScheduleWidget.row(ctx, r, ScheduleWidget.colorIndex(board.rows, i)).apply(ctx, host) }
         frame.findViewById<ListView>(R.id.list).adapter = object : BaseAdapter() {
             override fun getCount() = rows.size
             override fun getItem(p: Int) = rows[p]

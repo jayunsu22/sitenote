@@ -21,13 +21,13 @@
         android:orientation="horizontal">
         <TextView
             android:id="@+id/mPrev"
-            android:layout_width="36dp"
-            android:layout_height="38dp"
+            android:layout_width="52dp"
+            android:layout_height="44dp"
             android:contentDescription="지난 달"
             android:gravity="center"
             android:text="‹"
-            android:textColor="@color/muted"
-            android:textSize="26sp" />
+            android:textColor="@color/staff"
+            android:textSize="34sp" />
         <TextView
             android:id="@+id/mTitle"
             android:layout_width="wrap_content"
@@ -37,13 +37,13 @@
             android:textStyle="bold" />
         <TextView
             android:id="@+id/mNext"
-            android:layout_width="36dp"
-            android:layout_height="38dp"
+            android:layout_width="52dp"
+            android:layout_height="44dp"
             android:contentDescription="다음 달"
             android:gravity="center"
             android:text="›"
-            android:textColor="@color/muted"
-            android:textSize="26sp" />
+            android:textColor="@color/staff"
+            android:textSize="34sp" />
         <TextView
             android:id="@+id/mThis"
             android:layout_width="wrap_content"
