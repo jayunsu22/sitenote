@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,9 +63,12 @@ object Widgets {
         }
     }
 
+    /** 현장관리 주소 열기 — OpenActivity 를 거쳐 정해 둔 브라우저(기본 크롬)로 연다.
+     *  브라우저를 바꾸면 위젯을 다시 그리지 않아도 바로 그 브라우저로 열린다 (누를 때 고르므로) */
     fun viewUrl(ctx: Context, url: String, req: Int): PendingIntent =
-        // 위젯에서 여는 화면은 부르는 액티비티가 없으니 새 작업으로 띄운다
-        PendingIntent.getActivity(ctx, req, Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.getActivity(ctx, 100 + req,
+            Intent(ctx, OpenActivity::class.java).putExtra(ScheduleWidget.EXTRA_URL, url)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     fun openSettings(ctx: Context): PendingIntent =

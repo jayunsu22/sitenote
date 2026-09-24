@@ -215,6 +215,43 @@ function reset() {
     assert.ok(op); assert.strictEqual(op.data.backupKey, undefined, '백업키는 서버로 보내지 않음');
   });
 
+  await test('화면 이동·백업키·달력 보기만 바꾸면 설정을 서버로 안 올린다', () => {
+    reset();
+    Store.setSettings({ lastView: 'schedule' });
+    Store.setSettings({ lastTab: 'c1' });
+    Store.setSettings({ calShow: 'region' });
+    Store.setSettings({ backupKey: 'k' });
+    assert.strictEqual(Store.state.syncQueue.filter(o => o.type === 'settings').length, 0);
+    assert.strictEqual(Store.state.settings.lastTab, 'c1', '폰에는 저장됨');
+  });
+  await test('팀원·부자재·질문을 바꾸면 올린다', () => {
+    reset();
+    Store.setSettings({ team: ['김기사'] });
+    let op = Store.state.syncQueue.find(o => o.type === 'settings');
+    assert.deepStrictEqual(op.data.team, ['김기사']);
+    reset();
+    Store.setSettings({ supplyDefaults: ['본드'] });
+    assert.ok(Store.state.syncQueue.find(o => o.type === 'settings'));
+  });
+  await test('다른 브라우저에서 앱을 열기만 해서는 백업의 팀원 명단을 못 덮는다', async () => {
+    reset();
+    // 비어 있는 다른 브라우저: 백업키만 있고 팀원 명단은 빈 상태로 화면을 돌아다닌다
+    Store.setSettings({ backupKey: 'k' });
+    Store.setSettings({ lastView: 'main' }); Store.setSettings({ lastTab: 'x' }); Store.setSettings({ lastView: 'schedule' });
+    await runTimers();
+    assert.strictEqual(fetchCalls.length, 0, '보낼 게 없으니 서버에 아무것도 안 간다');
+  });
+  await test('백업키를 넣으면 기다리던 변경은 보낸다 (설정은 안 보낸다)', async () => {
+    reset();
+    Store.addClient('A');                       // 키 없이 적어 둔 것
+    Store.setSettings({ backupKey: 'k' });
+    await runTimers();
+    assert.strictEqual(fetchCalls.length, 1);
+    const body = JSON.parse(fetchCalls[0][1].body);
+    assert.deepStrictEqual(body.ops.map(o => o.type), ['client']);
+    assert.strictEqual(Store.pendingCount(), 0);
+  });
+
   console.log('flush');
   await test('백업키 없으면 fetch 안 함, 큐 유지', async () => {
     reset();

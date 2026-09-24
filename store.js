@@ -410,11 +410,19 @@
   }
 
   // ---------- 설정 ----------
+  // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
+  // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
-    // 백업키·lastTab 만 바뀐 경우엔 서버로 보낼 필요 없지만, 단순화를 위해 항상 settings 를 큐에 넣는다 (키는 제외됨)
-    commit({ op: 'upsert', type: 'settings', id: 'settings', data: settingsForSync() });
+    // 보내는 칸이 바뀐 때만 올린다 (2026-09-24).
+    // 예전엔 화면만 옮겨도(lastView·lastTab) 설정 전체를 올렸다. 그래서 다른 브라우저에서 앱을
+    // 열기만 해도 그쪽의 빈 팀원 명단·부자재 기본값이 백업을 덮어썼다 — 위젯이 네이버 브라우저로
+    // 열었을 때 실제로 팀원 5명이 0명이 됐다. 새 폰에서 백업키를 넣을 때도 복원보다 먼저
+    // 빈 설정이 올라갈 수 있었다. 그 밖의 변경은 저장만 하고, 기다리던 것이 있으면 보낸다
+    var synced = !!patch && SYNCED_SETTINGS.some(function (k) { return k in patch; });
+    commit(synced ? { op: 'upsert', type: 'settings', id: 'settings', data: settingsForSync() } : null);
   }
 
   // ---------- 동기화 ----------

@@ -93,6 +93,27 @@
             android:visibility="gone" />
 
         <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="③ 현장관리를 여는 브라우저"
+            android:textColor="#111827"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="2dp"
+            android:text="현장관리 데이터는 브라우저마다 따로 있습니다. 평소 현장관리를 쓰는 브라우저를 골라야 위젯에서 눌렀을 때 거래처가 보입니다."
+            android:textColor="#6b7280"
+            android:textSize="12.5sp" />
+        <Button
+            android:id="@+id/browser"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"

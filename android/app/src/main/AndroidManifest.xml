@@ -4,6 +4,16 @@
     <!-- 백업 서버에서 일정을 받아 오는 데만 쓴다 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- 설치된 브라우저 목록 (현장관리를 열 브라우저 고르기) — 안드로이드 11 부터 밝혀야 보인다 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <package android:name="com.android.chrome" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

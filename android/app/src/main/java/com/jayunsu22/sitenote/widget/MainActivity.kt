@@ -1,10 +1,9 @@
 package com.jayunsu22.sitenote.widget
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.InputMethodManager
@@ -35,9 +34,9 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.save).setOnClickListener { saveAndLoad() }
         findViewById<Button>(R.id.pin).setOnClickListener { pinWidget(ScheduleWidget::class.java) }
         findViewById<Button>(R.id.pinMonth).setOnClickListener { pinWidget(MonthWidget::class.java) }
-        findViewById<Button>(R.id.open).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Store.scheduleUrl())))
-        }
+        findViewById<Button>(R.id.open).setOnClickListener { Browsers.open(this, Store.scheduleUrl()) }
+        findViewById<Button>(R.id.browser).setOnClickListener { pickBrowser() }
+        showBrowser()
         showStatus()
     }
 
@@ -68,6 +67,25 @@ class MainActivity : Activity() {
         val when_ = SimpleDateFormat("M월 d일 HH:mm", Locale.KOREA).format(Date(at))
         status.text = if (board == null) "$when_ 에 받았지만 내용을 읽지 못했습니다"
         else "✓ $when_ 기준 · 현장 ${board.siteCount}개 · 앞으로 일정 ${board.rows.size}곳"
+    }
+
+    private fun showBrowser() {
+        findViewById<Button>(R.id.browser).text = "🌐 ${Browsers.label(this)}  (바꾸기)"
+    }
+
+    private fun pickBrowser() {
+        val apps = Browsers.installed(this)
+        if (apps.isEmpty()) return
+        val now = Browsers.chosen(this)
+        AlertDialog.Builder(this)
+            .setTitle("현장관리를 여는 브라우저")
+            .setSingleChoiceItems(apps.map { it.label }.toTypedArray(), apps.indexOfFirst { it.pkg == now }) { d, i ->
+                Browsers.choose(this, apps[i].pkg)
+                showBrowser()
+                d.dismiss()
+            }
+            .setNegativeButton("닫기", null)
+            .show()
     }
 
     /** 안드로이드 8 이상은 버튼 한 번으로 홈 화면에 올릴 수 있다 (런처가 지원하면) */
