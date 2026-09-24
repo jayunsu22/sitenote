@@ -435,6 +435,8 @@
     var lines = [];
     var 시공 = Share.workSummary(s); // '9/18 (3일) 👤 2명'
     if (시공) lines.push('📅 ' + 시공);
+    var as = Share.openServiceCount(s);   // 끝난 현장에 걸린 AS 를 잊지 않게
+    if (as) lines.push('🔧 AS·추가작업 ' + as + '건 남음');
     if (s.address && s.address.trim()) lines.push('📍 ' + s.address.trim());
     var films = (s.films || []).filter(function (r) { return r && (r.code || '').trim(); })
       .map(function (r) { return [r.place, r.code].filter(Boolean).join(' '); });
@@ -567,6 +569,8 @@
     var dd = +iso.slice(8, 10);
     // 띠가 달을 넘어가면 '1' 이 이번 달 1일인지 다음 달 1일인지 모른다. 1일에만 달을 붙인다
     d.textContent = (o.weekday && dd === 1) ? (+iso.slice(5, 7)) + '/1' : String(dd);
+    // AS 가 잡힌 날은 날짜 옆에 🔧 — 건수·동네만으로는 AS 날인지 모른다
+    if (o.svc) { var w = document.createElement('span'); w.className = 'schcal-svc'; w.textContent = '🔧'; d.appendChild(w); }
     b.appendChild(d);
     var mark = document.createElement('span');
     var rgs = o.regions || [];
@@ -593,7 +597,7 @@
     else if (past) mark.className = 'schcal-blank';
     else mark.className = 'schcal-free';
     b.appendChild(mark);
-    b.title = dateLabel(iso) + ' · ' +
+    b.title = dateLabel(iso) + (o.svc ? ' · AS ' + o.svc + '건' : '') + ' · ' +
       (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') + (rgs.length ? ' — ' + rgs.join(', ') : '')
          : '현장 없음');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
@@ -613,6 +617,10 @@
       };
       if (has(g.past)) showPast = true;
       if (has(g.later)) showLater = true;
+      var end = Share.addDays(Share.todayIso(), SCHEDULE_DAYS - 1);
+      if (Share.upcomingServices(state.sites, Share.todayIso()).some(function (x) {
+        return x.service.date === pickedDate && x.service.date > end;
+      })) showLater = true;
     }
     renderSchedule();
     if (!pickedDate) return;
@@ -717,6 +725,7 @@
     var box = $('scheduleCal'); box.innerHTML = '';
     var counts = Share.dateCounts(state.sites);
     var regions = Share.dateRegions(state.sites);
+    var svcs = Share.dateServices(state.sites);   // AS 가 잡힌 날 — 날짜 옆에 🔧
     if (calMode === 'week') {
       if (!calWeek) calWeek = sundayOf(Share.todayIso());
       var wEnd = Share.addDays(calWeek, 6);
@@ -751,7 +760,7 @@
       var strip = document.createElement('div'); strip.className = 'schcal-week';
       for (var i = 0; i < 7; i++) {
         var iso = Share.addDays(calWeek, i);
-        strip.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso], weekday: true }));
+        strip.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso], svc: svcs[iso] || 0, weekday: true }));
       }
       box.appendChild(swipeBox(strip,
         function () { calWeek = Share.addDays(calWeek, -7); renderSchedule(); },
@@ -793,7 +802,7 @@
       Share.monthGridFull(y, mo).forEach(function (week) {
         week.forEach(function (iso) {
           grid.appendChild(calCell(iso, {
-            count: counts[iso] || 0, regions: regions[iso], out: ymOf(iso) !== calMonth
+            count: counts[iso] || 0, regions: regions[iso], svc: svcs[iso] || 0, out: ymOf(iso) !== calMonth
           }));
         });
       });
@@ -827,6 +836,15 @@
       body.appendChild(bar);
     }
 
+    // AS 대기: 날짜가 없거나 지났는데 안 끝난 AS — 잊으면 안 되는 것이라 맨 위에 둔다
+    var waiting = Share.waitingServices(state.sites, today);
+    if (waiting.length) body.appendChild(renderWaitingBox(waiting));
+    // 날짜 잡힌 AS 는 현장 카드 사이에 날짜순으로 끼운다 (창 밖이면 '이후 일정' 으로)
+    var winEnd = Share.addDays(today, SCHEDULE_DAYS - 1);
+    var upAs = Share.upcomingServices(state.sites, today);
+    var asMain = upAs.filter(function (x) { return x.service.date <= winEnd; });
+    var asLater = upAs.filter(function (x) { return x.service.date > winEnd; });
+
     // 지난 일정: 맨 위에 접어두고, 펼치면 최근 날짜부터 거꾸로
     if (g.pastCount) {
       var pastBtn = document.createElement('button');
@@ -842,7 +860,7 @@
       }
     }
 
-    if (!g.runs.length && !g.laterCount) {
+    if (!g.runs.length && !g.laterCount && !upAs.length) {
       var e = document.createElement('div'); e.className = 'empty-state';
       e.textContent = '앞으로 한 달 안에 현장이 없습니다. 위 달력에서 날짜를 눌러 현장을 넣으세요.' +
         (noDate ? ' (시공날짜가 없는 현장 ' + noDate + '건은 거래처 탭에 있습니다)' : '');
@@ -850,17 +868,90 @@
       return;
     }
 
-    g.runs.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
+    // 현장 카드와 AS 카드를 날짜순으로 섞는다. 같은 날이면 현장이 먼저
+    var mix = function (runs, asList) {
+      var i = 0;
+      runs.forEach(function (r) {
+        while (i < asList.length && asList[i].service.date < r.next) body.appendChild(renderServiceCard(asList[i++]));
+        body.appendChild(renderRunCard(r, dup, 차례++));
+      });
+      while (i < asList.length) body.appendChild(renderServiceCard(asList[i++]));
+    };
+    mix(g.runs, asMain);
 
-    if (g.laterCount) {
+    if (g.laterCount || asLater.length) {
       var more = document.createElement('button');
       more.type = 'button'; more.className = 'sch-more';
-      more.textContent = (showLater ? '▾' : '▸') + ' 이후 일정 ' + g.laterCount + '건 (' +
-        Share.shortDate(g.later[0].start) + ' ~ ' + Share.shortDate(g.later[g.later.length - 1].end) + ')';
+      var lStarts = g.later.map(function (r) { return r.start; }).concat(asLater.map(function (x) { return x.service.date; })).sort();
+      var lEnds = g.later.map(function (r) { return r.end; }).concat(asLater.map(function (x) { return x.service.date; })).sort();
+      more.textContent = (showLater ? '▾' : '▸') + ' 이후 일정 ' + (g.laterCount + asLater.length) + '건 (' +
+        Share.shortDate(lStarts[0]) + ' ~ ' + Share.shortDate(lEnds[lEnds.length - 1]) + ')';
       more.onclick = function () { showLater = !showLater; renderScheduleList(); };
       body.appendChild(more);
-      if (showLater) g.later.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
+      if (showLater) mix(g.later, asLater);
     }
+  }
+
+  /* AS 대기 상자. 달력에서 날을 골라 두면 줄마다 '→ 9/30' 이 떠서 그날로 바로 잡힌다 —
+     같은 동네 일이 있는 날을 지역 보기로 찾고, 거기에 AS 를 붙이는 흐름 */
+  function renderWaitingBox(list) {
+    var box = document.createElement('div'); box.className = 'svc-wait';
+    var h = document.createElement('div'); h.className = 'svc-wait-head';
+    h.innerHTML = '<b>🔧 AS 대기 ' + list.length + '건</b><span>' +
+      (pickedDate ? esc(dateLabel(pickedDate)) + ' 로 잡으려면 → 를 누르세요'
+                  : '달력에서 날을 고르면 그날로 바로 잡을 수 있습니다') + '</span>';
+    box.appendChild(h);
+    list.forEach(function (x) {
+      var s = x.site, v = x.service;
+      var row = document.createElement('div'); row.className = 'svc-wait-row';
+      var main = document.createElement('button'); main.type = 'button'; main.className = 'svc-wait-main';
+      main.innerHTML = '<div class="svc-row-top"><span class="svc-badge' + (v.kind === '추가' ? ' add' : '') + '">' +
+        esc(Share.serviceLabel(v)) + '</span>' +
+        (x.overdue ? '<span class="svc-late">' + esc(Share.dayLabel(v.date)) + ' 지남</span>' : '<span class="svc-nodate">날짜 미정</span>') +
+        '<span class="svc-client">' + esc(clientName(s)) + '</span></div>' +
+        '<b class="svc-site">' + esc(Share.titleLine(s)) + '</b>' +
+        '<div class="svc-req">' + esc(v.request || '(요청 내용 없음)') + '</div>';
+      main.onclick = function () { openServiceSheet(s.id, v.id, renderSchedule); };
+      row.appendChild(main);
+      if (pickedDate) {
+        var go_ = document.createElement('button'); go_.type = 'button'; go_.className = 'svc-wait-go';
+        go_.textContent = '→ ' + Share.shortDate(pickedDate);
+        go_.onclick = function () {
+          Store.updateService(s.id, v.id, { date: pickedDate });
+          toast(Share.serviceLabel(v) + ' → ' + Share.dayLabel(pickedDate) + ' 로 잡음');
+          renderSchedule();
+        };
+        row.appendChild(go_);
+      }
+      box.appendChild(row);
+    });
+    return box;
+  }
+  // 날짜 잡힌 AS 카드 — 현장 카드와 같은 틀, 머리띠는 주황
+  function renderServiceCard(x) {
+    var s = x.site, v = x.service;
+    var card = document.createElement('div'); card.className = 'sch-card svc-card';
+    card.setAttribute('data-run-has', v.date);
+    var head = document.createElement('div'); head.className = 'sch-head svc-head';
+    var when = document.createElement('span'); when.className = 'sch-when';
+    when.textContent = '🔧 ' + Share.serviceLabel(v) + ' · ' + Share.shortDate(v.date) + ' ' + weekdayOf(v.date);
+    head.appendChild(when);
+    head.appendChild(clientLink(s, 'sch-client'));
+    card.appendChild(head);
+    var body = document.createElement('div'); body.className = 'sch-body';
+    var title = document.createElement('button'); title.type = 'button'; title.className = 'sch-title svc-title';
+    title.textContent = Share.titleLine(s);
+    title.onclick = function (e) { e.stopPropagation(); go('#site/' + s.id); };
+    body.appendChild(title);
+    var req = document.createElement('div'); req.className = 'svc-req-big';
+    req.textContent = v.request || '(요청 내용 없음)';
+    body.appendChild(req);
+    var who = document.createElement('div'); who.className = 'svc-who-line' + (v.staff.length ? '' : ' none');
+    who.textContent = v.staff.length ? '👤 ' + v.staff.join('·') : '👤 담당 미정';
+    body.appendChild(who);
+    card.appendChild(body);
+    card.onclick = function () { openServiceSheet(s.id, v.id, renderSchedule); };
+    return card;
   }
 
   function clientName(site) { var c = Store.getClient(site.clientId); return c ? c.name : ''; }
@@ -1045,6 +1136,8 @@
         renderDaysSection(daysBox, s.id);
         var contactBox = document.createElement('div'); contactBox.className = 'sec'; wrap.appendChild(contactBox);
         renderContactSection(contactBox, s.id);
+        var svcBox = document.createElement('div'); svcBox.className = 'sec'; svcBox.id = 'svcSec'; wrap.appendChild(svcBox);
+        renderServiceSection(svcBox, s.id);
         var supBox = document.createElement('div'); supBox.className = 'sec'; wrap.appendChild(supBox);
         renderSuppliesSection(supBox, s.id);
       }
@@ -1291,6 +1384,146 @@
     });
     box.appendChild(row);
   }
+
+  /* ---------- AS·추가작업 (2026-09-24) ----------
+     끝난 현장에 AS 요청이나 추가작업이 오면 그 현장 안에 쌓는다 (Share.servicesOf 설명 참고).
+     현장 화면에는 목록만, 고치는 건 시트에서. 시트는 적는 대로 바로 저장한다 */
+  function svcWhen(v) { return Share.isIsoDate(v.date) ? Share.dayLabel(v.date) : '날짜 미정'; }
+  function svcSorted(site) {
+    // 안 끝난 것 먼저(날짜순, 날짜 없는 건 뒤), 끝난 건 아래로
+    return Share.servicesOf(site).slice().sort(function (a, b) {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      var da = Share.isIsoDate(a.date) ? a.date : '9999', db = Share.isIsoDate(b.date) ? b.date : '9999';
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+  }
+  function renderServiceSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    box.innerHTML = '<h3 class="sec-title">🔧 AS·추가작업 <span class="sec-hint">— 끝난 현장에 요청이 오면 여기에</span></h3>';
+    svcSorted(s).forEach(function (v) {
+      var row = document.createElement('button'); row.type = 'button';
+      row.className = 'svc-row' + (v.done ? ' done' : '');
+      var who = (v.staff || []).join('·');
+      row.innerHTML = '<div class="svc-row-top"><span class="svc-badge' + (v.kind === '추가' ? ' add' : '') + '">' +
+        esc(Share.serviceLabel(v)) + '</span><b>' + esc(svcWhen(v)) + '</b>' +
+        (who ? '<span class="svc-who">👤 ' + esc(who) + '</span>' : '') +
+        (v.done ? '<span class="svc-ok">✓ 완료</span>' : '') + '</div>' +
+        '<div class="svc-req">' + esc(v.request || '(요청 내용 없음)') + '</div>';
+      row.onclick = function () { openServiceSheet(siteId, v.id, function () { renderServiceSection(box, siteId); }); };
+      box.appendChild(row);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add';
+    add.textContent = '+ AS·추가작업 접수';
+    add.onclick = function () {
+      var v = Store.addService(siteId, {});
+      openServiceSheet(siteId, v.id, function () { renderServiceSection(box, siteId); }, true);
+    };
+    box.appendChild(add);
+  }
+
+  var svcSheet = { siteId: '', id: '', onDone: null };
+  function curService() {
+    var s = Store.getSite(svcSheet.siteId);
+    var v = s && Share.servicesOf(s).find(function (x) { return x.id === svcSheet.id; });
+    return v ? { site: s, v: v } : null;
+  }
+  function openServiceSheet(siteId, id, onDone, isNew) {
+    svcSheet = { siteId: siteId, id: id, onDone: onDone || null };
+    var c = curService(); if (!c) return;
+    $('svcTitle').textContent = isNew ? '🔧 AS·추가작업 접수' : '🔧 ' + Share.serviceLabel(c.v);
+    $('svcSite').textContent = Share.titleLine(c.site) + (clientName(c.site) ? ' · ' + clientName(c.site) : '');
+    $('svcRequest').value = c.v.request;
+    $('svcDate').value = Share.isIsoDate(c.v.date) ? c.v.date : '';
+    $('svcDone').checked = !!c.v.done;
+    $('svcStaffInput').value = '';
+    renderServiceSheet();
+    $('svcSheet').hidden = false;
+    if (isNew) setTimeout(function () { $('svcRequest').focus(); }, 50);
+  }
+  function renderServiceSheet() {
+    var c = curService(); if (!c) return;
+    document.querySelectorAll('#svcSheet .svc-kind').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-kind') === c.v.kind);
+    });
+    // 담당: 팀원 명단 + (명단에 없지만 이미 들어간 사람)
+    var wrap = $('svcStaff'); wrap.innerHTML = '';
+    var names = (state.settings.team || []).slice();
+    c.v.staff.forEach(function (n) { if (names.indexOf(n) === -1) names.push(n); });
+    if (!names.length) {
+      var h = document.createElement('div'); h.className = 'sec-empty';
+      h.textContent = '설정에서 팀원을 등록해두면 여기서 탭으로 고릅니다. 아래에 이름을 적어도 됩니다.';
+      wrap.appendChild(h);
+    }
+    names.forEach(function (n) {
+      var on = c.v.staff.indexOf(n) !== -1;
+      var chip = document.createElement('button'); chip.type = 'button';
+      chip.className = 'chip pick' + (on ? ' on' : ''); chip.textContent = n + (on ? ' ✓' : '');
+      chip.onclick = function () {
+        var cur = curService(); if (!cur) return;
+        var next = on ? cur.v.staff.filter(function (x) { return x !== n; }) : cur.v.staff.concat([n]);
+        Store.updateService(svcSheet.siteId, svcSheet.id, { staff: next });
+        renderServiceSheet();
+      };
+      wrap.appendChild(chip);
+    });
+  }
+  function closeServiceSheet() {
+    if ($('svcSheet').hidden) return;
+    $('svcSheet').hidden = true;
+    // 접수만 누르고 아무것도 안 적었으면 빈 줄을 남기지 않는다
+    var c = curService();
+    if (c && !c.v.request.trim() && !c.v.date && !c.v.staff.length && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
+    var cb = svcSheet.onDone; svcSheet.onDone = null;
+    if (cb) cb();
+  }
+  var svcSave = function (patch) { Store.updateService(svcSheet.siteId, svcSheet.id, patch); };
+  document.querySelectorAll('#svcSheet .svc-kind').forEach(function (b) {
+    b.onclick = function () { svcSave({ kind: b.getAttribute('data-kind') }); renderServiceSheet(); };
+  });
+  $('svcRequest').addEventListener('input', function () { svcSave({ request: $('svcRequest').value }); });
+  $('svcDate').addEventListener('change', function () { svcSave({ date: $('svcDate').value }); });
+  $('svcDateClear').onclick = function () { $('svcDate').value = ''; svcSave({ date: '' }); };
+  $('svcDone').addEventListener('change', function () { svcSave({ done: $('svcDone').checked }); });
+  var svcAddStaff = function () {
+    var n = $('svcStaffInput').value.trim(); var c = curService();
+    if (!n || !c) return;
+    if (c.v.staff.indexOf(n) === -1) svcSave({ staff: c.v.staff.concat([n]) });
+    $('svcStaffInput').value = '';
+    renderServiceSheet();
+  };
+  $('svcStaffAdd').onclick = svcAddStaff;
+  $('svcStaffInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); svcAddStaff(); } });
+  $('svcCopyWorker').onclick = function () {
+    var c = curService(); if (!c) return;
+    copyText(Share.buildServiceOrder(c.site, c.v, Store.getClient(c.site.clientId)), '복사됨 — 작업자에게 붙여넣기');
+  };
+  $('svcCopyClient').onclick = function () {
+    var c = curService(); if (!c) return;
+    var missing = [];
+    var t = Share.buildServiceVisit(c.site, c.v, state.settings.people || {}, missing);
+    if (!t) { toast('담당을 먼저 골라 주세요'); return; }
+    copyText(t, '복사됨 — 업자에게 붙여넣기' + (missing.length ? ' · ' + missing.join('·') + ' 연락처 없음 (설정 → 팀원)' : ''));
+  };
+  $('svcCopyCar').onclick = function () {
+    var c = curService(); if (!c) return;
+    var missing = [];
+    var t = Share.buildServiceCars(c.site, c.v, state.settings.people || {}, missing);
+    if (!t) { toast(c.v.staff.length ? '차량번호가 등록된 담당이 없습니다 (설정 → 팀원)' : '담당을 먼저 골라 주세요'); return; }
+    copyText(t, '복사됨 — 관리실·업자에게 붙여넣기' + (missing.length ? ' · ' + missing.join('·') + ' 차량 없음' : ''));
+  };
+  $('svcDelete').onclick = function () {
+    var c = curService(); if (!c) return;
+    modalConfirm('삭제', Share.serviceLabel(c.v) + ' "' + (c.v.request || svcWhen(c.v)) + '" 을(를) 지웁니다.', '삭제', true).then(function (ok) {
+      if (!ok) return;
+      Store.removeService(svcSheet.siteId, svcSheet.id);
+      closeServiceSheet();
+      toast('삭제됨');
+    });
+  };
+  $('svcOk').onclick = closeServiceSheet;
+  $('svcClose').onclick = closeServiceSheet;
+  $('svcSheet').addEventListener('click', function (e) { if (e.target === $('svcSheet')) closeServiceSheet(); });
 
   // 현장 상세: 부자재 체크리스트
   function renderSuppliesSection(box, siteId) {

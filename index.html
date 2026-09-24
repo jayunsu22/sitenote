@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260924b">
+  <link rel="stylesheet" href="style.css?v=20260924c">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -205,6 +205,46 @@
     </div>
   </div>
 
+  <!-- ========== AS·추가작업 (바텀시트) ==========
+       끝난 현장에 온 요청을 그 현장 안에 적는다. 적는 대로 바로 저장된다 -->
+  <div id="svcSheet" class="sheet-bg" hidden>
+    <div class="sheet svc-sheet">
+      <div class="sheet-head">
+        <h3 id="svcTitle">🔧 AS</h3>
+        <button id="svcClose" class="icon-btn" title="닫기">✕</button>
+      </div>
+      <p id="svcSite" class="sheet-hint"></p>
+      <div class="svc-kinds">
+        <button type="button" class="svc-kind" data-kind="AS">🔧 AS</button>
+        <button type="button" class="svc-kind" data-kind="추가">➕ 추가작업</button>
+      </div>
+      <label class="svc-label" for="svcRequest">요청 내용</label>
+      <textarea id="svcRequest" rows="3" placeholder="예: 현관문 필름 들뜸 — 재시공 요청"></textarea>
+      <label class="svc-label" for="svcDate">날짜 <span class="sec-hint">— 모르면 비워 두세요 (일정 화면 'AS 대기' 에 남습니다)</span></label>
+      <div class="svc-daterow">
+        <input type="date" id="svcDate">
+        <button type="button" id="svcDateClear" class="btn-sm">미정</button>
+      </div>
+      <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>
+      <div id="svcStaff" class="chips chips-pick"></div>
+      <div class="sheet-input">
+        <input type="text" id="svcStaffInput" placeholder="명단에 없는 사람 이름" autocomplete="off">
+        <button id="svcStaffAdd" class="btn-sm">추가</button>
+      </div>
+      <div class="svc-label">연락 <span class="sec-hint">— 눌러서 복사 → 카톡에 붙여넣기</span></div>
+      <div class="contact-btns svc-copy">
+        <button type="button" class="contact-btn" id="svcCopyWorker"><b>작업자에게</b><span>AS 지시·비번·필름</span></button>
+        <button type="button" class="contact-btn" id="svcCopyClient"><b>업자에게</b><span>가는 사람 연락처·차량</span></button>
+        <button type="button" class="contact-btn" id="svcCopyCar"><b>관리실·차량등록</b><span>차량번호·날짜</span></button>
+      </div>
+      <label class="svc-done"><input type="checkbox" id="svcDone"> 완료</label>
+      <div class="svc-foot">
+        <button type="button" id="svcDelete" class="btn-sm btn-danger">삭제</button>
+        <button type="button" id="svcOk" class="btn-sm primary">확인</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== 빈 날에 현장 넣기: 거래처 고르기 (바텀시트) ========== -->
   <div id="newSiteSheet" class="sheet-bg" hidden>
     <div class="sheet">
@@ -249,8 +289,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260924b"></script>
-  <script src="store.js?v=20260924b"></script>
-  <script src="app.js?v=20260924b"></script>
+  <script src="share.js?v=20260924c"></script>
+  <script src="store.js?v=20260924c"></script>
+  <script src="app.js?v=20260924c"></script>
 </body>
 </html>

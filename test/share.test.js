@@ -374,6 +374,77 @@ test('작업자에게: 업자 담당자 연락처 (빈 줄은 뺀다)', () => {
   assert.strictEqual(Share.buildClientContacts(현장(), { name: 'A', contacts: [] }), '');
 });
 
+console.log('AS·추가작업');
+const as현장 = () => Object.assign(blank(), {
+  id: 'sA', name: '인천 당하동 1084-2 그랜드비스타 2동 501호', createdAt: 1,
+  pwLobby: '0000*', parking: '지하 2층', films: [{ place: '현관문', code: 'PS035' }],
+  days: [{ date: '2026-09-18', staff: ['서영호'] }],
+  services: [
+    { id: 'v1', kind: 'AS', request: '현관문 필름 들뜸 재시공', date: '2026-09-30', staff: ['서영호'], done: false, createdAt: 10 },
+    { id: 'v2', kind: '추가', request: '방문 2개 추가', date: '', staff: [], done: false, createdAt: 11 },
+    { id: 'v3', kind: 'AS', request: '끝난 AS', date: '2026-09-20', staff: [], done: true, createdAt: 5 },
+    { id: 'v4', kind: 'AS', request: '날짜 지났는데 안 끝남', date: '2026-09-21', staff: [], done: false, createdAt: 6 }
+  ]
+});
+test('달력: AS 날짜도 건수·지역에 들어가고, 🔧 는 따로 센다', () => {
+  const s = as현장();
+  const c = Share.dateCounts([s]);
+  assert.strictEqual(c['2026-09-30'], 1);
+  assert.strictEqual(c['2026-09-18'], 1, '원래 현장 날은 그대로');
+  assert.strictEqual(c['2026-09-20'], 1, '끝난 AS 도 그날 있었던 일');
+  assert.deepStrictEqual(Share.dateRegions([s])['2026-09-30'], ['당하동']);
+  assert.deepStrictEqual(Share.dateServices([s]), { '2026-09-30': 1, '2026-09-20': 1, '2026-09-21': 1 });
+});
+test('같은 날 같은 동네 현장+AS 는 동네 한 번 (빨강 아님)', () => {
+  const s = as현장(); s.services[0].date = '2026-09-18';
+  assert.deepStrictEqual(Share.dateRegions([s])['2026-09-18'], ['당하동']);
+  assert.strictEqual(Share.dateCounts([s])['2026-09-18'], 2);
+});
+test('일정 목록에 끼울 AS: 오늘 이후·안 끝난 것만', () => {
+  const up = Share.upcomingServices([as현장()], '2026-09-24');
+  assert.deepStrictEqual(up.map(x => x.service.id), ['v1']);
+});
+test('AS 대기: 날짜 지났는데 안 끝난 것 먼저, 그다음 날짜 없는 것', () => {
+  const w = Share.waitingServices([as현장()], '2026-09-24');
+  assert.deepStrictEqual(w.map(x => [x.service.id, x.overdue]), [['v4', true], ['v2', false]]);
+  assert.strictEqual(Share.openServiceCount(as현장()), 3);
+});
+test('작업자에게 AS 지시: 요청 + 출입 정보 + 업자 담당자 (원래 작업 인원은 안 나간다)', () => {
+  const s = as현장();
+  const client = { name: '룩스디자인', contacts: [{ name: '김실장', phone: '010-7777-8888' }] };
+  assert.strictEqual(Share.buildServiceOrder(s, s.services[0], client),
+    '[인천 당하동 1084-2 그랜드비스타 2동 501호] 🔧 AS 9/30(수)\n' +
+    '요청: 현관문 필름 들뜸 재시공\n' +
+    '👤 서영호\n' +
+    '공동현관비번: 0000*\n' +
+    '주차: 지하 2층\n' +
+    '필름: 현관문 PS035\n' +
+    '업자 룩스디자인 · 김실장 010-7777-8888');
+});
+test('날짜 미정 추가작업은 머리줄에 날짜 없이', () => {
+  const s = as현장();
+  assert.ok(Share.buildServiceOrder(s, s.services[1], null).startsWith('[인천 당하동 1084-2 그랜드비스타 2동 501호] 🔧 추가작업\n요청: 방문 2개 추가'));
+});
+test('업자에게 AS 방문 안내: 가는 사람 연락처·차량 + 요청, 담당 없으면 빈 문자열', () => {
+  const s = as현장();
+  const people = { '서영호': { phone: '010-1111-2222', car: '12가3456' } };
+  assert.strictEqual(Share.buildServiceVisit(s, s.services[0], people),
+    '[인천 당하동 1084-2 그랜드비스타 2동 501호] 🔧 AS 9/30(수) 방문\n' +
+    '서영호 010-1111-2222 (차량 12가3456)\n요청: 현관문 필름 들뜸 재시공');
+  assert.strictEqual(Share.buildServiceVisit(s, s.services[1], people), '');
+});
+test('관리실·차량등록: AS 날 오는 차량', () => {
+  const s = as현장();
+  const people = { '서영호': { phone: '010-1111-2222', car: '12가3456' } };
+  assert.strictEqual(Share.buildServiceCars(s, s.services[0], people),
+    '[인천 당하동 1084-2 그랜드비스타 2동 501호] 방문 차량\n12가3456 (서영호) — 9/30(수)');
+});
+test('AS 가 없는 예전 현장은 그대로', () => {
+  const s = full();
+  assert.deepStrictEqual(Share.servicesOf(s), []);
+  assert.strictEqual(Share.openServiceCount(s), 0);
+});
+
 console.log('nextColor');
 test('거래처 내 현장 수 mod 8', () => {
   const sites = [];

@@ -63,6 +63,7 @@
     s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     s.filmStage = 0; // 필름 미확정
     s.needStaff = 0; // 총 필요 인원 (0 = 아직 안 정함)
+    s.services = [];  // AS·추가작업
     return s;
   }
   function cleanStaff(arr) {
@@ -90,7 +91,23 @@
     s.needStaff = Share.needStaffOf(s);
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
+    s.services = normalizeServices(s.services);
     return s;
+  }
+  // AS·추가작업 목록 — 예전 현장엔 없다(빈 목록). 모양이 이상한 줄은 버린다
+  function normalizeServices(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function (v) { return v && v.id; }).map(function (v) {
+      return {
+        id: String(v.id),
+        kind: v.kind === '추가' ? '추가' : 'AS',
+        request: String(v.request || ''),
+        date: String(v.date || ''),
+        staff: cleanStaff(v.staff),
+        done: !!v.done,
+        createdAt: Number(v.createdAt) || 0
+      };
+    });
   }
   // 연락처·차량 표 — 모양이 이상한 값(예전 데이터·손상)은 버리고 문자열만 남긴다
   function normalizePeople(raw) {
@@ -276,6 +293,26 @@
     var s = getSite(siteId); if (!s) return null;
     return updateSite(siteId, { needStaff: Share.needStaffOf({ needStaff: n }) });
   }
+  // ---------- AS·추가작업 (현장 안에 쌓는다 — 현장을 통째로 백업하므로 따로 보낼 것이 없다) ----------
+  function addService(siteId, patch) {
+    var s = getSite(siteId); if (!s) return null;
+    var v = normalizeServices([Object.assign({ id: genId('v'), createdAt: Date.now() }, patch || {})])[0];
+    updateSite(siteId, { services: (s.services || []).concat([v]) });
+    return v;
+  }
+  function updateService(siteId, id, patch) {
+    var s = getSite(siteId); if (!s) return null;
+    var list = (s.services || []).map(function (v) {
+      return v.id === id ? normalizeServices([Object.assign({}, v, patch, { id: v.id })])[0] : v;
+    });
+    updateSite(siteId, { services: list });
+    return list.find(function (v) { return v.id === id; }) || null;
+  }
+  function removeService(siteId, id) {
+    var s = getSite(siteId); if (!s) return null;
+    return updateSite(siteId, { services: (s.services || []).filter(function (v) { return v.id !== id; }) });
+  }
+
   function setFilmStage(siteId, k) {
     var s = getSite(siteId); if (!s) return null;
     return updateSite(siteId, { filmStage: Share.filmStageOf({ filmStage: k }) });
@@ -552,6 +589,7 @@
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
+    addService: addService, updateService: updateService, removeService: removeService,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,

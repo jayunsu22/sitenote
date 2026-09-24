@@ -472,3 +472,52 @@ textarea { resize: vertical; }
 /* 큰 뱃지 — 인원 배정이 제일 중요해서 일정·상세 모두 크게 */
 .cnt.lg { min-width: 58px; padding: 6px 12px; font-size: 15px; }
 /* 접힌 줄의 인원 줄 — 제목 다음으로 크게. 이름은 굵은 검정, 모자라면 빨강 */
+
+/* ---------- AS·추가작업 (2026-09-24) — 주황으로 원래 작업과 가른다 ---------- */
+:root { --as: #b45309; --as-bg: #fffbeb; --as-line: #fcd34d; }
+/* 현장 화면의 AS 목록 */
+.svc-row { display: block; width: calc(100% - 24px); margin: 0 12px 6px; padding: 8px 10px; text-align: left;
+  border: 1.5px solid var(--as-line); border-radius: 10px; background: var(--as-bg); }
+.svc-row.done { border-color: var(--border); background: #f9fafb; opacity: 0.75; }
+.svc-row-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.svc-row-top b { color: var(--text); }
+.svc-badge { padding: 1px 7px; border-radius: 999px; background: var(--as); color: #fff; font-size: 11.5px; font-weight: 800; }
+.svc-badge.add { background: #7c3aed; }
+.svc-who { color: #334155; font-size: 12.5px; }
+.svc-ok { margin-left: auto; color: var(--success); font-weight: 800; font-size: 12.5px; }
+.svc-req { margin-top: 3px; font-size: 13.5px; color: var(--text); line-height: 1.4; word-break: keep-all; }
+/* 편집 시트 */
+.svc-sheet { max-height: 88vh; }
+.svc-kinds { display: flex; gap: 6px; margin-bottom: 8px; }
+.svc-kind { flex: 1; padding: 9px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; font-weight: 800; font-size: 14px; color: var(--muted); }
+.svc-kind.on { border-color: var(--as); background: var(--as-bg); color: var(--as); }
+.svc-label { display: block; margin: 10px 0 4px; font-size: 13px; font-weight: 800; color: var(--text); }
+#svcRequest { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; resize: vertical; }
+.svc-daterow { display: flex; gap: 6px; }
+.svc-daterow input { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; }
+.contact-btns.svc-copy { padding: 0; }
+.svc-done { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 15px; font-weight: 800; }
+.svc-done input { width: 20px; height: 20px; }
+.svc-foot { display: flex; gap: 8px; margin-top: 10px; }
+.svc-foot .btn-sm { flex: 1; padding: 11px; font-size: 14px; }
+.svc-foot .btn-sm.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* 달력 칸: AS 날 표시 */
+.schcal-svc { margin-left: 1px; font-size: 0.72em; vertical-align: 1px; }
+/* 일정 화면: AS 대기 상자 */
+.svc-wait { margin: 0 0 14px; padding: 10px; border: 1.5px solid var(--as-line); border-radius: 14px; background: var(--as-bg); }
+.svc-wait-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.svc-wait-head b { color: var(--as); font-size: 15px; }
+.svc-wait-head span { color: var(--muted); font-size: 12px; }
+.svc-wait-row { display: flex; gap: 6px; align-items: stretch; margin-top: 6px; }
+.svc-wait-main { flex: 1; min-width: 0; text-align: left; padding: 8px 10px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; }
+.svc-late { color: var(--danger); font-weight: 800; font-size: 12px; }
+.svc-nodate { color: var(--muted); font-weight: 700; font-size: 12px; }
+.svc-client { margin-left: auto; color: var(--muted); font-size: 12px; }
+.svc-site { display: block; margin-top: 3px; font-size: 14px; color: var(--as); }
+.svc-wait-go { flex: none; padding: 0 12px; border: none; border-radius: 10px; background: var(--as); color: #fff; font-weight: 800; font-size: 14px; }
+/* 일정 화면: 날짜 잡힌 AS 카드 */
+.sch-head.svc-head { background: var(--as); }
+.sch-title.svc-title { color: var(--as); }
+.svc-req-big { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 8px; word-break: keep-all; }
+.svc-who-line { font-size: 13.5px; color: #334155; }
+.svc-who-line.none { color: var(--danger); font-weight: 700; }

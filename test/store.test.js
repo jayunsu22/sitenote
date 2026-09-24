@@ -277,6 +277,36 @@ function reset() {
     assert.deepStrictEqual(Store.state.settings.people, {});
   });
 
+  await test('AS: 접수·고치기·지우기, 현장째로 백업 큐에 올라간다', () => {
+    reset();
+    const a = Store.addClient('A'); const s = Store.addSite(a.id);
+    Store.state.syncQueue = [];
+    const v = Store.addService(s.id, { request: '들뜸 재시공' });
+    assert.ok(v.id.startsWith('v'));
+    assert.strictEqual(v.kind, 'AS'); assert.strictEqual(v.date, ''); assert.strictEqual(v.done, false);
+    Store.updateService(s.id, v.id, { date: '2026-09-30', staff: ['서영호', ' ', '서영호'], kind: '추가' });
+    let got = Store.getSite(s.id).services[0];
+    assert.strictEqual(got.date, '2026-09-30'); assert.strictEqual(got.kind, '추가');
+    assert.deepStrictEqual(got.staff, ['서영호'], '빈 이름·중복 정리');
+    const op = Store.state.syncQueue.find(o => o.type === 'site' && o.id === s.id);
+    assert.strictEqual(op.data.services.length, 1, '현장 백업에 AS 가 같이 간다');
+    Store.updateService(s.id, v.id, { done: true });
+    assert.strictEqual(Store.getSite(s.id).services[0].done, true);
+    Store.removeService(s.id, v.id);
+    assert.deepStrictEqual(Store.getSite(s.id).services, []);
+  });
+  await test('예전 현장(AS 없음)·이상한 AS 줄도 열린다', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], settings: {}, syncQueue: [], sites: [
+      { id: 's1', clientId: 'c1', name: '예전' },
+      { id: 's2', clientId: 'c1', name: '이상함', services: [null, { request: 'id 없음' }, { id: 'v9', kind: '?', staff: 'x' }] }
+    ] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite('s1').services, []);
+    const v = Store.getSite('s2').services;
+    assert.strictEqual(v.length, 1); assert.strictEqual(v[0].kind, 'AS'); assert.deepStrictEqual(v[0].staff, []);
+  });
+
   console.log('flush');
   await test('백업키 없으면 fetch 안 함, 큐 유지', async () => {
     reset();

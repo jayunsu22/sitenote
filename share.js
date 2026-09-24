@@ -177,18 +177,10 @@
   }
 
   // 팀원에게 공유: 선택된 키 중 채워진 항목만. 제목 줄은 항상 포함(날짜는 date 선택 시 제목 줄 뒤에)
-  function buildShare(site, keys) {
-    var ks = orderedKeys(keys).filter(function (k) { return !isEmpty(site, k); });
-    var has = {};
-    ks.forEach(function (k) { has[k] = true; });
-
-    var head = '[' + titleLine(site) + ']' + (has.date ? ' ' + datesLine(site) : '');
-    var lines = [head];
-    var staff = staffLine(site); // 날짜별 인원 - 체크 여부와 상관없이 있으면 나간다
-    if (staff) lines.push(staff);
-    var short = staffShortLine(site); // 필요 인원을 못 채운 날이 있으면 바로 아래에 경고 줄
-    if (short) lines.push(short);
-
+  // 현장 정보 줄 (주소·비번·출입·주차·필름 …) — has 에 켜진 칸만, FIELDS 순서로.
+  // 팀원 공유 문구와 AS 지시 문구가 같이 쓴다
+  function infoLines(site, has) {
+    var lines = [];
     if (has.address) lines.push('📍 ' + str(site.address));
     if (has.pwLobby) lines.push('공동현관비번: ' + str(site.pwLobby));
     if (has.pwUnit) lines.push('세대비번: ' + str(site.pwUnit));
@@ -207,6 +199,22 @@
     if (has.quoteUrl) lines.push('📄 견적서: ' + linkUrl(site.quoteUrl));
     if (has.photoUrl) lines.push('📷 현장사진: ' + linkUrl(site.photoUrl));
     if (has.memo) lines.push(str(site.memo));
+    return lines;
+  }
+
+  function buildShare(site, keys) {
+    var ks = orderedKeys(keys).filter(function (k) { return !isEmpty(site, k); });
+    var has = {};
+    ks.forEach(function (k) { has[k] = true; });
+
+    var head = '[' + titleLine(site) + ']' + (has.date ? ' ' + datesLine(site) : '');
+    var lines = [head];
+    var staff = staffLine(site); // 날짜별 인원 - 체크 여부와 상관없이 있으면 나간다
+    if (staff) lines.push(staff);
+    var short = staffShortLine(site); // 필요 인원을 못 채운 날이 있으면 바로 아래에 경고 줄
+    if (short) lines.push(short);
+
+    lines = lines.concat(infoLines(site, has));
     return lines.join('\n');
   }
 
@@ -290,6 +298,10 @@
         var date = str(d.date);
         if (isIsoDate(date)) out[date] = (out[date] || 0) + 1;
       });
+      // AS·추가작업도 그날 잡힌 일이다 — 빈 날을 찾을 때 빠지면 안 된다
+      servicesOf(s).forEach(function (v) {
+        if (isIsoDate(str(v.date))) out[v.date] = (out[v.date] || 0) + 1;
+      });
     });
     return out;
   }
@@ -327,14 +339,115 @@
     (sites || []).forEach(function (s) {
       var r = regionOf(s);
       if (!r) return;
-      daysOf(s).forEach(function (d) {
-        var date = str(d.date);
-        if (!isIsoDate(date) || seen[date + '|' + r]) return;
-        seen[date + '|' + r] = 1;
-        (out[date] = out[date] || []).push(r);
+      // 현장 날짜 + AS 날짜. AS 도 그 현장 동네로 가는 일이다
+      daysOf(s).map(function (d) { return str(d.date); })
+        .concat(servicesOf(s).map(function (v) { return str(v.date); }))
+        .forEach(function (date) {
+          if (!isIsoDate(date) || seen[date + '|' + r]) return;
+          seen[date + '|' + r] = 1;
+          (out[date] = out[date] || []).push(r);
+        });
+    });
+    return out;
+  }
+
+  /* ---------- AS·추가작업 (2026-09-24) ----------
+     끝난 현장에 AS 요청이나 추가작업이 오면 새 현장을 만들지 않고 그 현장 안에 쌓는다.
+     비번·주차·필름번호·업자 담당자가 이미 그 현장에 있어서 새로 적을 게 없다.
+     현장의 '일차' 로 붙이지 않는 건 원래 작업 표시와 섞이기 때문이다 — 필요 인원 10명인
+     현장에 AS 로 1명 가면 1/10 빨간 경고가 뜨고, 필름 단계·'총 4일' 도 틀어진다.
+       { id, kind: 'AS'|'추가', request, date: ''|'YYYY-MM-DD', staff: [이름], done, createdAt } */
+  function servicesOf(site) {
+    return ((site && site.services) || []).filter(function (v) { return v && v.id; });
+  }
+  function serviceLabel(v) { return v && v.kind === '추가' ? '추가작업' : 'AS'; }
+  // 날짜별 AS 건수 { 'YYYY-MM-DD': n } — 달력 칸에 🔧 를 붙인다
+  function dateServices(sites) {
+    var out = {};
+    (sites || []).forEach(function (s) {
+      servicesOf(s).forEach(function (v) {
+        if (isIsoDate(str(v.date))) out[v.date] = (out[v.date] || 0) + 1;
       });
     });
     return out;
+  }
+  // 일정 목록에 끼울 AS: 날짜가 오늘 이후이고 아직 안 끝난 것 [{site, service}] — 날짜순, 같은 날은 접수순
+  function upcomingServices(sites, from) {
+    var out = [];
+    (sites || []).forEach(function (s) {
+      servicesOf(s).forEach(function (v) {
+        if (!v.done && isIsoDate(str(v.date)) && v.date >= from) out.push({ site: s, service: v });
+      });
+    });
+    return out.sort(function (a, b) {
+      if (a.service.date !== b.service.date) return a.service.date < b.service.date ? -1 : 1;
+      return (a.service.createdAt || 0) - (b.service.createdAt || 0);
+    });
+  }
+  // AS 대기: 안 끝났는데 날짜가 없거나 이미 지난 것 — 잊으면 안 되는 것들.
+  // 지난 것(overdue)이 먼저, 그다음 날짜 없는 것을 접수순으로
+  function waitingServices(sites, from) {
+    var out = [];
+    (sites || []).forEach(function (s) {
+      servicesOf(s).forEach(function (v) {
+        if (v.done) return;
+        var d = str(v.date);
+        if (!isIsoDate(d)) out.push({ site: s, service: v, overdue: false });
+        else if (d < from) out.push({ site: s, service: v, overdue: true });
+      });
+    });
+    return out.sort(function (a, b) {
+      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+      if (a.overdue && a.service.date !== b.service.date) return a.service.date < b.service.date ? -1 : 1;
+      return (a.service.createdAt || 0) - (b.service.createdAt || 0);
+    });
+  }
+  function openServiceCount(site) {
+    return servicesOf(site).filter(function (v) { return !v.done; }).length;
+  }
+
+  var AS_INFO = ['address', 'pwLobby', 'pwUnit', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet', 'note', 'films'];
+  function svcHead(site, v, tail) {
+    return '[' + titleLine(site) + '] 🔧 ' + serviceLabel(v) +
+      (isIsoDate(str(v.date)) ? ' ' + dayLabel(v.date) : '') + (tail || '');
+  }
+  function contactsText(client) {
+    var cs = ((client && client.contacts) || [])
+      .map(function (c) { return [str(c && c.name), str(c && c.phone)].filter(Boolean).join(' '); })
+      .filter(Boolean);
+    if (!cs.length) return '';
+    return '업자' + (str(client && client.name) ? ' ' + str(client.name) : '') + ' · ' + cs.join(', ');
+  }
+  // 작업자에게: AS 지시 — 요청 내용 + 그 현장 출입 정보(비번·주차·필름 …) + 업자 담당자
+  function buildServiceOrder(site, v, client) {
+    var has = {};
+    AS_INFO.forEach(function (k) { if (!isEmpty(site, k)) has[k] = true; });
+    var lines = [svcHead(site, v)];
+    if (str(v.request)) lines.push('요청: ' + str(v.request));
+    var who = staffOf(v);
+    if (who.length) lines.push('👤 ' + who.join('·'));
+    lines = lines.concat(infoLines(site, has));
+    var cc = contactsText(client);
+    if (cc) lines.push(cc);
+    return lines.join('\n');
+  }
+  // 업자에게: AS 방문 안내 — 가는 사람 연락처·차량 + 요청 내용. 담당이 없으면 ''
+  function buildServiceVisit(site, v, people, missing) {
+    var who = staffOf(v);
+    if (!who.length) return '';
+    var lines = [svcHead(site, v, ' 방문')];
+    who.forEach(function (n) {
+      var p = personOf(people, n);
+      if (!p.phone && missing) missing.push(n);
+      lines.push([p.name, p.phone, p.car ? '(차량 ' + p.car + ')' : ''].filter(Boolean).join(' '));
+    });
+    if (str(v.request)) lines.push('요청: ' + str(v.request));
+    return lines.join('\n');
+  }
+  // 관리실·차량등록: AS 날 오는 차량 — 현장 차량등록 문구와 같은 모양
+  function buildServiceCars(site, v, people, missing) {
+    var visit = Object.assign({}, site, { days: [{ date: str(v.date), staff: staffOf(v) }] });
+    return buildCarList(visit, people, str(v.date) || todayIso(), missing);
   }
 
   // 현장 하나 = 목록의 한 줄. 날이 떨어져 있어도(1·2일차 9/28·9/29, 3일차 10/7)
@@ -719,7 +832,16 @@
     visitsByPerson: visitsByPerson,
     buildWorkerContacts: buildWorkerContacts,
     buildCarList: buildCarList,
-    buildClientContacts: buildClientContacts
+    buildClientContacts: buildClientContacts,
+    servicesOf: servicesOf,
+    serviceLabel: serviceLabel,
+    dateServices: dateServices,
+    upcomingServices: upcomingServices,
+    waitingServices: waitingServices,
+    openServiceCount: openServiceCount,
+    buildServiceOrder: buildServiceOrder,
+    buildServiceVisit: buildServiceVisit,
+    buildServiceCars: buildServiceCars
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Share;
