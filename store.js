@@ -36,6 +36,7 @@
       lastView: 'main',          // 앱을 다시 열 때 보여줄 화면: main | schedule
       calShow: 'count',          // 일정 달력 칸에 뭘 보여줄까: count(건수) | region(시공지역)
       team: [],                  // 팀원 명단 (이름 문자열)
+      people: {},                // 팀원 연락처·차량 { 이름: { phone, car } } — 이름으로 찾는다
       supplyDefaults: ['본드', '장갑']  // 새 현장에 자동으로 깔리는 부자재
     };
   }
@@ -91,6 +92,17 @@
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     return s;
   }
+  // 연락처·차량 표 — 모양이 이상한 값(예전 데이터·손상)은 버리고 문자열만 남긴다
+  function normalizePeople(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    Object.keys(raw).forEach(function (name) {
+      var p = raw[name] || {}, n = String(name).trim();
+      if (!n) return;
+      out[n] = { phone: String(p.phone || '').trim(), car: String(p.car || '').trim() };
+    });
+    return out;
+  }
   function normalizeClient(raw) {
     return Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
   }
@@ -115,6 +127,7 @@
       // 설정을 먼저 합쳐야 현장 보정(부자재 기본 항목)이 설정값을 쓸 수 있다
       state.settings = Object.assign(defaultSettings(), parsed.settings || {});
       state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (parsed.settings || {}).questions || {});
+      state.settings.people = normalizePeople(state.settings.people);
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
       state.photos = (parsed.photos || []).map(normalizePhoto);
@@ -143,7 +156,8 @@
 
   // 설정 중 서버로 보낼 것만 (백업키·마지막 탭은 폰에만)
   function settingsForSync() {
-    return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults };
+    return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
+      people: state.settings.people };
   }
 
   // ---------- 거래처 ----------
@@ -412,7 +426,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -494,6 +508,7 @@
           lastView: state.settings.lastView, calShow: state.settings.calShow };
         var ds = data.settings || {};
         state.settings = Object.assign(defaultSettings(), { team: ds.team, supplyDefaults: ds.supplyDefaults }, keep);
+        state.settings.people = normalizePeople(ds.people);   // 예전 백업엔 없다 → 빈 표
         if (!Array.isArray(state.settings.team)) state.settings.team = [];
         if (!Array.isArray(state.settings.supplyDefaults)) state.settings.supplyDefaults = defaultSettings().supplyDefaults;
         state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, ds.questions || {});

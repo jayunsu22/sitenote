@@ -252,6 +252,31 @@ function reset() {
     assert.strictEqual(Store.pendingCount(), 0);
   });
 
+  await test('팀원 연락처·차량은 백업에 같이 올라간다', () => {
+    reset();
+    Store.setSettings({ people: { '김기사': { phone: '010-1', car: '12가3456' } } });
+    const op = Store.state.syncQueue.find(o => o.type === 'settings');
+    assert.deepStrictEqual(op.data.people, { '김기사': { phone: '010-1', car: '12가3456' } });
+  });
+  await test('연락처 표: 저장 후 다시 불러와도 그대로, 이상한 값은 버린다', () => {
+    reset();
+    Store.setSettings({ people: { '김기사': { phone: ' 010-1 ', car: '12가3456' } } });
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-1', car: '12가3456' } });
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], sites: [], photos: [],
+      settings: { people: ['잘못된', '모양'] }, syncQueue: [] });
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.people, {});
+  });
+  await test('예전 데이터(연락처 표 없음)도 빈 표로 열린다', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], sites: [], photos: [],
+      settings: { team: ['김기사'] }, syncQueue: [] });
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.team, ['김기사']);
+    assert.deepStrictEqual(Store.state.settings.people, {});
+  });
+
   console.log('flush');
   await test('백업키 없으면 fetch 안 함, 큐 유지', async () => {
     reset();
@@ -331,10 +356,11 @@ function reset() {
         { id: 'p9#1', photoId: 'p9', i: 1, chunk: 'BBBB' },
         { id: 'p9#0', photoId: 'p9', i: 0, chunk: 'data:image/jpeg;base64,AAAA' }
       ],
-      settings: { questions: { toilet: '복원된 문구' } }
+      settings: { questions: { toilet: '복원된 문구' }, people: { '김기사': { phone: '010-9', car: '99가9999' } } }
     }) });
     const r = await Store.restore(true);
     assert.strictEqual(r.clients, 1);
+    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-9', car: '99가9999' } }, '연락처 표도 복원');
     assert.strictEqual(r.photos, 1);
     assert.strictEqual(Store.photosOf('c9')[0].name, '명함');
     assert.strictEqual(Store.getPhoto('p9').bytes, 0, '누락 필드는 기본값으로 채움');
@@ -414,12 +440,12 @@ function reset() {
     s.supplies[0].name = '변경';
     assert.strictEqual(Store.state.settings.supplyDefaults[0], '본드', '참조 공유 아님');
   });
-  await test('settingsForSync: team/supplyDefaults 포함, backupKey/lastTab/lastView 제외', () => {
+  await test('settingsForSync: team/supplyDefaults/people 포함, backupKey/lastTab/lastView 제외', () => {
     reset();
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['questions', 'supplyDefaults', 'team']);
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'supplyDefaults', 'team']);
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 

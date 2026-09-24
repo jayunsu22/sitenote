@@ -540,6 +540,78 @@
     }
     return weeks;
   }
+  /* ---------- 작업자 명부 · 연락처 주고받기 (2026-09-24) ----------
+     팀원 명단(settings.team)은 예전처럼 이름만 두고, 연락처·차량번호는 이름으로 찾는
+     표(settings.people = { 이름: { phone, car } })에 따로 둔다. 인원 칸에는 명단에 없는
+     사람('일당 최기사')도 들어가므로 이름으로 찾는 게 맞고, 명단 모양을 안 바꿔야
+     예전 화면·예전 백업이 그대로 돈다.
+     아래 문구들은 카톡에 붙여넣을 것 — 업자·작업자·관리실이 서로 연락처를 주고받을 때 쓴다. */
+  var 요일 = ['일', '월', '화', '수', '목', '금', '토'];
+  function dayLabel(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str(iso));
+    if (!m) return '';
+    return (+m[2]) + '/' + (+m[3]) + '(' + 요일[new Date(+m[1], +m[2] - 1, +m[3]).getDay()] + ')';
+  }
+  function personOf(people, name) {
+    var p = (people && people[str(name)]) || {};
+    return { name: str(name), phone: str(p.phone), car: str(p.car) };
+  }
+  // 현장에 오는 사람과 오는 날 [{name, dates}] — 처음 나온 순.
+  // 오늘 이후로 배치된 날이 있으면 그 날들만 (지난 날 인원까지 보내면 누가 오는지 헷갈린다),
+  // 없으면 전부. 날짜를 아직 안 정한 날의 인원도 넣는다 (날짜 없이)
+  function visitsByPerson(site, today) {
+    var t = str(today) || todayIso();
+    var days = daysOf(site).map(function (d) { return { date: str(d.date), staff: staffOf(d) }; })
+      .filter(function (d) { return d.staff.length; });
+    var upcoming = days.filter(function (d) { return isIsoDate(d.date) && d.date >= t; });
+    var use = (upcoming.length ? upcoming : days).slice().sort(function (a, b) {
+      if (!a.date !== !b.date) return a.date ? -1 : 1;          // 날짜 없는 날은 뒤로
+      return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+    });
+    var order = [], dates = {};
+    use.forEach(function (d) {
+      d.staff.forEach(function (n) {
+        if (!dates[n]) { dates[n] = []; order.push(n); }
+        if (isIsoDate(d.date) && dates[n].indexOf(d.date) === -1) dates[n].push(d.date);
+      });
+    });
+    return order.map(function (n) { return { name: n, dates: dates[n] }; });
+  }
+  function datesText(dates) { return dates.length ? ' — ' + dates.map(dayLabel).join(', ') : ''; }
+
+  // 업자에게: 우리 작업자 연락처 (차량번호가 있으면 같이 — 업자가 관리실에 등록해 주는 일이 많다)
+  // 오는 사람이 없으면 ''. missing 에는 연락처가 없는 사람 이름을 담아 돌려준다
+  function buildWorkerContacts(site, people, today, missing) {
+    var v = visitsByPerson(site, today);
+    if (!v.length) return '';
+    var lines = v.map(function (x) {
+      var p = personOf(people, x.name);
+      if (!p.phone && missing) missing.push(x.name);
+      return [p.name, p.phone, p.car ? '(차량 ' + p.car + ')' : ''].filter(Boolean).join(' ') + datesText(x.dates);
+    });
+    return '[' + titleLine(site) + '] 작업자 연락처\n' + lines.join('\n');
+  }
+  // 관리실·차량등록용: 차량번호와 오는 날만 (전화번호는 뺀다). 차량번호 있는 사람이 없으면 ''
+  function buildCarList(site, people, today, missing) {
+    var lines = [];
+    visitsByPerson(site, today).forEach(function (x) {
+      var p = personOf(people, x.name);
+      if (p.car) lines.push(p.car + ' (' + p.name + ')' + datesText(x.dates));
+      else if (missing) missing.push(x.name);
+    });
+    if (!lines.length) return '';
+    return '[' + titleLine(site) + '] 방문 차량\n' + lines.join('\n');
+  }
+  // 작업자에게: 업자(거래처) 담당자 연락처. 담당자가 없으면 ''
+  function buildClientContacts(site, client) {
+    var cs = ((client && client.contacts) || [])
+      .map(function (c) { return [str(c && c.name), str(c && c.phone)].filter(Boolean).join(' '); })
+      .filter(Boolean);
+    if (!cs.length) return '';
+    var who = str(client && client.name);
+    return '[' + titleLine(site) + ']\n업자' + (who ? ' ' + who : '') + '\n' + cs.join('\n');
+  }
+
   // 팀원 공유용 인원 줄. 하루면 '👤 김기사·박기사', 여러 날이면 '👤 9/19 김기사·박기사 / 9/20 김기사'
   // 필요 인원을 정해뒀으면 앞에 '필요 3명 —' 이 붙는다. 인원이 빈 날은 건너뛰고, 전부 비면 ''
   // (필요 인원만 정하고 아무도 안 넣었으면 '👤 필요 3명 — 아직 미배정')
@@ -641,7 +713,13 @@
     datesLine: datesLine,
     workSummary: workSummary,
     monthGrid: monthGrid,
-    monthGridFull: monthGridFull
+    monthGridFull: monthGridFull,
+    dayLabel: dayLabel,
+    personOf: personOf,
+    visitsByPerson: visitsByPerson,
+    buildWorkerContacts: buildWorkerContacts,
+    buildCarList: buildCarList,
+    buildClientContacts: buildClientContacts
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Share;

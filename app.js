@@ -1043,6 +1043,8 @@
       if (f.key === 'films') {
         var daysBox = document.createElement('div'); daysBox.className = 'sec'; daysBox.id = 'daysSec'; wrap.appendChild(daysBox);
         renderDaysSection(daysBox, s.id);
+        var contactBox = document.createElement('div'); contactBox.className = 'sec'; wrap.appendChild(contactBox);
+        renderContactSection(contactBox, s.id);
         var supBox = document.createElement('div'); supBox.className = 'sec'; wrap.appendChild(supBox);
         renderSuppliesSection(supBox, s.id);
       }
@@ -1244,6 +1246,52 @@
   $('calOk').onclick = function () { closeCalendar(true); };
   $('calClose').onclick = function () { closeCalendar(false); };
   $('calSheet').addEventListener('click', function (e) { if (e.target === $('calSheet')) closeCalendar(false); });
+  /* 현장 상세: 연락처 보내기 (2026-09-24).
+     업자·작업자·관리실이 서로 연락처를 주고받을 때 카톡에 붙여넣을 문구를 만든다.
+     작업자 연락처·차량은 설정의 팀원 명단에서, 업자 담당자는 이 거래처의 고정값에서 가져온다.
+     누를 때 그 순간의 인원으로 만든다 (인원을 바꾸고 다시 그릴 필요가 없다) */
+  function renderContactSection(box, siteId) {
+    box.innerHTML = '<h3 class="sec-title">연락처 보내기 <span class="sec-hint">— 눌러서 복사 → 카톡에 붙여넣기</span></h3>';
+    var row = document.createElement('div'); row.className = 'contact-btns';
+    var btn = function (label, sub, make) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'contact-btn';
+      b.innerHTML = '<b>' + esc(label) + '</b><span>' + esc(sub) + '</span>';
+      b.onclick = function () {
+        var s = Store.getSite(siteId); if (!s) return;
+        make(s);
+      };
+      row.appendChild(b);
+    };
+    var people = function () { return state.settings.people || {}; };
+    // 연락처가 없는 사람이 있으면 복사는 하되 알려 준다 — 설정에서 채우면 다음부터 들어간다
+    var lack = function (missing, what) {
+      return missing.length ? ' · ' + missing.join('·') + ' ' + what + ' 없음 (설정 → 팀원)' : '';
+    };
+    btn('업자에게', '작업자 연락처·차량', function (s) {
+      var missing = [];
+      var t = Share.buildWorkerContacts(s, people(), Share.todayIso(), missing);
+      if (!t) { toast('아직 인원이 없습니다. 날짜별 인원을 먼저 넣어 주세요'); return; }
+      copyText(t, '복사됨 — 업자에게 붙여넣기' + lack(missing, '연락처'));
+    });
+    btn('작업자에게', '업자 담당자 연락처', function (s) {
+      var t = Share.buildClientContacts(s, Store.getClient(s.clientId));
+      if (!t) { toast('이 거래처에 담당자 연락처가 없습니다. 거래처 고정값에 넣어 주세요'); return; }
+      copyText(t, '복사됨 — 작업자에게 붙여넣기');
+    });
+    btn('관리실·차량등록', '차량번호·오는 날', function (s) {
+      var missing = [];
+      var t = Share.buildCarList(s, people(), Share.todayIso(), missing);
+      if (!t) {
+        toast(Share.visitsByPerson(s, Share.todayIso()).length
+          ? '차량번호가 등록된 인원이 없습니다 (설정 → 팀원에 차량번호)'
+          : '아직 인원이 없습니다. 날짜별 인원을 먼저 넣어 주세요');
+        return;
+      }
+      copyText(t, '복사됨 — 관리실·업자에게 붙여넣기' + lack(missing, '차량'));
+    });
+    box.appendChild(row);
+  }
+
   // 현장 상세: 부자재 체크리스트
   function renderSuppliesSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
@@ -1549,8 +1597,45 @@
     $(btnId).onclick = add;
     $(inputId).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
   }
+  /* 팀원 명단 + 연락처·차량번호 (2026-09-24).
+     명단 자체는 예전처럼 이름만 둔다 — 인원 칩이 이 이름을 쓰고, 인원 칸에는 명단에 없는 사람도
+     들어간다. 연락처·차량은 이름으로 찾는 표(settings.people)에 둔다. 현장의 '연락처 보내기'
+     문구(업자에게 작업자 연락처 · 관리실 차량등록)가 여기서 채워진다 */
   function renderTeamList() {
-    renderStringList($('teamList'), state.settings.team || [], function (next) { Store.setSettings({ team: next }); renderTeamList(); });
+    var box = $('teamList'); box.innerHTML = '';
+    var team = state.settings.team || [];
+    if (!team.length) {
+      var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
+      box.appendChild(e);
+    }
+    team.forEach(function (name, i) {
+      var p = Share.personOf(state.settings.people, name);
+      var row = document.createElement('div'); row.className = 'team-row';
+      var top = document.createElement('div'); top.className = 'team-top';
+      var t = document.createElement('div'); t.className = 'slist-name'; t.textContent = name;
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
+      top.appendChild(t); top.appendChild(x);
+      var info = document.createElement('div'); info.className = 'team-info';
+      var ph = document.createElement('input'); ph.type = 'tel'; ph.placeholder = '연락처 010-…'; ph.value = p.phone;
+      var car = document.createElement('input'); car.type = 'text'; car.placeholder = '차량번호 12가3456'; car.value = p.car;
+      car.autocomplete = 'off';
+      var save = function () {
+        var people = Object.assign({}, state.settings.people);
+        var v = { phone: ph.value.trim(), car: car.value.trim() };
+        if (v.phone || v.car) people[name] = v; else delete people[name];
+        Store.setSettings({ people: people });
+      };
+      ph.addEventListener('input', save); car.addEventListener('input', save);
+      x.onclick = function () {
+        var next = team.slice(); next.splice(i, 1);
+        var people = Object.assign({}, state.settings.people); delete people[name];   // 연락처도 같이 지운다
+        Store.setSettings({ team: next, people: people });
+        renderTeamList();
+      };
+      info.appendChild(ph); info.appendChild(car);
+      row.appendChild(top); row.appendChild(info);
+      box.appendChild(row);
+    });
   }
   function renderSupplyDefaultList() {
     renderStringList($('supplyDefaultList'), state.settings.supplyDefaults || [], function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });

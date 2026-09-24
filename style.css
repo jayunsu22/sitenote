@@ -262,6 +262,21 @@ textarea { resize: vertical; }
 .slist-row { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 4px; border-bottom: 1px solid var(--border); }
 .slist-row .slist-name { flex: 1; font-size: 14px; font-weight: 600; }
 .slist-row .x { width: 32px; height: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+/* 팀원: 이름 줄 아래에 연락처·차량번호 */
+.team-row { padding: 6px 0 8px 4px; border-bottom: 1px solid var(--border); }
+.team-top { display: flex; align-items: center; gap: 8px; }
+.team-top .slist-name { flex: 1; font-size: 14px; font-weight: 700; }
+.team-top .x { width: 32px; height: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+.team-info { display: flex; gap: 6px; margin-top: 4px; }
+.team-info input { flex: 1; min-width: 0; padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fafafa; font-size: 14px; }
+/* 현장: 연락처 보내기 — 버튼 셋이 한 줄 */
+.contact-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 12px; }
+.contact-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 4px;
+  border: 1.5px solid var(--border); border-radius: 10px; background: #fff; }
+.contact-btn b { font-size: 13.5px; font-weight: 800; color: var(--primary-dark); }
+.contact-btn span { font-size: 11px; color: var(--muted); line-height: 1.25; text-align: center; word-break: keep-all; }
+.contact-btn:active { background: #eff6ff; border-color: var(--primary); }
 .settings-section .row input[type="text"] { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
 /* ---------- 일정 화면 (2026-09-23 개편) ---------- */
 /* 위: 날짜 띠(주간)/달력(월간) — 날짜마다 그날 현장 수. 빈 날은 점선 동그라미.

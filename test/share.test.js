@@ -318,6 +318,62 @@ test('모든 칸이 하루씩 이어진다', () => {
   }
 });
 
+console.log('연락처 주고받기');
+const 현장 = () => Object.assign(blank(), { name: '인천 벽산블루밍 104동 901호', days: [
+  { date: '2026-09-28', staff: ['서영호', '염문철'] },
+  { date: '2026-09-29', staff: ['서영호'] }
+] });
+const 명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456' }, '염문철': { phone: '010-3333-4444' } };
+test('dayLabel: 9/28(월)', () => {
+  assert.strictEqual(Share.dayLabel('2026-09-28'), '9/28(월)');
+  assert.strictEqual(Share.dayLabel(''), '');
+});
+test('업자에게: 작업자 연락처·차량, 오는 날', () => {
+  const missing = [];
+  assert.strictEqual(Share.buildWorkerContacts(현장(), 명부, '2026-09-24', missing),
+    '[인천 벽산블루밍 104동 901호] 작업자 연락처\n' +
+    '서영호 010-1111-2222 (차량 12가3456) — 9/28(월), 9/29(화)\n' +
+    '염문철 010-3333-4444 — 9/28(월)');
+  assert.deepStrictEqual(missing, []);
+});
+test('명부에 없는 사람은 이름만, 연락처 없는 사람을 알려준다', () => {
+  const s = 현장(); s.days[0].staff.push('일당 최기사');
+  const missing = [];
+  const t = Share.buildWorkerContacts(s, 명부, '2026-09-24', missing);
+  assert.ok(t.endsWith('\n일당 최기사 — 9/28(월)'));
+  assert.deepStrictEqual(missing, ['일당 최기사']);
+});
+test('지난 날은 빼고 남은 날 인원만 (남은 날이 있으면)', () => {
+  assert.strictEqual(Share.buildWorkerContacts(현장(), 명부, '2026-09-29'),
+    '[인천 벽산블루밍 104동 901호] 작업자 연락처\n서영호 010-1111-2222 (차량 12가3456) — 9/29(화)');
+});
+test('다 지났으면 전부, 날짜 안 정한 날 인원도 날짜 없이', () => {
+  const s = 현장(); s.days.push({ date: '', staff: ['염문철', '문승규'] });
+  const t = Share.buildWorkerContacts(s, 명부, '2026-10-30');
+  assert.ok(t.includes('염문철 010-3333-4444 — 9/28(월)'));
+  assert.ok(t.endsWith('\n문승규'));
+});
+test('아무도 없으면 빈 문자열', () => {
+  assert.strictEqual(Share.buildWorkerContacts(blank(), 명부, '2026-09-24'), '');
+  assert.strictEqual(Share.buildCarList(blank(), 명부, '2026-09-24'), '');
+});
+test('관리실·차량등록: 차량번호와 날짜만, 전화번호는 안 나간다', () => {
+  const missing = [];
+  const t = Share.buildCarList(현장(), 명부, '2026-09-24', missing);
+  assert.strictEqual(t, '[인천 벽산블루밍 104동 901호] 방문 차량\n12가3456 (서영호) — 9/28(월), 9/29(화)');
+  assert.ok(!t.includes('010'));
+  assert.deepStrictEqual(missing, ['염문철']);
+});
+test('차량번호 있는 사람이 없으면 빈 문자열', () => {
+  assert.strictEqual(Share.buildCarList(현장(), { '서영호': { phone: '010' } }, '2026-09-24'), '');
+});
+test('작업자에게: 업자 담당자 연락처 (빈 줄은 뺀다)', () => {
+  const client = { name: '이레토탈 인테리어', contacts: [{ name: '김실장', phone: '010-7132-3491' }, { name: '', phone: '' }] };
+  assert.strictEqual(Share.buildClientContacts(현장(), client),
+    '[인천 벽산블루밍 104동 901호]\n업자 이레토탈 인테리어\n김실장 010-7132-3491');
+  assert.strictEqual(Share.buildClientContacts(현장(), { name: 'A', contacts: [] }), '');
+});
+
 console.log('nextColor');
 test('거래처 내 현장 수 mod 8', () => {
   const sites = [];
