@@ -1543,7 +1543,21 @@
       row.appendChild(name); row.appendChild(x);
       box.appendChild(row);
     });
-    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add'; add.textContent = '＋ 항목 추가';
+    // 설정의 기본 항목 중 이 현장에 없는 것 — 탭 한 번으로 넣는다.
+    // 기본 항목은 현장을 만들 때만 깔리므로, 나중에 설정에 추가한 항목은 여기서 골라 넣는다
+    var have = s.supplies.map(function (r) { return r.name; });
+    var more = (state.settings.supplyDefaults || []).filter(function (n) { return n && have.indexOf(n) === -1; });
+    if (more.length) {
+      var picks = document.createElement('div'); picks.className = 'supply-picks';
+      more.forEach(function (n) {
+        var c = document.createElement('button'); c.type = 'button'; c.className = 'supply-pick'; c.textContent = '＋ ' + n;
+        c.onclick = function () { Store.addSupply(siteId, n); rerender(); };
+        picks.appendChild(c);
+      });
+      box.appendChild(picks);
+    }
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add';
+    add.textContent = more.length ? '＋ 직접 입력' : '＋ 항목 추가';
     add.onclick = function () {
       modalPrompt('부자재 항목', '', '예: 칼날, 스퀴지').then(function (v) {
         if (v == null) return;
