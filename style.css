@@ -179,6 +179,42 @@ textarea { resize: vertical; }
 .site-fields .frow-name { background: #f8fafc; }
 .site-fields .frow-name input { font-weight: 800; font-size: 16px; }
 
+/* ---------- 현장 화면: 요약 + 탭 (2026-09-24 B안) ----------
+   탭마다 색이 달라야 지금 어느 구역인지 바로 안다. 고른 탭은 꽉 찬 색 + 흰 글씨,
+   나머지는 옅은 바탕 + 그 색 글씨. 아래 구역 윗줄도 같은 색 */
+.site-fields { padding-top: 0; background: var(--bg); }
+.site-head { background: var(--card); padding: 12px 14px 12px; }
+.sh-name { font-size: 18px; font-weight: 900; line-height: 1.3; word-break: keep-all; }
+.sh-sub { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 14px; font-weight: 800; color: #374151; }
+.sh-dday { padding: 1px 9px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12.5px; }
+.sh-dday.done { background: #e5e7eb; color: var(--muted); }
+.sh-client { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.sh-pill { border: none; border-radius: 999px; padding: 4px 11px; font-size: 13px; font-weight: 800; }
+.sh-pill.red { background: #fee2e2; color: #991b1b; }
+.sh-pill.amber { background: #fef3c7; color: #92400e; }
+.sh-pill.green { background: #dcfce7; color: #166534; }
+.sh-pill.gray { background: #f1f5f9; color: #334155; }
+.site-tabs { position: sticky; top: 52px; z-index: 12; display: flex; gap: 4px; padding: 8px 6px 0;
+  background: var(--card); border-bottom: 3px solid var(--tabc, var(--border)); }
+.site-tab { --c: #2563eb; --t: #eff6ff; position: relative; flex: 1; min-width: 0; padding: 10px 2px 9px; border: none;
+  border-radius: 10px 10px 0 0; background: var(--t); color: var(--c); font-size: 13.5px; font-weight: 800; white-space: nowrap; }
+.site-tab.on { background: var(--c); color: #fff; }
+.tab-info   { --c: #2563eb; --t: #eff6ff; }   /* 파랑 */
+.tab-staff  { --c: #15803d; --t: #ecfdf3; }   /* 초록 */
+.tab-film   { --c: #7c3aed; --t: #f5f3ff; }   /* 보라 */
+.tab-supply { --c: #ea580c; --t: #fff4ed; }   /* 주황 */
+.tab-etc    { --c: #be185d; --t: #fdf2f8; }   /* 자주 */
+.site-tabs:has(.tab-info.on)   { --tabc: #2563eb; }
+.site-tabs:has(.tab-staff.on)  { --tabc: #15803d; }
+.site-tabs:has(.tab-film.on)   { --tabc: #7c3aed; }
+.site-tabs:has(.tab-supply.on) { --tabc: #ea580c; }
+.site-tabs:has(.tab-etc.on)    { --tabc: #be185d; }
+.tab-dot { display: none; position: absolute; top: -4px; right: 1px; width: 10px; height: 10px; box-shadow: 0 0 0 2px #fff; border-radius: 50%; background: var(--danger); }
+.site-tab.warn .tab-dot { display: block; }
+.site-tab.on .tab-dot { box-shadow: 0 0 0 2px #fff; }
+.site-pane { background: var(--card); min-height: 50vh; }
+
 .copy-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 10px; flex-wrap: wrap;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
 /* 저장은 한 줄을 통째로 차지해서 복사 버튼 2개를 아랫줄로 밀어낸다 (복사 버튼 위치는 그대로) */

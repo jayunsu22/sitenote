@@ -1123,26 +1123,137 @@
     $('colorPicker').hidden = true;
     renderColorPicker(s);
     var wrap = $('siteFields'); wrap.innerHTML = '';
+    // 탭으로 나눈 현장 화면 (2026-09-24 B안). 칸이 한 줄로 길게 이어져 한눈에 안 들어와서
+    // 위에 요약(날짜·D-day·상태 알약)을 두고, 구역을 탭 다섯 개로 나눈다.
+    // 탭은 보이기만 바꾼다 — 모든 칸은 늘 화면(DOM)에 있어서 질문/공유 복사·체크박스는 예전 그대로다
+    if (siteTabFor !== s.id) { siteTab = 'info'; siteTabFor = s.id; }
+    var head = document.createElement('div'); head.className = 'site-head'; head.id = 'siteHead';
+    wrap.appendChild(head);
+    var bar = document.createElement('div'); bar.className = 'site-tabs'; bar.id = 'siteTabs';
+    SITE_TABS.forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'site-tab tab-' + t.key; b.dataset.tab = t.key;
+      b.innerHTML = '<span>' + t.label + '</span><i class="tab-dot"></i>';
+      b.onclick = function () { pickSiteTab(t.key, true); };
+      bar.appendChild(b);
+    });
+    wrap.appendChild(bar);
+    var panes = {};
+    SITE_TABS.forEach(function (t) {
+      var pn = document.createElement('div'); pn.className = 'site-pane pane-' + t.key; pn.dataset.tab = t.key;
+      panes[t.key] = pn; wrap.appendChild(pn);
+    });
+    var sec = function (pane, id, render) {
+      var box = document.createElement('div'); box.className = 'sec'; if (id) box.id = id;
+      panes[pane].appendChild(box); render(box, s.id);
+    };
     Share.FIELDS.forEach(function (f) {
-      // 필름준비과정알림: 필름/시공위치 바로 위. 4단계 중 하나를 탭해서 고른다 (2026-09-20)
-      if (f.key === 'films') {
-        var stageBox = document.createElement('div'); stageBox.className = 'sec'; stageBox.id = 'stageSec'; wrap.appendChild(stageBox);
-        renderStageSection(stageBox, s.id);
-      }
-      wrap.appendChild(fieldRow(s, f));
-      // 일정·인원 / 부자재 구역은 필름 줄 다음, 현장사진 앞에 둔다 (2026-09-19 일정관리)
-      if (f.key === 'films') {
-        var daysBox = document.createElement('div'); daysBox.className = 'sec'; daysBox.id = 'daysSec'; wrap.appendChild(daysBox);
-        renderDaysSection(daysBox, s.id);
-        var contactBox = document.createElement('div'); contactBox.className = 'sec'; wrap.appendChild(contactBox);
-        renderContactSection(contactBox, s.id);
-        var svcBox = document.createElement('div'); svcBox.className = 'sec'; svcBox.id = 'svcSec'; wrap.appendChild(svcBox);
-        renderServiceSection(svcBox, s.id);
-        var supBox = document.createElement('div'); supBox.className = 'sec'; wrap.appendChild(supBox);
-        renderSuppliesSection(supBox, s.id);
+      var pane = TAB_OF_FIELD[f.key] || 'info';
+      if (f.key === 'films') sec('film', 'stageSec', renderStageSection);   // 필름 단계 띠는 필름 줄 바로 위
+      panes[pane].appendChild(fieldRow(s, f));
+      if (f.key === 'date') {                                                // 시공날짜 바로 아래 날짜별 인원
+        sec('staff', 'daysSec', renderDaysSection);
+        sec('staff', '', renderContactSection);
       }
     });
+    sec('supply', '', renderSuppliesSection);
+    sec('etc', 'svcSec', renderServiceSection);
+    pickSiteTab(siteTab, false);
+    paintSiteStatus();
   }
+
+  var SITE_TABS = [
+    { key: 'info', label: '기본·출입' },
+    { key: 'staff', label: '일정·인원' },
+    { key: 'film', label: '필름' },
+    { key: 'supply', label: '부자재' },
+    { key: 'etc', label: '링크·AS' }
+  ];
+  var TAB_OF_FIELD = { date: 'staff', films: 'film', quoteUrl: 'etc', photoUrl: 'etc', memo: 'etc' };
+  var INFO_ASK = ['pwLobby', 'pwUnit', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet'];   // 업자에게 물어볼 출입 칸
+  var siteTab = 'info', siteTabFor = '';
+  function pickSiteTab(key, scroll) {
+    siteTab = key;
+    document.querySelectorAll('#siteTabs .site-tab').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === key); });
+    document.querySelectorAll('#siteFields .site-pane').forEach(function (p) { p.hidden = p.dataset.tab !== key; });
+    // 탭을 바꾸면 그 구역 맨 위부터 보이게 (탭 줄이 상단바 밑에 붙어 있는 자리까지만 올린다)
+    if (scroll) {
+      var bar = $('siteTabs'), head = $('siteHead');
+      if (bar && head && window.scrollY > head.offsetTop + head.offsetHeight) window.scrollTo(0, head.offsetTop + head.offsetHeight);
+    }
+  }
+  // 탭 이름 옆 빨간 점·위쪽 알약 — 칸을 고칠 때마다(Store.onChange) 다시 칠한다
+  function siteStatus(s) {
+    var today = Share.todayIso();
+    var st = {};
+    // 기본·출입: 업자에게 물어볼 칸 중 빈 것
+    var empty = INFO_ASK.filter(function (k) { return Share.isEmpty(s, k); });
+    st.info = { warn: empty.length > 0, pill: empty.length ? '🚪 ' + empty.length + '칸 빔' : '🚪 출입 ✓', tone: empty.length ? 'amber' : 'green' };
+    // 일정·인원
+    var dated = s.days.filter(function (d) { return Share.isIsoDate(d.date); });
+    var need = Share.needStaffOf(s), shortDays = Share.shortStaffDays(s);
+    var have = s.days.length ? Math.min.apply(null, s.days.map(function (d) { return d.staff.length; })) : 0;
+    if (!dated.length) st.staff = { warn: true, pill: '📅 날짜 미정', tone: 'red' };
+    else if (need) st.staff = { warn: shortDays.length > 0, pill: '👤 ' + have + '/' + need + (shortDays.length ? '' : ' ✓'), tone: shortDays.length ? 'red' : 'green' };
+    else st.staff = { warn: have === 0, pill: have ? '👤 ' + have + '명' : '👤 미배정', tone: have ? 'gray' : 'red' };
+    // 필름
+    var k = Share.filmStageOf(s), last = Share.FILM_STAGES.length - 1;
+    st.film = { warn: k < last, pill: '🎞 ' + Share.FILM_STAGES[k].replace('필름 ', ''), tone: k === last ? 'green' : (k === 0 ? 'red' : 'amber') };
+    // 부자재
+    var sup = s.supplies || [], ready = sup.filter(function (r) { return r.ready; }).length;
+    st.supply = sup.length ? { warn: ready < sup.length, pill: '🧰 ' + ready + '/' + sup.length, tone: ready < sup.length ? 'amber' : 'green' }
+      : { warn: false, pill: '', tone: 'gray' };
+    // 링크·AS: 남은 AS 가 있으면 점. 견적서가 붙어 있으면 초록 알약
+    var as = Share.openServiceCount(s);
+    st.etc = { warn: as > 0, pill: as ? '🔧 AS ' + as + '건' : '', tone: 'amber' };
+    st.quote = !!String(s.quoteUrl || '').trim();
+    // 날짜 줄: '9/28 월 – 9/29 화 · 2일 · D-4'
+    var line = '', dd = '';
+    if (dated.length) {
+      var ds = dated.map(function (d) { return d.date; }).sort();
+      var a = ds[0], z = ds[ds.length - 1];
+      line = Share.shortDate(a) + ' ' + weekdayOf(a) + (a !== z ? ' – ' + Share.shortDate(z) + ' ' + weekdayOf(z) : '') + (ds.length > 1 ? ' · ' + ds.length + '일' : '');
+      var next = ds.filter(function (d) { return d >= today; })[0];
+      if (!next) dd = '끝남';
+      else {
+        var n = Math.round((new Date(next + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+        dd = n === 0 ? '오늘' : n === 1 ? '내일' : 'D-' + n;
+      }
+    }
+    st.when = line; st.dday = dd;
+    return st;
+  }
+  function paintSiteStatus() {
+    var s = Store.getSite(currentSiteId), head = $('siteHead');
+    if (!s || !head) return;
+    var st = siteStatus(s);
+    var client = Store.getClient(s.clientId);
+    head.innerHTML = '';
+    var nm = document.createElement('div'); nm.className = 'sh-name'; nm.textContent = Share.titleLine(s);
+    var sub = document.createElement('div'); sub.className = 'sh-sub';
+    sub.innerHTML = '<span class="sh-when">📅 ' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
+      (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '') +
+      '<span class="sh-client">' + esc(client ? client.name : '') + '</span>';
+    var pills = document.createElement('div'); pills.className = 'sh-pills';
+    var pill = function (text, tone, tab) {
+      if (!text) return;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sh-pill ' + tone; b.textContent = text;
+      b.onclick = function () { pickSiteTab(tab, true); };
+      pills.appendChild(b);
+    };
+    pill(st.staff.pill, st.staff.tone, 'staff');
+    pill(st.film.pill, st.film.tone, 'film');
+    pill(st.info.pill, st.info.tone, 'info');
+    pill(st.supply.pill, st.supply.tone, 'supply');
+    if (st.quote) pill('📄 견적 ✓', 'green', 'etc');
+    pill(st.etc.pill, st.etc.tone, 'etc');
+    head.appendChild(nm); head.appendChild(sub); head.appendChild(pills);
+    SITE_TABS.forEach(function (t) {
+      var b = document.querySelector('#siteTabs .tab-' + t.key);
+      if (b) b.classList.toggle('warn', !!st[t.key].warn);
+    });
+  }
+  Store.onChange(function () { if (!$('viewSite').hidden) paintSiteStatus(); });
 
   // ---------- 필름 준비 단계 (현장 상세 + 일정 화면 공용) ----------
   // 4칸 띠: 지난 단계·현재 단계는 파랑, 아직 안 온 단계는 빨강. 미확정(0)이면 네 칸 다 빨강.
