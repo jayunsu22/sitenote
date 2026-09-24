@@ -50,7 +50,7 @@ data class Row(
     val overdue: Boolean = false, // AS 대기 중 날짜가 이미 지난 것
 )
 
-data class DayCell(val date: LocalDate, val count: Int, val services: Int = 0)   // services: 그날 AS 수 (🔧)
+data class DayCell(val date: LocalDate, val count: Int, val services: Int = 0)   // services: 그날 AS 수 (날짜 옆 빨간 !)
 
 data class Board(
     val today: LocalDate,

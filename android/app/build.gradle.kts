@@ -16,8 +16,8 @@ android {
         applicationId = "com.jayunsu22.sitenote.widget"
         minSdk = 26          // 안드로이드 8 이상 — java.time 을 그냥 쓸 수 있다
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
     }
 
     signingConfigs {

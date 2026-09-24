@@ -569,8 +569,8 @@
     var dd = +iso.slice(8, 10);
     // 띠가 달을 넘어가면 '1' 이 이번 달 1일인지 다음 달 1일인지 모른다. 1일에만 달을 붙인다
     d.textContent = (o.weekday && dd === 1) ? (+iso.slice(5, 7)) + '/1' : String(dd);
-    // AS 가 잡힌 날은 날짜 옆에 🔧 — 건수·동네만으로는 AS 날인지 모른다
-    if (o.svc) { var w = document.createElement('span'); w.className = 'schcal-svc'; w.textContent = '🔧'; d.appendChild(w); }
+    // AS 가 잡힌 날은 날짜 옆에 빨간 ! — 건수·동네만으로는 AS 날인지 모른다 (🔧 는 작아서 잘 안 보였다)
+    if (o.svc) { var w = document.createElement('span'); w.className = 'schcal-svc'; w.textContent = '!'; d.appendChild(w); }
     b.appendChild(d);
     var mark = document.createElement('span');
     var rgs = o.regions || [];
@@ -725,7 +725,7 @@
     var box = $('scheduleCal'); box.innerHTML = '';
     var counts = Share.dateCounts(state.sites);
     var regions = Share.dateRegions(state.sites);
-    var svcs = Share.dateServices(state.sites);   // AS 가 잡힌 날 — 날짜 옆에 🔧
+    var svcs = Share.dateServices(state.sites);   // AS 가 잡힌 날 — 날짜 옆에 빨간 !
     if (calMode === 'week') {
       if (!calWeek) calWeek = sundayOf(Share.todayIso());
       var wEnd = Share.addDays(calWeek, 6);

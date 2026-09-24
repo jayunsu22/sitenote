@@ -7,7 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.text.SpannableString
 import android.text.Spanned
-import android.text.style.RelativeSizeSpan
+import android.graphics.Typeface
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -15,11 +17,14 @@ import java.util.Locale
 /** colors.xml 의 색 (웹앱 style.css 와 같은 값) */
 internal fun Context.c(id: Int) = getColor(id)
 
-/** 날짜 숫자 옆에 작은 🔧 — AS·추가작업이 잡힌 날 (앱 달력의 .schcal-svc 와 같다) */
-internal fun withWrench(day: String, services: Int): CharSequence {
+/** 날짜 숫자 옆에 빨간 ! — AS·추가작업이 잡힌 날 (앱 달력의 .schcal-svc 와 같다).
+ *  파란 오늘 칸에서는 빨강이 안 보여 흰색 */
+internal fun withMark(ctx: Context, day: String, services: Int, isToday: Boolean): CharSequence {
     if (services <= 0) return day
-    val t = SpannableString("$day🔧")
-    t.setSpan(RelativeSizeSpan(0.72f), day.length, t.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    val t = SpannableString("$day!")
+    t.setSpan(ForegroundColorSpan(ctx.c(if (isToday) R.color.white else R.color.danger)),
+        day.length, t.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    t.setSpan(StyleSpan(Typeface.BOLD), day.length, t.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
     return t
 }
 

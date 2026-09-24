@@ -1,7 +1,7 @@
 # 현장 일정 위젯 (안드로이드)
 
 현장관리 웹앱의 일정 화면을 홈 화면 위젯으로 띄우는 작은 앱. 위젯이 두 가지다.
-- **현장 달력** (`MonthWidget`): 한 달 날짜별 시공 지역과 빈 날 — 새 일·AS 잡을 때. AS 날은 날짜 옆 🔧
+- **현장 달력** (`MonthWidget`): 한 달 날짜별 시공 지역과 빈 날 — 새 일·AS 잡을 때. AS 날은 날짜 옆 빨간 !
 - **현장 일정** (`ScheduleWidget`): 이번 주 건수 + 앞으로 현장 목록(인원·필름).
   맨 위에 AS 대기(날짜 미정·지난 것), 날짜 잡힌 AS·추가작업은 현장 사이에 호박색 줄로
 받기: https://jayunsu22.github.io/sitenote/download/schedule-widget.apk

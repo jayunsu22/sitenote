@@ -134,7 +134,7 @@ class ScheduleWidget : AppWidgetProvider() {
             val wdName = weekdayOf(cell.date)
             v.setTextViewText(WD[i], wdName)
             // 1일에만 달을 붙인다 — 띠가 달을 넘어가면 '1' 이 어느 달 1일인지 모른다 (앱과 같다)
-            v.setTextViewText(DN[i], withWrench(if (cell.date.dayOfMonth == 1) shortDate(cell.date) else cell.date.dayOfMonth.toString(), cell.services))
+            v.setTextViewText(DN[i], withMark(ctx, if (cell.date.dayOfMonth == 1) shortDate(cell.date) else cell.date.dayOfMonth.toString(), cell.services, isToday))
             v.setInt(CELL[i], "setBackgroundResource", when {
                 isToday -> R.drawable.cell_today
                 cell.count > 0 && past -> R.drawable.cell_has_past

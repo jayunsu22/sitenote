@@ -507,7 +507,8 @@ textarea { resize: vertical; }
 .svc-foot .btn-sm { flex: 1; padding: 11px; font-size: 14px; }
 .svc-foot .btn-sm.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
 /* 달력 칸: AS 날 표시 */
-.schcal-svc { margin-left: 1px; font-size: 0.72em; vertical-align: 1px; }
+.schcal-svc { margin-left: 2px; color: var(--danger); font-weight: 900; }
+.schcal-cell.today .schcal-svc { color: #fff; }   /* 파란 오늘 칸에선 빨강이 안 보여 흰색 */
 /* 일정 화면: AS 대기 상자 */
 .svc-wait { margin: 0 0 14px; padding: 10px; border: 1.5px solid var(--as-line); border-radius: 14px; background: var(--as-bg); }
 .svc-wait-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }

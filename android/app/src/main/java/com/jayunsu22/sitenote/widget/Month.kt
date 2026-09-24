@@ -16,7 +16,7 @@ data class MonthCell(
     val inMonth: Boolean,       // 앞뒤 달 날짜면 false (숫자만 흐리게, 일정 표시는 그대로)
     val count: Int,             // 그날 일 수 (현장 + AS·추가작업)
     val regions: List<String>,  // 그날 동네 (같은 동네는 한 번만, 적힌 순)
-    val services: Int = 0,      // 그중 AS·추가작업 수 — 날짜 옆에 🔧
+    val services: Int = 0,      // 그중 AS·추가작업 수 — 날짜 옆에 빨간 !
 )
 
 data class MonthBoard(

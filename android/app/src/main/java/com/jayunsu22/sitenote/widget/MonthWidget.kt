@@ -136,7 +136,7 @@ class MonthWidget : AppWidgetProvider() {
             val past = c.date.isBefore(today)
             val sun = c.date.dayOfWeek == DayOfWeek.SUNDAY
 
-            v.setTextViewText(dayId, withWrench(c.date.dayOfMonth.toString(), c.services))
+            v.setTextViewText(dayId, withMark(ctx, c.date.dayOfMonth.toString(), c.services, isToday))
             v.setTextColor(dayId, ctx.c(when {
                 isToday -> R.color.white
                 !c.inMonth -> R.color.out                     // 앞뒤 달 — 숫자만 흐리게
