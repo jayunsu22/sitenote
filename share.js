@@ -209,10 +209,14 @@
 
     var head = '[' + titleLine(site) + ']' + (has.date ? ' ' + datesLine(site) : '');
     var lines = [head];
-    var staff = staffLine(site); // 날짜별 인원 - 체크 여부와 상관없이 있으면 나간다
-    if (staff) lines.push(staff);
-    var short = staffShortLine(site); // 필요 인원을 못 채운 날이 있으면 바로 아래에 경고 줄
-    if (short) lines.push(short);
+    // 날짜별 인원·부족 경고는 '시공날짜' 칸을 체크했을 때만. 체크한 것만 나가야
+    // 고르고 복사한 게 맞는다 (예전엔 늘 나가서 '전체가 복사된다' 고 느껴졌다)
+    if (has.date) {
+      var staff = staffLine(site);
+      if (staff) lines.push(staff);
+      var short = staffShortLine(site);   // 필요 인원을 못 채운 날이 있으면 바로 아래에 경고 줄
+      if (short) lines.push(short);
+    }
 
     lines = lines.concat(infoLines(site, has));
     return lines.join('\n');

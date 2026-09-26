@@ -696,7 +696,7 @@ test('buildShare: 인원 줄은 제목(날짜) 줄 바로 다음, days 없으면
   assert.strictEqual(lines[1], '👤 김기사·박기사');
   assert.strictEqual(lines[2], '공동현관비번: 0000*');
   assert.strictEqual(Share.buildShare(full(), ['name', 'date', 'pwLobby']).split('\n').length, 2);
-  assert.strictEqual(Share.buildShare(s, ['name', 'pwLobby']).split('\n')[1], '👤 김기사·박기사', '날짜 체크를 안 해도 인원은 나감');
+  assert.strictEqual(Share.buildShare(s, ['name', 'pwLobby']).indexOf('👤'), -1, '시공날짜를 체크 안 하면 인원 줄도 안 나간다');
 });
 
 console.log('필요 인원 (총 필요 인원 대비 날짜별 배치)');

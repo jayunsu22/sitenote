@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260926b">
+  <link rel="stylesheet" href="style.css?v=20260926c">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -100,6 +100,13 @@
     <div id="colorPicker" class="color-picker" hidden></div>
     <div id="siteFields" class="site-fields"></div>
     <div class="copy-bar">
+      <!-- 탭으로 나뉜 뒤로는 안 보이는 탭의 칸도 체크돼 있어서 '전체가 복사된다' 고 느껴진다.
+           지금 몇 개가 체크돼 있는지 보여주고, 한 번에 끄고 켜는 길을 둔다 -->
+      <div class="copy-pick">
+        <span id="copyPickCount">공유 항목</span>
+        <button id="btnPickNone" class="copy-pick-btn">전체 해제</button>
+        <button id="btnPickAll" class="copy-pick-btn">전체 선택</button>
+      </div>
       <!-- 입력은 칸마다 즉시 자동저장되지만, 눌러서 확인할 수 있는 저장 버튼을 따로 둔다.
            (누르면 키보드를 내리고, 백업 대기분을 기다리지 않고 바로 보낸 뒤 결과를 알려준다) -->
       <button id="btnSaveSite" class="btn-save">💾 저장</button>
@@ -290,8 +297,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260926b"></script>
-  <script src="store.js?v=20260926b"></script>
-  <script src="app.js?v=20260926b"></script>
+  <script src="share.js?v=20260926c"></script>
+  <script src="store.js?v=20260926c"></script>
+  <script src="app.js?v=20260926c"></script>
 </body>
 </html>

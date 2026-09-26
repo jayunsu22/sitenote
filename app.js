@@ -580,7 +580,8 @@
     /* 인원 보기: 그날 나가는 사람 이름을 한 줄에 하나씩. 세 명이면 세 줄이다 —
        '누가 가 있나' 를 세지 않고 바로 읽으려고 이름을 그대로 편다 (칸은 늘어난다).
        아무도 안 붙은 날이 제일 급하다 — 빨간 '미배정'.
-       필요 인원을 정해 둔 현장인데 모자라면 이름 아래에 빨간 '-2명' */
+       몇 명 모자란지는 칸에 안 적는다 — 이름만 보려는 화면이라 숫자가 끼면 읽기 나쁘다
+       (모자란 수는 칸을 길게 눌렀을 때 뜨는 설명과 현장 카드에 있다) */
     var st = o.staff;
     if (calShow === 'staff' && n) {
       mark.className = 'schcal-nm' + (past ? ' past' : '');
@@ -594,11 +595,6 @@
           l.className = 'schcal-nml'; l.textContent = nm;
           mark.appendChild(l);
         });
-      }
-      if (st && st.short) {
-        var sh = document.createElement('span');
-        sh.className = 'schcal-nml short'; sh.textContent = '-' + st.short + '명';
-        mark.appendChild(sh);
       }
     }
     else if (calShow === 'region' && rgs.length) {
@@ -1197,6 +1193,7 @@
     sec('etc', 'svcSec', renderServiceSection);
     pickSiteTab(siteTab, false);
     paintSiteStatus();
+    paintCopyPick();
   }
 
   var SITE_TABS = [
@@ -1814,7 +1811,9 @@
     // 현장명은 '군포 우륵아파트 704동 606호 30평' 처럼 길어지므로 같이 내린다.
     row.className = 'frow' + (f.key === 'name' ? ' frow-name frow-wide' : '') + (WIDE_TYPES[f.type] ? ' frow-wide' : '');
     var cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'fcheck';
-    cb.checked = !!checked[f.key]; cb.onchange = function () { checked[f.key] = cb.checked; };
+    cb.dataset.key = f.key;
+    cb.checked = !!checked[f.key];
+    cb.onchange = function () { checked[f.key] = cb.checked; paintCopyPick(); };
     // 현장명·달력지역은 공유 문구에 안 나가는 칸이라 고를 체크박스가 필요 없다
     if (f.key === 'name' || f.key === 'calRegion') cb.style.visibility = 'hidden';
     var label = document.createElement('div'); label.className = 'flabel'; label.textContent = f.label;
@@ -1951,6 +1950,25 @@
 
   // ---------- 복사 버튼 ----------
   function checkedKeys() { return Object.keys(checked).filter(function (k) { return checked[k]; }); }
+  /* 지금 몇 개를 고른 건지 보여 준다. 탭을 나눈 뒤로는 다른 탭의 칸이 체크돼 있어도
+     눈에 안 보여서, 고른 것만 복사했는데도 '전체가 복사됐다' 고 읽힌다 */
+  function paintCopyPick() {
+    var el = $('copyPickCount'); if (!el) return;
+    var s = Store.getSite(currentSiteId);
+    var n = s ? checkedKeys().filter(function (k) { return !Share.isEmpty(s, k); }).length : 0;
+    el.textContent = '공유 항목 ' + n + '개';
+    el.className = n ? '' : 'none';
+  }
+  function setAllChecked(on) {
+    Share.FIELDS.forEach(function (f) { checked[f.key] = on && f.key !== 'name'; });
+    document.querySelectorAll('#siteFields .fcheck').forEach(function (cb) {
+      var k = cb.dataset.key;
+      cb.checked = !!checked[k];
+    });
+    paintCopyPick();
+  }
+  $('btnPickAll').onclick = function () { setAllChecked(true); };
+  $('btnPickNone').onclick = function () { setAllChecked(false); };
   // 저장 버튼 - 칸마다 이미 자동저장되고 있지만, 눌러서 확인할 수 있게 둔 버튼.
   // 실제로 하는 일: 키보드 내리기(마지막 입력 확정) + 백업 대기분을 3초 기다리지 않고 바로 전송.
   function saveNow() {
