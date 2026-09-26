@@ -185,7 +185,8 @@ textarea { resize: vertical; }
 .site-fields { padding-top: 0; background: var(--bg); }
 .site-head { background: var(--card); padding: 12px 14px 12px; }
 .sh-name { font-size: 18px; font-weight: 900; line-height: 1.3; word-break: keep-all; }
-.sh-sub { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 14px; font-weight: 800; color: #374151; }
+.sh-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 5px; font-size: 14px; font-weight: 800; color: #374151; }
+.sh-when { white-space: nowrap; }   /* 날짜가 '9/27 일 – 10/1 목 · 5일' 처럼 길어도 한 줄로 */
 .sh-dday { padding: 1px 9px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12.5px; }
 .sh-dday.done { background: #e5e7eb; color: var(--muted); }
 .sh-client { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -612,3 +613,8 @@ textarea { resize: vertical; }
 .sec .day-row.day-c5 { border-color: #5eead4; background: #f0fdfa; }
 .sec .day-row.day-c5 .day-label { color: #0f766e; }
 .sec .day-row .chip { background: #fff; }
+/* 현장 머리글의 거래처명 — 누르면 그 업체 현장 목록으로 간다 (누를 수 있게 테두리를 준다) */
+.sh-client { margin-left: auto; flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--card);
+  padding: 3px 10px; font-size: 12.5px; font-weight: 800; color: #374151; }
+.sh-client:active { background: var(--bg); }

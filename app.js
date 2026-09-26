@@ -1266,8 +1266,18 @@
     var nm = document.createElement('div'); nm.className = 'sh-name'; nm.textContent = Share.titleLine(s);
     var sub = document.createElement('div'); sub.className = 'sh-sub';
     sub.innerHTML = '<span class="sh-when">📅 ' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
-      (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '') +
-      '<span class="sh-client">' + esc(client ? client.name : '') + '</span>';
+      (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '');
+    // 거래처명을 누르면 그 업체 탭이 열린 거래처 화면으로 (같은 업체의 다른 현장을 바로 본다)
+    if (client) {
+      var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'sh-client';
+      cb.textContent = client.name; cb.title = '이 업체의 현장 목록 보기';
+      cb.onclick = function () {
+        currentClientId = client.id;
+        if (state.settings.lastTab !== client.id) Store.setSettings({ lastTab: client.id });
+        go('');
+      };
+      sub.appendChild(cb);
+    }
     // 상태 알약 줄은 뺐다 (2026-09-26) — 탭 이름 옆 빨간 점이면 '여기 볼 게 있다' 는 걸 알기에 넉넉하고,
     // 알약이 두 줄로 늘어나 정작 봐야 할 칸이 아래로 밀렸다. 판정(siteStatus)은 그 점에 그대로 쓴다
     head.appendChild(nm); head.appendChild(sub);
