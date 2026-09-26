@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260926c">
+  <link rel="stylesheet" href="style.css?v=20260926d">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -181,6 +181,8 @@
       <div class="settings-section">
         <h2>정보</h2>
         <p class="hint">데이터는 이 폰 안에 저장되고, 백업키가 있으면 변경 3초 뒤 Airtable로 조용히 백업됩니다.</p>
+        <!-- 폰이 옛 화면을 그대로 들고 있는지 여기서 확인한다 (앱 파일 버전) -->
+        <p class="hint" id="appVer">버전 —</p>
       </div>
     </div>
   </section>
@@ -297,8 +299,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260926c"></script>
-  <script src="store.js?v=20260926c"></script>
-  <script src="app.js?v=20260926c"></script>
+  <script src="share.js?v=20260926d"></script>
+  <script src="store.js?v=20260926d"></script>
+  <script src="app.js?v=20260926d"></script>
 </body>
 </html>

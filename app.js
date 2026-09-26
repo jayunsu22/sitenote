@@ -1149,9 +1149,11 @@
 
   function renderSite() {
     var s = Store.getSite(currentSiteId); if (!s) { go(''); return; }
-    // 체크박스 초기값: 현장명 빼고 전부 체크 (질문/공유 버튼이 빈/채움으로 자동 분리)
+    /* 체크박스 초기값: 전부 꺼짐 (2026-09-26).
+       탭으로 나뉜 뒤로는 안 보이는 탭의 칸까지 켜져 있어서, 두어 개만 고른 줄 알고
+       복사하면 전부 따라 나왔다. 이제 고른 것만 나간다 — 늘 쓰는 묶음은 [전체 선택] 한 번 */
     checked = {};
-    Share.FIELDS.forEach(function (f) { checked[f.key] = f.key !== 'name'; });
+    Share.FIELDS.forEach(function (f) { checked[f.key] = false; });
     $('siteTitle').textContent = Share.titleLine(s);
     $('colorPicker').hidden = true;
     renderColorPicker(s);
@@ -2076,8 +2078,17 @@
   bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
 
+  /* 앱 파일 버전 — 폰이 새 화면을 받았는지 설정에서 눈으로 확인한다.
+     index.html 의 app.js?v=… 를 그대로 읽어 온다 (따로 적어 두면 어긋난다) */
+  function appVersion() {
+    var sc = [].slice.call(document.scripts).map(function (x) { return x.src || ''; })
+      .filter(function (u) { return u.indexOf('app.js') !== -1; })[0] || '';
+    var m = /[?&]v=([^&]+)/.exec(sc);
+    return m ? m[1] : '';
+  }
   function renderSettings() {
     $('backupKey').value = state.settings.backupKey || '';
+    if ($('appVer')) $('appVer').textContent = '버전 ' + (appVersion() || '—');
     renderSyncStatus();
     renderTeamList();
     renderSupplyDefaultList();
