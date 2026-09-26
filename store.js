@@ -34,7 +34,7 @@
       backupKey: '',
       lastTab: '',
       lastView: 'main',          // 앱을 다시 열 때 보여줄 화면: main | schedule
-      calShow: 'count',          // 일정 달력 칸에 뭘 보여줄까: count(건수) | region(시공지역)
+      calShow: 'count',          // 일정 달력 칸에 뭘 보여줄까: count(건수) | region(시공지역) | staff(인원)
       team: [],                  // 팀원 명단 (이름 문자열)
       people: {},                // 팀원 연락처·차량 { 이름: { phone, car } } — 이름으로 찾는다
       supplyDefaults: ['본드', '장갑']  // 새 현장에 자동으로 깔리는 부자재

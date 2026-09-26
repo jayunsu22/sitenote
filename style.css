@@ -371,6 +371,18 @@ textarea { resize: vertical; }
    .past 를 뒤에 둬서 지난 날은 빨강이 아니라 회색으로 남는다 */
 .schcal-n.many { background: var(--danger); }
 .schcal-n.past { background: var(--border); color: #4b5563; }
+/* 인원 보기 배지 — '나가는 사람/필요 인원'. 모자라면 빨강, 채웠으면 초록,
+   아무도 안 붙은 날은 빨간 0 (제일 급한 날). 필요 인원을 안 정한 날은 회색 */
+.schcal-st { min-width: 19px; height: 19px; padding: 0 4px; box-sizing: border-box; border-radius: 999px;
+  background: #e5e7eb; color: #374151; font-size: 10.5px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; white-space: nowrap; }
+.schcal-st.ok { background: var(--success); color: #fff; }
+.schcal-st.short, .schcal-st.none { background: var(--danger); color: #fff; }
+.schcal-st.past { background: var(--border); color: #4b5563; }
+.schcal-cell.today .schcal-st { background: #fff; color: var(--primary-dark); }
+.schcal-cell.today .schcal-st.short, .schcal-cell.today .schcal-st.none { background: #fff; color: var(--danger); }
+.schcal-cell.today .schcal-st.ok { background: #fff; color: #166534; }
+.schcal-grid .schcal-st { min-width: 17px; height: 17px; padding: 0 3px; font-size: 9.5px; }
 .schcal-free { width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box; }
 .schcal-blank { width: 19px; height: 19px; }
 .schcal-cell.today .schcal-free { border-color: rgba(255,255,255,0.7); }

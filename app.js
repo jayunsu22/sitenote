@@ -506,7 +506,8 @@
   var SCHEDULE_DAYS = 30;
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
-  var calShow = 'count';   // 달력 칸에 건수를 볼까 시공지역을 볼까 (설정에 기억해 둔다)
+  var calShow = 'count';   // 달력 칸에 건수 / 시공지역 / 인원 중 뭘 볼까 (설정에 기억해 둔다)
+  var CAL_SHOWS = ['count', 'region', 'staff'];
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
@@ -536,7 +537,7 @@
 
   function renderSchedule() {
     // 폰에 기억해 둔 보기 방식을 그린다 (다른 기기에서 바꾼 게 restore 로 들어와도 맞춘다)
-    calShow = (state.settings.calShow === 'region') ? 'region' : 'count';
+    calShow = CAL_SHOWS.indexOf(state.settings.calShow) !== -1 ? state.settings.calShow : 'count';
     renderScheduleCal();
     renderScheduleList();
   }
@@ -576,7 +577,15 @@
     var rgs = o.regions || [];
     // 지역 보기: 건수 자리에 동네 이름. 일은 있는데 현장명에 지역이 없으면
     // 건수를 그대로 보여준다 — 빈 동그라미를 띄우면 '일 없는 날' 로 읽힌다
-    if (calShow === 'region' && rgs.length) {
+    // 인원 보기: 그날 나가는 사람 / 필요 인원. 모자라면 빨강, 채웠으면 초록.
+    // 일이 있는데 아무도 안 붙은 날이 제일 급하다 — 그 날은 '0' 을 빨갛게 띄운다.
+    // 필요 인원을 안 정한 현장뿐인 날은 견줄 기준이 없어서 사람 수만 회색으로 둔다
+    var st = o.staff;
+    if (calShow === 'staff' && n) {
+      mark.className = 'schcal-st' + (past ? ' past' : (!st || !st.have ? ' none' : (st.short ? ' short' : (st.need ? ' ok' : ' plain'))));
+      mark.textContent = (st && st.need) ? (st.have + '/' + st.need) : String((st && st.have) || 0);
+    }
+    else if (calShow === 'region' && rgs.length) {
       // 동네 이름은 두 줄까지 넣는다 (칸이 52×48, 한 줄 10px 이라 둘은 들어간다).
       // 셋 이상이면 둘째 줄에 '+N' - 전체 이름은 칸을 길게 누르면 뜬다.
       // 동네가 갈리는 날은 빨갛게: 한 번 나가서 두 곳을 도는 날이라 눈에 띄어야 한다
@@ -599,7 +608,9 @@
     b.appendChild(mark);
     b.title = dateLabel(iso) + (o.svc ? ' · AS ' + o.svc + '건' : '') + ' · ' +
       (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') + (rgs.length ? ' — ' + rgs.join(', ') : '')
-         : '현장 없음');
+         : '현장 없음') +
+      (n && st ? ' · 인원 ' + st.have + (st.need ? '/' + st.need + (st.short ? ' (' + st.short + '명 모자람)' : '') : '명') +
+        (st.slots > st.have ? ' · 같은 사람 겹침' : '') : '');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
     b.onclick = function () { if (민직후) return; pickDate(iso); };
     return b;
@@ -706,9 +717,11 @@
   function calShowBtn() {
     var t = document.createElement('button');
     t.type = 'button'; t.className = 'schcal-toggle';
-    t.textContent = calShow === 'count' ? '지역 보기 📍' : '건수 보기 🔢';
+    // 다음에 볼 것을 적는다: 건수 → 지역 → 인원 → 건수
+    var 다음 = { count: '지역 보기 📍', region: '인원 보기 👤', staff: '건수 보기 🔢' };
+    t.textContent = 다음[calShow] || 다음.count;
     t.onclick = function () {
-      calShow = (calShow === 'count') ? 'region' : 'count';
+      calShow = CAL_SHOWS[(CAL_SHOWS.indexOf(calShow) + 1) % CAL_SHOWS.length];
       Store.setSettings({ calShow: calShow });
       renderSchedule();
     };
@@ -726,6 +739,7 @@
     var counts = Share.dateCounts(state.sites);
     var regions = Share.dateRegions(state.sites);
     var svcs = Share.dateServices(state.sites);   // AS 가 잡힌 날 — 날짜 옆에 빨간 !
+    var staffs = Share.dateStaff(state.sites);   // 인원 보기 — 그날 나가는 사람 / 필요 인원
     if (calMode === 'week') {
       if (!calWeek) calWeek = sundayOf(Share.todayIso());
       var wEnd = Share.addDays(calWeek, 6);
@@ -760,7 +774,7 @@
       var strip = document.createElement('div'); strip.className = 'schcal-week';
       for (var i = 0; i < 7; i++) {
         var iso = Share.addDays(calWeek, i);
-        strip.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso], svc: svcs[iso] || 0, weekday: true }));
+        strip.appendChild(calCell(iso, { count: counts[iso] || 0, regions: regions[iso], svc: svcs[iso] || 0, staff: staffs[iso], weekday: true }));
       }
       box.appendChild(swipeBox(strip,
         function () { calWeek = Share.addDays(calWeek, -7); renderSchedule(); },
@@ -802,7 +816,7 @@
       Share.monthGridFull(y, mo).forEach(function (week) {
         week.forEach(function (iso) {
           grid.appendChild(calCell(iso, {
-            count: counts[iso] || 0, regions: regions[iso], svc: svcs[iso] || 0, out: ymOf(iso) !== calMonth
+            count: counts[iso] || 0, regions: regions[iso], svc: svcs[iso] || 0, staff: staffs[iso], out: ymOf(iso) !== calMonth
           }));
         });
       });

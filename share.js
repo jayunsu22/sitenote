@@ -351,6 +351,39 @@
     return out;
   }
 
+  /* ---------- 날짜별 인원 (2026-09-26) ----------
+     달력 '인원 보기' 칸에 쓴다. 그날 사람을 붙여 놨는지, 몇 명 모자란지가 한눈에 보여야
+     미리 부를 수 있다 — 전날 밤에 알면 늦다.
+       have  그날 나가는 사람 수 (같은 사람이 두 현장이면 한 명으로 센다 — 몸은 하나다)
+       need  그날 현장들의 필요 인원 합 (안 정한 현장은 0)
+       short 모자란 수 (need 가 0인 현장뿐이면 0)
+       slots 배치 칸 수 (겹쳐 부른 걸 알아보려고 — slots > have 면 같은 사람을 두 번 넣었다)
+     AS·추가작업에 붙인 사람도 그날 나가는 사람이라 have 에 넣는다 (필요 인원은 안 따진다) */
+  function dateStaff(sites) {
+    var out = {};
+    var add = function (date, names, need) {
+      if (!isIsoDate(date)) return;
+      var r = out[date] || (out[date] = { have: 0, need: 0, short: 0, slots: 0, _seen: {} });
+      r.need += need || 0;
+      names.forEach(function (n) {
+        r.slots += 1;
+        var k = n.replace(/\s+/g, '');
+        if (!r._seen[k]) { r._seen[k] = 1; r.have += 1; }
+      });
+    };
+    (sites || []).forEach(function (s) {
+      var need = needStaffOf(s);
+      daysOf(s).forEach(function (d) { add(str(d.date), staffOf(d), need); });
+      servicesOf(s).forEach(function (v) { add(str(v.date), staffOf(v), 0); });
+    });
+    Object.keys(out).forEach(function (date) {
+      var r = out[date];
+      delete r._seen;
+      r.short = r.need ? Math.max(0, r.need - r.have) : 0;
+    });
+    return out;
+  }
+
   /* ---------- AS·추가작업 (2026-09-24) ----------
      끝난 현장에 AS 요청이나 추가작업이 오면 새 현장을 만들지 않고 그 현장 안에 쌓는다.
      비번·주차·필름번호·업자 담당자가 이미 그 현장에 있어서 새로 적을 게 없다.
@@ -836,6 +869,7 @@
     servicesOf: servicesOf,
     serviceLabel: serviceLabel,
     dateServices: dateServices,
+    dateStaff: dateStaff,
     upcomingServices: upcomingServices,
     waitingServices: waitingServices,
     openServiceCount: openServiceCount,
