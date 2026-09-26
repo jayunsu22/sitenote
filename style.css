@@ -371,18 +371,6 @@ textarea { resize: vertical; }
    .past 를 뒤에 둬서 지난 날은 빨강이 아니라 회색으로 남는다 */
 .schcal-n.many { background: var(--danger); }
 .schcal-n.past { background: var(--border); color: #4b5563; }
-/* 인원 보기 배지 — '나가는 사람/필요 인원'. 모자라면 빨강, 채웠으면 초록,
-   아무도 안 붙은 날은 빨간 0 (제일 급한 날). 필요 인원을 안 정한 날은 회색 */
-.schcal-st { min-width: 19px; height: 19px; padding: 0 4px; box-sizing: border-box; border-radius: 999px;
-  background: #e5e7eb; color: #374151; font-size: 10.5px; font-weight: 800;
-  display: inline-flex; align-items: center; justify-content: center; line-height: 1; white-space: nowrap; }
-.schcal-st.ok { background: var(--success); color: #fff; }
-.schcal-st.short, .schcal-st.none { background: var(--danger); color: #fff; }
-.schcal-st.past { background: var(--border); color: #4b5563; }
-.schcal-cell.today .schcal-st { background: #fff; color: var(--primary-dark); }
-.schcal-cell.today .schcal-st.short, .schcal-cell.today .schcal-st.none { background: #fff; color: var(--danger); }
-.schcal-cell.today .schcal-st.ok { background: #fff; color: #166534; }
-.schcal-grid .schcal-st { min-width: 17px; height: 17px; padding: 0 3px; font-size: 9.5px; }
 .schcal-free { width: 19px; height: 19px; border-radius: 999px; border: 1.5px dashed #cbd5e1; box-sizing: border-box; }
 .schcal-blank { width: 19px; height: 19px; }
 .schcal-cell.today .schcal-free { border-color: rgba(255,255,255,0.7); }
@@ -580,3 +568,22 @@ textarea { resize: vertical; }
 .svc-req-big { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 8px; word-break: keep-all; }
 .svc-who-line { font-size: 13.5px; color: #334155; }
 .svc-who-line.none { color: var(--danger); font-weight: 700; }
+/* 인원 보기 — 이름을 한 줄에 하나씩. 세 명이면 세 줄이라 칸이 늘어난다.
+   달력 한 줄의 높이는 그 줄에서 사람이 제일 많은 날에 맞춰진다 */
+.schcal-nm { max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 10px; font-weight: 800; line-height: 1.15; color: var(--primary-dark); }
+.schcal-nml { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schcal-nml.none, .schcal-nml.short { color: var(--danger); }
+.schcal-nm.past { color: #9ca3af; }
+.schcal-nm.past .schcal-nml.none, .schcal-nm.past .schcal-nml.short { color: #c4a3a3; }
+.schcal-cell.today .schcal-nm { color: #fff; }
+.schcal-cell.today .schcal-nml.none, .schcal-cell.today .schcal-nml.short { color: #ffe4e6; }
+.schcal-cell.picked .schcal-nm { color: #1e3a8a; }
+.schcal-grid .schcal-nm { font-size: 9px; }
+/* 건수·지역·인원 — 보고 있는 것에 불이 켜진다 */
+.schcal-footbox { border-top: 1px solid #f3f4f6; }
+.schcal-segs { display: flex; gap: 6px; padding: 8px 10px 2px; }
+.schcal-seg { flex: 1; min-width: 0; border: 1.5px solid var(--border); border-radius: 999px; background: var(--card);
+  padding: 8px 0; font-size: 12.5px; font-weight: 800; color: #4b5563; white-space: nowrap; }
+.schcal-seg.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.schcal-footbox .schcal-foot { border-top: 0; }

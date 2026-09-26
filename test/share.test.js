@@ -391,27 +391,28 @@ test('dateStaff: 그날 사람 수·필요 인원 합·모자란 수', () => {
   const a = Object.assign(blank(), { id: 'a', needStaff: 4, days: [{ date: '2026-09-28', staff: ['김기사', '박기사'] }] });
   const b = Object.assign(blank(), { id: 'b', needStaff: 3, days: [{ date: '2026-09-28', staff: ['최기사'] }] });
   assert.deepStrictEqual(Share.dateStaff([a, b]), {
-    '2026-09-28': { have: 3, need: 7, short: 4, slots: 3 }
+    '2026-09-28': { names: ['김기사', '박기사', '최기사'], have: 3, need: 7, short: 4, slots: 3 }
   });
 });
 test('dateStaff: 같은 사람이 두 현장이면 한 명 (slots 로 겹침을 알 수 있다)', () => {
   const a = Object.assign(blank(), { id: 'a', needStaff: 1, days: [{ date: '2026-09-28', staff: ['김기사'] }] });
   const b = Object.assign(blank(), { id: 'b', needStaff: 1, days: [{ date: '2026-09-28', staff: ['김 기사'] }] });
   const r = Share.dateStaff([a, b])['2026-09-28'];
+  assert.deepStrictEqual(r.names, ['김기사'], '이름도 한 번만');
   assert.strictEqual(r.have, 1, '몸은 하나');
   assert.strictEqual(r.slots, 2);
   assert.strictEqual(r.short, 1);
 });
 test('dateStaff: 필요 인원을 안 정한 현장은 need 0, short 0', () => {
   const a = Object.assign(blank(), { id: 'a', days: [{ date: '2026-09-28', staff: [] }] });
-  assert.deepStrictEqual(Share.dateStaff([a]), { '2026-09-28': { have: 0, need: 0, short: 0, slots: 0 } });
+  assert.deepStrictEqual(Share.dateStaff([a]), { '2026-09-28': { names: [], have: 0, need: 0, short: 0, slots: 0 } });
 });
 test('dateStaff: AS 인원도 그날 나가는 사람 (필요 인원엔 안 더한다)', () => {
   const a = Object.assign(blank(), {
     id: 'a', needStaff: 2, days: [{ date: '2026-09-28', staff: ['김기사'] }],
     services: [{ id: 'v1', kind: 'AS', request: 'x', date: '2026-09-28', staff: ['최기사'], done: false, createdAt: 1 }]
   });
-  assert.deepStrictEqual(Share.dateStaff([a])['2026-09-28'], { have: 2, need: 2, short: 0, slots: 2 });
+  assert.deepStrictEqual(Share.dateStaff([a])['2026-09-28'], { names: ['김기사', '최기사'], have: 2, need: 2, short: 0, slots: 2 });
 });
 test('dateStaff: 날짜 없는 줄·빈 목록은 건너뛴다', () => {
   const a = Object.assign(blank(), { id: 'a', needStaff: 2, days: [{ date: '', staff: ['김기사'] }] });

@@ -354,6 +354,7 @@
   /* ---------- 날짜별 인원 (2026-09-26) ----------
      달력 '인원 보기' 칸에 쓴다. 그날 사람을 붙여 놨는지, 몇 명 모자란지가 한눈에 보여야
      미리 부를 수 있다 — 전날 밤에 알면 늦다.
+       names 그날 나가는 사람 이름 (넣은 순서, 같은 사람은 한 번)
        have  그날 나가는 사람 수 (같은 사람이 두 현장이면 한 명으로 센다 — 몸은 하나다)
        need  그날 현장들의 필요 인원 합 (안 정한 현장은 0)
        short 모자란 수 (need 가 0인 현장뿐이면 0)
@@ -363,12 +364,12 @@
     var out = {};
     var add = function (date, names, need) {
       if (!isIsoDate(date)) return;
-      var r = out[date] || (out[date] = { have: 0, need: 0, short: 0, slots: 0, _seen: {} });
+      var r = out[date] || (out[date] = { names: [], have: 0, need: 0, short: 0, slots: 0, _seen: {} });
       r.need += need || 0;
       names.forEach(function (n) {
         r.slots += 1;
         var k = n.replace(/\s+/g, '');
-        if (!r._seen[k]) { r._seen[k] = 1; r.have += 1; }
+        if (!r._seen[k]) { r._seen[k] = 1; r.have += 1; r.names.push(n); }
       });
     };
     (sites || []).forEach(function (s) {

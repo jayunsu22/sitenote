@@ -577,13 +577,29 @@
     var rgs = o.regions || [];
     // 지역 보기: 건수 자리에 동네 이름. 일은 있는데 현장명에 지역이 없으면
     // 건수를 그대로 보여준다 — 빈 동그라미를 띄우면 '일 없는 날' 로 읽힌다
-    // 인원 보기: 그날 나가는 사람 / 필요 인원. 모자라면 빨강, 채웠으면 초록.
-    // 일이 있는데 아무도 안 붙은 날이 제일 급하다 — 그 날은 '0' 을 빨갛게 띄운다.
-    // 필요 인원을 안 정한 현장뿐인 날은 견줄 기준이 없어서 사람 수만 회색으로 둔다
+    /* 인원 보기: 그날 나가는 사람 이름을 한 줄에 하나씩. 세 명이면 세 줄이다 —
+       '누가 가 있나' 를 세지 않고 바로 읽으려고 이름을 그대로 편다 (칸은 늘어난다).
+       아무도 안 붙은 날이 제일 급하다 — 빨간 '미배정'.
+       필요 인원을 정해 둔 현장인데 모자라면 이름 아래에 빨간 '-2명' */
     var st = o.staff;
     if (calShow === 'staff' && n) {
-      mark.className = 'schcal-st' + (past ? ' past' : (!st || !st.have ? ' none' : (st.short ? ' short' : (st.need ? ' ok' : ' plain'))));
-      mark.textContent = (st && st.need) ? (st.have + '/' + st.need) : String((st && st.have) || 0);
+      mark.className = 'schcal-nm' + (past ? ' past' : '');
+      if (!st || !st.have) {
+        var none = document.createElement('span');
+        none.className = 'schcal-nml none'; none.textContent = '미배정';
+        mark.appendChild(none);
+      } else {
+        st.names.forEach(function (nm) {
+          var l = document.createElement('span');
+          l.className = 'schcal-nml'; l.textContent = nm;
+          mark.appendChild(l);
+        });
+      }
+      if (st && st.short) {
+        var sh = document.createElement('span');
+        sh.className = 'schcal-nml short'; sh.textContent = '-' + st.short + '명';
+        mark.appendChild(sh);
+      }
     }
     else if (calShow === 'region' && rgs.length) {
       // 동네 이름은 두 줄까지 넣는다 (칸이 52×48, 한 줄 10px 이라 둘은 들어간다).
@@ -712,26 +728,33 @@
     return t;
   }
 
-  /* 건수 ↔ 시공지역. AS 를 나갈 때 '그날 어느 동네인가' 가 보여야 같은 동네 일에
-     붙여서 잡을 수 있다. 어느 쪽을 보고 있었는지는 폰에 기억해 둔다 */
-  function calShowBtn() {
-    var t = document.createElement('button');
-    t.type = 'button'; t.className = 'schcal-toggle';
-    // 다음에 볼 것을 적는다: 건수 → 지역 → 인원 → 건수
-    var 다음 = { count: '지역 보기 📍', region: '인원 보기 👤', staff: '건수 보기 🔢' };
-    t.textContent = 다음[calShow] || 다음.count;
-    t.onclick = function () {
-      calShow = CAL_SHOWS[(CAL_SHOWS.indexOf(calShow) + 1) % CAL_SHOWS.length];
-      Store.setSettings({ calShow: calShow });
-      renderSchedule();
-    };
-    return t;
+  /* 건수 · 지역 · 인원 — 셋을 나란히 두고 보고 있는 것에 불을 켠다.
+     돌려 가며 누르는 버튼 하나로는 지금 뭘 보고 있는지, 뭘 더 볼 수 있는지 모른다.
+     어느 쪽을 보고 있었는지는 폰에 기억해 둔다 */
+  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤' };
+  function calShowRow() {
+    var row = document.createElement('div'); row.className = 'schcal-segs';
+    CAL_SHOWS.forEach(function (k) {
+      var t = document.createElement('button');
+      t.type = 'button'; t.className = 'schcal-seg' + (calShow === k ? ' on' : '');
+      t.textContent = CAL_SHOW_LABEL[k];
+      t.onclick = function () {
+        if (calShow === k) return;
+        calShow = k;
+        Store.setSettings({ calShow: k });
+        renderSchedule();
+      };
+      row.appendChild(t);
+    });
+    return row;
   }
   function calFoot() {
+    var box = document.createElement('div'); box.className = 'schcal-footbox';
+    box.appendChild(calShowRow());
     var row = document.createElement('div'); row.className = 'schcal-foot';
     row.appendChild(calToggleBtn());
-    row.appendChild(calShowBtn());
-    return row;
+    box.appendChild(row);
+    return box;
   }
 
   function renderScheduleCal() {
