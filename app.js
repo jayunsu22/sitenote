@@ -621,8 +621,7 @@
     b.title = dateLabel(iso) + (o.svc ? ' · AS ' + o.svc + '건' : '') + ' · ' +
       (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') + (rgs.length ? ' — ' + rgs.join(', ') : '')
          : '현장 없음') +
-      (n && st ? ' · 인원 ' + st.have + (st.need ? '/' + st.need + (st.short ? ' (' + st.short + '명 모자람)' : '') : '명') +
-        (st.slots > st.have ? ' · 같은 사람 겹침' : '') : '');
+      (n && st && st.have ? ' · 인원 ' + st.have + '명' + (st.slots > st.have ? ' (같은 사람 겹침)' : '') : '');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
     b.onclick = function () { if (민직후) return; pickDate(iso); };
     return b;
@@ -1227,11 +1226,10 @@
     st.info = { warn: empty.length > 0, pill: empty.length ? '🚪 ' + empty.length + '칸 빔' : '🚪 출입 ✓', tone: empty.length ? 'amber' : 'green' };
     // 일정·인원
     var dated = s.days.filter(function (d) { return Share.isIsoDate(d.date); });
-    var need = Share.needStaffOf(s), shortDays = Share.shortStaffDays(s);
-    var have = s.days.length ? Math.min.apply(null, s.days.map(function (d) { return d.staff.length; })) : 0;
+    var ss = Share.staffStatus(s);
     if (!dated.length) st.staff = { warn: true, pill: '📅 날짜 미정', tone: 'red' };
-    else if (need) st.staff = { warn: shortDays.length > 0, pill: '👤 ' + have + '/' + need + (shortDays.length ? '' : ' ✓'), tone: shortDays.length ? 'red' : 'green' };
-    else st.staff = { warn: have === 0, pill: have ? '👤 ' + have + '명' : '👤 미배정', tone: have ? 'gray' : 'red' };
+    else if (ss.need) st.staff = { warn: ss.short > 0, pill: '👤 ' + ss.have + '/' + ss.need + (ss.short ? '' : ' ✓'), tone: ss.short ? 'red' : 'green' };
+    else st.staff = { warn: ss.have === 0, pill: ss.have ? '👤 ' + ss.have + '명' : '👤 미배정', tone: ss.have ? 'gray' : 'red' };
     // 필름
     var k = Share.filmStageOf(s), last = Share.FILM_STAGES.length - 1;
     st.film = { warn: k < last, pill: '🎞 ' + Share.FILM_STAGES[k].replace('필름 ', ''), tone: k === last ? 'green' : (k === 0 ? 'red' : 'amber') };
@@ -1354,16 +1352,25 @@
   function dayLabel(i, date) {
     return (i + 1) + '일차' + (date ? ' ' + Share.shortDate(date) : '');
   }
-  // 배치/필요 인원 뱃지 — '3/3'(초록) '1/3'(빨강) '4/3'(파랑), 필요 인원을 안 정했으면 '3명'(회색)
-  // 현장 상세와 일정 화면에서 같이 쓴다
+  /* 그날 들어간 사람 수 뱃지 — '5명'. 필요 인원은 현장 전체를 두고 정하는 수라
+     날짜 줄에서는 견주지 않는다 (합계는 아래 staffTotalBadge 가 보여 준다) */
   function staffCountBadge(site, dayIndex, big) {
-    var st = Share.staffStatus(site, dayIndex);
+    var n = Share.dayStaffCount(site, dayIndex);
+    var el = document.createElement('span');
+    el.className = 'cnt' + (big ? ' lg' : '') + (n ? ' day' : ' short');
+    el.textContent = Share.staffCountLabel(site, dayIndex);
+    el.title = '이 날 ' + n + '명';
+    return el;
+  }
+  // 현장 전체 배치/필요 뱃지 — '10/10'(초록) '6/10'(빨강) '12/10'(파랑)
+  function staffTotalBadge(site, big) {
+    var st = Share.staffStatus(site);
     var cls = 'cnt' + (big ? ' lg' : '');
     if (st.need) cls += st.short ? ' short' : (st.over ? ' over' : ' ok');
     else if (!st.have) cls += ' short';
     var el = document.createElement('span'); el.className = cls;
-    el.textContent = Share.staffCountLabel(site, dayIndex);
-    el.title = st.need ? '배치 ' + st.have + '명 / 필요 ' + st.need + '명' + (st.short ? ' — ' + st.short + '명 부족' : '') : '배치 ' + st.have + '명';
+    el.textContent = Share.staffTotalLabel(site);
+    el.title = st.need ? '다 더해 ' + st.have + '명 / 필요 ' + st.need + '명' + (st.short ? ' — ' + st.short + '명 더 필요' : '') : '다 더해 ' + st.have + '명';
     return el;
   }
   // 현장 상세: 총 필요 인원 칸 (− ＋ 로 올리고 내린다). 0 이면 '미정'
@@ -1401,27 +1408,35 @@
     box.innerHTML = '<h3 class="sec-title">날짜별 인원</h3>';
     var rerender = function () { renderDaysSection(box, siteId); };
     box.appendChild(needStaffRow(siteId, rerender));
-    var need = Share.needStaffOf(s);
-    var shortDays = Share.shortStaffDays(s);
-    var nh = document.createElement('div'); nh.className = 'sec-empty' + (shortDays.length ? ' warn' : '');
-    nh.textContent = !need ? '총 몇 명이 필요한지 정해두면 날마다 몇 명을 배치할지 계획하기 쉽습니다.'
-      : shortDays.length ? '⚠ ' + shortDays.map(function (r) {
-          return (r.date ? Share.shortDate(r.date) : (r.index + 1) + '일차') + ' ' + r.short + '명 부족';
-        }).join(', ')
-      : '✓ 날마다 ' + need + '명씩 다 채웠습니다.';
+    var ss = Share.staffStatus(s);
+    var nh = document.createElement('div'); nh.className = 'sec-empty' + (ss.short ? ' warn' : '');
+    nh.textContent = !ss.need ? '이 현장에 다 더해 몇 명이 들어가야 하는지 정해두면, 날마다 채워 가며 견줄 수 있습니다.'
+      : ss.short ? '⚠ 다 더해 ' + ss.have + '명 — ' + ss.short + '명 더 넣어야 합니다 (필요 ' + ss.need + '명)'
+      : '✓ 다 더해 ' + ss.have + '명, 필요한 ' + ss.need + '명을 다 채웠습니다.';
     box.appendChild(nh);
+    // 날짜 줄 — 날마다 테두리로 감싸서 누가 어느 날인지 섞이지 않게 한다 (2026-09-26)
     s.days.forEach(function (d, i) {
-      var row = document.createElement('div'); row.className = 'sec-row';
-      var lb = document.createElement('div'); lb.className = 'day-label';
+      var row = document.createElement('div'); row.className = 'sec-row day-row';
+      var head = document.createElement('div'); head.className = 'day-head';
+      var lb = document.createElement('span'); lb.className = 'day-label';
       lb.textContent = d.date ? dayLabel(i, d.date) : '날짜 없음';
+      head.appendChild(lb); head.appendChild(staffCountBadge(s, i, false));
       var chips = document.createElement('div'); chips.className = 'chips';
       renderChips(chips, d.staff, {
         onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
         onAdd: function () { openStaffPicker(siteId, i, rerender); }
       });
-      row.appendChild(lb); row.appendChild(chips); row.appendChild(staffCountBadge(s, i, true));
+      row.appendChild(head); row.appendChild(chips);
       box.appendChild(row);
     });
+    // 합계 줄 — 날짜 줄을 다 더한 수를 필요 인원과 견준다
+    if (s.days.length > 1 || ss.need) {
+      var sum = document.createElement('div'); sum.className = 'sec-row sum-row';
+      var sl = document.createElement('div'); sl.className = 'day-label'; sl.textContent = '다 더해';
+      sum.appendChild(sl); sum.appendChild(document.createElement('span'));
+      sum.appendChild(staffTotalBadge(s, true));
+      box.appendChild(sum);
+    }
     if (!Share.isIsoDate(s.days[0].date)) {
       var hint = document.createElement('div'); hint.className = 'sec-empty';
       hint.textContent = '위 시공날짜 칸에서 날짜를 고르면 날마다 인원을 넣을 수 있습니다.';

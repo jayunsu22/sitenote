@@ -593,3 +593,13 @@ textarea { resize: vertical; }
 .copy-pick > span.none { color: var(--danger); }
 .copy-pick-btn { border: 1.5px solid var(--border); border-radius: 999px; background: var(--card);
   padding: 5px 11px; font-size: 12px; font-weight: 800; color: var(--primary); }
+/* 날짜별 인원 — 날마다 한 덩어리로 묶어 준다. 이름이 여러 줄로 흐르면
+   어느 날 사람인지 섞여 보여서, 테두리와 날짜 머리글로 갈라 놓는다 (2026-09-26) */
+.sec .day-row { display: block; margin: 6px 12px; padding: 8px 10px 10px; border: 1.5px solid var(--border);
+  border-radius: 12px; background: #fbfcfe; }
+.sec .day-row .day-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.sec .day-row .day-head .day-label { width: auto; flex: 1; min-width: 0; font-size: 13.5px; font-weight: 800; color: #1f2937; }
+.sec .day-row .chips { width: 100%; }
+.sec .sum-row { margin-top: 2px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.sec .sum-row .day-label { font-weight: 800; color: #1f2937; }
+.cnt.day { background: #e5e7eb; color: #374151; }

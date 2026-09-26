@@ -211,14 +211,14 @@ test('여러 날 + 필요 인원', () => {
     date: '2026-09-18', needStaff: 2,
     days: [{ date: '2026-09-18', staff: [] }, { date: '2026-09-19', staff: [] }, { date: '2026-10-07', staff: [] }]
   });
-  assert.strictEqual(Share.workSummary(s), '9/18 (3일) 👤 2명');
+  assert.strictEqual(Share.workSummary(s), '9/18 (3일) 👤 0/2명', '아직 아무도 안 넣었으면 0/2');
 });
-test('필요 인원을 안 정했으면 배정한 사람 수 (여러 날 겹치면 한 명)', () => {
+test('필요 인원을 안 정했으면 다 더한 사람 수 (이틀 나오면 두 번 센다)', () => {
   const s = Object.assign(blank(), {
     date: '2026-09-18',
     days: [{ date: '2026-09-18', staff: ['김기사', '박기사'] }, { date: '2026-09-19', staff: ['김기사'] }]
   });
-  assert.strictEqual(Share.workSummary(s), '9/18 (2일) 👤 2명');
+  assert.strictEqual(Share.workSummary(s), '9/18 (2일) 👤 3명');
 });
 test('날짜 안 넣은 2일차 줄은 일수에 안 센다', () => {
   const s = Object.assign(blank(), {
@@ -396,11 +396,11 @@ const as현장 = () => Object.assign(blank(), {
   ]
 });
 console.log('dateStaff (달력 인원 보기)');
-test('dateStaff: 그날 사람 수·필요 인원 합·모자란 수', () => {
+test('dateStaff: 그날 나가는 사람 (필요 인원은 현장 전체 수라 날짜로 안 쪼갠다)', () => {
   const a = Object.assign(blank(), { id: 'a', needStaff: 4, days: [{ date: '2026-09-28', staff: ['김기사', '박기사'] }] });
   const b = Object.assign(blank(), { id: 'b', needStaff: 3, days: [{ date: '2026-09-28', staff: ['최기사'] }] });
   assert.deepStrictEqual(Share.dateStaff([a, b]), {
-    '2026-09-28': { names: ['김기사', '박기사', '최기사'], have: 3, need: 7, short: 4, slots: 3 }
+    '2026-09-28': { names: ['김기사', '박기사', '최기사'], have: 3, slots: 3 }
   });
 });
 test('dateStaff: 같은 사람이 두 현장이면 한 명 (slots 로 겹침을 알 수 있다)', () => {
@@ -409,19 +409,18 @@ test('dateStaff: 같은 사람이 두 현장이면 한 명 (slots 로 겹침을 
   const r = Share.dateStaff([a, b])['2026-09-28'];
   assert.deepStrictEqual(r.names, ['김기사'], '이름도 한 번만');
   assert.strictEqual(r.have, 1, '몸은 하나');
-  assert.strictEqual(r.slots, 2);
-  assert.strictEqual(r.short, 1);
+  assert.strictEqual(r.slots, 2, '두 번 넣은 건 slots 로 안다');
 });
-test('dateStaff: 필요 인원을 안 정한 현장은 need 0, short 0', () => {
+test('dateStaff: 아무도 안 넣은 날도 줄은 있다 (이름만 빈다)', () => {
   const a = Object.assign(blank(), { id: 'a', days: [{ date: '2026-09-28', staff: [] }] });
-  assert.deepStrictEqual(Share.dateStaff([a]), { '2026-09-28': { names: [], have: 0, need: 0, short: 0, slots: 0 } });
+  assert.deepStrictEqual(Share.dateStaff([a]), { '2026-09-28': { names: [], have: 0, slots: 0 } });
 });
-test('dateStaff: AS 인원도 그날 나가는 사람 (필요 인원엔 안 더한다)', () => {
+test('dateStaff: AS 인원도 그날 나가는 사람', () => {
   const a = Object.assign(blank(), {
     id: 'a', needStaff: 2, days: [{ date: '2026-09-28', staff: ['김기사'] }],
     services: [{ id: 'v1', kind: 'AS', request: 'x', date: '2026-09-28', staff: ['최기사'], done: false, createdAt: 1 }]
   });
-  assert.deepStrictEqual(Share.dateStaff([a])['2026-09-28'], { names: ['김기사', '최기사'], have: 2, need: 2, short: 0, slots: 2 });
+  assert.deepStrictEqual(Share.dateStaff([a])['2026-09-28'], { names: ['김기사', '최기사'], have: 2, slots: 2 });
 });
 test('dateStaff: 날짜 없는 줄·빈 목록은 건너뛴다', () => {
   const a = Object.assign(blank(), { id: 'a', needStaff: 2, days: [{ date: '', staff: ['김기사'] }] });
@@ -718,37 +717,43 @@ test('needStaffOf: 숫자만, 0·음수·빈값은 0(미정), 99 넘으면 99', 
   assert.strictEqual(Share.needStaffOf({ needStaff: '가나' }), 0);
   assert.strictEqual(Share.needStaffOf({ needStaff: 500 }), 99);
 });
-test('staffStatus: 모자람 / 딱 맞음 / 넘침 / 필요 인원 미정', () => {
-  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['가', '나'] }, { date: '2026-09-29', staff: ['가', '나', '다'] }, { date: '2026-09-30', staff: ['가', '나', '다', '라'] }] };
-  assert.deepStrictEqual(Share.staffStatus(s, 0), { have: 2, need: 3, short: 1, over: 0, ok: false });
-  assert.deepStrictEqual(Share.staffStatus(s, 1), { have: 3, need: 3, short: 0, over: 0, ok: true });
-  assert.deepStrictEqual(Share.staffStatus(s, 2), { have: 4, need: 3, short: 0, over: 1, ok: true });
-  const n = { days: [{ date: '2026-09-28', staff: ['가'] }, { date: '2026-09-29', staff: [] }] };
-  assert.deepStrictEqual(Share.staffStatus(n, 0), { have: 1, need: 0, short: 0, over: 0, ok: true });
-  assert.deepStrictEqual(Share.staffStatus(n, 1), { have: 0, need: 0, short: 0, over: 0, ok: false });
+test('staffTotal / staffStatus: 필요 인원은 날마다가 아니라 다 더한 수와 견준다', () => {
+  // 1일차 1명 + 2일차 5명 + 3일차 4명 = 10명 → 필요 10명을 다 채운 것 (날마다 10명이 아니다)
+  const s = { needStaff: 10, days: [
+    { date: '2026-09-27', staff: ['이의성'] },
+    { date: '2026-09-28', staff: ['염문철', '문승규', '김정헌', '서영호', '이의성'] },
+    { date: '2026-09-29', staff: ['서영호', '염문철', '문승규', '김정헌'] }
+  ] };
+  assert.strictEqual(Share.staffTotal(s), 10);
+  assert.deepStrictEqual(Share.staffStatus(s), { have: 10, need: 10, short: 0, over: 0, ok: true });
+  assert.strictEqual(Share.staffTotalLabel(s), '10/10');
+  const 모자람 = { needStaff: 10, days: [{ date: '2026-09-27', staff: ['가', '나'] }] };
+  assert.deepStrictEqual(Share.staffStatus(모자람), { have: 2, need: 10, short: 8, over: 0, ok: false });
+  const 넘침 = { needStaff: 2, days: [{ date: '2026-09-27', staff: ['가', '나', '다'] }] };
+  assert.deepStrictEqual(Share.staffStatus(넘침), { have: 3, need: 2, short: 0, over: 1, ok: true });
+  const 미정 = { days: [{ date: '2026-09-28', staff: ['가'] }, { date: '2026-09-29', staff: [] }] };
+  assert.deepStrictEqual(Share.staffStatus(미정), { have: 1, need: 0, short: 0, over: 0, ok: true });
+  assert.strictEqual(Share.staffTotalLabel(미정), '1명');
+  assert.strictEqual(Share.staffTotalLabel({ days: [{ date: '', staff: [] }] }), '미배정');
 });
-test('staffCountLabel: 필요 인원이 있으면 2/3, 없으면 2명 / 미배정', () => {
-  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['가', '나'] }] };
-  assert.strictEqual(Share.staffCountLabel(s, 0), '2/3');
-  assert.strictEqual(Share.staffCountLabel({ days: [{ date: '', staff: ['가', '나'] }] }, 0), '2명');
-  assert.strictEqual(Share.staffCountLabel({ days: [{ date: '', staff: [] }] }, 0), '미배정');
+test('staffCountLabel: 그날 사람 수만 (날마다 필요 인원을 따로 정하지 않는다)', () => {
+  const s = { needStaff: 10, days: [{ date: '2026-09-28', staff: ['가', '나'] }, { date: '2026-09-29', staff: [] }] };
+  assert.strictEqual(Share.staffCountLabel(s, 0), '2명');
+  assert.strictEqual(Share.staffCountLabel(s, 1), '미배정');
+  assert.strictEqual(Share.dayStaffCount(s, 0), 2);
 });
-test('shortStaffDays: 모자란 날만, 필요 인원 미정이면 빈 배열', () => {
-  const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['가', '나', '다'] }, { date: '2026-09-29', staff: ['가'] }] };
-  assert.deepStrictEqual(Share.shortStaffDays(s), [{ index: 1, date: '2026-09-29', have: 1, need: 3, short: 2 }]);
-  assert.deepStrictEqual(Share.shortStaffDays({ days: [{ date: '2026-09-29', staff: [] }] }), []);
-});
-test('isReady: 필요 인원을 정했으면 날마다 그 수를 채워야 준비 완료', () => {
+test('isReady: 다 더한 인원이 필요 인원을 채워야 준비 완료', () => {
   const base = { filmStage: 3, films: [], supplies: [], needStaff: 3 };
-  const full3 = [{ date: '2026-09-28', staff: ['가', '나', '다'] }, { date: '2026-09-29', staff: ['가', '나', '다'] }];
-  assert.ok(Share.isReady(Object.assign({}, base, { days: full3 })));
-  assert.ok(!Share.isReady(Object.assign({}, base, { days: [full3[0], { date: '2026-09-29', staff: ['가'] }] })), '2일차 2명 부족');
-  assert.ok(Share.isReady(Object.assign({}, base, { needStaff: 0, days: [full3[0], { date: '2026-09-29', staff: [] }] })), '필요 인원 미정이면 예전대로 1명 이상');
+  assert.ok(Share.isReady(Object.assign({}, base, { days: [{ date: '2026-09-28', staff: ['가', '나'] }, { date: '2026-09-29', staff: ['다'] }] })), '2+1=3');
+  assert.ok(!Share.isReady(Object.assign({}, base, { days: [{ date: '2026-09-28', staff: ['가'] }, { date: '2026-09-29', staff: ['나'] }] })), '1+1=2 라 1명 모자람');
+  assert.ok(Share.isReady(Object.assign({}, base, { needStaff: 0, days: [{ date: '2026-09-28', staff: ['가'] }, { date: '2026-09-29', staff: [] }] })), '필요 인원 미정이면 한 명이라도 있으면 됨');
 });
 test('staffLine / staffShortLine: 필요 인원을 정하면 공유 문구에도 나간다', () => {
   const s = { needStaff: 3, days: [{ date: '2026-09-28', staff: ['서영호', '염문철', '문승규'] }, { date: '2026-09-29', staff: ['서영호'] }] };
   assert.strictEqual(Share.staffLine(s), '👤 필요 3명 — 9/28 서영호·염문철·문승규 / 9/29 서영호');
-  assert.strictEqual(Share.staffShortLine(s), '⚠ 인원 부족: 9/29 1/3(2명)');
+  assert.strictEqual(Share.staffShortLine(s), '', '3명 + 1명 = 4명이라 필요 3명을 넘겼다');
+  assert.strictEqual(Share.staffShortLine({ needStaff: 10, days: [{ date: '2026-09-28', staff: ['가', '나'] }] }),
+    '⚠ 인원 부족: 10명 중 2명 (8명 더 필요)');
   assert.strictEqual(Share.staffLine({ needStaff: 3, days: [{ date: '2026-09-28', staff: [] }] }), '👤 필요 3명 — 아직 미배정');
   assert.strictEqual(Share.staffShortLine({ days: [{ date: '2026-09-28', staff: [] }] }), '', '필요 인원 미정이면 경고 없음');
   const one = { needStaff: 2, days: [{ date: '2026-09-28', staff: ['서영호', '염문철'] }] };
@@ -759,7 +764,7 @@ test('buildShare: 인원 줄 다음에 부족 경고 줄', () => {
   const s = Object.assign(full(), { needStaff: 3, days: [{ date: '2026-08-18', staff: ['김기사'] }] });
   const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n');
   assert.strictEqual(lines[1], '👤 필요 3명 — 김기사');
-  assert.strictEqual(lines[2], '⚠ 인원 부족: 8/18 1/3(2명)');
+  assert.strictEqual(lines[2], '⚠ 인원 부족: 3명 중 1명 (2명 더 필요)');
   assert.strictEqual(lines[3], '공동현관비번: 0000*');
 });
 

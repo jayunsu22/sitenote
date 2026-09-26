@@ -366,16 +366,14 @@
      미리 부를 수 있다 — 전날 밤에 알면 늦다.
        names 그날 나가는 사람 이름 (넣은 순서, 같은 사람은 한 번)
        have  그날 나가는 사람 수 (같은 사람이 두 현장이면 한 명으로 센다 — 몸은 하나다)
-       need  그날 현장들의 필요 인원 합 (안 정한 현장은 0)
-       short 모자란 수 (need 가 0인 현장뿐이면 0)
        slots 배치 칸 수 (겹쳐 부른 걸 알아보려고 — slots > have 면 같은 사람을 두 번 넣었다)
+     필요 인원은 현장 전체를 두고 정하는 수라 '그날 몇 명 필요' 로 쪼갤 수 없다. 여기서는 안 따진다
      AS·추가작업에 붙인 사람도 그날 나가는 사람이라 have 에 넣는다 (필요 인원은 안 따진다) */
   function dateStaff(sites) {
     var out = {};
-    var add = function (date, names, need) {
+    var add = function (date, names) {
       if (!isIsoDate(date)) return;
-      var r = out[date] || (out[date] = { names: [], have: 0, need: 0, short: 0, slots: 0, _seen: {} });
-      r.need += need || 0;
+      var r = out[date] || (out[date] = { names: [], have: 0, slots: 0, _seen: {} });
       names.forEach(function (n) {
         r.slots += 1;
         var k = n.replace(/\s+/g, '');
@@ -383,15 +381,10 @@
       });
     };
     (sites || []).forEach(function (s) {
-      var need = needStaffOf(s);
-      daysOf(s).forEach(function (d) { add(str(d.date), staffOf(d), need); });
-      servicesOf(s).forEach(function (v) { add(str(v.date), staffOf(v), 0); });
+      daysOf(s).forEach(function (d) { add(str(d.date), staffOf(d)); });
+      servicesOf(s).forEach(function (v) { add(str(v.date), staffOf(v)); });
     });
-    Object.keys(out).forEach(function (date) {
-      var r = out[date];
-      delete r._seen;
-      r.short = r.need ? Math.max(0, r.need - r.have) : 0;
-    });
+    Object.keys(out).forEach(function (date) { delete out[date]._seen; });
     return out;
   }
 
@@ -569,19 +562,26 @@
     return out;
   }
 
-  // ---------- 총 필요 인원 (2026-09-20) ----------
-  // 현장마다 '이 일을 하려면 총 몇 명이 필요한가'를 하나 정해두고, 날짜별로 몇 명 배치했는지 견준다.
-  // 0 = 아직 안 정함 (예전에 만든 현장은 전부 0 이라 예전처럼 동작한다)
+  /* ---------- 총 필요 인원 (2026-09-20, 뜻 바로잡음 2026-09-26) ----------
+     '이 현장을 끝내려면 사람이 모두 몇 명 들어가야 하나' — **며칠에 걸쳐 들어가는 사람을 다 더한 수**다.
+     10명짜리 현장이면 1일차 1명 + 2일차 5명 + 3일차 4명 = 10명이면 다 채운 것이다.
+     (날마다 10명씩이 아니다 — 예전에는 날마다 견줘서 다 채운 현장을 '부족' 이라고 했다.)
+     같은 사람이 이틀 나오면 두 번 센다. 0 = 아직 안 정함 (예전 현장은 전부 0) */
   var MAX_NEED_STAFF = 99;
   function needStaffOf(site) {
     var n = parseInt(site && site.needStaff, 10);
     if (!(n > 0)) return 0;
     return Math.min(n, MAX_NEED_STAFF);
   }
-  // 그날 배치 현황 — have 배치된 수, need 필요 인원(0이면 안 정함), short 모자란 수, over 넘친 수,
-  // ok 채웠는지(필요 인원을 안 정했으면 한 명이라도 있으면 ok)
-  function staffStatus(site, dayIndex) {
-    var have = staffOf(daysOf(site)[dayIndex]).length, need = needStaffOf(site);
+  // 그날 들어간 사람 수
+  function dayStaffCount(site, dayIndex) { return staffOf(daysOf(site)[dayIndex]).length; }
+  // 현장 전체에 들어간 사람 수 (날마다 더한다 — 같은 사람이 이틀 나오면 2)
+  function staffTotal(site) {
+    return daysOf(site).reduce(function (n, d) { return n + staffOf(d).length; }, 0);
+  }
+  // 현장 배치 현황 — have 다 더한 수, need 총 필요 인원(0이면 안 정함), short 모자란 수, over 넘친 수
+  function staffStatus(site) {
+    var have = staffTotal(site), need = needStaffOf(site);
     return {
       have: have, need: need,
       short: need ? Math.max(0, need - have) : 0,
@@ -589,19 +589,16 @@
       ok: need ? have >= need : have > 0
     };
   }
-  // 배치/필요 표기 — 필요 인원을 정했으면 '2/3', 아니면 '2명' (아무도 없으면 '미배정')
-  function staffCountLabel(site, dayIndex) {
-    var st = staffStatus(site, dayIndex);
+  // 현장 전체 표기 — 필요 인원을 정했으면 '10/10', 아니면 '4명' (아무도 없으면 '미배정')
+  function staffTotalLabel(site) {
+    var st = staffStatus(site);
     if (st.need) return st.have + '/' + st.need;
     return st.have ? st.have + '명' : '미배정';
   }
-  // 인원이 모자란 날 [{index, date, have, need, short}] — 필요 인원을 안 정했으면 빈 배열
-  function shortStaffDays(site) {
-    if (!needStaffOf(site)) return [];
-    return daysOf(site).map(function (d, i) {
-      var st = staffStatus(site, i);
-      return st.short ? { index: i, date: str(d.date), have: st.have, need: st.need, short: st.short } : null;
-    }).filter(Boolean);
+  // 그날 표기 — 언제나 '5명' (날마다 필요 인원을 따로 정하지 않는다)
+  function staffCountLabel(site, dayIndex) {
+    var n = dayStaffCount(site, dayIndex);
+    return n ? n + '명' : '미배정';
   }
 
   // 필름 준비 단계 (2026-09-20): 현장마다 하나. 수령(3)이 아니면 일정 화면에서 빨갛게 깜빡인다
@@ -630,8 +627,8 @@
     if (filmStageOf(site) !== FILM_STAGES.length - 1) return false;
     var c = readyCount(site);
     if (c.films[0] !== c.films[1] || c.supplies[0] !== c.supplies[1]) return false;
-    if (needStaffOf(site)) return !shortStaffDays(site).length;
-    return daysOf(site).some(function (d) { return staffOf(d).length > 0; });
+    var st = staffStatus(site);
+    return st.ok;
   }
 
   // 시공날짜 요약: 하루면 '9/18', 여러 날이면 '9/18, 9/19, 9/21'
@@ -658,13 +655,9 @@
     if (!첫날) return '';
     var out = shortDate(첫날);
     if (날수) out += ' (' + 날수 + '일)';
-    var n = needStaffOf(site);
-    if (!n) {
-      var 사람 = {};
-      daysOf(site).forEach(function (d) { staffOf(d).forEach(function (x) { 사람[x] = 1; }); });
-      n = Object.keys(사람).length;
-    }
-    if (n) out += ' 👤 ' + n + '명';
+    var st = staffStatus(site);
+    if (st.need) out += ' 👤 ' + st.have + '/' + st.need + '명';
+    else if (st.have) out += ' 👤 ' + st.have + '명';
     return out;
   }
 
@@ -780,13 +773,11 @@
     if (daysOf(site).length === 1) return head + staffOf(ds[0]).join('·');
     return head + ds.map(function (d) { return shortDate(d.date) + ' ' + staffOf(d).join('·'); }).join(' / ');
   }
-  // 팀원 공유용 부족 인원 줄 — '⚠ 인원 부족: 9/19 2/3(1명), 9/20 0/3(3명)'. 모자란 날이 없으면 ''
+  // 팀원 공유용 부족 인원 줄 — '⚠ 인원 부족: 10명 중 6명 (4명 더 필요)'. 다 채웠으면 ''
   function staffShortLine(site) {
-    var rows = shortStaffDays(site);
-    if (!rows.length) return '';
-    return '⚠ 인원 부족: ' + rows.map(function (r) {
-      return (r.date ? shortDate(r.date) + ' ' : (r.index + 1) + '일차 ') + r.have + '/' + r.need + '(' + r.short + '명)';
-    }).join(', ');
+    var st = staffStatus(site);
+    if (!st.short) return '';
+    return '⚠ 인원 부족: ' + st.need + '명 중 ' + st.have + '명 (' + st.short + '명 더 필요)';
   }
 
   // 날짜 없는 현장 먼저(미정), 그 다음 날짜 오름차순, 동률은 최근 생성 우선. 원본 유지
@@ -862,8 +853,10 @@
     MAX_NEED_STAFF: MAX_NEED_STAFF,
     needStaffOf: needStaffOf,
     staffStatus: staffStatus,
+    staffTotal: staffTotal,
+    staffTotalLabel: staffTotalLabel,
+    dayStaffCount: dayStaffCount,
     staffCountLabel: staffCountLabel,
-    shortStaffDays: shortStaffDays,
     DEFAULT_START_TIME: DEFAULT_START_TIME,
     FILM_STAGES: FILM_STAGES,
     isUrgent: isUrgent,
