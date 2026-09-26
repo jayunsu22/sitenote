@@ -1268,20 +1268,9 @@
     sub.innerHTML = '<span class="sh-when">📅 ' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
       (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '') +
       '<span class="sh-client">' + esc(client ? client.name : '') + '</span>';
-    var pills = document.createElement('div'); pills.className = 'sh-pills';
-    var pill = function (text, tone, tab) {
-      if (!text) return;
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'sh-pill ' + tone; b.textContent = text;
-      b.onclick = function () { pickSiteTab(tab, true); };
-      pills.appendChild(b);
-    };
-    pill(st.staff.pill, st.staff.tone, 'staff');
-    pill(st.film.pill, st.film.tone, 'film');
-    pill(st.info.pill, st.info.tone, 'info');
-    pill(st.supply.pill, st.supply.tone, 'supply');
-    if (st.quote) pill('📄 견적 ✓', 'green', 'etc');
-    pill(st.etc.pill, st.etc.tone, 'etc');
-    head.appendChild(nm); head.appendChild(sub); head.appendChild(pills);
+    // 상태 알약 줄은 뺐다 (2026-09-26) — 탭 이름 옆 빨간 점이면 '여기 볼 게 있다' 는 걸 알기에 넉넉하고,
+    // 알약이 두 줄로 늘어나 정작 봐야 할 칸이 아래로 밀렸다. 판정(siteStatus)은 그 점에 그대로 쓴다
+    head.appendChild(nm); head.appendChild(sub);
     SITE_TABS.forEach(function (t) {
       var b = document.querySelector('#siteTabs .tab-' + t.key);
       if (b) b.classList.toggle('warn', !!st[t.key].warn);

@@ -189,12 +189,6 @@ textarea { resize: vertical; }
 .sh-dday { padding: 1px 9px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12.5px; }
 .sh-dday.done { background: #e5e7eb; color: var(--muted); }
 .sh-client { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sh-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-.sh-pill { border: none; border-radius: 999px; padding: 4px 11px; font-size: 13px; font-weight: 800; }
-.sh-pill.red { background: #fee2e2; color: #991b1b; }
-.sh-pill.amber { background: #fef3c7; color: #92400e; }
-.sh-pill.green { background: #dcfce7; color: #166534; }
-.sh-pill.gray { background: #f1f5f9; color: #334155; }
 .site-tabs { position: sticky; top: 52px; z-index: 12; display: flex; gap: 4px; padding: 8px 6px 0;
   background: var(--card); border-bottom: 3px solid var(--tabc, var(--border)); }
 .site-tab { --c: #2563eb; --t: #eff6ff; position: relative; flex: 1; min-width: 0; padding: 10px 2px 9px; border: none;
