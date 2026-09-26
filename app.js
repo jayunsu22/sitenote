@@ -1416,7 +1416,8 @@
     box.appendChild(nh);
     // 날짜 줄 — 날마다 테두리로 감싸서 누가 어느 날인지 섞이지 않게 한다 (2026-09-26)
     s.days.forEach(function (d, i) {
-      var row = document.createElement('div'); row.className = 'sec-row day-row';
+      // 날마다 테두리 색을 돌려 쓴다 — 이름이 여러 줄로 흐를 때 어느 날 사람인지 색으로 갈린다
+      var row = document.createElement('div'); row.className = 'sec-row day-row day-c' + (i % 6);
       var head = document.createElement('div'); head.className = 'day-head';
       var lb = document.createElement('span'); lb.className = 'day-label';
       lb.textContent = d.date ? dayLabel(i, d.date) : '날짜 없음';

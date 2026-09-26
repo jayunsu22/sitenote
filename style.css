@@ -603,3 +603,18 @@ textarea { resize: vertical; }
 .sec .sum-row { margin-top: 2px; border-top: 1px dashed var(--border); padding-top: 10px; }
 .sec .sum-row .day-label { font-weight: 800; color: #1f2937; }
 .cnt.day { background: #e5e7eb; color: #374151; }
+/* 날짜별 테두리 색 — 1일차 파랑, 2일차 초록, 3일차 보라, 4일차 주황, 5일차 분홍, 6일차 청록.
+   여섯 날이 넘으면 다시 처음 색으로 돈다 (한 현장에 엿새 넘게 가는 일은 드물다) */
+.sec .day-row.day-c0 { border-color: #93c5fd; background: #f2f7ff; }
+.sec .day-row.day-c0 .day-label { color: #1d4ed8; }
+.sec .day-row.day-c1 { border-color: #86efac; background: #f2fdf5; }
+.sec .day-row.day-c1 .day-label { color: #15803d; }
+.sec .day-row.day-c2 { border-color: #c4b5fd; background: #f8f5ff; }
+.sec .day-row.day-c2 .day-label { color: #6d28d9; }
+.sec .day-row.day-c3 { border-color: #fdba74; background: #fff8f1; }
+.sec .day-row.day-c3 .day-label { color: #c2410c; }
+.sec .day-row.day-c4 { border-color: #f9a8d4; background: #fff5fa; }
+.sec .day-row.day-c4 .day-label { color: #be185d; }
+.sec .day-row.day-c5 { border-color: #5eead4; background: #f0fdfa; }
+.sec .day-row.day-c5 .day-label { color: #0f766e; }
+.sec .day-row .chip { background: #fff; }
