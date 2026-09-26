@@ -28,9 +28,18 @@ const full = () => Object.assign(blank(), {
 });
 
 console.log('FIELDS');
-test('15개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
+test('16개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','calRegion','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','toilet','note','films','quoteUrl','photoUrl','memo']);
+    ['name','calRegion','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','startTime','toilet','note','films','quoteUrl','photoUrl','memo']);
+});
+test('작업 시작시간: 질문 대상이 아니고, 공유 문구에서는 화장실 바로 위', () => {
+  assert.ok(!Share.DEFAULT_QUESTIONS.startTime);
+  assert.strictEqual(Share.DEFAULT_START_TIME, '오전 8시 시작합니다');
+  const s = Object.assign(full(), { startTime: '오전 8시 시작합니다' });
+  const out = Share.buildShare(s, ['cargoEv', 'startTime', 'toilet']).split('\n');
+  assert.deepStrictEqual(out.slice(1), ['화물EV 사용', '🕗 오전 8시 시작합니다', '화장실: 지하1층 관리실 옆']);
+  assert.strictEqual(Share.buildShare(s, ['toilet']).indexOf('🕗'), -1, '체크 안 하면 안 나간다');
+  assert.strictEqual(Share.isEmpty(Object.assign(blank(), { startTime: '  ' }), 'startTime'), true, '지우면 빈 칸');
 });
 test('DEFAULT_QUESTIONS에 name/calRegion/note/quoteUrl/photoUrl/memo 없음, 나머지 9개', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);

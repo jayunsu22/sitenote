@@ -62,6 +62,9 @@
     s.days = [{ date: '', staff: [] }];
     s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     s.filmStage = 0; // 필름 미확정
+    // 작업 시작시간은 거의 늘 같다 — 새 현장에 기본 문구를 넣어 둔다.
+    // 예전 현장(칸 자체가 없던 현장)도 normalizeSite 에서 이 값을 받는다. 지우면 빈 칸으로 남는다
+    s.startTime = Share.DEFAULT_START_TIME;
     s.needStaff = 0; // 총 필요 인원 (0 = 아직 안 정함)
     s.services = [];  // AS·추가작업
     return s;

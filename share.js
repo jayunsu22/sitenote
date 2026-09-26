@@ -27,6 +27,8 @@
     { key: 'parking', label: '주차',          type: 'text',   question: '주차는 어디에 하면 되나요?' },
     { key: 'cargoEv', label: '화물 엘리베이터', type: 'select', question: '짐 옮길 때 화물 엘리베이터 사용해야 하나요?',
       options: ['미확인', '사용', '일반사용'], shareLabel: '화물EV' },
+    // 작업 시작시간 — 우리가 알려 주는 칸이라 질문 대상이 아니다. 새 현장은 아래 기본 문구로 채워진다
+    { key: 'startTime', label: '작업 시작시간', type: 'text', placeholder: '예: 오전 8시 시작합니다' },
     { key: 'toilet',  label: '화장실',        type: 'text',   question: '화장실 사용할 곳 위치 알려주세요' },
     // 특이사항 전달 - 팀원에게 꼭 알려줄 주의점("앞집이 예민함, 조심조심 들어올 것").
     // 우리가 채우는 칸이라 question 없음. 공유 문구에는 ⚠ 붙여서 나감.
@@ -42,6 +44,9 @@
     { key: 'photoUrl', label: '현장사진',     type: 'link', placeholder: '사진 링크 붙여넣기' },
     { key: 'memo',    label: '메모',          type: 'multiline' }
   ];
+
+  // 현장을 새로 만들면 이 문구가 '작업 시작시간' 칸에 들어가 있다 (거의 늘 같아서 매번 적기 번거롭다)
+  var DEFAULT_START_TIME = '오전 8시 시작합니다';
 
   var FIELD_MAP = {};
   FIELDS.forEach(function (f) { FIELD_MAP[f.key] = f; });
@@ -188,6 +193,7 @@
     if (has.carReg) lines.push(selectLine(FIELD_MAP.carReg, site.carReg));
     if (has.parking) lines.push('주차: ' + str(site.parking));
     if (has.cargoEv) lines.push(selectLine(FIELD_MAP.cargoEv, site.cargoEv));
+    if (has.startTime) lines.push('🕗 ' + str(site.startTime));
     if (has.toilet) lines.push('화장실: ' + str(site.toilet));
     if (has.note) lines.push(FIELD_MAP.note.shareLabel + ': ' + str(site.note));
     if (has.films) {
@@ -858,6 +864,7 @@
     staffStatus: staffStatus,
     staffCountLabel: staffCountLabel,
     shortStaffDays: shortStaffDays,
+    DEFAULT_START_TIME: DEFAULT_START_TIME,
     FILM_STAGES: FILM_STAGES,
     isUrgent: isUrgent,
     filmStageOf: filmStageOf,
