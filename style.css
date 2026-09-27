@@ -642,3 +642,8 @@ textarea { resize: vertical; }
 .rv-card-tags span { font-size: 12px; font-weight: 700; color: #0f766e; background: #f0fdfa; border-radius: 999px; padding: 2px 8px; }
 .rv-card-q { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-top: 10px; }
 .rv-card-a { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+/* 설정 후기 질문: 제목 누르면 고치기, ↑↓ 순서 (2026-09-27) */
+.rvq-row .rvq-name { text-align: left; border: none; background: none; padding: 4px 0; color: var(--text); font-size: 14px; font-weight: 600; }
+.rvq-row .rvq-name::after { content: ' ✏️'; font-size: 12px; opacity: .6; }
+.rvq-mv { width: 34px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); font-size: 15px; }
+.rvq-mv:disabled { opacity: .3; }

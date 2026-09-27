@@ -629,6 +629,46 @@ function reset() {
     assert.ok(Array.isArray(q[0].data.reviewQuestions));
   });
 
+  await test('후기 질문 제목 고치기: 설정 자리 그대로, 모든 현장의 답이 새 제목으로 옮겨간다', () => {
+    reset();
+    const c = Store.addClient('A'); const s1 = Store.addSite(c.id); const s2 = Store.addSite(c.id);
+    Store.setReviewAnswer(s1.id, '시공후기', '깔끔');
+    Store.setReviewAnswer(s2.id, '개선사항은 무엇인가?', '퍼티');
+    assert.strictEqual(Store.renameReviewQuestion('시공후기', '  시공 후기 한줄 '), true);
+    assert.deepStrictEqual(Store.state.settings.reviewQuestions, ['시공 후기 한줄', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?']);
+    assert.deepStrictEqual(Store.getSite(s1.id).review.answers, { '시공 후기 한줄': '깔끔' });
+    assert.deepStrictEqual(Store.getSite(s2.id).review.answers, { '개선사항은 무엇인가?': '퍼티' });   // 상관없는 현장은 그대로
+  });
+
+  await test('후기 질문 제목 고치기: 빈 제목·다른 질문과 같은 제목·없는 질문은 false', () => {
+    reset();
+    assert.strictEqual(Store.renameReviewQuestion('시공후기', '  '), false);
+    assert.strictEqual(Store.renameReviewQuestion('시공후기', '개선사항은 무엇인가?'), false);
+    assert.strictEqual(Store.renameReviewQuestion('없는 질문', '새 질문'), false);
+    assert.strictEqual(Store.renameReviewQuestion('시공후기', '시공후기'), true);   // 그대로면 아무것도 안 바뀜
+    assert.deepStrictEqual(Store.state.settings.reviewQuestions[0], '시공후기');
+  });
+
+  await test('후기 질문 제목 고치기: 그 현장에 새 제목 답이 이미 있으면 두 답을 줄바꿈으로 합친다', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    // 예전에 지웠다 다시 만든 질문처럼 두 제목에 답이 다 있는 경우
+    Store.setReviewAnswer(s.id, '시공후기', '예전 답');
+    Store.setReviewAnswer(s.id, '후기', '새 답');
+    Store.renameReviewQuestion('시공후기', '후기');
+    assert.deepStrictEqual(Store.getSite(s.id).review.answers, { '후기': '새 답\n예전 답' });
+  });
+
+  await test('후기 질문 순서: moveReviewQuestion 위/아래, 끝에서는 그대로', () => {
+    reset();
+    Store.moveReviewQuestion(2, -1);
+    assert.deepStrictEqual(Store.state.settings.reviewQuestions, ['시공후기', '견적과 다른 부분은 어떤 것이었나?', '개선사항은 무엇인가?']);
+    Store.moveReviewQuestion(0, -1);   // 맨 위에서 위로 → 그대로
+    Store.moveReviewQuestion(2, 1);    // 맨 아래에서 아래로 → 그대로
+    assert.deepStrictEqual(Store.state.settings.reviewQuestions[0], '시공후기');
+    assert.deepStrictEqual(Store.state.settings.reviewQuestions[2], '개선사항은 무엇인가?');
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

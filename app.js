@@ -2210,10 +2210,51 @@
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
   // 후기 질문·현장 태그 (2026-09-27)
   function renderReviewSettingLists() {
-    renderStringList($('reviewQuestionList'), state.settings.reviewQuestions || [], function (next) { Store.setSettings({ reviewQuestions: next }); renderReviewSettingLists(); });
+    renderReviewQuestionList();
     renderStringList($('reviewTagList'), state.settings.reviewTags || [], function (next) { Store.setSettings({ reviewTags: next }); renderReviewSettingLists(); });
   }
-  bindListAdder('reviewQuestionInput', 'btnAddReviewQuestion', function () { return state.settings.reviewQuestions || []; }, function (next) { Store.setSettings({ reviewQuestions: next }); renderReviewSettingLists(); });
+  /* 후기 질문 목록: 제목을 누르면 고치기(모든 현장의 답이 새 제목으로 옮겨간다), ↑↓ 순서, × 삭제.
+     순서는 현장 후기 탭에 나오는 순서다 */
+  function renderReviewQuestionList() {
+    var box = $('reviewQuestionList'), list = state.settings.reviewQuestions || [];
+    box.innerHTML = '';
+    if (!list.length) {
+      var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
+      box.appendChild(e);
+    }
+    list.forEach(function (q, i) {
+      var row = document.createElement('div'); row.className = 'slist-row rvq-row';
+      var nm = document.createElement('button'); nm.type = 'button'; nm.className = 'slist-name rvq-name';
+      nm.textContent = q; nm.title = '눌러서 제목 고치기';
+      nm.onclick = function () {
+        modalPrompt('질문 제목 고치기', q).then(function (v) {
+          if (v == null) return;
+          var to = String(v).trim();
+          if (!to || to === q) return;
+          if (!Store.renameReviewQuestion(q, to)) { toast('같은 제목의 질문이 이미 있습니다'); return; }
+          toast('제목을 고쳤습니다 — 적어 둔 답도 함께 옮겼습니다');
+          renderReviewQuestionList();
+        });
+      };
+      var up = document.createElement('button'); up.type = 'button'; up.className = 'rvq-mv'; up.textContent = '↑'; up.title = '위로';
+      up.disabled = i === 0;
+      up.onclick = function () { Store.moveReviewQuestion(i, -1); renderReviewQuestionList(); };
+      var dn = document.createElement('button'); dn.type = 'button'; dn.className = 'rvq-mv'; dn.textContent = '↓'; dn.title = '아래로';
+      dn.disabled = i === list.length - 1;
+      dn.onclick = function () { Store.moveReviewQuestion(i, 1); renderReviewQuestionList(); };
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
+      x.onclick = function () {
+        modalConfirm('질문 삭제', '"' + q + '" 질문을 뺍니다. 이미 적은 답은 그 현장에 "(지난 질문)"으로 남습니다.', '삭제', true).then(function (ok) {
+          if (!ok) return;
+          var next = list.slice(); next.splice(i, 1);
+          Store.setSettings({ reviewQuestions: next }); renderReviewQuestionList();
+        });
+      };
+      row.appendChild(nm); row.appendChild(up); row.appendChild(dn); row.appendChild(x);
+      box.appendChild(row);
+    });
+  }
+  bindListAdder('reviewQuestionInput', 'btnAddReviewQuestion', function () { return state.settings.reviewQuestions || []; }, function (next) { Store.setSettings({ reviewQuestions: next }); renderReviewQuestionList(); });
   bindListAdder('reviewTagInput', 'btnAddReviewTag', function () { return state.settings.reviewTags || []; }, function (next) { Store.setSettings({ reviewTags: next }); renderReviewSettingLists(); });
 
   /* 앱 파일 버전 — 폰이 새 화면을 받았는지 설정에서 눈으로 확인한다.

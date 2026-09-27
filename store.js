@@ -375,6 +375,36 @@
     updateSite(siteId, { review: r });
     return true;
   }
+  /* 후기 질문 제목 고치기. 답은 질문 문구로 찾기 때문에, 제목만 바꾸면 적어 둔 답이
+     '(지난 질문)' 으로 갈라진다 — 모든 현장의 답을 새 제목으로 같이 옮긴다.
+     빈 제목 · 다른 질문과 겹치는 제목 · 없는 질문은 false. 새 제목에 이미 답이 있던 현장은
+     (지웠다 다시 만든 질문 등) 두 답을 줄바꿈으로 합친다 — 어느 쪽도 버리지 않는다 */
+  function renameReviewQuestion(oldQ, newQ) {
+    var list = (state.settings.reviewQuestions || []).slice();
+    var i = list.indexOf(oldQ), to = String(newQ == null ? '' : newQ).trim();
+    if (i === -1 || !to) return false;
+    if (to === oldQ) return true;
+    if (list.indexOf(to) !== -1) return false;
+    list[i] = to;
+    setSettings({ reviewQuestions: list });
+    state.sites.forEach(function (s) {
+      var r = Share.normalizeReview(s.review);
+      if (!Object.prototype.hasOwnProperty.call(r.answers, oldQ)) return;
+      var moved = r.answers[oldQ], had = r.answers[to] || '';
+      delete r.answers[oldQ];
+      r.answers[to] = had.trim() && moved.trim() ? had + '\n' + moved : (had.trim() ? had : moved);
+      updateSite(s.id, { review: r });
+    });
+    return true;
+  }
+  // 후기 질문 순서: dir -1 위로, +1 아래로. 끝에서는 그대로
+  function moveReviewQuestion(i, dir) {
+    var list = (state.settings.reviewQuestions || []).slice(), j = i + dir;
+    if (i < 0 || i >= list.length || j < 0 || j >= list.length) return false;
+    var t = list[i]; list[i] = list[j]; list[j] = t;
+    setSettings({ reviewQuestions: list });
+    return true;
+  }
 
   function deleteSite(id) {
     state.sites = state.sites.filter(function (s) { return s.id !== id; });
@@ -627,6 +657,7 @@
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
     setReviewAnswer: setReviewAnswer, toggleReviewTag: toggleReviewTag,
+    renameReviewQuestion: renameReviewQuestion, moveReviewQuestion: moveReviewQuestion,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
     addService: addService, updateService: updateService, removeService: removeService,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
