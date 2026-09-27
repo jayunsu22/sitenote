@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260926i">
+  <link rel="stylesheet" href="style.css?v=20260927a">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -26,6 +26,7 @@
       <div class="topbar-actions">
         <button id="syncBadge" class="sync-badge" hidden title="백업 상태"></button>
         <button id="btnSchedule" class="icon-btn" title="일정">📅</button>
+        <button id="btnReviews" class="icon-btn" title="후기 모아보기">📝</button>
         <button id="btnSettings" class="icon-btn" title="설정">⚙</button>
       </div>
     </header>
@@ -130,6 +131,16 @@
     <div id="scheduleBody" class="schedule-body"></div>
   </section>
 
+  <!-- ========== 후기 모아보기 (2026-09-27) ========== -->
+  <section id="viewReviews" class="view" hidden>
+    <header class="topbar">
+      <button id="btnReviewsBack" class="icon-btn" title="거래처 화면">←</button>
+      <h1 class="topbar-title topbar-title-center">📝 후기 모아보기</h1>
+      <div class="topbar-actions"></div>
+    </header>
+    <div id="reviewsBody" class="reviews-body"></div>
+  </section>
+
   <!-- ========== 설정 화면 ========== -->
   <section id="viewSettings" class="view" hidden>
     <header class="topbar">
@@ -170,6 +181,24 @@
         <div class="row">
           <input type="text" id="supplyInput" placeholder="항목 (예: 칼날)" autocomplete="off">
           <button id="btnAddSupplyDefault" class="btn-sm">추가</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>후기 질문</h2>
+        <p class="hint">현장 <b>후기</b> 탭에 나오는 질문입니다. 지우거나 바꿔도 이미 적은 답은 그 현장에 남습니다.</p>
+        <div id="reviewQuestionList" class="slist"></div>
+        <div class="row">
+          <input type="text" id="reviewQuestionInput" placeholder="질문 (예: 다음엔 뭘 챙길까?)" autocomplete="off">
+          <button id="btnAddReviewQuestion" class="btn-sm">추가</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h2>현장 태그</h2>
+        <p class="hint">후기 탭에서 현장마다 5개까지 고르고, 📝 후기 모아보기에서 태그로 걸러 봅니다.</p>
+        <div id="reviewTagList" class="slist"></div>
+        <div class="row">
+          <input type="text" id="reviewTagInput" placeholder="태그 (예: 거주중)" autocomplete="off">
+          <button id="btnAddReviewTag" class="btn-sm">추가</button>
         </div>
       </div>
       <div class="settings-section">
@@ -299,8 +328,8 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260926i"></script>
-  <script src="store.js?v=20260926i"></script>
-  <script src="app.js?v=20260926i"></script>
+  <script src="share.js?v=20260927a"></script>
+  <script src="store.js?v=20260927a"></script>
+  <script src="app.js?v=20260927a"></script>
 </body>
 </html>

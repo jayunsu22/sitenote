@@ -90,13 +90,14 @@
     closePhotoViewer();
     if (h === '#settings') { showView('viewSettings'); renderSettings(); return; }
     if (h === '#schedule') { rememberView('schedule'); showView('viewSchedule'); renderSchedule(); return; }
+    if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
     showView('viewMain'); renderMain();
   }
   function showView(id) {
-    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule'].forEach(function (v) { $(v).hidden = v !== id; });
+    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule', 'viewReviews'].forEach(function (v) { $(v).hidden = v !== id; });
     window.scrollTo(0, 0);
   }
   // 앱을 다시 열 때 마지막에 본 화면(거래처/일정)으로 시작한다
@@ -1192,6 +1193,7 @@
     });
     sec('supply', '', renderSuppliesSection);
     sec('etc', 'svcSec', renderServiceSection);
+    sec('review', 'reviewSec', renderReviewSection);
     pickSiteTab(siteTab, false);
     paintSiteStatus();
     paintCopyPick();
@@ -1202,7 +1204,8 @@
     { key: 'staff', label: '일정·인원' },
     { key: 'film', label: '필름' },
     { key: 'supply', label: '부자재' },
-    { key: 'etc', label: '링크·AS' }
+    { key: 'etc', label: '링크·AS' },
+    { key: 'review', label: '후기' }
   ];
   var TAB_OF_FIELD = { date: 'staff', films: 'film', quoteUrl: 'etc', photoUrl: 'etc', memo: 'etc' };
   var INFO_ASK = ['pwLobby', 'pwUnit', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet'];   // 업자에게 물어볼 출입 칸
@@ -1241,6 +1244,8 @@
     var as = Share.openServiceCount(s);
     st.etc = { warn: as > 0, pill: as ? '🔧 AS ' + as + '건' : '', tone: 'amber' };
     st.quote = !!String(s.quoteUrl || '').trim();
+    // 후기: 시공 날짜가 다 지났는데 비어 있으면 점
+    st.review = { warn: Share.reviewNeeded(s, today), pill: '', tone: 'gray' };
     // 날짜 줄: '9/28 월 – 9/29 화 · 2일 · D-4'
     var line = '', dd = '';
     if (dated.length) {
@@ -1583,6 +1588,117 @@
     };
     box.appendChild(add);
   }
+
+  // ---------- 현장 후기 (2026-09-27) ----------
+  // 설정의 질문마다 답 칸 + 태그 칩(최대 5개). 적는 대로 저장한다.
+  // 후기는 '팀원에게 공유 복사' 에 안 들어간다 (Share.FIELDS 밖에 있다)
+  function renderReviewSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    box.innerHTML = '<h3 class="sec-title">📝 현장 후기 <span class="sec-hint">— 다음 현장을 고치려고 남기는 기록</span></h3>';
+    var answers = (s.review && s.review.answers) || {};
+    Share.reviewQuestionsOf(s, state.settings.reviewQuestions || []).forEach(function (q) {
+      var row = document.createElement('div'); row.className = 'rv-q';
+      var lb = document.createElement('label'); lb.className = 'field-label'; lb.textContent = q;
+      if ((state.settings.reviewQuestions || []).indexOf(q) === -1) lb.textContent += ' (지난 질문)';
+      var ta = document.createElement('textarea'); ta.rows = 3; ta.value = answers[q] || '';
+      ta.addEventListener('input', function () { Store.setReviewAnswer(siteId, q, ta.value); });
+      row.appendChild(lb); row.appendChild(ta);
+      box.appendChild(row);
+    });
+    if (!(state.settings.reviewQuestions || []).length && !Object.keys(answers).length) {
+      var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '설정 → 후기 질문에서 질문을 추가하세요.';
+      box.appendChild(e);
+    }
+    var tagTitle = document.createElement('div'); tagTitle.className = 'field-label rv-tag-title';
+    var mine = (s.review && s.review.tags) || [];
+    tagTitle.textContent = '현장 태그 (' + mine.length + '/' + Share.REVIEW_TAG_MAX + ')';
+    box.appendChild(tagTitle);
+    var chips = document.createElement('div'); chips.className = 'chips rv-tags';
+    // 설정 목록 + 설정엔 없어졌지만 이 현장에 달린 태그
+    var all = (state.settings.reviewTags || []).slice();
+    mine.forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
+    all.forEach(function (t) {
+      var c = document.createElement('button'); c.type = 'button';
+      c.className = 'chip pick' + (mine.indexOf(t) !== -1 ? ' on' : '');
+      c.textContent = t;
+      c.onclick = function () {
+        if (!Store.toggleReviewTag(siteId, t)) { toast('태그는 ' + Share.REVIEW_TAG_MAX + '개까지 달 수 있습니다'); return; }
+        renderReviewSection(box, siteId);
+      };
+      chips.appendChild(c);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'chip add'; add.textContent = '+ 태그';
+    add.onclick = function () {
+      modalPrompt('새 태그', '', '예: 거주중').then(function (v) {
+        v = String(v || '').trim(); if (!v) return;
+        var list = state.settings.reviewTags || [];
+        if (list.indexOf(v) === -1) Store.setSettings({ reviewTags: list.concat([v]) });
+        var cur = (Store.getSite(siteId).review || {}).tags || [];
+        if (cur.indexOf(v) === -1 && !Store.toggleReviewTag(siteId, v)) toast('태그는 ' + Share.REVIEW_TAG_MAX + '개까지입니다 — 목록에만 추가했습니다');
+        renderReviewSection(box, siteId);
+      });
+    };
+    chips.appendChild(add);
+    box.appendChild(chips);
+  }
+
+  // ---------- 후기 모아보기 (#reviews) ----------
+  var rvFilter = { tag: '', question: '' };
+  function renderReviews() {
+    var body = $('reviewsBody'); body.innerHTML = '';
+    var all = Share.collectReviews(state.sites, {});
+    // 칩 목록: 설정 + 실제로 쓰인 것 (지운 태그·질문도 걸러 볼 수 있게)
+    var tags = (state.settings.reviewTags || []).slice(), qs = (state.settings.reviewQuestions || []).slice();
+    all.forEach(function (x) {
+      x.tags.forEach(function (t) { if (tags.indexOf(t) === -1) tags.push(t); });
+      x.items.forEach(function (it) { if (qs.indexOf(it.q) === -1) qs.push(it.q); });
+    });
+    if (rvFilter.tag && tags.indexOf(rvFilter.tag) === -1) rvFilter.tag = '';
+    if (rvFilter.question && qs.indexOf(rvFilter.question) === -1) rvFilter.question = '';
+    var filterRow = function (label, list, key) {
+      var wrap = document.createElement('div'); wrap.className = 'rv-filter';
+      wrap.innerHTML = '<div class="rv-filter-label">' + label + '</div>';
+      var chips = document.createElement('div'); chips.className = 'chips';
+      [''].concat(list).forEach(function (v) {
+        var c = document.createElement('button'); c.type = 'button';
+        c.className = 'chip pick' + (rvFilter[key] === v ? ' on' : '');
+        c.textContent = v || '전체';
+        c.onclick = function () { rvFilter[key] = v; renderReviews(); };
+        chips.appendChild(c);
+      });
+      wrap.appendChild(chips);
+      body.appendChild(wrap);
+    };
+    filterRow('태그', tags, 'tag');
+    filterRow('질문', qs, 'question');
+
+    var list = Share.collectReviews(state.sites, rvFilter);
+    var count = document.createElement('div'); count.className = 'rv-count';
+    count.textContent = all.length ? '현장 ' + list.length + '곳' : '';
+    body.appendChild(count);
+    if (!list.length) {
+      var e = document.createElement('div'); e.className = 'empty-state';
+      e.textContent = all.length ? '조건에 맞는 후기가 없습니다.' : '아직 적은 후기가 없습니다. 현장의 후기 탭에서 적어 주세요.';
+      body.appendChild(e);
+      return;
+    }
+    list.forEach(function (x) {
+      var s = x.site;
+      var card = document.createElement('button'); card.type = 'button'; card.className = 'rv-card';
+      var when = x.lastDate ? Share.shortDate(x.lastDate) : '날짜 미정';
+      card.innerHTML = '<div class="rv-card-top"><b>' + esc(Share.titleLine(s)) + '</b></div>' +
+        '<div class="rv-card-sub">' + esc([clientName(s), when].filter(Boolean).join(' · ')) + '</div>' +
+        (x.tags.length ? '<div class="rv-card-tags">' + x.tags.map(function (t) { return '<span>#' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+        x.items.map(function (it) {
+          return '<div class="rv-card-q">' + esc(it.q) + '</div><div class="rv-card-a">' + esc(it.a) + '</div>';
+        }).join('');
+      // 누르면 그 현장의 후기 탭으로
+      card.onclick = function () { siteTab = 'review'; siteTabFor = s.id; go('#site/' + s.id); };
+      body.appendChild(card);
+    });
+  }
+  $('btnReviews').onclick = function () { go('#reviews'); };
+  $('btnReviewsBack').onclick = function () { go(''); };
 
   var svcSheet = { siteId: '', id: '', onDone: null };
   function curService() {
@@ -2092,6 +2208,13 @@
   }
   bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
+  // 후기 질문·현장 태그 (2026-09-27)
+  function renderReviewSettingLists() {
+    renderStringList($('reviewQuestionList'), state.settings.reviewQuestions || [], function (next) { Store.setSettings({ reviewQuestions: next }); renderReviewSettingLists(); });
+    renderStringList($('reviewTagList'), state.settings.reviewTags || [], function (next) { Store.setSettings({ reviewTags: next }); renderReviewSettingLists(); });
+  }
+  bindListAdder('reviewQuestionInput', 'btnAddReviewQuestion', function () { return state.settings.reviewQuestions || []; }, function (next) { Store.setSettings({ reviewQuestions: next }); renderReviewSettingLists(); });
+  bindListAdder('reviewTagInput', 'btnAddReviewTag', function () { return state.settings.reviewTags || []; }, function (next) { Store.setSettings({ reviewTags: next }); renderReviewSettingLists(); });
 
   /* 앱 파일 버전 — 폰이 새 화면을 받았는지 설정에서 눈으로 확인한다.
      index.html 의 app.js?v=… 를 그대로 읽어 온다 (따로 적어 두면 어긋난다) */
@@ -2107,6 +2230,7 @@
     renderSyncStatus();
     renderTeamList();
     renderSupplyDefaultList();
+    renderReviewSettingLists();
     var wrap = $('questionList'); wrap.innerHTML = '';
     Share.FIELDS.filter(function (f) { return f.question; }).forEach(function (f) {
       var row = document.createElement('div'); row.className = 'qrow';

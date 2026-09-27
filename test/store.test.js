@@ -475,7 +475,7 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'supplyDefaults', 'team']);
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'supplyDefaults', 'team']);
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 
@@ -592,6 +592,41 @@ function reset() {
     ], settings: { questions: {} }, syncQueue: [] });
     Store.load();
     assert.strictEqual(Store.getSite('s1').needStaff, 0);
+  });
+
+  // ---------- 현장 후기 (2026-09-27) ----------
+  await test('후기: 새 현장·구버전 현장은 빈 후기, 설정 기본 질문·태그', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    assert.deepStrictEqual(Store.getSite(s.id).review, { answers: {}, tags: [] });
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '옛현장', date: '2026-09-19' }
+    ], settings: { questions: {} }, syncQueue: [] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite('s1').review, { answers: {}, tags: [] });
+    assert.deepStrictEqual(Store.state.settings.reviewQuestions, ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?']);
+    assert.deepStrictEqual(Store.state.settings.reviewTags, ['도배시공후', '바닥시공후']);
+  });
+
+  await test('후기: setReviewAnswer / toggleReviewTag (5개 넘으면 false)', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.setReviewAnswer(s.id, '시공후기', '깔끔했음');
+    assert.strictEqual(Store.getSite(s.id).review.answers['시공후기'], '깔끔했음');
+    ['a', 'b', 'c', 'd', 'e'].forEach((t) => assert.strictEqual(Store.toggleReviewTag(s.id, t), true));
+    assert.strictEqual(Store.toggleReviewTag(s.id, 'f'), false);          // 6개째는 안 들어간다
+    assert.deepStrictEqual(Store.getSite(s.id).review.tags, ['a', 'b', 'c', 'd', 'e']);
+    assert.strictEqual(Store.toggleReviewTag(s.id, 'a'), true);           // 끄기
+    assert.deepStrictEqual(Store.getSite(s.id).review.tags, ['b', 'c', 'd', 'e']);
+  });
+
+  await test('후기: 질문·태그 설정은 백업(동기화) 대상', () => {
+    reset();
+    Store.setSettings({ reviewTags: ['도배시공후', '거주중'] });
+    const q = Store.state.syncQueue.filter((o) => o.type === 'settings');
+    assert.strictEqual(q.length, 1);
+    assert.deepStrictEqual(q[0].data.reviewTags, ['도배시공후', '거주중']);
+    assert.ok(Array.isArray(q[0].data.reviewQuestions));
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

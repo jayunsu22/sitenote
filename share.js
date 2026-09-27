@@ -807,7 +807,79 @@
     return out;
   }
 
+  // ---------- 현장 후기 (2026-09-27) ----------
+  // 현장이 끝나면 정해둔 질문에 답하고 태그를 달아 두었다가, 태그·질문별로 모아 보며 다음 현장을 고친다.
+  // site.review = { answers: { 질문문구: 답 }, tags: [태그] }. 답은 질문 문구로 찾는다 —
+  // 설정에서 질문을 지우거나 바꿔도 적어 둔 답은 그대로 남는다.
+  var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
+  var DEFAULT_REVIEW_TAGS = ['도배시공후', '바닥시공후'];
+  var REVIEW_TAG_MAX = 5;
+
+  function normalizeReview(raw) {
+    var r = raw && typeof raw === 'object' ? raw : {};
+    var answers = {};
+    if (r.answers && typeof r.answers === 'object' && !Array.isArray(r.answers)) {
+      Object.keys(r.answers).forEach(function (q) { answers[q] = r.answers[q] == null ? '' : String(r.answers[q]); });
+    }
+    var tags = [];
+    (Array.isArray(r.tags) ? r.tags : []).forEach(function (t) {
+      var v = String(t == null ? '' : t).trim();
+      if (v && tags.indexOf(v) === -1 && tags.length < REVIEW_TAG_MAX) tags.push(v);
+    });
+    return { answers: answers, tags: tags };
+  }
+  function filledAnswers(site) {
+    var a = (site && site.review && site.review.answers) || {};
+    return Object.keys(a).filter(function (q) { return String(a[q] || '').trim(); });
+  }
+  function reviewHasContent(site) {
+    return filledAnswers(site).length > 0 || !!(site && site.review && (site.review.tags || []).length);
+  }
+  function lastWorkDate(site) {
+    var ds = (site && site.days || []).map(function (d) { return d && d.date; }).filter(isIsoDate).sort();
+    return ds.length ? ds[ds.length - 1] : '';
+  }
+  // 시공 날짜가 모두 지났는데(오늘 작업 중이면 아직) 후기가 비었으면 알려 준다
+  function reviewNeeded(site, today) {
+    var last = lastWorkDate(site);
+    return !!last && last < today && !reviewHasContent(site);
+  }
+  // 후기 탭에 보일 질문: 설정 질문 + 설정엔 없어졌지만 이 현장에 답이 남은 질문
+  function reviewQuestionsOf(site, questions) {
+    var out = (questions || []).slice();
+    filledAnswers(site).forEach(function (q) { if (out.indexOf(q) === -1) out.push(q); });
+    return out;
+  }
+  // 모아보기: 후기 있는 현장만, 마지막 시공일 최신순(날짜 없는 현장은 뒤).
+  // question 을 주면 그 질문의 답이 있는 현장만, 그 답만 보인다
+  function collectReviews(sites, opt) {
+    var tag = opt && opt.tag, question = opt && opt.question;
+    var out = [];
+    (sites || []).forEach(function (s) {
+      if (!reviewHasContent(s)) return;
+      var tags = (s.review && s.review.tags) || [];
+      if (tag && tags.indexOf(tag) === -1) return;
+      var a = s.review.answers || {};
+      var items = filledAnswers(s).filter(function (q) { return !question || q === question; })
+        .map(function (q) { return { q: q, a: a[q] }; });
+      if (question && !items.length) return;
+      out.push({ site: s, lastDate: lastWorkDate(s), tags: tags.slice(), items: items });
+    });
+    return out.sort(function (x, y) {
+      if (!x.lastDate !== !y.lastDate) return x.lastDate ? -1 : 1;
+      return y.lastDate.localeCompare(x.lastDate);
+    });
+  }
+
   var Share = {
+    DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
+    DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
+    REVIEW_TAG_MAX: REVIEW_TAG_MAX,
+    normalizeReview: normalizeReview,
+    reviewHasContent: reviewHasContent,
+    reviewNeeded: reviewNeeded,
+    reviewQuestionsOf: reviewQuestionsOf,
+    collectReviews: collectReviews,
     FIELDS: FIELDS,
     linkUrl: linkUrl,
     FIELD_MAP: FIELD_MAP,

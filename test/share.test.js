@@ -853,5 +853,67 @@ test('scheduleSites: past 는 최근 끝난 것이 먼저', () => {
   assert.deepStrictEqual(g.past.map((r) => r.site.id), ['p2', 'p1']);
 });
 
+// ---------- 현장 후기 (2026-09-27) ----------
+test('normalizeReview: 빈 값·이상한 값은 빈 후기', () => {
+  assert.deepStrictEqual(Share.normalizeReview(null), { answers: {}, tags: [] });
+  assert.deepStrictEqual(Share.normalizeReview({ answers: 'x', tags: 'y' }), { answers: {}, tags: [] });
+});
+
+test('normalizeReview: 답은 문자열로, 태그는 앞뒤 공백·빈값·중복 빼고 5개까지', () => {
+  const r = Share.normalizeReview({
+    answers: { '시공후기': '좋았음', '개선사항': 3, '빈': null },
+    tags: [' 도배시공후 ', '', '도배시공후', 'a', 'b', 'c', 'd', 'e']
+  });
+  assert.deepStrictEqual(r.answers, { '시공후기': '좋았음', '개선사항': '3', '빈': '' });
+  assert.deepStrictEqual(r.tags, ['도배시공후', 'a', 'b', 'c', 'd']);
+});
+
+test('reviewHasContent: 공백뿐인 답은 없는 것, 태그만 있어도 있는 것', () => {
+  assert.strictEqual(Share.reviewHasContent({ review: { answers: { q: '  ' }, tags: [] } }), false);
+  assert.strictEqual(Share.reviewHasContent({ review: { answers: { q: '메모' }, tags: [] } }), true);
+  assert.strictEqual(Share.reviewHasContent({ review: { answers: {}, tags: ['도배시공후'] } }), true);
+  assert.strictEqual(Share.reviewHasContent({}), false);
+});
+
+test('reviewNeeded: 시공 날짜가 모두 지났고 후기가 비었을 때만', () => {
+  const on = (dates, review) => ({ days: dates.map((d) => ({ date: d, staff: [] })), review });
+  assert.strictEqual(Share.reviewNeeded(on(['2026-09-20', '2026-09-21']), '2026-09-27'), true);
+  assert.strictEqual(Share.reviewNeeded(on(['2026-09-20', '2026-09-27']), '2026-09-27'), false);   // 오늘 작업 중
+  assert.strictEqual(Share.reviewNeeded(on(['']), '2026-09-27'), false);                          // 날짜 미정
+  assert.strictEqual(Share.reviewNeeded(on(['2026-09-20'], { answers: { q: '적음' }, tags: [] }), '2026-09-27'), false);
+});
+
+test('reviewQuestionsOf: 설정 질문 + 설정엔 없지만 답이 남은 질문', () => {
+  const s = { review: { answers: { '옛 질문': '남은 답', '시공후기': '', '빈 옛 질문': ' ' }, tags: [] } };
+  assert.deepStrictEqual(Share.reviewQuestionsOf(s, ['시공후기', '개선사항']), ['시공후기', '개선사항', '옛 질문']);
+});
+
+test('collectReviews: 후기 있는 현장만, 마지막 시공일 최신순, 날짜 없는 현장은 뒤', () => {
+  const mk = (id, dates, answers, tags) => ({ id, days: dates.map((d) => ({ date: d, staff: [] })), review: { answers, tags: tags || [] } });
+  const sites = [
+    mk('a', ['2026-09-01'], { '개선사항': '퍼티 두껍게' }, ['도배시공후']),
+    mk('b', ['2026-09-10', '2026-09-12'], { '시공후기': '깔끔' }, ['바닥시공후']),
+    mk('c', ['2026-09-20'], {}, []),                        // 후기 없음 → 빠짐
+    mk('d', [''], { '개선사항': '날짜 없음' }, ['도배시공후'])
+  ];
+  const all = Share.collectReviews(sites, {});
+  assert.deepStrictEqual(all.map((x) => x.site.id), ['b', 'a', 'd']);
+  assert.strictEqual(all[0].lastDate, '2026-09-12');
+  assert.deepStrictEqual(all[0].items, [{ q: '시공후기', a: '깔끔' }]);
+});
+
+test('collectReviews: 태그·질문으로 거르면 그 질문 답만 남고, 답 없는 현장은 빠진다', () => {
+  const mk = (id, d, answers, tags) => ({ id, days: [{ date: d, staff: [] }], review: { answers, tags } });
+  const sites = [
+    mk('a', '2026-09-01', { '개선사항': '퍼티', '시공후기': '좋음' }, ['도배시공후']),
+    mk('b', '2026-09-02', { '시공후기': '보통' }, ['도배시공후']),
+    mk('c', '2026-09-03', { '개선사항': '문틀' }, ['바닥시공후'])
+  ];
+  const r = Share.collectReviews(sites, { tag: '도배시공후', question: '개선사항' });
+  assert.deepStrictEqual(r.map((x) => x.site.id), ['a']);
+  assert.deepStrictEqual(r[0].items, [{ q: '개선사항', a: '퍼티' }]);
+  assert.deepStrictEqual(Share.collectReviews(sites, { tag: '도배시공후' }).map((x) => x.site.id), ['b', 'a']);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -37,8 +37,16 @@
       calShow: 'count',          // 일정 달력 칸에 뭘 보여줄까: count(건수) | region(시공지역) | staff(인원)
       team: [],                  // 팀원 명단 (이름 문자열)
       people: {},                // 팀원 연락처·차량 { 이름: { phone, car } } — 이름으로 찾는다
-      supplyDefaults: ['본드', '장갑']  // 새 현장에 자동으로 깔리는 부자재
+      supplyDefaults: ['본드', '장갑'],  // 새 현장에 자동으로 깔리는 부자재
+      reviewQuestions: Share.DEFAULT_REVIEW_QUESTIONS.slice(),  // 현장 후기 탭 질문 (2026-09-27)
+      reviewTags: Share.DEFAULT_REVIEW_TAGS.slice()            // 현장 후기 태그 목록
     };
+  }
+  function stringList(arr, fallback) {
+    if (!Array.isArray(arr)) return fallback.slice();
+    var out = [];
+    arr.forEach(function (v) { var t = String(v == null ? '' : v).trim(); if (t && out.indexOf(t) === -1) out.push(t); });
+    return out;
   }
   function defaultState() {
     return { version: 1, clients: [], sites: [], photos: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
@@ -67,6 +75,7 @@
     s.startTime = Share.DEFAULT_START_TIME;
     s.needStaff = 0; // 총 필요 인원 (0 = 아직 안 정함)
     s.services = [];  // AS·추가작업
+    s.review = { answers: {}, tags: [] };  // 현장 후기 (질문별 답 + 태그)
     return s;
   }
   function cleanStaff(arr) {
@@ -95,6 +104,7 @@
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     s.services = normalizeServices(s.services);
+    s.review = Share.normalizeReview(s.review);
     return s;
   }
   // AS·추가작업 목록 — 예전 현장엔 없다(빈 목록). 모양이 이상한 줄은 버린다
@@ -148,6 +158,8 @@
       state.settings = Object.assign(defaultSettings(), parsed.settings || {});
       state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (parsed.settings || {}).questions || {});
       state.settings.people = normalizePeople(state.settings.people);
+      state.settings.reviewQuestions = stringList(state.settings.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
+      state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
       state.photos = (parsed.photos || []).map(normalizePhoto);
@@ -177,7 +189,7 @@
   // 설정 중 서버로 보낼 것만 (백업키·마지막 탭은 폰에만)
   function settingsForSync() {
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
-      people: state.settings.people };
+      people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags };
   }
 
   // ---------- 거래처 ----------
@@ -344,6 +356,26 @@
     return updateSite(siteId, { supplies: sup });
   }
 
+  // ---------- 현장 후기 (2026-09-27) ----------
+  function setReviewAnswer(siteId, question, text) {
+    var s = getSite(siteId); if (!s) return null;
+    var r = Share.normalizeReview(s.review);
+    r.answers[question] = String(text == null ? '' : text);
+    return updateSite(siteId, { review: r });
+  }
+  // 켜고 끈다. 이미 5개인데 새로 켜려 하면 false (안 들어감)
+  function toggleReviewTag(siteId, tag) {
+    var s = getSite(siteId); if (!s) return false;
+    var r = Share.normalizeReview(s.review), t = String(tag || '').trim();
+    if (!t) return false;
+    var i = r.tags.indexOf(t);
+    if (i !== -1) r.tags.splice(i, 1);
+    else if (r.tags.length >= Share.REVIEW_TAG_MAX) return false;
+    else r.tags.push(t);
+    updateSite(siteId, { review: r });
+    return true;
+  }
+
   function deleteSite(id) {
     state.sites = state.sites.filter(function (s) { return s.id !== id; });
     commit({ op: 'delete', type: 'site', id: id });
@@ -466,7 +498,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -552,6 +584,9 @@
         if (!Array.isArray(state.settings.team)) state.settings.team = [];
         if (!Array.isArray(state.settings.supplyDefaults)) state.settings.supplyDefaults = defaultSettings().supplyDefaults;
         state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, ds.questions || {});
+        // 후기 질문·태그 (2026-09-27) — 예전 백업엔 없다 → 기본값
+        state.settings.reviewQuestions = stringList(ds.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
+        state.settings.reviewTags = stringList(ds.reviewTags, Share.DEFAULT_REVIEW_TAGS);
         state.clients = (data.clients || []).map(normalizeClient);
         state.sites = (data.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
         var metas = [], chunksById = {};
@@ -591,6 +626,7 @@
     clients: clients, getClient: getClient, addClient: addClient, updateClient: updateClient,
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
+    setReviewAnswer: setReviewAnswer, toggleReviewTag: toggleReviewTag,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
     addService: addService, updateService: updateService, removeService: removeService,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,

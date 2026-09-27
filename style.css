@@ -194,12 +194,16 @@ textarea { resize: vertical; }
   background: var(--card); border-bottom: 3px solid var(--tabc, var(--border)); }
 .site-tab { --c: #2563eb; --t: #eff6ff; position: relative; flex: 1; min-width: 0; padding: 10px 2px 9px; border: none;
   border-radius: 10px 10px 0 0; background: var(--t); color: var(--c); font-size: 13.5px; font-weight: 800; white-space: nowrap; }
+/* 후기 탭이 생겨 6칸이 되면서(2026-09-27) 폰 폭에서 글자가 칸 끝에 붙는다 — 좁은 화면에선 조금 줄인다 */
+@media (max-width: 420px) { .site-tabs { gap: 3px; padding-left: 4px; padding-right: 4px; } .site-tab { font-size: 12.5px; letter-spacing: -0.3px; } }
 .site-tab.on { background: var(--c); color: #fff; }
 .tab-info   { --c: #2563eb; --t: #eff6ff; }   /* 파랑 */
 .tab-staff  { --c: #15803d; --t: #ecfdf3; }   /* 초록 */
 .tab-film   { --c: #7c3aed; --t: #f5f3ff; }   /* 보라 */
 .tab-supply { --c: #ea580c; --t: #fff4ed; }   /* 주황 */
 .tab-etc    { --c: #be185d; --t: #fdf2f8; }   /* 자주 */
+.tab-review { --c: #0f766e; --t: #f0fdfa; flex: 0.7; }   /* 청록 · 두 글자라 좁게 */
+.site-tabs:has(.tab-review.on) { --tabc: #0f766e; }
 .site-tabs:has(.tab-info.on)   { --tabc: #2563eb; }
 .site-tabs:has(.tab-staff.on)  { --tabc: #15803d; }
 .site-tabs:has(.tab-film.on)   { --tabc: #7c3aed; }
@@ -618,3 +622,23 @@ textarea { resize: vertical; }
   border: 1px solid var(--border); border-radius: 999px; background: var(--card);
   padding: 3px 10px; font-size: 12.5px; font-weight: 800; color: #374151; }
 .sh-client:active { background: var(--bg); }
+
+/* ---------- 현장 후기 탭 (2026-09-27) ---------- */
+.rv-q { padding: 6px 12px 8px; }
+.rv-q textarea { width: 100%; box-sizing: border-box; }
+.rv-tag-title { padding: 10px 12px 0; }
+.rv-tags { padding: 6px 12px 12px; }
+
+/* ---------- 후기 모아보기 (#reviews) ---------- */
+.reviews-body { padding: 10px 12px 40px; }
+.rv-filter { margin-bottom: 10px; }
+.rv-filter-label { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0 0 6px 2px; }
+.rv-count { font-size: 13px; color: var(--muted); margin: 4px 2px 8px; }
+.rv-card { display: block; width: 100%; text-align: left; margin-bottom: 10px; padding: 12px 14px;
+  background: var(--card); border: 1px solid var(--border); border-left: 4px solid #0f766e; border-radius: 12px; color: var(--text, #111); }
+.rv-card-top b { font-size: 15.5px; }
+.rv-card-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.rv-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.rv-card-tags span { font-size: 12px; font-weight: 700; color: #0f766e; background: #f0fdfa; border-radius: 999px; padding: 2px 8px; }
+.rv-card-q { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-top: 10px; }
+.rv-card-a { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
