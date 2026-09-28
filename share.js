@@ -210,7 +210,8 @@
       var fl = site.films
         .filter(function (r) { return r && str(r.code) !== ''; })
         .map(function (r) { return [str(r.place), str(r.code)].filter(Boolean).join(' '); });
-      lines.push('필름: ' + fl.join(', '));
+      // 위치마다 한 줄 (2026-09-29). 쉼표로 이어 붙이면 카톡에서 한 덩어리로 보여 어느 문에 뭘 붙일지 안 보인다
+      lines.push('필름:\n' + fl.join('\n'));
     }
     if (has.quoteUrl) lines.push('📄 견적서: ' + linkUrl(site.quoteUrl));
     if (has.photoUrl) lines.push('📷 현장사진: ' + linkUrl(site.photoUrl));
