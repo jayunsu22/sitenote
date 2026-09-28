@@ -28,9 +28,18 @@ const full = () => Object.assign(blank(), {
 });
 
 console.log('FIELDS');
-test('16개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
+test('17개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','calRegion','date','pwLobby','pwUnit','gate','carReg','parking','cargoEv','startTime','toilet','note','films','quoteUrl','photoUrl','memo']);
+    ['name','calRegion','date','pwLobby','pwUnit','barrier','gate','carReg','parking','cargoEv','startTime','toilet','note','films','quoteUrl','photoUrl','memo']);
+});
+test('입구차단기: 세대 비번과 출입구 사이, 기본값 경비호출, 업자 질문·공유 문구에 나온다', () => {
+  assert.strictEqual(Share.DEFAULT_BARRIER, '경비호출');
+  assert.ok(Share.DEFAULT_QUESTIONS.barrier);
+  const s = Object.assign(full(), { barrier: '비번 1234#' });
+  const out = Share.buildShare(s, ['pwUnit', 'barrier', 'gate']).split('\n');
+  assert.deepStrictEqual(out.slice(1), ['세대비번: 1234*', '입구차단기: 비번 1234#', '출입: 정문 방문자 게이트']);
+  const q = Share.buildQuestion(Object.assign(full(), { barrier: '' }), ['barrier'], Share.DEFAULT_QUESTIONS);
+  assert.ok(q.indexOf(Share.DEFAULT_QUESTIONS.barrier) !== -1);
 });
 test('작업 시작시간: 질문 대상이 아니고, 공유 문구에서는 화장실 바로 위', () => {
   assert.ok(!Share.DEFAULT_QUESTIONS.startTime);
@@ -41,9 +50,9 @@ test('작업 시작시간: 질문 대상이 아니고, 공유 문구에서는 �
   assert.strictEqual(Share.buildShare(s, ['toilet']).indexOf('🕗'), -1, '체크 안 하면 안 나간다');
   assert.strictEqual(Share.isEmpty(Object.assign(blank(), { startTime: '  ' }), 'startTime'), true, '지우면 빈 칸');
 });
-test('DEFAULT_QUESTIONS에 name/calRegion/note/quoteUrl/photoUrl/memo 없음, 나머지 9개', () => {
+test('DEFAULT_QUESTIONS에 name/calRegion/note/quoteUrl/photoUrl/memo 없음, 나머지 10개 (입구차단기 포함)', () => {
   const k = Object.keys(Share.DEFAULT_QUESTIONS);
-  assert.strictEqual(k.length, 9);
+  assert.strictEqual(k.length, 10);
   assert.ok(!k.includes('name') && !k.includes('memo') && !k.includes('quoteUrl')
     && !k.includes('photoUrl') && !k.includes('note') && !k.includes('calRegion'));
   assert.strictEqual(Share.DEFAULT_QUESTIONS.cargoEv, '짐 옮길 때 화물 엘리베이터 사용해야 하나요?');

@@ -21,6 +21,10 @@
     { key: 'date',    label: '시공날짜',      type: 'date',   question: '시공 날짜 언제인가요?' },
     { key: 'pwLobby', label: '공동현관 비번', type: 'text',   question: '공동현관 비번 알려주세요' },
     { key: 'pwUnit',  label: '세대 비번',     type: 'text',   question: '세대 현관 비번 알려주세요' },
+    // 입구차단기 (2026-09-28) — 단지 입구 차량 차단기. 경비호출이 대부분이고, 비번을 누르는 단지도 있다.
+    // 새 현장·예전 현장 모두 '경비호출' 로 채워져 있다(DEFAULT_BARRIER). 비번이면 고쳐 적는다
+    { key: 'barrier', label: '입구차단기',    type: 'text',   question: '입구 차단기는 어떻게 통과하나요? (경비호출 / 비번)',
+      placeholder: '예: 경비호출 / 비번 1234#' },
     { key: 'gate',    label: '출입구',        type: 'text',   question: '방문객 차량 출입구가 따로 있나요?' },
     { key: 'carReg',  label: '차량등록',      type: 'select', question: '출입 시 차량등록이 필요한가요?',
       options: ['미확인', '필요', '불필요'], shareLabel: '차량등록' },
@@ -47,6 +51,8 @@
 
   // 현장을 새로 만들면 이 문구가 '작업 시작시간' 칸에 들어가 있다 (거의 늘 같아서 매번 적기 번거롭다)
   var DEFAULT_START_TIME = '오전 8시 시작합니다';
+  // 새 현장의 '입구차단기' 칸 기본값
+  var DEFAULT_BARRIER = '경비호출';
 
   var FIELD_MAP = {};
   FIELDS.forEach(function (f) { FIELD_MAP[f.key] = f; });
@@ -189,6 +195,7 @@
     if (has.address) lines.push('📍 ' + str(site.address));
     if (has.pwLobby) lines.push('공동현관비번: ' + str(site.pwLobby));
     if (has.pwUnit) lines.push('세대비번: ' + str(site.pwUnit));
+    if (has.barrier) lines.push('입구차단기: ' + str(site.barrier));
     if (has.gate) lines.push('출입: ' + str(site.gate));
     if (has.carReg) lines.push(selectLine(FIELD_MAP.carReg, site.carReg));
     if (has.parking) lines.push('주차: ' + str(site.parking));
@@ -443,7 +450,7 @@
     return servicesOf(site).filter(function (v) { return !v.done; }).length;
   }
 
-  var AS_INFO = ['address', 'pwLobby', 'pwUnit', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet', 'note', 'films'];
+  var AS_INFO = ['address', 'pwLobby', 'pwUnit', 'barrier', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet', 'note', 'films'];
   function svcHead(site, v, tail) {
     return '[' + titleLine(site) + '] 🔧 ' + serviceLabel(v) +
       (isIsoDate(str(v.date)) ? ' ' + dayLabel(v.date) : '') + (tail || '');
@@ -930,6 +937,7 @@
     dayStaffCount: dayStaffCount,
     staffCountLabel: staffCountLabel,
     DEFAULT_START_TIME: DEFAULT_START_TIME,
+    DEFAULT_BARRIER: DEFAULT_BARRIER,
     FILM_STAGES: FILM_STAGES,
     isUrgent: isUrgent,
     filmStageOf: filmStageOf,

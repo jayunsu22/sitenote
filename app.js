@@ -1208,7 +1208,7 @@
     { key: 'review', label: '후기' }
   ];
   var TAB_OF_FIELD = { date: 'staff', films: 'film', quoteUrl: 'etc', photoUrl: 'etc', memo: 'etc' };
-  var INFO_ASK = ['pwLobby', 'pwUnit', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet'];   // 업자에게 물어볼 출입 칸
+  var INFO_ASK = ['pwLobby', 'pwUnit', 'barrier', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet'];   // 업자에게 물어볼 출입 칸
   var siteTab = 'info', siteTabFor = '';
   function pickSiteTab(key, scroll) {
     siteTab = key;

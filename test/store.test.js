@@ -594,6 +594,20 @@ function reset() {
     assert.strictEqual(Store.getSite('s1').needStaff, 0);
   });
 
+  await test('입구차단기: 새 현장·예전 현장 모두 기본값 경비호출, 지운 값은 그대로 빈 칸', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    assert.strictEqual(Store.getSite(s.id).barrier, '경비호출');
+    Store.updateSite(s.id, { barrier: '' });
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '옛현장', date: '2026-09-19' },
+      { id: 's2', clientId: 'c1', color: 0, name: '지운현장', barrier: '' }
+    ], settings: { questions: {} }, syncQueue: [] });
+    Store.load();
+    assert.strictEqual(Store.getSite('s1').barrier, '경비호출');
+    assert.strictEqual(Store.getSite('s2').barrier, '');
+  });
+
   // ---------- 현장 후기 (2026-09-27) ----------
   await test('후기: 새 현장·구버전 현장은 빈 후기, 설정 기본 질문·태그', () => {
     reset();
