@@ -2057,7 +2057,8 @@
     var acts = document.createElement('div'); acts.className = 'film-actions';
     var add = document.createElement('button'); add.type = 'button'; add.className = 'film-add'; add.textContent = '＋ 줄 추가';
     add.onclick = function () {
-      films.push({ place: '', code: '', ready: false }); save({ films: films.slice() });
+      // 시공위치는 빈칸, 필름명은 위 줄 것 복사 (시공위치만 다르고 필름은 같은 경우가 많다)
+      films.push(Share.newFilmRow(films)); save({ films: films.slice() });
       renderFilms(ctl, Store.getSite(s.id), save);
       var ps = ctl.querySelectorAll('.place'); if (ps.length) ps[ps.length - 1].focus();
     };

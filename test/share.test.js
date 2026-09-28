@@ -93,6 +93,18 @@ test('빈 줄·공백은 빼고, 같은 번호는 한 번만', () => {
   assert.strictEqual(Share.filmOrderText(s), 'px454-2\nps101');
 });
 test('필름 없으면 빈 문자열', () => { assert.strictEqual(Share.filmOrderText(blank()), ''); });
+test('주문용이라 같은 필름은 한 번만 — 대소문자·띄어쓰기 차이도 같은 필름으로 본다 (처음 적은 모양으로)', () => {
+  const s = blank();
+  s.films = [{ place: '방3,화2 문짝', code: '보닥 spw25' }, { place: '방3,화2 문틀', code: '예림 hp602' },
+             { place: '현관문', code: '예림  HP602' }, { place: '안방드레스룸', code: ' 예림 hp602' }, { place: '창틀 7개', code: '예림 Hp602' }];
+  assert.strictEqual(Share.filmOrderText(s), '보닥 spw25\n예림 hp602');
+});
+test('newFilmRow: 시공위치는 빈칸, 필름명은 바로 위 줄 것 (위 줄이 비었으면 그 위에서 마지막으로 적은 것)', () => {
+  assert.deepStrictEqual(Share.newFilmRow([{ place: '현관문', code: '예림 hp602', ready: true }]), { place: '', code: '예림 hp602', ready: false });
+  assert.deepStrictEqual(Share.newFilmRow([{ place: 'a', code: 'ps010' }, { place: 'b', code: '' }]), { place: '', code: 'ps010', ready: false });
+  assert.deepStrictEqual(Share.newFilmRow([]), { place: '', code: '', ready: false });
+  assert.deepStrictEqual(Share.newFilmRow(null), { place: '', code: '', ready: false });
+});
 test('☑ 된 줄이 있으면 그 줄들만, 없으면 전부', () => {
   const s = blank();
   s.films = [{ place: 'a', code: 'hp604', ready: false }, { place: 'b', code: 'px449', ready: true }, { place: 'c', code: 'px454-2', ready: true }, { place: 'd', code: 'px454-2', ready: false }];
