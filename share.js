@@ -179,8 +179,11 @@
       .filter(function (k) { return DEFAULT_QUESTIONS[k] && isEmpty(site, k); })
       .map(function (k) { return '- ' + (str(q[k]) || DEFAULT_QUESTIONS[k]); });
     if (!lines.length) return '';
-    return '[' + titleLine(site) + ']\n' + lines.join('\n');
+    return ['[' + titleLine(site) + ']'].concat(lines).join(ITEM_GAP);
   }
+  /* 복사 문구의 항목 사이 (2026-09-28): 빈 줄 하나. 카톡에서 줄이 붙어 있으면 항목이 한 덩어리로
+     보여 눈에 안 들어온다 — 팀원 공유·업자 질문 두 문구에 쓴다 */
+  var ITEM_GAP = '\n\n';
 
   function selectLine(f, v) {
     var memo = str(v.memo);
@@ -232,7 +235,7 @@
     }
 
     lines = lines.concat(infoLines(site, has));
-    return lines.join('\n');
+    return lines.join(ITEM_GAP);
   }
 
   // ---------- 일정 (날짜별 인원·준비 상태) ----------

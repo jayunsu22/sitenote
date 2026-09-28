@@ -36,7 +36,7 @@ test('입구차단기: 세대 비번과 출입구 사이, 기본값 경비호출
   assert.strictEqual(Share.DEFAULT_BARRIER, '경비호출');
   assert.ok(Share.DEFAULT_QUESTIONS.barrier);
   const s = Object.assign(full(), { barrier: '비번 1234#' });
-  const out = Share.buildShare(s, ['pwUnit', 'barrier', 'gate']).split('\n');
+  const out = Share.buildShare(s, ['pwUnit', 'barrier', 'gate']).split('\n\n');
   assert.deepStrictEqual(out.slice(1), ['세대비번: 1234*', '입구차단기: 비번 1234#', '출입: 정문 방문자 게이트']);
   const q = Share.buildQuestion(Object.assign(full(), { barrier: '' }), ['barrier'], Share.DEFAULT_QUESTIONS);
   assert.ok(q.indexOf(Share.DEFAULT_QUESTIONS.barrier) !== -1);
@@ -45,7 +45,7 @@ test('작업 시작시간: 질문 대상이 아니고, 공유 문구에서는 �
   assert.ok(!Share.DEFAULT_QUESTIONS.startTime);
   assert.strictEqual(Share.DEFAULT_START_TIME, '오전 8시 시작합니다');
   const s = Object.assign(full(), { startTime: '오전 8시 시작합니다' });
-  const out = Share.buildShare(s, ['cargoEv', 'startTime', 'toilet']).split('\n');
+  const out = Share.buildShare(s, ['cargoEv', 'startTime', 'toilet']).split('\n\n');
   assert.deepStrictEqual(out.slice(1), ['화물EV 사용', '🕗 오전 8시 시작합니다', '화장실: 지하1층 관리실 옆']);
   assert.strictEqual(Share.buildShare(s, ['toilet']).indexOf('🕗'), -1, '체크 안 하면 안 나간다');
   assert.strictEqual(Share.isEmpty(Object.assign(blank(), { startTime: '  ' }), 'startTime'), true, '지우면 빈 칸');
@@ -106,15 +106,15 @@ test('빈 항목만 질문으로, 순서는 FIELDS 순', () => {
   const s = full(); s.gate = ''; s.toilet = ''; s.cargoEv.v = '미확인';
   const out = Share.buildQuestion(s, ['gate','toilet','cargoEv','parking'], Share.DEFAULT_QUESTIONS);
   assert.strictEqual(out,
-    '[인천 청학동 시대아파트 104동 910호 13평]\n' +
-    '- 방문객 차량 출입구가 따로 있나요?\n' +
-    '- 짐 옮길 때 화물 엘리베이터 사용해야 하나요?\n' +
+    '[인천 청학동 시대아파트 104동 910호 13평]\n\n' +
+    '- 방문객 차량 출입구가 따로 있나요?\n\n' +
+    '- 짐 옮길 때 화물 엘리베이터 사용해야 하나요?\n\n' +
     '- 화장실 사용할 곳 위치 알려주세요');
 });
 test('커스텀 문구 적용', () => {
   const s = blank(); s.name = 'A';
   const out = Share.buildQuestion(s, ['toilet'], Object.assign({}, Share.DEFAULT_QUESTIONS, { toilet: '화장실 어디 써요?' }));
-  assert.strictEqual(out, '[A]\n- 화장실 어디 써요?');
+  assert.strictEqual(out, '[A]\n\n- 화장실 어디 써요?');
 });
 test('name/calRegion/quoteUrl/photoUrl/memo 키는 무시', () => {
   const s = blank(); s.name = 'A';
@@ -129,28 +129,28 @@ test('채워진 항목만, 형식 고정', () => {
   const keys = Share.FIELDS.map(f => f.key);
   const out = Share.buildShare(full(), keys);
   assert.strictEqual(out,
-    '[인천 청학동 시대아파트 104동 910호 13평] 8/18\n' +
-    '공동현관비번: 0000*\n' +
-    '세대비번: 1234*\n' +
-    '출입: 정문 방문자 게이트\n' +
-    '차량등록 필요 (관리실에 번호 알려줌)\n' +
-    '주차: 지상 방문자석\n' +
-    '화물EV 사용\n' +
-    '화장실: 지하1층 관리실 옆\n' +
-    '⚠ 특이사항: 앞집이 예민함. 조심조심 들어올 것\n' +
-    '필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색\n' +
-    '📄 견적서: https://songil.netlify.app/q/ab12cd34\n' +
-    '📷 현장사진: https://songil.netlify.app/g/recABC\n' +
+    '[인천 청학동 시대아파트 104동 910호 13평] 8/18\n\n' +
+    '공동현관비번: 0000*\n\n' +
+    '세대비번: 1234*\n\n' +
+    '출입: 정문 방문자 게이트\n\n' +
+    '차량등록 필요 (관리실에 번호 알려줌)\n\n' +
+    '주차: 지상 방문자석\n\n' +
+    '화물EV 사용\n\n' +
+    '화장실: 지하1층 관리실 옆\n\n' +
+    '⚠ 특이사항: 앞집이 예민함. 조심조심 들어올 것\n\n' +
+    '필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색\n\n' +
+    '📄 견적서: https://songil.netlify.app/q/ab12cd34\n\n' +
+    '📷 현장사진: https://songil.netlify.app/g/recABC\n\n' +
     '입니자 사진은 조대리가 찍어줌');
 });
 test('비번 하나만 있으면 그 줄만', () => {
   const s = full(); s.pwLobby = '';
   const out = Share.buildShare(s, ['pwLobby','pwUnit']);
-  assert.strictEqual(out, '[인천 청학동 시대아파트 104동 910호 13평]\n세대비번: 1234*');
+  assert.strictEqual(out, '[인천 청학동 시대아파트 104동 910호 13평]\n\n세대비번: 1234*');
 });
 test('선택된 키 외에는 안 나옴 (date 미선택이면 제목에 날짜 없음)', () => {
   const out = Share.buildShare(full(), ['parking']);
-  assert.strictEqual(out, '[인천 청학동 시대아파트 104동 910호 13평]\n주차: 지상 방문자석');
+  assert.strictEqual(out, '[인천 청학동 시대아파트 104동 910호 13평]\n\n주차: 지상 방문자석');
 });
 test('빈 항목은 선택돼도 제외', () => {
   const s = full(); s.parking = '';
@@ -158,12 +158,12 @@ test('빈 항목은 선택돼도 제외', () => {
 });
 test('films 코드 빈 줄은 건너뜀', () => {
   const s = full(); s.films.push({ place: '방문', code: '' });
-  assert.strictEqual(Share.buildShare(s, ['films']), '[인천 청학동 시대아파트 104동 910호 13평]\n필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색');
+  assert.strictEqual(Share.buildShare(s, ['films']), '[인천 청학동 시대아파트 104동 910호 13평]\n\n필름: 현관문 뒷면 PS035, 세탁실문 뒷면 중백색');
 });
 test('선택형 메모 없으면 괄호 없음, 일반사용 표기', () => {
   const s = full(); s.carReg = { v: '불필요', memo: '' }; s.cargoEv = { v: '일반사용', memo: '예약 불필요' };
   assert.strictEqual(Share.buildShare(s, ['carReg','cargoEv']),
-    '[인천 청학동 시대아파트 104동 910호 13평]\n차량등록 불필요\n화물EV 일반사용 (예약 불필요)');
+    '[인천 청학동 시대아파트 104동 910호 13평]\n\n차량등록 불필요\n\n화물EV 일반사용 (예약 불필요)');
 });
 
 test('linkUrl: http(s) 없으면 붙이고, 있으면 그대로, 빈값은 빈 문자열', () => {
@@ -176,13 +176,13 @@ test('linkUrl: http(s) 없으면 붙이고, 있으면 그대로, 빈값은 빈 �
 test('공유문의 사진 링크는 http 없이 넣어도 https:// 가 붙어서 나간다', () => {
   const s = full(); s.photoUrl = 'songil.netlify.app/g/recABC';
   assert.strictEqual(Share.buildShare(s, ['photoUrl']),
-    '[인천 청학동 시대아파트 104동 910호 13평]\n📷 현장사진: https://songil.netlify.app/g/recABC');
+    '[인천 청학동 시대아파트 104동 910호 13평]\n\n📷 현장사진: https://songil.netlify.app/g/recABC');
 });
 test('견적서 링크: 붙여넣은 주소가 현장사진 바로 앞줄로 나간다', () => {
   const s = full();
   assert.strictEqual(Share.buildShare(s, ['quoteUrl', 'photoUrl']),
-    '[인천 청학동 시대아파트 104동 910호 13평]\n' +
-    '📄 견적서: https://songil.netlify.app/q/ab12cd34\n' +
+    '[인천 청학동 시대아파트 104동 910호 13평]\n\n' +
+    '📄 견적서: https://songil.netlify.app/q/ab12cd34\n\n' +
     '📷 현장사진: https://songil.netlify.app/g/recABC');
 });
 test('견적서 링크: 비어있으면 공유문에서 빠진다', () => {
@@ -697,7 +697,7 @@ test('datesLine / buildShare 제목: 여러 날이면 날짜를 쉼표로 나열
   const s = Object.assign(full(), { days: [{ date: '2026-08-18', staff: [] }, { date: '2026-08-19', staff: [] }, { date: '2026-08-21', staff: [] }] });
   assert.strictEqual(Share.datesLine(s), '8/18, 8/19, 8/21');
   assert.strictEqual(Share.datesLine(full()), '8/18');
-  assert.strictEqual(Share.buildShare(s, ['name', 'date']).split('\n')[0], '[인천 청학동 시대아파트 104동 910호 13평] 8/18, 8/19, 8/21');
+  assert.strictEqual(Share.buildShare(s, ['name', 'date']).split('\n\n')[0], '[인천 청학동 시대아파트 104동 910호 13평] 8/18, 8/19, 8/21');
 });
 test('monthGrid: 2026년 9월은 화요일 시작, 5주', () => {
   const g = Share.monthGrid(2026, 9);
@@ -708,11 +708,11 @@ test('monthGrid: 2026년 9월은 화요일 시작, 5주', () => {
 });
 test('buildShare: 인원 줄은 제목(날짜) 줄 바로 다음, days 없으면 예전 그대로', () => {
   const s = Object.assign(full(), { days: [{ date: '2026-08-18', staff: ['김기사', '박기사'] }] });
-  const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n');
+  const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n\n');
   assert.strictEqual(lines[0], '[인천 청학동 시대아파트 104동 910호 13평] 8/18');
   assert.strictEqual(lines[1], '👤 김기사·박기사');
   assert.strictEqual(lines[2], '공동현관비번: 0000*');
-  assert.strictEqual(Share.buildShare(full(), ['name', 'date', 'pwLobby']).split('\n').length, 2);
+  assert.strictEqual(Share.buildShare(full(), ['name', 'date', 'pwLobby']).split('\n\n').length, 2);
   assert.strictEqual(Share.buildShare(s, ['name', 'pwLobby']).indexOf('👤'), -1, '시공날짜를 체크 안 하면 인원 줄도 안 나간다');
 });
 
@@ -771,7 +771,7 @@ test('staffLine / staffShortLine: 필요 인원을 정하면 공유 문구에도
 });
 test('buildShare: 인원 줄 다음에 부족 경고 줄', () => {
   const s = Object.assign(full(), { needStaff: 3, days: [{ date: '2026-08-18', staff: ['김기사'] }] });
-  const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n');
+  const lines = Share.buildShare(s, ['name', 'date', 'pwLobby']).split('\n\n');
   assert.strictEqual(lines[1], '👤 필요 3명 — 김기사');
   assert.strictEqual(lines[2], '⚠ 인원 부족: 3명 중 1명 (2명 더 필요)');
   assert.strictEqual(lines[3], '공동현관비번: 0000*');
