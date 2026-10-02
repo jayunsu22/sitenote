@@ -266,8 +266,9 @@
       </div>
       <!-- 고객 연락처: AS 는 고객과 바로 날짜·시간을 맞추는 일이 많다. 작업자에게 복사할 때 같이 나간다 -->
       <label class="svc-label" for="svcPhone">고객 연락처 <span class="sec-hint">— 작업자에게 복사할 때 같이 나갑니다</span></label>
-      <div class="svc-daterow">
-        <input type="tel" id="svcPhone" inputmode="tel" placeholder="예: 010-1234-5678" autocomplete="off">
+      <div class="svc-daterow svc-phonerow">
+        <input type="text" id="svcCustomer" class="svc-customer" placeholder="고객명" autocomplete="off">
+        <input type="tel" id="svcPhone" inputmode="tel" placeholder="010-1234-5678" autocomplete="off">
         <a id="svcCall" class="svc-call disabled" href="#" title="전화걸기">📞 전화</a>
       </div>
       <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>

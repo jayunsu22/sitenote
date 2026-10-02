@@ -1713,6 +1713,7 @@
     $('svcSite').textContent = Share.titleLine(c.site) + (clientName(c.site) ? ' · ' + clientName(c.site) : '');
     $('svcRequest').value = c.v.request;
     $('svcDate').value = Share.isIsoDate(c.v.date) ? c.v.date : '';
+    $('svcCustomer').value = c.v.customer || '';
     $('svcPhone').value = c.v.phone || '';
     syncSvcCall();
     $('svcDone').checked = !!c.v.done;
@@ -1753,7 +1754,7 @@
     $('svcSheet').hidden = true;
     // 접수만 누르고 아무것도 안 적었으면 빈 줄을 남기지 않는다
     var c = curService();
-    if (c && !c.v.request.trim() && !c.v.date && !c.v.staff.length && !c.v.phone.trim() && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
+    if (c && !c.v.request.trim() && !c.v.date && !c.v.staff.length && !c.v.phone.trim() && !c.v.customer.trim() && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
     var cb = svcSheet.onDone; svcSheet.onDone = null;
     if (cb) cb();
   }
@@ -1771,6 +1772,7 @@
     $('svcCall').classList.toggle('disabled', !t);
   }
   $('svcPhone').addEventListener('input', function () { svcSave({ phone: $('svcPhone').value }); syncSvcCall(); });
+  $('svcCustomer').addEventListener('input', function () { svcSave({ customer: $('svcCustomer').value }); });
   $('svcDone').addEventListener('change', function () { svcSave({ done: $('svcDone').checked }); });
   var svcAddStaff = function () {
     var n = $('svcStaffInput').value.trim(); var c = curService();
