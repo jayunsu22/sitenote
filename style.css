@@ -540,6 +540,14 @@ textarea { resize: vertical; }
 #svcRequest { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; resize: vertical; }
 .svc-daterow { display: flex; gap: 6px; }
 .svc-daterow input { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; }
+/* AS 담당: 드롭다운 + 옆에 전화번호·차량번호 */
+.svc-staff-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.svc-staff-row select { flex: 0 0 132px; padding: 8px 6px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-weight: 700; background: #fff; }
+.svc-staff-info { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; font-weight: 700; }
+.svc-staff-tel { color: var(--success); text-decoration: none; }
+.svc-staff-miss { color: var(--muted); font-weight: 600; }
+.svc-staff-row .x { flex: none; width: 30px; height: 36px; border: none; background: transparent; color: var(--muted); font-size: 18px; padding: 0; }
+.svc-more { margin-top: 2px; }
 /* 고객명 칸은 좁게 - 번호칸이 더 길어야 한다 */
 .svc-phonerow input.svc-customer { flex: 0 0 88px; }
 /* 고객 연락처 옆 전화 버튼 - 업자 담당자 줄의 📞 와 같은 초록 */

@@ -417,7 +417,7 @@
      비번·주차·필름번호·업자 담당자가 이미 그 현장에 있어서 새로 적을 게 없다.
      현장의 '일차' 로 붙이지 않는 건 원래 작업 표시와 섞이기 때문이다 — 필요 인원 10명인
      현장에 AS 로 1명 가면 1/10 빨간 경고가 뜨고, 필름 단계·'총 4일' 도 틀어진다.
-       { id, kind: 'AS'|'추가', request, date: ''|'YYYY-MM-DD', staff: [이름], customer: 고객명, phone: 고객 연락처, done, createdAt } */
+       { id, kind: 'AS'|'추가', request, date: ''|'YYYY-MM-DD', staff: [이름], customer: 고객명, phone: 고객 연락처, bizContact: 고른 업자 담당자, done, createdAt } */
   function servicesOf(site) {
     return ((site && site.services) || []).filter(function (v) { return v && v.id; });
   }
@@ -479,7 +479,21 @@
     if (!cs.length) return '';
     return '업자' + (str(client && client.name) ? ' ' + str(client.name) : '') + ' · ' + cs.join(', ');
   }
-  // 작업자에게: AS 지시 — 요청 내용 + 그 현장 출입 정보(비번·주차·필름 …) + 업자 담당자
+  // 업자 담당자 하나를 가리키는 값 - 이름, 이름이 없으면 번호 (AS 의 bizContact 에 저장)
+  function contactKey(c) { return str(c && c.name) || str(c && c.phone); }
+  function clientContactsOf(client) {
+    return ((client && client.contacts) || []).filter(function (c) { return contactKey(c); });
+  }
+  // AS 지시에 넣을 업자 담당자 (2026-10-02). 업자 담당자가 여럿이면 엉뚱한 사람 번호가 가지 않게
+  // 접수 화면에서 한 명을 고른다. 1명뿐이면 그 사람, 없으면 '' (넣을 것 없음),
+  // 여럿인데 안 골랐으면(또는 고른 사람이 거래처에서 지워졌으면) null - 복사를 막는다
+  function serviceBizContact(client, v) {
+    var cs = clientContactsOf(client);
+    if (cs.length <= 1) return cs[0] || '';
+    var key = str(v && v.bizContact);
+    return cs.find(function (c) { return contactKey(c) === key; }) || null;
+  }
+  // 작업자에게: AS 지시 — 요청 내용 + 그 현장 출입 정보(비번·주차·필름 …) + 업자 담당자(고른 한 명)
   function buildServiceOrder(site, v, client) {
     var has = {};
     AS_INFO.forEach(function (k) { if (!isEmpty(site, k)) has[k] = true; });
@@ -491,7 +505,8 @@
     var who = staffOf(v);
     if (who.length) lines.push('👤 ' + who.join('·'));
     lines = lines.concat(infoLines(site, has));
-    var cc = contactsText(client);
+    var bc = serviceBizContact(client, v);
+    var cc = bc ? contactsText({ name: client && client.name, contacts: [bc] }) : '';
     if (cc) lines.push(cc);
     return lines.join('\n');
   }
@@ -968,6 +983,9 @@
     monthGridFull: monthGridFull,
     dayLabel: dayLabel,
     personOf: personOf,
+    contactKey: contactKey,
+    clientContactsOf: clientContactsOf,
+    serviceBizContact: serviceBizContact,
     visitsByPerson: visitsByPerson,
     buildWorkerContacts: buildWorkerContacts,
     buildCarList: buildCarList,

@@ -292,6 +292,8 @@ function reset() {
     assert.strictEqual(op.data.services.length, 1, '현장 백업에 AS 가 같이 간다');
     Store.updateService(s.id, v.id, { customer: '홍길동', phone: '010-1234-5678' });
     assert.strictEqual(Store.getSite(s.id).services[0].customer, '홍길동', '고객명도 안 지워진다');
+    Store.updateService(s.id, v.id, { bizContact: '이실장' });
+    assert.strictEqual(Store.getSite(s.id).services[0].bizContact, '이실장', '고른 업자 담당자도 안 지워진다');
     assert.strictEqual(Store.getSite(s.id).services[0].phone, '010-1234-5678', '고객 연락처가 저장 정리에서 안 지워진다');
     assert.strictEqual(Store.getSite(s.id).services[0].date, '2026-09-30', '연락처를 고쳐도 다른 칸은 그대로');
     Store.updateService(s.id, v.id, { done: true });

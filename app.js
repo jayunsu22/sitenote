@@ -1701,6 +1701,7 @@
   $('btnReviewsBack').onclick = function () { go(''); };
 
   var svcSheet = { siteId: '', id: '', onDone: null };
+  var svcExtraRow = false; // '+ 한 명 더' 를 눌러 빈 드롭다운이 하나 더 열려 있는가
   function curService() {
     var s = Store.getSite(svcSheet.siteId);
     var v = s && Share.servicesOf(s).find(function (x) { return x.id === svcSheet.id; });
@@ -1717,7 +1718,7 @@
     $('svcPhone').value = c.v.phone || '';
     syncSvcCall();
     $('svcDone').checked = !!c.v.done;
-    $('svcStaffInput').value = '';
+    svcExtraRow = false;
     renderServiceSheet();
     $('svcSheet').hidden = false;
     if (isNew) setTimeout(function () { $('svcRequest').focus(); }, 50);
@@ -1727,23 +1728,86 @@
     document.querySelectorAll('#svcSheet .svc-kind').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-kind') === c.v.kind);
     });
-    // 담당: 팀원 명단 + (명단에 없지만 이미 들어간 사람)
+    renderServiceStaff(c);
+    renderServiceBiz(c);
+  }
+  // 담당: 팀원 명단 드롭다운 한 줄씩. 옆에 전화번호·차량번호(설정 → 팀원).
+  // 명단에 없는 사람은 설정 → 팀원에 먼저 등록한다 (예전에 적어 둔 명단 밖 이름은 그대로 보인다)
+  function renderServiceStaff(c) {
     var wrap = $('svcStaff'); wrap.innerHTML = '';
-    var names = (state.settings.team || []).slice();
-    c.v.staff.forEach(function (n) { if (names.indexOf(n) === -1) names.push(n); });
-    if (!names.length) {
+    var team = (state.settings.team || []).slice();
+    var people = state.settings.people || {};
+    var staff = c.v.staff.slice();
+    if (!team.length && !staff.length) {
       var h = document.createElement('div'); h.className = 'sec-empty';
-      h.textContent = '설정에서 팀원을 등록해두면 여기서 탭으로 고릅니다. 아래에 이름을 적어도 됩니다.';
+      h.textContent = '설정 → 팀원에서 먼저 등록하면 여기서 고릅니다.';
       wrap.appendChild(h);
+      return;
     }
-    names.forEach(function (n) {
-      var on = c.v.staff.indexOf(n) !== -1;
+    var rows = staff.slice();
+    if (!rows.length || svcExtraRow) rows.push('');
+    var setStaff = function (next) {
+      svcExtraRow = false;
+      Store.updateService(svcSheet.siteId, svcSheet.id, { staff: next });
+      renderServiceSheet();
+    };
+    rows.forEach(function (name, i) {
+      var row = document.createElement('div'); row.className = 'svc-staff-row';
+      var sel = document.createElement('select');
+      // 다른 줄에서 이미 고른 사람은 빼고, 이 줄 사람은 명단에 없어도 넣는다
+      var opts = team.filter(function (n) { return n === name || staff.indexOf(n) === -1; });
+      if (name && opts.indexOf(name) === -1) opts.unshift(name);
+      sel.innerHTML = '<option value="">누가 가나 (선택)</option>' +
+        opts.map(function (n) { return '<option value="' + esc(n) + '"' + (n === name ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+      sel.onchange = function () {
+        var next = staff.slice();
+        if (i < staff.length) { if (sel.value) next[i] = sel.value; else next.splice(i, 1); }
+        else if (sel.value) next.push(sel.value);
+        setStaff(next);
+      };
+      row.appendChild(sel);
+      var info = document.createElement('div'); info.className = 'svc-staff-info';
+      if (name) {
+        var p = Share.personOf(people, name);
+        var tel = p.phone.replace(/[^0-9+]/g, '');
+        info.innerHTML = (p.phone ? '<a class="svc-staff-tel" href="tel:' + esc(tel) + '">📞 ' + esc(p.phone) + '</a>' : '<span class="svc-staff-miss">연락처 없음</span>') +
+          (p.car ? '<span>🚗 ' + esc(p.car) + '</span>' : '<span class="svc-staff-miss">차량 없음</span>');
+      }
+      row.appendChild(info);
+      if (rows.length > 1) {
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '빼기';
+        x.onclick = function () {
+          if (i < staff.length) setStaff(staff.filter(function (_, k) { return k !== i; }));
+          else { svcExtraRow = false; renderServiceSheet(); }
+        };
+        row.appendChild(x);
+      }
+      wrap.appendChild(row);
+    });
+    var left = team.filter(function (n) { return staff.indexOf(n) === -1; });
+    if (staff.length && !svcExtraRow && left.length) {
+      var more = document.createElement('button'); more.type = 'button'; more.className = 'btn-sm svc-more';
+      more.textContent = '+ 한 명 더';
+      more.onclick = function () { svcExtraRow = true; renderServiceSheet(); };
+      wrap.appendChild(more);
+    }
+  }
+  // 업자 담당자: 작업자에게 갈 업자 연락처. 1명이면 그 사람(자동), 2명 이상이면 여기서 1명 고른다
+  function renderServiceBiz(c) {
+    var client = Store.getClient(c.site.clientId);
+    var cs = Share.clientContactsOf(client);
+    var wrap = $('svcBiz'); wrap.innerHTML = '';
+    $('svcBizWrap').hidden = !cs.length;
+    var picked = Share.serviceBizContact(client, c.v);
+    cs.forEach(function (ct) {
+      var key = Share.contactKey(ct);
+      var on = !!picked && Share.contactKey(picked) === key;
       var chip = document.createElement('button'); chip.type = 'button';
-      chip.className = 'chip pick' + (on ? ' on' : ''); chip.textContent = n + (on ? ' ✓' : '');
-      chip.onclick = function () {
-        var cur = curService(); if (!cur) return;
-        var next = on ? cur.v.staff.filter(function (x) { return x !== n; }) : cur.v.staff.concat([n]);
-        Store.updateService(svcSheet.siteId, svcSheet.id, { staff: next });
+      chip.className = 'chip pick' + (on ? ' on' : '');
+      chip.textContent = [ct.name, ct.phone].filter(Boolean).join(' ') + (on ? ' ✓' : '');
+      if (cs.length === 1) { chip.disabled = true; chip.title = '업자 담당자가 한 명이라 자동으로 이 사람이 갑니다'; }
+      else chip.onclick = function () {
+        Store.updateService(svcSheet.siteId, svcSheet.id, { bizContact: on ? '' : key });
         renderServiceSheet();
       };
       wrap.appendChild(chip);
@@ -1774,18 +1838,12 @@
   $('svcPhone').addEventListener('input', function () { svcSave({ phone: $('svcPhone').value }); syncSvcCall(); });
   $('svcCustomer').addEventListener('input', function () { svcSave({ customer: $('svcCustomer').value }); });
   $('svcDone').addEventListener('change', function () { svcSave({ done: $('svcDone').checked }); });
-  var svcAddStaff = function () {
-    var n = $('svcStaffInput').value.trim(); var c = curService();
-    if (!n || !c) return;
-    if (c.v.staff.indexOf(n) === -1) svcSave({ staff: c.v.staff.concat([n]) });
-    $('svcStaffInput').value = '';
-    renderServiceSheet();
-  };
-  $('svcStaffAdd').onclick = svcAddStaff;
-  $('svcStaffInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); svcAddStaff(); } });
   $('svcCopyWorker').onclick = function () {
     var c = curService(); if (!c) return;
-    copyText(Share.buildServiceOrder(c.site, c.v, Store.getClient(c.site.clientId)), '복사됨 — 작업자에게 붙여넣기');
+    var client = Store.getClient(c.site.clientId);
+    // 업자 담당자가 여럿인데 안 골랐으면 막는다 - 엉뚱한 사람 번호가 가면 안 된다
+    if (Share.serviceBizContact(client, c.v) === null) { toast('업자 담당자를 골라 주세요'); return; }
+    copyText(Share.buildServiceOrder(c.site, c.v, client), '복사됨 — 작업자에게 붙여넣기');
   };
   $('svcCopyClient').onclick = function () {
     var c = curService(); if (!c) return;

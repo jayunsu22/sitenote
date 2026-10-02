@@ -502,6 +502,25 @@ test('고객 연락처가 없으면 그 줄은 안 나간다', () => {
   const s = as현장();
   assert.ok(!Share.buildServiceOrder(s, s.services[0], null).includes('고객'));
 });
+test('업자 담당자: 1명이면 그 사람, 없으면 빈칸, 여럿이면 고른 사람 · 안 골랐으면 null', () => {
+  const one = { name: '룩스', contacts: [{ name: '김실장', phone: '010-1' }] };
+  const two = { name: '룩스', contacts: [{ name: '김실장', phone: '010-1' }, { name: '이실장', phone: '010-2' }, { name: '', phone: '' }] };
+  assert.strictEqual(Share.serviceBizContact(one, {}).name, '김실장');
+  assert.strictEqual(Share.serviceBizContact({ contacts: [] }, {}), '');
+  assert.strictEqual(Share.serviceBizContact(null, {}), '');
+  assert.strictEqual(Share.serviceBizContact(two, {}), null, '여럿인데 안 고름');
+  assert.strictEqual(Share.serviceBizContact(two, { bizContact: '이실장' }).phone, '010-2');
+  assert.strictEqual(Share.serviceBizContact(two, { bizContact: '지워진사람' }), null, '고른 사람이 거래처에서 지워짐');
+  assert.strictEqual(Share.clientContactsOf(two).length, 2, '이름·번호 둘 다 빈 줄은 뺀다');
+});
+test('작업자에게 AS 지시: 업자 담당자가 여럿이면 고른 한 명만 나간다', () => {
+  const s = as현장();
+  const client = { name: '룩스디자인', contacts: [{ name: '김실장', phone: '010-7777-8888' }, { name: '이실장', phone: '010-5555-6666' }] };
+  const t = Share.buildServiceOrder(s, Object.assign({}, s.services[0], { bizContact: '이실장' }), client);
+  assert.ok(t.endsWith('업자 룩스디자인 · 이실장 010-5555-6666'));
+  assert.ok(!t.includes('김실장'));
+  assert.ok(!Share.buildServiceOrder(s, s.services[0], client).includes('업자'), '안 골랐으면 업자 줄 없음 (화면에서 복사를 막는다)');
+});
 test('날짜 미정 추가작업은 머리줄에 날짜 없이', () => {
   const s = as현장();
   assert.ok(Share.buildServiceOrder(s, s.services[1], null).startsWith('[인천 당하동 1084-2 그랜드비스타 2동 501호] 🔧 추가작업\n요청: 방문 2개 추가'));
