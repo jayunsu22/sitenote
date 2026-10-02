@@ -417,7 +417,7 @@
      비번·주차·필름번호·업자 담당자가 이미 그 현장에 있어서 새로 적을 게 없다.
      현장의 '일차' 로 붙이지 않는 건 원래 작업 표시와 섞이기 때문이다 — 필요 인원 10명인
      현장에 AS 로 1명 가면 1/10 빨간 경고가 뜨고, 필름 단계·'총 4일' 도 틀어진다.
-       { id, kind: 'AS'|'추가', request, date: ''|'YYYY-MM-DD', staff: [이름], done, createdAt } */
+       { id, kind: 'AS'|'추가', request, date: ''|'YYYY-MM-DD', staff: [이름], customer: 고객명, phone: 고객 연락처, done, createdAt } */
   function servicesOf(site) {
     return ((site && site.services) || []).filter(function (v) { return v && v.id; });
   }
@@ -485,6 +485,9 @@
     AS_INFO.forEach(function (k) { if (!isEmpty(site, k)) has[k] = true; });
     var lines = [svcHead(site, v)];
     if (str(v.request)) lines.push('요청: ' + str(v.request));
+    // 작업자가 고객과 직접 시간을 맞추고 도착 전화를 하므로 요청 바로 아래에 둔다
+    var 고객 = [str(v.customer), str(v.phone)].filter(Boolean).join(' ');
+    if (고객) lines.push('📞 고객 ' + 고객);
     var who = staffOf(v);
     if (who.length) lines.push('👤 ' + who.join('·'));
     lines = lines.concat(infoLines(site, has));

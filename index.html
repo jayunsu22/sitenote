@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20260929b">
+  <link rel="stylesheet" href="style.css?v=20261002">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -264,6 +264,13 @@
         <input type="date" id="svcDate">
         <button type="button" id="svcDateClear" class="btn-sm">미정</button>
       </div>
+      <!-- 고객 연락처: AS 는 고객과 바로 날짜·시간을 맞추는 일이 많다. 작업자에게 복사할 때 같이 나간다 -->
+      <label class="svc-label" for="svcPhone">고객 연락처 <span class="sec-hint">— 작업자에게 복사할 때 같이 나갑니다</span></label>
+      <div class="svc-daterow svc-phonerow">
+        <input type="text" id="svcCustomer" class="svc-customer" placeholder="고객명" autocomplete="off">
+        <input type="tel" id="svcPhone" inputmode="tel" placeholder="010-1234-5678" autocomplete="off">
+        <a id="svcCall" class="svc-call disabled" href="#" title="전화걸기">📞 전화</a>
+      </div>
       <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>
       <div id="svcStaff" class="chips chips-pick"></div>
       <div class="sheet-input">
@@ -328,9 +335,9 @@
     </div>
   </div>
 
-  <script src="share.js?v=20260929b"></script>
-  <script src="store.js?v=20260929b"></script>
-  <script src="app.js?v=20260929b"></script>
+  <script src="share.js?v=20261002"></script>
+  <script src="store.js?v=20261002"></script>
+  <script src="app.js?v=20261002"></script>
   <script src="app-switcher.js?v=20261001" data-app-id="schedule"></script>
 </body>
 </html>

@@ -290,8 +290,13 @@ function reset() {
     assert.deepStrictEqual(got.staff, ['서영호'], '빈 이름·중복 정리');
     const op = Store.state.syncQueue.find(o => o.type === 'site' && o.id === s.id);
     assert.strictEqual(op.data.services.length, 1, '현장 백업에 AS 가 같이 간다');
+    Store.updateService(s.id, v.id, { customer: '홍길동', phone: '010-1234-5678' });
+    assert.strictEqual(Store.getSite(s.id).services[0].customer, '홍길동', '고객명도 안 지워진다');
+    assert.strictEqual(Store.getSite(s.id).services[0].phone, '010-1234-5678', '고객 연락처가 저장 정리에서 안 지워진다');
+    assert.strictEqual(Store.getSite(s.id).services[0].date, '2026-09-30', '연락처를 고쳐도 다른 칸은 그대로');
     Store.updateService(s.id, v.id, { done: true });
     assert.strictEqual(Store.getSite(s.id).services[0].done, true);
+    assert.strictEqual(Store.getSite(s.id).services[0].phone, '010-1234-5678');
     Store.removeService(s.id, v.id);
     assert.deepStrictEqual(Store.getSite(s.id).services, []);
   });

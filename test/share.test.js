@@ -484,6 +484,24 @@ test('작업자에게 AS 지시: 요청 + 출입 정보 + 업자 담당자 (원�
     '필름:\n현관문 PS035\n' +
     '업자 룩스디자인 · 김실장 010-7777-8888');
 });
+test('작업자에게 AS 지시: 고객 연락처는 요청 바로 아래', () => {
+  const s = as현장();
+  const v = Object.assign({}, s.services[0], { customer: '홍길동', phone: '010-1234-5678' });
+  const lines = Share.buildServiceOrder(s, v, null).split('\n');
+  assert.strictEqual(lines[1], '요청: 현관문 필름 들뜸 재시공');
+  assert.strictEqual(lines[2], '📞 고객 홍길동 010-1234-5678');
+  assert.strictEqual(lines[3], '👤 서영호');
+});
+test('고객명이나 번호 하나만 있어도 그것만 나간다', () => {
+  const s = as현장();
+  const only = (p) => Share.buildServiceOrder(s, Object.assign({}, s.services[0], p), null).split('\n')[2];
+  assert.strictEqual(only({ phone: '010-1234-5678' }), '📞 고객 010-1234-5678');
+  assert.strictEqual(only({ customer: '홍길동' }), '📞 고객 홍길동');
+});
+test('고객 연락처가 없으면 그 줄은 안 나간다', () => {
+  const s = as현장();
+  assert.ok(!Share.buildServiceOrder(s, s.services[0], null).includes('고객'));
+});
 test('날짜 미정 추가작업은 머리줄에 날짜 없이', () => {
   const s = as현장();
   assert.ok(Share.buildServiceOrder(s, s.services[1], null).startsWith('[인천 당하동 1084-2 그랜드비스타 2동 501호] 🔧 추가작업\n요청: 방문 2개 추가'));

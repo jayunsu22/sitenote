@@ -540,6 +540,12 @@ textarea { resize: vertical; }
 #svcRequest { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; resize: vertical; }
 .svc-daterow { display: flex; gap: 6px; }
 .svc-daterow input { flex: 1; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; }
+/* 고객명 칸은 좁게 - 번호칸이 더 길어야 한다 */
+.svc-phonerow input.svc-customer { flex: 0 0 88px; }
+/* 고객 연락처 옆 전화 버튼 - 업자 담당자 줄의 📞 와 같은 초록 */
+.svc-call { display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; border-radius: 10px;
+  background: var(--success); color: #fff; text-decoration: none; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.svc-call.disabled { background: #cbd5e1; pointer-events: none; }
 .contact-btns.svc-copy { padding: 0; }
 .svc-done { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 15px; font-weight: 800; }
 .svc-done input { width: 20px; height: 20px; }
