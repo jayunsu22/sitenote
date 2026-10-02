@@ -514,7 +514,7 @@
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
   // 월간과 세로줄이 안 맞는다. 달력처럼 일~토 한 주를 그대로 보여준다.
   var calWeek = '';
-  var pickedDate = '';    // 달력에서 고른 날 (빈 날이면 '현장 넣기' 가 뜬다)
+  var pickedDate = '';    // 달력에서 고른 날 (목록 맨 위에 '일정 넣기' 줄이 뜬다)
   var WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
   function weekdayOf(iso) {
@@ -628,7 +628,9 @@
     return b;
   }
 
-  // 날짜를 고르면: 현장이 있는 날은 그 카드로 데려가고, 빈 날은 '현장 넣기' 를 띄운다
+  // 날짜를 고르면 목록 맨 위에 그 날 줄('보기 ↓' · '일정 넣기')이 뜬다.
+  // 예전엔 현장이 있는 날은 그 카드로 바로 데려갔는데, 그러면 일정이 있는 날엔 넣을 길이
+  // 화면 밖으로 밀려나서 '보기 ↓' 를 눌러야 카드로 가게 바꿨다 (2026-10-02)
   function pickDate(iso) {
     pickedDate = (pickedDate === iso) ? '' : iso;
     // 고른 날의 현장이 '지난'·'이후' 접힘 속에 있으면 펼쳐 준다.
@@ -646,7 +648,8 @@
       })) showLater = true;
     }
     renderSchedule();
-    if (!pickedDate) return;
+  }
+  function scrollToPicked() {
     var card = document.querySelector('[data-run-start="' + pickedDate + '"], [data-run-has="' + pickedDate + '"]');
     if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center' });
   }
@@ -857,15 +860,25 @@
     var regions = Share.dateRegions(state.sites);
     var noDate = state.sites.filter(function (s) { return !Share.isIsoDate(s.date); }).length;
 
-    // 고른 날이 비어 있으면 바로 넣을 수 있게 한다 — 이 화면을 여는 큰 이유다
-    if (pickedDate && !(counts[pickedDate] || 0)) {
+    // 고른 날에 바로 일정을 넣을 수 있게 한다 — 이 화면을 여는 큰 이유다.
+    // 일정이 이미 있는 날도 같다 (같은 날 AS 나 다른 현장을 더 잡는 일이 많다)
+    if (pickedDate) {
+      var n = counts[pickedDate] || 0;
       var bar = document.createElement('div'); bar.className = 'sch-pick';
       var txt = document.createElement('div'); txt.className = 'sch-pick-txt';
-      txt.innerHTML = '<b>' + esc(dateLabel(pickedDate)) + ' 고름</b><span>이 날은 현장이 없습니다</span>';
+      txt.innerHTML = '<b>' + esc(dateLabel(pickedDate)) + ' 고름</b><span>' +
+        (n ? '이 날 일정 ' + n + '건' : '이 날은 현장이 없습니다') + '</span>';
+      bar.appendChild(txt);
+      if (n) {
+        var view = document.createElement('button');
+        view.type = 'button'; view.className = 'sch-pick-view'; view.textContent = '보기 ↓';
+        view.onclick = scrollToPicked;
+        bar.appendChild(view);
+      }
       var add = document.createElement('button');
-      add.type = 'button'; add.className = 'sch-pick-add'; add.textContent = '현장 넣기';
-      add.onclick = function () { openNewSiteSheet(pickedDate); };
-      bar.appendChild(txt); bar.appendChild(add);
+      add.type = 'button'; add.className = 'sch-pick-add'; add.textContent = '일정 넣기';
+      add.onclick = function () { openAddSheet(pickedDate); };
+      bar.appendChild(add);
       body.appendChild(bar);
     }
 
@@ -1117,25 +1130,78 @@
     return card;
   }
 
-  /* ---------- 빈 날에 현장 넣기 ---------- */
-  // 현장은 거래처 밑에 달리므로 어느 거래처인지부터 고른다.
-  // 거래처가 하나뿐이면 묻지 않고 바로 만든다 — 물어봐야 답이 하나다.
+  /* ---------- 고른 날에 일정 넣기 ----------
+     ① 신규 현장인지 AS·추가작업인지 → ② 거래처 → ③ (AS 면) 그 거래처의 현장.
+     현장·AS 는 거래처 밑에 달리므로 거래처부터 고른다. 거래처가 하나뿐이면 묻지 않는다 */
   var newSiteDate = '';
-  function openNewSiteSheet(iso) {
-    var cs = Store.clients();
-    if (!cs.length) { alert('거래처를 먼저 만들어 주세요. 거래처 화면의 ＋ 버튼입니다.'); return; }
-    if (cs.length === 1) { createSiteOn(cs[0].id, iso); return; }
-    newSiteDate = iso;
-    $('newSiteTitle').textContent = dateLabel(iso) + ' 현장 넣기';
+  function addSheetStep(title, hint, build) {
+    $('newSiteTitle').textContent = dateLabel(newSiteDate) + ' ' + title;
+    $('newSiteHint').textContent = hint;
     var wrap = $('newSiteClients'); wrap.innerHTML = '';
-    cs.forEach(function (c) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'chip pick';
-      b.textContent = c.name;
-      b.onclick = function () { closeNewSiteSheet(); createSiteOn(c.id, newSiteDate); };
-      wrap.appendChild(b);
-    });
+    build(wrap);
     $('newSiteSheet').hidden = false;
+  }
+  function addSheetBack(wrap, fn) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'add-back'; b.textContent = '← 뒤로';
+    b.onclick = fn; wrap.appendChild(b);
+  }
+  function openAddSheet(iso) {
+    if (!Store.clients().length) { alert('거래처를 먼저 만들어 주세요. 거래처 화면의 ＋ 버튼입니다.'); return; }
+    newSiteDate = iso;
+    addSheetStep('일정 넣기', '어떤 일정인가요?', function (wrap) {
+      [['➕ 신규 현장', '새 현장을 이 날짜로 만듭니다', 'site'],
+       ['🔧 AS·추가작업', '이미 한 현장에 AS·추가작업을 이 날짜로 잡습니다', 'svc']].forEach(function (k) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'add-kind add-kind-' + k[2];
+        b.innerHTML = '<b>' + esc(k[0]) + '</b><span>' + esc(k[1]) + '</span>';
+        b.onclick = function () { pickClientStep(k[2]); };
+        wrap.appendChild(b);
+      });
+    });
+  }
+  function pickClientStep(kind) {
+    var cs = Store.clients();
+    var next = function (clientId) {
+      if (kind === 'site') { closeNewSiteSheet(); createSiteOn(clientId, newSiteDate); }
+      else pickSiteStep(clientId, cs.length > 1);
+    };
+    if (cs.length === 1) { next(cs[0].id); return; }
+    addSheetStep(kind === 'site' ? '현장 넣기' : 'AS·추가작업', '어느 거래처인가요?', function (wrap) {
+      cs.forEach(function (c) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'chip pick';
+        b.textContent = c.name;
+        b.onclick = function () { next(c.id); };
+        wrap.appendChild(b);
+      });
+      addSheetBack(wrap, function () { openAddSheet(newSiteDate); });
+    });
+  }
+  // AS 는 이미 한 현장 안에 쌓는다 — 그 거래처 현장을 최근 작업일 순으로 보여준다
+  function pickSiteStep(clientId, fromClients) {
+    var lastOf = function (s) {
+      var ds = Share.daysOf(s).map(function (d) { return d && d.date; }).filter(Share.isIsoDate).sort();
+      return ds.length ? ds[ds.length - 1] : (Share.isIsoDate(s.date) ? s.date : '');
+    };
+    var sites = state.sites.filter(function (s) { return s.clientId === clientId; })
+      .sort(function (a, b) { return lastOf(b).localeCompare(lastOf(a)) || (b.createdAt || 0) - (a.createdAt || 0); });
+    var c = Store.getClient(clientId);
+    addSheetStep('AS·추가작업', (c ? c.name + ' — ' : '') + '어느 현장인가요?', function (wrap) {
+      if (!sites.length) {
+        var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '이 거래처에는 현장이 없습니다.';
+        wrap.appendChild(e);
+      }
+      sites.forEach(function (s) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'add-site';
+        var last = lastOf(s);
+        b.innerHTML = '<b>' + esc(Share.titleLine(s)) + '</b>' + (last ? '<span>' + esc(Share.dayLabel(last)) + '</span>' : '');
+        b.onclick = function () {
+          closeNewSiteSheet();
+          var v = Store.addService(s.id, { date: newSiteDate });
+          openServiceSheet(s.id, v.id, renderSchedule, true, true);
+        };
+        wrap.appendChild(b);
+      });
+      addSheetBack(wrap, function () { fromClients ? pickClientStep('svc') : openAddSheet(newSiteDate); });
+    });
   }
   function closeNewSiteSheet() { $('newSiteSheet').hidden = true; }
   function createSiteOn(clientId, iso) {
@@ -1707,8 +1773,9 @@
     var v = s && Share.servicesOf(s).find(function (x) { return x.id === svcSheet.id; });
     return v ? { site: s, v: v } : null;
   }
-  function openServiceSheet(siteId, id, onDone, isNew) {
-    svcSheet = { siteId: siteId, id: id, onDone: onDone || null };
+  // fromSchedule: 일정 화면에서 날짜를 미리 넣어 연 접수 — 날짜만 있고 아무것도 안 적었으면 닫을 때 지운다
+  function openServiceSheet(siteId, id, onDone, isNew, fromSchedule) {
+    svcSheet = { siteId: siteId, id: id, onDone: onDone || null, fromSchedule: !!fromSchedule };
     var c = curService(); if (!c) return;
     $('svcTitle').textContent = isNew ? '🔧 AS·추가작업 접수' : '🔧 ' + Share.serviceLabel(c.v);
     $('svcSite').textContent = Share.titleLine(c.site) + (clientName(c.site) ? ' · ' + clientName(c.site) : '');
@@ -1818,7 +1885,7 @@
     $('svcSheet').hidden = true;
     // 접수만 누르고 아무것도 안 적었으면 빈 줄을 남기지 않는다
     var c = curService();
-    if (c && !c.v.request.trim() && !c.v.date && !c.v.staff.length && !c.v.phone.trim() && !c.v.customer.trim() && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
+    if (c && !c.v.request.trim() && (!c.v.date || svcSheet.fromSchedule) && !c.v.staff.length && !c.v.phone.trim() && !c.v.customer.trim() && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
     var cb = svcSheet.onDone; svcSheet.onDone = null;
     if (cb) cb();
   }

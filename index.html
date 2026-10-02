@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20261002b">
+  <link rel="stylesheet" href="style.css?v=20261002c">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -293,14 +293,15 @@
     </div>
   </div>
 
-  <!-- ========== 빈 날에 현장 넣기: 거래처 고르기 (바텀시트) ========== -->
+  <!-- ========== 고른 날에 일정 넣기 (바텀시트) ==========
+       신규 현장인지 AS·추가작업인지 → 거래처 → (AS 면) 현장 순서로 고른다 -->
   <div id="newSiteSheet" class="sheet-bg" hidden>
     <div class="sheet">
       <div class="sheet-head">
-        <h3 id="newSiteTitle">현장 넣기</h3>
+        <h3 id="newSiteTitle">일정 넣기</h3>
         <button id="newSiteClose" class="icon-btn" title="닫기">✕</button>
       </div>
-      <p class="sheet-hint">어느 거래처의 현장인가요?</p>
+      <p id="newSiteHint" class="sheet-hint">어떤 일정인가요?</p>
       <div id="newSiteClients" class="chips chips-pick"></div>
     </div>
   </div>
@@ -337,9 +338,9 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261002b"></script>
-  <script src="store.js?v=20261002b"></script>
-  <script src="app.js?v=20261002b"></script>
+  <script src="share.js?v=20261002c"></script>
+  <script src="store.js?v=20261002c"></script>
+  <script src="app.js?v=20261002c"></script>
   <script src="app-switcher.js?v=20261001" data-app-id="schedule"></script>
 </body>
 </html>
