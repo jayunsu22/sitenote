@@ -118,6 +118,7 @@
         request: String(v.request || ''),
         date: String(v.date || ''),
         staff: cleanStaff(v.staff),
+        phone: String(v.phone || ''),   // 고객 연락처 (2026-10-02)
         done: !!v.done,
         createdAt: Number(v.createdAt) || 0
       };
