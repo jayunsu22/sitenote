@@ -120,6 +120,7 @@
         staff: cleanStaff(v.staff),
         customer: String(v.customer || ''),   // 고객명 (2026-10-02)
         phone: String(v.phone || ''),         // 고객 연락처 (2026-10-02)
+        bizContact: String(v.bizContact || ''), // 작업자에게 갈 업자 담당자 (이름, 없으면 번호)
         done: !!v.done,
         createdAt: Number(v.createdAt) || 0
       };

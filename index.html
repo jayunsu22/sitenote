@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20261002">
+  <link rel="stylesheet" href="style.css?v=20261002b">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -271,11 +271,13 @@
         <input type="tel" id="svcPhone" inputmode="tel" placeholder="010-1234-5678" autocomplete="off">
         <a id="svcCall" class="svc-call disabled" href="#" title="전화걸기">📞 전화</a>
       </div>
+      <!-- 담당: 팀원 명단 드롭다운. 옆에 그 사람 전화번호·차량번호 (설정 → 팀원). 둘이 가면 '+ 한 명 더' -->
       <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>
-      <div id="svcStaff" class="chips chips-pick"></div>
-      <div class="sheet-input">
-        <input type="text" id="svcStaffInput" placeholder="명단에 없는 사람 이름" autocomplete="off">
-        <button id="svcStaffAdd" class="btn-sm">추가</button>
+      <div id="svcStaff" class="svc-staff"></div>
+      <!-- 업자 담당자: 작업자에게 복사할 때 갈 업자 연락처. 2명 이상이면 여기서 1명 고른다 -->
+      <div id="svcBizWrap" hidden>
+        <div class="svc-label">업자 담당자 <span class="sec-hint">— 작업자에게 갈 연락처</span></div>
+        <div id="svcBiz" class="chips chips-pick"></div>
       </div>
       <div class="svc-label">연락 <span class="sec-hint">— 눌러서 복사 → 카톡에 붙여넣기</span></div>
       <div class="contact-btns svc-copy">
@@ -335,9 +337,9 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261002"></script>
-  <script src="store.js?v=20261002"></script>
-  <script src="app.js?v=20261002"></script>
+  <script src="share.js?v=20261002b"></script>
+  <script src="store.js?v=20261002b"></script>
+  <script src="app.js?v=20261002b"></script>
   <script src="app-switcher.js?v=20261001" data-app-id="schedule"></script>
 </body>
 </html>
