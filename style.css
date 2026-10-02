@@ -411,6 +411,19 @@ textarea { resize: vertical; }
 .sch-pick-txt span { font-size: 12px; font-weight: 700; color: #4b5563; }
 .sch-pick-add { flex: none; border: 0; background: var(--primary); color: #fff; border-radius: 10px;
   padding: 10px 14px; font-size: 13.5px; font-weight: 800; }
+.sch-pick-view { flex: none; border: 1.5px solid #bfdbfe; background: #fff; color: #1e3a8a; border-radius: 10px;
+  padding: 9px 11px; font-size: 13px; font-weight: 800; }
+/* 일정 넣기 시트: 종류 고르기 · 현장 고르기 */
+.add-kind, .add-site { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;
+  padding: 13px 14px; margin-bottom: 8px; border: 1.5px solid var(--border); border-radius: 12px; background: #fff; text-align: left; }
+.add-kind b { font-size: 16px; font-weight: 800; }
+.add-kind span, .add-site span { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.add-kind-site { border-color: #bfdbfe; background: #eff6ff; }
+.add-kind-site b { color: #1d4ed8; }
+.add-kind-svc { border-color: #fed7aa; background: #fff7ed; }
+.add-kind-svc b { color: #c2410c; }
+.add-site b { font-size: 14.5px; font-weight: 800; color: var(--text); }
+.add-back { border: 0; background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 800; padding: 8px 4px; }
 
 /* 카드: 머리줄 색이 준비 상태다 (검정 = 손볼 게 남음, 초록 = 다 됐음) */
 /* 카드 사이를 넉넉히 띄운다. 붙여두면 어디서 한 일정이 끝나고 다음이 시작하는지
