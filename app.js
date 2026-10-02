@@ -650,6 +650,7 @@
     renderSchedule();
   }
   function scrollToPicked() {
+    if (calMode === 'month') foldToWeek(false);
     var card = document.querySelector('[data-run-start="' + pickedDate + '"], [data-run-has="' + pickedDate + '"]');
     if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center' });
   }
@@ -709,6 +710,27 @@
     return wrap;
   }
 
+  /* 월간 달력은 화면 위에 붙어 있어서 아래로 내리면 목록이 아주 조금만 보인다.
+     월간에서 목록 쪽으로 내리면 고른 날(없으면 오늘)의 주로 접는다.
+     막 펼친 자리에서 조금(40px) 더 내려갔을 때만 접는다 — 펼치자마자 접히면 안 된다 */
+  var monthBase = 0;
+  function foldToWeek(keepView) {
+    var box = $('scheduleCal');
+    var before = box.offsetHeight;
+    calWeek = sundayOf(pickedDate || Share.todayIso());
+    calMode = 'week';
+    renderScheduleCal();
+    // 달력이 줄어든 만큼 목록이 위로 딸려 올라간다. 보던 카드가 그 자리에 있게 되돌린다
+    var d = before - box.offsetHeight;
+    if (keepView && d > 0) window.scrollBy(0, -d);
+  }
+  window.addEventListener('scroll', function () {
+    if (calMode !== 'month' || $('viewSchedule').hidden) return;
+    var y = Math.max(0, window.scrollY || 0);   // 아이폰은 맨 위에서 더 당기면 음수가 된다
+    if (y < monthBase) monthBase = y;
+    else if (y > monthBase + 40) foldToWeek(true);
+  }, { passive: true });
+
   function calToggleBtn() {
     var t = document.createElement('button');
     t.type = 'button'; t.className = 'schcal-toggle';
@@ -716,8 +738,11 @@
     t.onclick = function () {
       // 보고 있던 날을 놓치지 않게 서로 이어 준다 (월간에서 고른 날 → 그 주로 접힘)
       if (calMode === 'week') {
-        calMonth = ymOf(pickedDate || calWeek || Share.todayIso());
+        // 이번 주가 달 경계에 걸쳐 있으면(9/27~10/3) 일요일 쪽 달이 아니라 오늘이 든 달을 편다
+        var 이번주 = !calWeek || calWeek === sundayOf(Share.todayIso());
+        calMonth = ymOf(pickedDate || (이번주 ? Share.todayIso() : calWeek));
         calMode = 'month';
+        monthBase = window.scrollY || 0;
       } else {
         calWeek = sundayOf(pickedDate || Share.todayIso());
         calMode = 'week';
