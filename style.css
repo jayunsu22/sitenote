@@ -202,7 +202,7 @@ textarea { resize: vertical; }
 .tab-film   { --c: #7c3aed; --t: #f5f3ff; }   /* 보라 */
 .tab-supply { --c: #ea580c; --t: #fff4ed; }   /* 주황 */
 .tab-etc    { --c: #be185d; --t: #fdf2f8; }   /* 자주 */
-.tab-review { --c: #0f766e; --t: #f0fdfa; flex: 0.7; }   /* 청록 · 두 글자라 좁게 */
+.tab-review { --c: #0f766e; --t: #f0fdfa; }   /* 청록 */
 .site-tabs:has(.tab-review.on) { --tabc: #0f766e; }
 .site-tabs:has(.tab-info.on)   { --tabc: #2563eb; }
 .site-tabs:has(.tab-staff.on)  { --tabc: #15803d; }
@@ -680,3 +680,11 @@ textarea { resize: vertical; }
 .sch-dcell.done .dl-date.red, .sch-dcell.done .dl-holi { color: #e5a3a3; }
 /* 상세 일차 칸: '1일차 10/8(목)' 을 한 줄로 (원래 .day-label 은 세로 줄세움이라 둘로 갈라졌다) */
 .sec .day-row .day-head .day-label { display: block; }
+
+/* ---------- AS·추가 탭 안에 펼쳐진 접수 폼 (2026-10-05) ----------
+   창(시트)과 같은 폼을 탭 안으로 옮겨 붙인 것 — 창 모양(그림자·둥근 위쪽·높이 제한)을 벗긴다 */
+.svc-sheet.inline { max-height: none; overflow: visible; box-shadow: none; border-radius: 0; padding: 4px 12px 12px; }
+.svc-sheet.inline .sheet-head { display: none; }   /* 제목은 탭 소제목으로 충분, ✕ 닫기도 필요 없다 */
+.svc-sheet.inline #svcSite:empty { display: none; }
+.svc-inline-list { border-top: 1px solid var(--border); padding-top: 4px; }
+.svc-tools-line { font-size: 12.5px; color: var(--muted); margin-top: 2px; }

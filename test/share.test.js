@@ -498,6 +498,13 @@ test('고객명이나 번호 하나만 있어도 그것만 나간다', () => {
   assert.strictEqual(only({ phone: '010-1234-5678' }), '📞 고객 010-1234-5678');
   assert.strictEqual(only({ customer: '홍길동' }), '📞 고객 홍길동');
 });
+test('작업자에게 AS 지시: 챙길 부자재·공구는 담당 바로 아래 (없으면 줄 없음)', () => {
+  const s = as현장();
+  const lines = Share.buildServiceOrder(s, Object.assign({}, s.services[0], { tools: ['사포', '퍼티', '열풍기'] }), null).split('\n');
+  assert.strictEqual(lines[2], '👤 서영호');
+  assert.strictEqual(lines[3], '🧰 챙길 것: 사포, 퍼티, 열풍기');
+  assert.strictEqual(Share.buildServiceOrder(s, s.services[0], null).indexOf('🧰'), -1);
+});
 test('고객 연락처가 없으면 그 줄은 안 나간다', () => {
   const s = as현장();
   assert.ok(!Share.buildServiceOrder(s, s.services[0], null).includes('고객'));

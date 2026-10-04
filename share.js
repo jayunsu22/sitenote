@@ -504,6 +504,9 @@
     if (고객) lines.push('📞 고객 ' + 고객);
     var who = staffOf(v);
     if (who.length) lines.push('👤 ' + who.join('·'));
+    // 챙길 부자재·공구 (2026-10-05) — AS 는 재료가 현장마다 달라 접수할 때 골라 둔다
+    var tools = (v.tools || []).map(str).filter(Boolean);
+    if (tools.length) lines.push('🧰 챙길 것: ' + tools.join(', '));
     lines = lines.concat(infoLines(site, has));
     var bc = serviceBizContact(client, v);
     var cc = bc ? contactsText({ name: client && client.name, contacts: [bc] }) : '';

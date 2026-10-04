@@ -1282,7 +1282,7 @@
         sec('staff', '', renderContactSection);
       }
     });
-    sec('supply', '', renderSuppliesSection);
+    sec('film', '', renderSuppliesSection);     // 필름 바로 아래 부자재 (2026-10-05 한 탭으로 묶음)
     sec('etc', 'svcSec', renderServiceSection);
     sec('review', 'reviewSec', renderReviewSection);
     pickSiteTab(siteTab, false);
@@ -1293,12 +1293,12 @@
   var SITE_TABS = [
     { key: 'info', label: '기본·출입' },
     { key: 'staff', label: '일정·인원' },
-    { key: 'film', label: '필름' },
-    { key: 'supply', label: '부자재' },
-    { key: 'etc', label: '링크·AS' },
-    { key: 'review', label: '후기' }
+    // 2026-10-05: 필름·부자재를 한 탭으로, 링크·AS → AS·추가 (AS 만), 견적서·현장사진·메모는 메모·후기로
+    { key: 'film', label: '필름·부자재' },
+    { key: 'etc', label: 'AS·추가' },
+    { key: 'review', label: '메모·후기' }
   ];
-  var TAB_OF_FIELD = { date: 'staff', films: 'film', quoteUrl: 'etc', photoUrl: 'etc', memo: 'etc' };
+  var TAB_OF_FIELD = { date: 'staff', films: 'film', quoteUrl: 'review', photoUrl: 'review', memo: 'review' };
   var INFO_ASK = ['pwLobby', 'pwUnit', 'barrier', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet'];   // 업자에게 물어볼 출입 칸
   var siteTab = 'info', siteTabFor = '';
   function pickSiteTab(key, scroll) {
@@ -1327,11 +1327,12 @@
     // 필름
     var k = Share.filmStageOf(s), last = Share.FILM_STAGES.length - 1;
     st.film = { warn: k < last, pill: '🎞 ' + Share.FILM_STAGES[k].replace('필름 ', ''), tone: k === last ? 'green' : (k === 0 ? 'red' : 'amber') };
-    // 부자재
+    // 부자재 — 필름과 한 탭이라 둘 중 하나라도 덜 됐으면 그 탭에 점
     var sup = s.supplies || [], ready = sup.filter(function (r) { return r.ready; }).length;
     st.supply = sup.length ? { warn: ready < sup.length, pill: '🧰 ' + ready + '/' + sup.length, tone: ready < sup.length ? 'amber' : 'green' }
       : { warn: false, pill: '', tone: 'gray' };
-    // 링크·AS: 남은 AS 가 있으면 점. 견적서가 붙어 있으면 초록 알약
+    st.film.warn = st.film.warn || st.supply.warn;
+    // AS·추가: 남은 AS 가 있으면 점
     var as = Share.openServiceCount(s);
     st.etc = { warn: as > 0, pill: as ? '🔧 AS ' + as + '건' : '', tone: 'amber' };
     st.quote = !!String(s.quoteUrl || '').trim();
@@ -1668,10 +1669,24 @@
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
   }
+  /* AS·추가 탭 (2026-10-05): 접수 입력칸이 탭 안에 바로 펼쳐져 있다 (예전엔 '+ 접수' → 새 창).
+     입력칸은 일정 화면·목록에서 여는 접수 창과 같은 폼(svcPanel)을 탭 안으로 옮겨 붙인 것이다.
+     빈 칸을 보기만 해서는 접수가 생기지 않는다 — 처음 무언가 적는 순간 접수가 만들어진다(svcSave).
+     아래에 이미 접수된 목록. 목록을 누르면 예전처럼 접수 창으로 열어 고친다 */
   function renderServiceSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
-    box.innerHTML = '<h3 class="sec-title">🔧 AS·추가작업 <span class="sec-hint">— 끝난 현장에 요청이 오면 여기에</span></h3>';
-    svcSorted(s).forEach(function (v) {
+    box.innerHTML = '<h3 class="sec-title">🔧 AS·추가작업 접수 <span class="sec-hint">— 끝난 현장에 요청이 오면 여기에</span></h3>';
+    var host = document.createElement('div'); host.className = 'svc-inline-host';
+    var list = document.createElement('div'); list.className = 'svc-inline-list';
+    box.appendChild(host); box.appendChild(list);
+    mountInlineService(host, list, siteId);
+    renderServiceList(list, siteId);
+  }
+  function renderServiceList(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    var all = svcSorted(s);
+    box.innerHTML = all.length ? '<h3 class="sec-title">접수된 목록 <span class="sec-hint">— 눌러서 고치기</span></h3>' : '';
+    all.forEach(function (v) {
       var row = document.createElement('button'); row.type = 'button';
       row.className = 'svc-row' + (v.done ? ' done' : '');
       var who = (v.staff || []).join('·');
@@ -1679,17 +1694,45 @@
         esc(Share.serviceLabel(v)) + '</span><b>' + esc(svcWhen(v)) + '</b>' +
         (who ? '<span class="svc-who">👤 ' + esc(who) + '</span>' : '') +
         (v.done ? '<span class="svc-ok">✓ 완료</span>' : '') + '</div>' +
-        '<div class="svc-req">' + esc(v.request || '(요청 내용 없음)') + '</div>';
-      row.onclick = function () { openServiceSheet(siteId, v.id, function () { renderServiceSection(box, siteId); }); };
+        '<div class="svc-req">' + esc(v.request || '(요청 내용 없음)') + '</div>' +
+        ((v.tools || []).length ? '<div class="svc-tools-line">🧰 ' + esc(v.tools.join('·')) + '</div>' : '');
+      // 접수 창을 닫으면 탭 전체(입력칸 + 목록)를 다시 그린다 — 폼이 창에서 탭으로 돌아와야 한다
+      row.onclick = function () {
+        var sec = box.parentNode;
+        openServiceSheet(siteId, v.id, function () { if (sec && sec.isConnected) renderServiceSection(sec, siteId); });
+      };
       box.appendChild(row);
     });
-    var add = document.createElement('button'); add.type = 'button'; add.className = 'sec-add';
-    add.textContent = '+ AS·추가작업 접수';
-    add.onclick = function () {
-      var v = Store.addService(siteId, {});
-      openServiceSheet(siteId, v.id, function () { renderServiceSection(box, siteId); }, true);
-    };
-    box.appendChild(add);
+  }
+  function blankServiceDraft() {
+    return { id: '', kind: 'AS', request: '', date: '', staff: [], customer: '', phone: '', bizContact: '', tools: [], done: false };
+  }
+  function draftHasContent(d) {
+    return !!(String(d.request || '').trim() || d.date || (d.staff || []).length || String(d.phone || '').trim() ||
+      String(d.customer || '').trim() || (d.tools || []).length || d.done);
+  }
+  // 접수 폼을 탭 안(host)에 붙인다. 새 빈 접수(아직 저장 안 된 draft)로 시작한다
+  function mountInlineService(host, listBox, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    svcSheet = { siteId: siteId, id: '', draft: blankServiceDraft(), onDone: null, inline: true, listBox: listBox };
+    svcPanel.classList.add('inline');
+    host.appendChild(svcPanel);
+    fillServiceForm(true);
+  }
+  // 폼 칸을 지금 접수(svcSheet) 값으로 채운다 — 창으로 열 때와 탭에 붙일 때 같이 쓴다
+  function fillServiceForm(isNew) {
+    var c = curService(); if (!c) return;
+    $('svcTitle').textContent = isNew ? '🔧 AS·추가작업 접수' : '🔧 ' + Share.serviceLabel(c.v);
+    $('svcSite').textContent = svcSheet.inline ? '' : Share.titleLine(c.site) + (clientName(c.site) ? ' · ' + clientName(c.site) : '');
+    $('svcRequest').value = c.v.request;
+    $('svcDate').value = Share.isIsoDate(c.v.date) ? c.v.date : '';
+    $('svcCustomer').value = c.v.customer || '';
+    $('svcPhone').value = c.v.phone || '';
+    syncSvcCall();
+    $('svcDone').checked = !!c.v.done;
+    $('svcOk').textContent = svcSheet.inline ? '✓ 접수 완료' : '확인';
+    svcExtraRow = false;
+    renderServiceSheet();
   }
 
   // ---------- 현장 후기 (2026-09-27) ----------
@@ -1805,35 +1848,66 @@
 
   var svcSheet = { siteId: '', id: '', onDone: null };
   var svcExtraRow = false; // '+ 한 명 더' 를 눌러 빈 드롭다운이 하나 더 열려 있는가
+  // 접수 폼 본체. 평소엔 #svcSheet(창) 안에 있고, AS·추가 탭에선 탭 안으로 옮겨 붙는다 (2026-10-05)
+  var svcPanel = document.querySelector('#svcSheet .svc-sheet');
   function curService() {
     var s = Store.getSite(svcSheet.siteId);
-    var v = s && Share.servicesOf(s).find(function (x) { return x.id === svcSheet.id; });
+    if (!s) return null;
+    if (!svcSheet.id && svcSheet.draft) return { site: s, v: svcSheet.draft };   // 탭의 아직 저장 안 된 새 접수
+    var v = Share.servicesOf(s).find(function (x) { return x.id === svcSheet.id; });
     return v ? { site: s, v: v } : null;
   }
   // fromSchedule: 일정 화면에서 날짜를 미리 넣어 연 접수 — 날짜만 있고 아무것도 안 적었으면 닫을 때 지운다
   function openServiceSheet(siteId, id, onDone, isNew, fromSchedule) {
     svcSheet = { siteId: siteId, id: id, onDone: onDone || null, fromSchedule: !!fromSchedule };
-    var c = curService(); if (!c) return;
-    $('svcTitle').textContent = isNew ? '🔧 AS·추가작업 접수' : '🔧 ' + Share.serviceLabel(c.v);
-    $('svcSite').textContent = Share.titleLine(c.site) + (clientName(c.site) ? ' · ' + clientName(c.site) : '');
-    $('svcRequest').value = c.v.request;
-    $('svcDate').value = Share.isIsoDate(c.v.date) ? c.v.date : '';
-    $('svcCustomer').value = c.v.customer || '';
-    $('svcPhone').value = c.v.phone || '';
-    syncSvcCall();
-    $('svcDone').checked = !!c.v.done;
-    svcExtraRow = false;
-    renderServiceSheet();
+    if (!curService()) return;
+    // 탭에 붙어 있던 폼을 창으로 되돌린다
+    svcPanel.classList.remove('inline');
+    if (svcPanel.parentNode !== $('svcSheet')) $('svcSheet').appendChild(svcPanel);
+    fillServiceForm(isNew);
     $('svcSheet').hidden = false;
     if (isNew) setTimeout(function () { $('svcRequest').focus(); }, 50);
   }
   function renderServiceSheet() {
     var c = curService(); if (!c) return;
-    document.querySelectorAll('#svcSheet .svc-kind').forEach(function (b) {
+    svcPanel.querySelectorAll('.svc-kind').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-kind') === c.v.kind);
     });
     renderServiceStaff(c);
+    renderServiceTools(c);
     renderServiceBiz(c);
+  }
+  // 필요한 부자재·공구: 설정 목록(+ 이 접수에만 있는 것) 칩, 탭으로 켜고 끈다. '+ 추가' 는 설정 목록에도 넣는다
+  function renderServiceTools(c) {
+    var wrap = $('svcTools'); wrap.innerHTML = '';
+    var mine = c.v.tools || [];
+    var all = (state.settings.serviceTools || []).slice();
+    mine.forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
+    all.forEach(function (t) {
+      var on = mine.indexOf(t) !== -1;
+      var chip = document.createElement('button'); chip.type = 'button';
+      chip.className = 'chip pick' + (on ? ' on' : ''); chip.textContent = t + (on ? ' ✓' : '');
+      chip.onclick = function () {
+        var cur = curService(); if (!cur) return;
+        var have = cur.v.tools || [];
+        svcSave({ tools: on ? have.filter(function (x) { return x !== t; }) : have.concat([t]) });
+        renderServiceSheet();
+      };
+      wrap.appendChild(chip);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'chip add'; add.textContent = '+ 추가';
+    add.onclick = function () {
+      modalPrompt('부자재·공구 추가', '', '예: 실리콘건').then(function (v) {
+        v = String(v || '').trim(); if (!v) return;
+        var list = state.settings.serviceTools || [];
+        if (list.indexOf(v) === -1) Store.setSettings({ serviceTools: list.concat([v]) });
+        var cur = curService(); if (!cur) return;
+        var have = cur.v.tools || [];
+        if (have.indexOf(v) === -1) svcSave({ tools: have.concat([v]) });
+        renderServiceSheet();
+      });
+    };
+    wrap.appendChild(add);
   }
   // 담당: 팀원 명단 드롭다운 한 줄씩. 옆에 전화번호·차량번호(설정 → 팀원).
   // 명단에 없는 사람은 설정 → 팀원에 먼저 등록한다 (예전에 적어 둔 명단 밖 이름은 그대로 보인다)
@@ -1852,7 +1926,7 @@
     if (!rows.length || svcExtraRow) rows.push('');
     var setStaff = function (next) {
       svcExtraRow = false;
-      Store.updateService(svcSheet.siteId, svcSheet.id, { staff: next });
+      svcSave({ staff: next });
       renderServiceSheet();
     };
     rows.forEach(function (name, i) {
@@ -1911,7 +1985,7 @@
       chip.textContent = [ct.name, ct.phone].filter(Boolean).join(' ') + (on ? ' ✓' : '');
       if (cs.length === 1) { chip.disabled = true; chip.title = '업자 담당자가 한 명이라 자동으로 이 사람이 갑니다'; }
       else chip.onclick = function () {
-        Store.updateService(svcSheet.siteId, svcSheet.id, { bizContact: on ? '' : key });
+        svcSave({ bizContact: on ? '' : key });
         renderServiceSheet();
       };
       wrap.appendChild(chip);
@@ -1922,11 +1996,30 @@
     $('svcSheet').hidden = true;
     // 접수만 누르고 아무것도 안 적었으면 빈 줄을 남기지 않는다
     var c = curService();
-    if (c && !c.v.request.trim() && (!c.v.date || svcSheet.fromSchedule) && !c.v.staff.length && !c.v.phone.trim() && !c.v.customer.trim() && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
+    if (c && svcSheet.id && !c.v.request.trim() && (!c.v.date || svcSheet.fromSchedule) && !c.v.staff.length && !c.v.phone.trim() && !c.v.customer.trim() && !(c.v.tools || []).length && !c.v.done) Store.removeService(svcSheet.siteId, svcSheet.id);
     var cb = svcSheet.onDone; svcSheet.onDone = null;
     if (cb) cb();
   }
-  var svcSave = function (patch) { Store.updateService(svcSheet.siteId, svcSheet.id, patch); };
+  /* 칸을 고칠 때마다 바로 저장. 탭의 새 접수(draft)는 처음 내용이 들어오는 순간 접수로 만든다 —
+     빈 칸을 보기만 하거나 종류(AS/추가)만 눌러서는 접수가 생기지 않는다 */
+  var svcSave = function (patch) {
+    if (svcSheet.id) { Store.updateService(svcSheet.siteId, svcSheet.id, patch); return; }
+    if (!svcSheet.draft) return;
+    Object.assign(svcSheet.draft, patch);
+    if (!draftHasContent(svcSheet.draft)) return;
+    var d = svcSheet.draft;
+    var v = Store.addService(svcSheet.siteId, { kind: d.kind, request: d.request, date: d.date, staff: d.staff,
+      customer: d.customer, phone: d.phone, bizContact: d.bizContact, tools: d.tools, done: d.done });
+    if (!v) return;
+    svcSheet.id = v.id; svcSheet.draft = null;
+    if (svcSheet.listBox && svcSheet.listBox.isConnected) renderServiceList(svcSheet.listBox, svcSheet.siteId);
+  };
+  // 탭 안 폼: 지금 접수를 마치고 새 빈 접수로 (목록 다시 그림)
+  function resetInlineService(msg) {
+    var host = svcPanel.parentNode, list = svcSheet.listBox, siteId = svcSheet.siteId;
+    if (msg) toast(msg);
+    if (host && list) { mountInlineService(host, list, siteId); renderServiceList(list, siteId); }
+  }
   document.querySelectorAll('#svcSheet .svc-kind').forEach(function (b) {
     b.onclick = function () { svcSave({ kind: b.getAttribute('data-kind') }); renderServiceSheet(); };
   });
@@ -1965,14 +2058,22 @@
   };
   $('svcDelete').onclick = function () {
     var c = curService(); if (!c) return;
+    // 탭의 아직 저장 안 된 새 접수는 칸만 비운다
+    if (svcSheet.inline && !svcSheet.id) { resetInlineService('비웠습니다'); return; }
     modalConfirm('삭제', Share.serviceLabel(c.v) + ' "' + (c.v.request || svcWhen(c.v)) + '" 을(를) 지웁니다.', '삭제', true).then(function (ok) {
       if (!ok) return;
       Store.removeService(svcSheet.siteId, svcSheet.id);
+      if (svcSheet.inline) { resetInlineService('삭제됨'); return; }
       closeServiceSheet();
       toast('삭제됨');
     });
   };
-  $('svcOk').onclick = closeServiceSheet;
+  // 확인: 창이면 닫기. 탭 안 폼이면 '접수 완료' — 이미 저장돼 있으니 새 빈 접수로 넘어간다
+  $('svcOk').onclick = function () {
+    if (!svcSheet.inline) { closeServiceSheet(); return; }
+    if (!svcSheet.id) { toast('요청 내용부터 적어 주세요'); $('svcRequest').focus(); return; }
+    resetInlineService('접수했습니다 — 아래 목록에 있습니다');
+  };
   $('svcClose').onclick = closeServiceSheet;
   $('svcSheet').addEventListener('click', function (e) { if (e.target === $('svcSheet')) closeServiceSheet(); });
 
@@ -2382,6 +2483,11 @@
   }
   bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
+  // AS 부자재·공구 (2026-10-05) — AS·추가작업 접수에서 탭으로 고르는 목록
+  function renderServiceToolList() {
+    renderStringList($('serviceToolList'), state.settings.serviceTools || [], function (next) { Store.setSettings({ serviceTools: next }); renderServiceToolList(); });
+  }
+  bindListAdder('serviceToolInput', 'btnAddServiceTool', function () { return state.settings.serviceTools || []; }, function (next) { Store.setSettings({ serviceTools: next }); renderServiceToolList(); });
   // 후기 질문·현장 태그 (2026-09-27)
   function renderReviewSettingLists() {
     renderReviewQuestionList();
@@ -2445,6 +2551,7 @@
     renderSyncStatus();
     renderTeamList();
     renderSupplyDefaultList();
+    renderServiceToolList();
     renderReviewSettingLists();
     var wrap = $('questionList'); wrap.innerHTML = '';
     Share.FIELDS.filter(function (f) { return f.question; }).forEach(function (f) {

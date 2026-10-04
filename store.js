@@ -28,6 +28,7 @@
   }
 
   // ---------- 기본값 ----------
+  var DEFAULT_SERVICE_TOOLS = ['사포', '퍼티', '열풍기', '재단판'];
   function defaultSettings() {
     return {
       questions: Object.assign({}, Share.DEFAULT_QUESTIONS),
@@ -39,7 +40,8 @@
       people: {},                // 팀원 연락처·차량 { 이름: { phone, car } } — 이름으로 찾는다
       supplyDefaults: ['본드', '장갑'],  // 새 현장에 자동으로 깔리는 부자재
       reviewQuestions: Share.DEFAULT_REVIEW_QUESTIONS.slice(),  // 현장 후기 탭 질문 (2026-09-27)
-      reviewTags: Share.DEFAULT_REVIEW_TAGS.slice()            // 현장 후기 태그 목록
+      reviewTags: Share.DEFAULT_REVIEW_TAGS.slice(),           // 현장 후기 태그 목록
+      serviceTools: DEFAULT_SERVICE_TOOLS.slice()              // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
     };
   }
   function stringList(arr, fallback) {
@@ -121,6 +123,7 @@
         customer: String(v.customer || ''),   // 고객명 (2026-10-02)
         phone: String(v.phone || ''),         // 고객 연락처 (2026-10-02)
         bizContact: String(v.bizContact || ''), // 작업자에게 갈 업자 담당자 (이름, 없으면 번호)
+        tools: cleanStaff(v.tools),           // 챙길 부자재·공구 (2026-10-05) — 빈값·중복 정리는 인원과 같은 규칙
         done: !!v.done,
         createdAt: Number(v.createdAt) || 0
       };
@@ -164,6 +167,7 @@
       state.settings.people = normalizePeople(state.settings.people);
       state.settings.reviewQuestions = stringList(state.settings.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
       state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
+      state.settings.serviceTools = stringList(state.settings.serviceTools, DEFAULT_SERVICE_TOOLS);
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
       state.photos = (parsed.photos || []).map(normalizePhoto);
@@ -193,7 +197,8 @@
   // 설정 중 서버로 보낼 것만 (백업키·마지막 탭은 폰에만)
   function settingsForSync() {
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
-      people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags };
+      people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
+      serviceTools: state.settings.serviceTools };
   }
 
   // ---------- 거래처 ----------
@@ -532,7 +537,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -621,6 +626,7 @@
         // 후기 질문·태그 (2026-09-27) — 예전 백업엔 없다 → 기본값
         state.settings.reviewQuestions = stringList(ds.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
         state.settings.reviewTags = stringList(ds.reviewTags, Share.DEFAULT_REVIEW_TAGS);
+        state.settings.serviceTools = stringList(ds.serviceTools, DEFAULT_SERVICE_TOOLS);   // 예전 백업엔 없다 → 기본값
         state.clients = (data.clients || []).map(normalizeClient);
         state.sites = (data.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
         var metas = [], chunksById = {};

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20261004a">
+  <link rel="stylesheet" href="style.css?v=20261005a">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -184,6 +184,15 @@
         </div>
       </div>
       <div class="settings-section">
+        <h2>AS 부자재·공구</h2>
+        <p class="hint">AS·추가작업을 접수할 때 <b>필요한 부자재·공구</b>로 탭해서 고르는 목록입니다. 작업자에게 복사하면 "🧰 챙길 것"으로 나갑니다.</p>
+        <div id="serviceToolList" class="slist"></div>
+        <div class="row">
+          <input type="text" id="serviceToolInput" placeholder="항목 (예: 실리콘건)" autocomplete="off">
+          <button id="btnAddServiceTool" class="btn-sm">추가</button>
+        </div>
+      </div>
+      <div class="settings-section">
         <h2>후기 질문</h2>
         <p class="hint">현장 <b>후기</b> 탭에 나오는 질문입니다. <b>제목을 누르면</b> 고칠 수 있고(이미 적은 답도 새 제목으로 함께 옮겨갑니다), ↑↓ 로 순서를 바꿉니다. 지운 질문의 답은 그 현장에 남습니다.</p>
         <div id="reviewQuestionList" class="slist"></div>
@@ -274,6 +283,9 @@
       <!-- 담당: 팀원 명단 드롭다운. 옆에 그 사람 전화번호·차량번호 (설정 → 팀원). 둘이 가면 '+ 한 명 더' -->
       <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>
       <div id="svcStaff" class="svc-staff"></div>
+      <!-- 필요한 부자재·공구 (2026-10-05): AS 갈 때 챙길 것. 설정 → AS 부자재·공구 목록에서 탭으로 고른다 -->
+      <div class="svc-label">필요한 부자재·공구 <span class="sec-hint">— 작업자에게 복사할 때 같이 나갑니다</span></div>
+      <div id="svcTools" class="chips chips-pick"></div>
       <!-- 업자 담당자: 작업자에게 복사할 때 갈 업자 연락처. 2명 이상이면 여기서 1명 고른다 -->
       <div id="svcBizWrap" hidden>
         <div class="svc-label">업자 담당자 <span class="sec-hint">— 작업자에게 갈 연락처</span></div>
@@ -338,9 +350,9 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261004a"></script>
-  <script src="store.js?v=20261004a"></script>
-  <script src="app.js?v=20261004a"></script>
+  <script src="share.js?v=20261005a"></script>
+  <script src="store.js?v=20261005a"></script>
+  <script src="app.js?v=20261005a"></script>
   <script src="app-switcher.js?v=20261001" data-app-id="schedule"></script>
 </body>
 </html>

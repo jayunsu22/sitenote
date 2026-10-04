@@ -482,7 +482,7 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'supplyDefaults', 'team']);
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'team']);
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 
@@ -688,6 +688,23 @@ function reset() {
     Store.moveReviewQuestion(2, 1);    // 맨 아래에서 아래로 → 그대로
     assert.deepStrictEqual(Store.state.settings.reviewQuestions[0], '시공후기');
     assert.deepStrictEqual(Store.state.settings.reviewQuestions[2], '개선사항은 무엇인가?');
+  });
+
+  // ---------- AS·추가작업: 챙길 부자재·공구 (2026-10-05) ----------
+  await test('AS 챙길 것: 설정 기본 목록, 접수에 tools 저장(빈값·중복 정리), 예전 접수는 빈 목록', () => {
+    reset();
+    assert.deepStrictEqual(Store.state.settings.serviceTools, ['사포', '퍼티', '열풍기', '재단판']);
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    const v = Store.addService(s.id, { request: '들뜸', tools: [' 사포 ', '', '사포', '퍼티'] });
+    assert.deepStrictEqual(Store.getSite(s.id).services[0].tools, ['사포', '퍼티']);
+    Store.updateService(s.id, v.id, { tools: ['열풍기'] });
+    assert.deepStrictEqual(Store.getSite(s.id).services[0].tools, ['열풍기']);
+    mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], photos: [], sites: [
+      { id: 's1', clientId: 'c1', color: 0, name: '옛현장', services: [{ id: 'v1', request: 'x' }] }
+    ], settings: { questions: {} }, syncQueue: [] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite('s1').services[0].tools, []);
+    assert.deepStrictEqual(Store.state.settings.serviceTools, ['사포', '퍼티', '열풍기', '재단판']);
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
