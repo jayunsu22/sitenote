@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20261005b">
+  <link rel="stylesheet" href="style.css?v=20261005c">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -262,49 +262,65 @@
         <button id="svcClose" class="icon-btn" title="닫기">✕</button>
       </div>
       <p id="svcSite" class="sheet-hint"></p>
-      <div class="svc-kinds">
-        <button type="button" class="svc-kind" data-kind="AS">🔧 AS</button>
-        <button type="button" class="svc-kind" data-kind="추가">➕ 추가작업</button>
-      </div>
-      <label class="svc-label" for="svcRequest">요청 내용</label>
-      <textarea id="svcRequest" rows="3" placeholder="예: 현관문 필름 들뜸 — 재시공 요청"></textarea>
-      <label class="svc-label" for="svcDate">날짜 <span class="sec-hint">— 모르면 비워 두세요 (일정 화면 'AS 대기' 에 남습니다)</span></label>
-      <div class="svc-daterow">
-        <input type="date" id="svcDate">
-        <button type="button" id="svcDateClear" class="btn-sm">미정</button>
-      </div>
-      <!-- 고객 연락처: AS 는 고객과 바로 날짜·시간을 맞추는 일이 많다. 작업자에게 복사할 때 같이 나간다 -->
-      <label class="svc-label" for="svcPhone">고객 연락처 <span class="sec-hint">— 작업자에게 복사할 때 같이 나갑니다</span></label>
-      <div class="svc-daterow svc-phonerow">
-        <input type="text" id="svcCustomer" class="svc-customer" placeholder="고객명" autocomplete="off">
-        <input type="tel" id="svcPhone" inputmode="tel" placeholder="010-1234-5678" autocomplete="off">
-        <a id="svcCall" class="svc-call disabled" href="#" title="전화걸기">📞 전화</a>
-      </div>
-      <!-- 담당: 팀원 명단 드롭다운. 옆에 그 사람 전화번호·차량번호 (설정 → 팀원). 둘이 가면 '+ 한 명 더' -->
-      <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>
-      <div id="svcStaff" class="svc-staff"></div>
-      <!-- 필요한 부자재·공구 (2026-10-05): AS 갈 때 챙길 것. 설정 → AS 부자재·공구 목록에서 탭으로 고른다 -->
-      <!-- 안 가져가면 현장에서 일을 못 한다 — 주황 박스로 눈에 띄게 (2026-10-05) -->
-      <div class="svc-tools-box">
-        <div class="svc-tools-title">🧰 필요한 부자재·공구 <span>꼭 챙기기!</span></div>
-        <div id="svcToolsPicked" class="svc-tools-picked"></div>
-        <div id="svcTools" class="chips chips-pick"></div>
-      </div>
-      <!-- 업자 담당자: 작업자에게 복사할 때 갈 업자 연락처. 2명 이상이면 여기서 1명 고른다 -->
-      <div id="svcBizWrap" hidden>
-        <div class="svc-label">업자 담당자 <span class="sec-hint">— 작업자에게 갈 연락처</span></div>
-        <div id="svcBiz" class="chips chips-pick"></div>
-      </div>
-      <div class="svc-label">연락 <span class="sec-hint">— 눌러서 복사 → 카톡에 붙여넣기</span></div>
-      <div class="contact-btns svc-copy">
-        <button type="button" class="contact-btn" id="svcCopyWorker"><b>작업자에게</b><span>AS 지시·비번·필름</span></button>
-        <button type="button" class="contact-btn" id="svcCopyClient"><b>업자에게</b><span>가는 사람 연락처·차량</span></button>
-        <button type="button" class="contact-btn" id="svcCopyCar"><b>관리실·차량등록</b><span>차량번호·날짜</span></button>
-      </div>
-      <label class="svc-done"><input type="checkbox" id="svcDone"> 완료</label>
-      <div class="svc-foot">
-        <button type="button" id="svcDelete" class="btn-sm btn-danger">삭제</button>
-        <button type="button" id="svcOk" class="btn-sm primary">확인</button>
+      <!-- 단락을 ①②③… 순서 번호 + 왼쪽 세로선으로 (2026-10-05 시안 B).
+           번호는 CSS 카운터라 숨겨진 단계(업자 담당자가 없을 때)는 건너뛰고 자동으로 이어진다 -->
+      <div class="svc-steps">
+        <div class="svc-step">
+          <div class="svc-step-h">무슨 일인가</div>
+          <div class="svc-kinds">
+            <button type="button" class="svc-kind" data-kind="AS">🔧 AS</button>
+            <button type="button" class="svc-kind" data-kind="추가">➕ 추가작업</button>
+          </div>
+          <textarea id="svcRequest" rows="3" placeholder="요청 내용 — 예: 현관문 필름 들뜸, 재시공 요청" aria-label="요청 내용"></textarea>
+        </div>
+        <div class="svc-step">
+          <div class="svc-step-h">날짜 <small>모르면 미정 → 일정 'AS 대기'</small></div>
+          <div class="svc-daterow">
+            <input type="date" id="svcDate" aria-label="날짜">
+            <button type="button" id="svcDateClear" class="btn-sm">미정</button>
+          </div>
+        </div>
+        <!-- 고객 연락처: AS 는 고객과 바로 날짜·시간을 맞추는 일이 많다. 작업자에게 복사할 때 같이 나간다 -->
+        <div class="svc-step">
+          <div class="svc-step-h">고객 연락처 <small>작업자에게 같이 나갑니다</small></div>
+          <div class="svc-daterow svc-phonerow">
+            <input type="text" id="svcCustomer" class="svc-customer" placeholder="고객명" autocomplete="off">
+            <input type="tel" id="svcPhone" inputmode="tel" placeholder="010-1234-5678" autocomplete="off">
+            <a id="svcCall" class="svc-call disabled" href="#" title="전화걸기">📞 전화</a>
+          </div>
+        </div>
+        <!-- 담당: 팀원 명단 드롭다운. 옆에 그 사람 전화번호·차량번호 (설정 → 팀원). 둘이 가면 '+ 한 명 더' -->
+        <div class="svc-step">
+          <div class="svc-step-h">누가 가나</div>
+          <div id="svcStaff" class="svc-staff"></div>
+        </div>
+        <!-- 필요한 부자재·공구: 안 가져가면 현장에서 일을 못 한다 — 번호도 박스도 주황 -->
+        <div class="svc-step svc-step-orange">
+          <div class="svc-step-h">챙길 것</div>
+          <div class="svc-tools-box">
+            <div class="svc-tools-title">🧰 필요한 부자재·공구 <span>꼭 챙기기!</span></div>
+            <div id="svcToolsPicked" class="svc-tools-picked"></div>
+            <div id="svcTools" class="chips chips-pick"></div>
+          </div>
+        </div>
+        <!-- 업자 담당자: 작업자에게 복사할 때 갈 업자 연락처. 업자에 담당자가 없으면 단계째 숨는다 -->
+        <div id="svcBizWrap" class="svc-step" hidden>
+          <div class="svc-step-h">업자 담당자 <small>작업자에게 갈 연락처</small></div>
+          <div id="svcBiz" class="chips chips-pick"></div>
+        </div>
+        <div class="svc-step svc-step-gray">
+          <div class="svc-step-h">보내기 <small>눌러서 복사 → 카톡에 붙여넣기</small></div>
+          <div class="contact-btns svc-copy">
+            <button type="button" class="contact-btn" id="svcCopyWorker"><b>작업자에게</b><span>AS 지시·비번·필름</span></button>
+            <button type="button" class="contact-btn" id="svcCopyClient"><b>업자에게</b><span>가는 사람 연락처·차량</span></button>
+            <button type="button" class="contact-btn" id="svcCopyCar"><b>관리실·차량등록</b><span>차량번호·날짜</span></button>
+          </div>
+          <label class="svc-done"><input type="checkbox" id="svcDone"> 완료</label>
+          <div class="svc-foot">
+            <button type="button" id="svcDelete" class="btn-sm btn-danger">삭제</button>
+            <button type="button" id="svcOk" class="btn-sm primary">확인</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -354,9 +370,9 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261005b"></script>
-  <script src="store.js?v=20261005b"></script>
-  <script src="app.js?v=20261005b"></script>
+  <script src="share.js?v=20261005c"></script>
+  <script src="store.js?v=20261005c"></script>
+  <script src="app.js?v=20261005c"></script>
   <script src="app-switcher.js?v=20261001" data-app-id="schedule"></script>
 </body>
 </html>

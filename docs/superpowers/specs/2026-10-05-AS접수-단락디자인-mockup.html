@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AS 접수 단락 디자인 시안</title>
+<style>
+  :root { --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --primary:#2563eb; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#d1d5db; font-family:-apple-system,"Malgun Gothic","Noto Sans KR",sans-serif; color:var(--text); font-size:15px; }
+  .wrap { display:flex; flex-wrap:wrap; gap:24px; justify-content:center; padding:20px; }
+  .phone { width:375px; background:var(--bg); border-radius:24px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.18); }
+  .phone > h1 { margin:0; padding:12px 16px; background:#111827; color:#fff; font-size:15px; }
+  .phone > h1 small { display:block; font-weight:400; color:#cbd5e1; font-size:12px; margin-top:2px; }
+  .tabs { display:flex; gap:3px; padding:8px 4px 0; background:#fff; border-bottom:3px solid #be185d; }
+  .tabs span { flex:1; text-align:center; padding:9px 0 8px; border-radius:10px 10px 0 0; font-size:12.5px; font-weight:800; background:#f3f4f6; color:#6b7280; }
+  .tabs span.on { background:#be185d; color:#fff; }
+  /* 공통 부품 */
+  .kinds { display:flex; gap:8px; }
+  .kind { flex:1; text-align:center; padding:10px; border-radius:10px; border:1.5px solid var(--border); background:#fff; font-weight:700; }
+  .kind.on { border-color:#b45309; background:#fffbeb; color:#b45309; }
+  textarea, input, select { width:100%; font:inherit; font-size:15px; padding:10px; border:1.5px solid var(--border); border-radius:10px; background:#fafafa; }
+  textarea { height:64px; resize:none; }
+  .row { display:flex; gap:8px; }
+  .row > * { min-width:0; }
+  .btn { padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); background:#fff; font-weight:700; white-space:nowrap; }
+  .call { background:#e5e7eb; color:#6b7280; border:none; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:7px 13px; border-radius:999px; border:1.5px solid #cbd5e1; background:#fff; font-size:14px; font-weight:600; }
+  .chip.on { background:#dbeafe; border-color:var(--primary); color:#1e3a8a; }
+  .tools { padding:12px; border:2.5px solid #f97316; border-radius:14px; background:#fff7ed; }
+  .tools .t { font-weight:900; color:#9a3412; margin-bottom:8px; font-size:15.5px; }
+  .tools .t b { margin-left:6px; padding:2px 8px; border-radius:999px; background:#f97316; color:#fff; font-size:11.5px; }
+  .tools .p { background:#fff; border:1.5px solid #fdba74; border-radius:10px; padding:8px 10px; font-weight:800; color:#7c2d12; margin-bottom:10px; font-size:14.5px; }
+  .tools .chip { border-color:#fdba74; }
+  .tools .chip.on { background:#f97316; border-color:#ea580c; color:#fff; }
+  .copy3 { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .copy3 div { border:1.5px solid var(--border); border-radius:10px; background:#fff; padding:8px 4px; text-align:center; font-size:12px; color:var(--muted); }
+  .copy3 b { display:block; color:var(--primary); font-size:13.5px; margin-bottom:2px; }
+  .foot { display:flex; gap:8px; }
+  .foot .btn { flex:1; text-align:center; padding:13px; }
+  .foot .del { color:#dc2626; border-color:#fecaca; }
+  .foot .ok { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .staff-info { font-size:13px; color:var(--muted); margin-top:6px; }
+  .staff-info a { color:var(--primary); font-weight:700; text-decoration:none; margin-right:10px; }
+
+  /* ===== 시안 A: 카드 ===== 단락마다 흰 카드, 머리에 아이콘+제목, 카드 사이 회색 틈 */
+  .A .body { padding:10px; display:flex; flex-direction:column; gap:10px; }
+  .A .card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .A .h { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px; margin-bottom:10px; }
+  .A .h i { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-style:normal; font-size:16px; background:#eff6ff; }
+  .A .h small { margin-left:auto; font-weight:500; color:var(--muted); font-size:12px; }
+  .A .tools { border-radius:14px; }
+
+  /* ===== 시안 B: 단계 번호 ===== 왼쪽 세로선에 ①②③… 순서대로 채우는 느낌 */
+  .B .body { padding:14px 14px 14px 10px; background:#fff; }
+  .B .step { position:relative; padding:0 0 18px 42px; }
+  .B .step::before { content:''; position:absolute; left:15px; top:30px; bottom:0; width:2px; background:#e5e7eb; }
+  .B .step:last-child::before { display:none; }
+  .B .n { position:absolute; left:0; top:0; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; font-weight:900; display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .B .n.orange { background:#f97316; }
+  .B .n.gray { background:#9ca3af; }
+  .B .h { font-weight:800; font-size:15.5px; line-height:32px; margin-bottom:4px; }
+  .B .h small { font-weight:500; color:var(--muted); font-size:12px; margin-left:6px; }
+
+  /* ===== 시안 C: 색 띠 머리글 ===== 단락 머리글을 옅은 색 띠로, 왼쪽에 색 막대 */
+  .C .body { background:#fff; }
+  .C .sec { border-bottom:8px solid var(--bg); }
+  .C .h { display:flex; align-items:center; gap:8px; padding:10px 14px; font-weight:800; font-size:15px; border-left:6px solid var(--c); background:var(--t); color:var(--d); }
+  .C .h small { margin-left:auto; font-weight:500; font-size:12px; color:var(--muted); }
+  .C .in { padding:12px 14px 14px; }
+  .C .req  { --c:#be185d; --t:#fdf2f8; --d:#9d174d; }
+  .C .when { --c:#7c3aed; --t:#f5f3ff; --d:#5b21b6; }
+  .C .cust { --c:#0891b2; --t:#ecfeff; --d:#155e75; }
+  .C .who  { --c:#16a34a; --t:#f0fdf4; --d:#166534; }
+  .C .tool { --c:#f97316; --t:#fff7ed; --d:#9a3412; }
+  .C .biz  { --c:#2563eb; --t:#eff6ff; --d:#1e40af; }
+  .C .send { --c:#4b5563; --t:#f3f4f6; --d:#1f2937; }
+  .C .tool .in { background:#fff7ed; }
+  .C .tool .tools { border:none; padding:0; background:transparent; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ================= 시안 A ================= -->
+<div class="phone A">
+  <h1>시안 A · 카드<small>단락마다 흰 카드 + 아이콘 머리글, 카드 사이 회색 틈</small></h1>
+  <div class="tabs"><span>기본·출입</span><span>일정·인원</span><span>필름·부자재</span><span class="on">AS·추가</span><span>메모·후기</span></div>
+  <div class="body">
+    <div class="card"><div class="h"><i>🔧</i>무슨 일인가</div>
+      <div class="kinds"><div class="kind on">🔧 AS</div><div class="kind">➕ 추가작업</div></div>
+      <div style="height:8px"></div><textarea placeholder="예: 현관문 필름 들뜸 — 재시공 요청">현관문 필름 들뜸 재시공</textarea></div>
+    <div class="card"><div class="h"><i style="background:#f5f3ff">📅</i>날짜<small>모르면 미정</small></div>
+      <div class="row"><input value="2026-10-08"><span class="btn">미정</span></div></div>
+    <div class="card"><div class="h"><i style="background:#ecfeff">📞</i>고객 연락처<small>작업자에게 같이 감</small></div>
+      <div class="row"><input placeholder="고객명" style="flex:0 0 32%"><input placeholder="010-1234-5678"><span class="btn call">📞</span></div></div>
+    <div class="card"><div class="h"><i style="background:#f0fdf4">👷</i>담당<small>누가 가나</small></div>
+      <select><option>서영호</option></select><div class="staff-info"><a>📞 010-0000-0000</a>🚗 12가3456</div></div>
+    <div class="tools"><div class="t">🧰 필요한 부자재·공구<b>꼭 챙기기!</b></div><div class="p">챙길 것 2개: 사포, 열풍기</div>
+      <div class="chips"><span class="chip on">사포 ✓</span><span class="chip">퍼티</span><span class="chip on">열풍기 ✓</span><span class="chip">재단판</span></div></div>
+    <div class="card"><div class="h"><i>🏢</i>업자 담당자<small>작업자에게 갈 연락처</small></div>
+      <div class="chips"><span class="chip on">실장님 010-5022-2236 ✓</span></div></div>
+    <div class="card"><div class="h"><i style="background:#f3f4f6">📤</i>보내기<small>눌러서 복사</small></div>
+      <div class="copy3"><div><b>작업자에게</b>AS 지시·비번</div><div><b>업자에게</b>가는 사람</div><div><b>관리실</b>차량번호</div></div></div>
+    <div class="foot"><span class="btn del">삭제</span><span class="btn ok">✓ 접수 완료</span></div>
+  </div>
+</div>
+
+<!-- ================= 시안 B ================= -->
+<div class="phone B">
+  <h1>시안 B · 순서 번호<small>①②③… 위에서부터 차례로 채우는 흐름, 왼쪽 세로선</small></h1>
+  <div class="tabs"><span>기본·출입</span><span>일정·인원</span><span>필름·부자재</span><span class="on">AS·추가</span><span>메모·후기</span></div>
+  <div class="body">
+    <div class="step"><span class="n">1</span><div class="h">무슨 일인가</div>
+      <div class="kinds"><div class="kind on">🔧 AS</div><div class="kind">➕ 추가작업</div></div>
+      <div style="height:8px"></div><textarea>현관문 필름 들뜸 재시공</textarea></div>
+    <div class="step"><span class="n">2</span><div class="h">날짜<small>모르면 미정</small></div>
+      <div class="row"><input value="2026-10-08"><span class="btn">미정</span></div></div>
+    <div class="step"><span class="n">3</span><div class="h">고객 연락처<small>작업자에게 같이 감</small></div>
+      <div class="row"><input placeholder="고객명" style="flex:0 0 32%"><input placeholder="010-1234-5678"><span class="btn call">📞</span></div></div>
+    <div class="step"><span class="n">4</span><div class="h">누가 가나</div>
+      <select><option>서영호</option></select><div class="staff-info"><a>📞 010-0000-0000</a>🚗 12가3456</div></div>
+    <div class="step"><span class="n orange">5</span><div class="h">챙길 것</div>
+      <div class="tools"><div class="t">🧰 필요한 부자재·공구<b>꼭 챙기기!</b></div><div class="p">챙길 것 2개: 사포, 열풍기</div>
+        <div class="chips"><span class="chip on">사포 ✓</span><span class="chip">퍼티</span><span class="chip on">열풍기 ✓</span><span class="chip">재단판</span></div></div></div>
+    <div class="step"><span class="n">6</span><div class="h">업자 담당자<small>작업자에게 갈 연락처</small></div>
+      <div class="chips"><span class="chip on">실장님 010-5022-2236 ✓</span></div></div>
+    <div class="step"><span class="n gray">7</span><div class="h">보내기<small>눌러서 복사</small></div>
+      <div class="copy3"><div><b>작업자에게</b>AS 지시·비번</div><div><b>업자에게</b>가는 사람</div><div><b>관리실</b>차량번호</div></div>
+      <div style="height:12px"></div><div class="foot"><span class="btn del">삭제</span><span class="btn ok">✓ 접수 완료</span></div></div>
+  </div>
+</div>
+
+<!-- ================= 시안 C ================= -->
+<div class="phone C">
+  <h1>시안 C · 색 띠 머리글<small>단락마다 다른 색 띠 제목 + 왼쪽 색 막대, 단락 사이 굵은 틈</small></h1>
+  <div class="tabs"><span>기본·출입</span><span>일정·인원</span><span>필름·부자재</span><span class="on">AS·추가</span><span>메모·후기</span></div>
+  <div class="body">
+    <div class="sec req"><div class="h">🔧 무슨 일인가</div><div class="in">
+      <div class="kinds"><div class="kind on">🔧 AS</div><div class="kind">➕ 추가작업</div></div>
+      <div style="height:8px"></div><textarea>현관문 필름 들뜸 재시공</textarea></div></div>
+    <div class="sec when"><div class="h">📅 날짜<small>모르면 미정</small></div><div class="in">
+      <div class="row"><input value="2026-10-08"><span class="btn">미정</span></div></div></div>
+    <div class="sec cust"><div class="h">📞 고객 연락처<small>작업자에게 같이 감</small></div><div class="in">
+      <div class="row"><input placeholder="고객명" style="flex:0 0 32%"><input placeholder="010-1234-5678"><span class="btn call">📞</span></div></div></div>
+    <div class="sec who"><div class="h">👷 담당<small>누가 가나</small></div><div class="in">
+      <select><option>서영호</option></select><div class="staff-info"><a>📞 010-0000-0000</a>🚗 12가3456</div></div></div>
+    <div class="sec tool"><div class="h">🧰 필요한 부자재·공구<small style="color:#c2410c;font-weight:800">꼭 챙기기!</small></div><div class="in">
+      <div class="tools"><div class="p">챙길 것 2개: 사포, 열풍기</div>
+        <div class="chips"><span class="chip on">사포 ✓</span><span class="chip">퍼티</span><span class="chip on">열풍기 ✓</span><span class="chip">재단판</span></div></div></div></div>
+    <div class="sec biz"><div class="h">🏢 업자 담당자<small>작업자에게 갈 연락처</small></div><div class="in">
+      <div class="chips"><span class="chip on">실장님 010-5022-2236 ✓</span></div></div></div>
+    <div class="sec send"><div class="h">📤 보내기<small>눌러서 복사</small></div><div class="in">
+      <div class="copy3"><div><b>작업자에게</b>AS 지시·비번</div><div><b>업자에게</b>가는 사람</div><div><b>관리실</b>차량번호</div></div>
+      <div style="height:12px"></div><div class="foot"><span class="btn del">삭제</span><span class="btn ok">✓ 접수 완료</span></div></div></div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
