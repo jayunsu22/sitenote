@@ -973,5 +973,17 @@ test('collectReviews: 태그·질문으로 거르면 그 질문 답만 남고, �
   assert.deepStrictEqual(Share.collectReviews(sites, { tag: '도배시공후' }).map((x) => x.site.id), ['b', 'a']);
 });
 
+test('공휴일·일요일은 빨간 날, 토요일·평일은 아니다', () => {
+  assert.strictEqual(Share.dayLabel('2026-10-08'), '10/8(목)');
+  assert.strictEqual(Share.isRedDay('2026-10-09'), true);   // 한글날
+  assert.strictEqual(Share.holidayName('2026-10-09'), '한글날');
+  assert.strictEqual(Share.isRedDay('2026-10-05'), true);   // 개천절(토) 대체
+  assert.strictEqual(Share.isRedDay('2026-10-11'), true);   // 일요일
+  assert.strictEqual(Share.holidayName('2026-10-11'), '');
+  assert.strictEqual(Share.isRedDay('2026-10-10'), false);  // 토요일
+  assert.strictEqual(Share.isRedDay('2026-10-08'), false);
+  assert.strictEqual(Share.isRedDay(''), false);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

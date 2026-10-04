@@ -562,12 +562,12 @@
       (iso === pickedDate && !isToday ? ' picked' : '');
     if (o.weekday) {
       var w = document.createElement('span');
-      w.className = 'schcal-wd' + (weekdayOf(iso) === '일' ? ' sun' : (weekdayOf(iso) === '토' ? ' sat' : ''));
+      w.className = 'schcal-wd' + (Share.isRedDay(iso) ? ' sun' : (weekdayOf(iso) === '토' ? ' sat' : ''));
       w.textContent = weekdayOf(iso);
       b.appendChild(w);
     }
     var d = document.createElement('span');
-    d.className = 'schcal-day' + (!o.weekday && weekdayOf(iso) === '일' ? ' sun' : '');
+    d.className = 'schcal-day' + (!o.weekday && Share.isRedDay(iso) ? ' sun' : '');
     var dd = +iso.slice(8, 10);
     // 띠가 달을 넘어가면 '1' 이 이번 달 1일인지 다음 달 1일인지 모른다. 1일에만 달을 붙인다
     d.textContent = (o.weekday && dd === 1) ? (+iso.slice(5, 7)) + '/1' : String(dd);
@@ -619,7 +619,7 @@
     else if (past) mark.className = 'schcal-blank';
     else mark.className = 'schcal-free';
     b.appendChild(mark);
-    b.title = dateLabel(iso) + (o.svc ? ' · AS ' + o.svc + '건' : '') + ' · ' +
+    b.title = dateLabel(iso) + (Share.holidayName(iso) ? ' ' + Share.holidayName(iso) : '') + (o.svc ? ' · AS ' + o.svc + '건' : '') + ' · ' +
       (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') + (rgs.length ? ' — ' + rgs.join(', ') : '')
          : '현장 없음') +
       (n && st && st.have ? ' · 인원 ' + st.have + '명' + (st.slots > st.have ? ' (같은 사람 겹침)' : '') : '');
@@ -1128,7 +1128,7 @@
         // 지난 날은 흐리게 — 며칠까지 했고 어디부터 남았는지가 바로 보여야 한다
         cell.className = 'sch-dcell' + (d < oneToday ? ' done' : '');
         var dl = document.createElement('span'); dl.className = 'sch-dlab';
-        dl.textContent = (di + 1) + '일차 ' + Share.shortDate(d) + ' ' + weekdayOf(d);
+        fillDayLabel(dl, di, d);
         cell.appendChild(dl);
         cell.appendChild(staffCountBadge(s, di, false));
         cell.title = '탭하면 그날 인원을 고칩니다';
@@ -1445,7 +1445,17 @@
     }
   }
   function dayLabel(i, date) {
-    return (i + 1) + '일차' + (date ? ' ' + Share.shortDate(date) : '');
+    return (i + 1) + '일차' + (date ? ' ' + Share.dayLabel(date) : '');
+  }
+  // '1일차 10/8(목)' 을 칸에 그린다. 일요일·공휴일은 날짜를 빨갛게, 공휴일은 이름도 붙인다
+  function fillDayLabel(el, i, date) {
+    el.textContent = (i + 1) + '일차 ';
+    var dt = document.createElement('span');
+    dt.className = 'dl-date' + (Share.isRedDay(date) ? ' red' : '');
+    dt.textContent = Share.dayLabel(date) || date;
+    el.appendChild(dt);
+    var hn = Share.holidayName(date);
+    if (hn) { var h = document.createElement('span'); h.className = 'dl-holi'; h.textContent = hn; el.appendChild(h); }
   }
   /* 그날 들어간 사람 수 뱃지 — '5명'. 필요 인원은 현장 전체를 두고 정하는 수라
      날짜 줄에서는 견주지 않는다 (합계는 아래 staffTotalBadge 가 보여 준다) */
@@ -1515,7 +1525,7 @@
       var row = document.createElement('div'); row.className = 'sec-row day-row day-c' + (i % 6);
       var head = document.createElement('div'); head.className = 'day-head';
       var lb = document.createElement('span'); lb.className = 'day-label';
-      lb.textContent = d.date ? dayLabel(i, d.date) : '날짜 없음';
+      if (d.date) fillDayLabel(lb, i, d.date); else lb.textContent = '날짜 없음';
       head.appendChild(lb); head.appendChild(staffCountBadge(s, i, false));
       var chips = document.createElement('div'); chips.className = 'chips';
       renderChips(chips, d.staff, {
@@ -1574,7 +1584,9 @@
       week.forEach(function (iso, i) {
         var c = document.createElement('button'); c.type = 'button'; c.className = 'cal-d';
         c.textContent = String(+iso.slice(8, 10));
-        if (i === 0) c.className += ' sun'; if (i === 6) c.className += ' sat';
+        // 일요일·공휴일은 빨강 (공휴일은 누르기 전에 이름을 볼 수 있게 title 에 둔다)
+        if (Share.isRedDay(iso)) c.className += ' sun'; else if (i === 6) c.className += ' sat';
+        if (Share.holidayName(iso)) c.title = Share.holidayName(iso);
         if (iso.slice(0, 7) !== 이번달) c.className += ' out';
         if (iso === today) c.className += ' today';
         if (order[iso]) { c.className += ' on'; c.innerHTML += '<span class="cal-n">' + order[iso] + '</span>'; }

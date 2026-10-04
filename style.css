@@ -674,3 +674,9 @@ textarea { resize: vertical; }
 .rvq-row .rvq-name::after { content: ' ✏️'; font-size: 12px; opacity: .6; }
 .rvq-mv { width: 34px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); font-size: 15px; }
 .rvq-mv:disabled { opacity: .3; }
+/* 일차 날짜 '10/8(목)' — 일요일·공휴일은 빨강, 공휴일은 이름을 작게 붙인다 (2026-10-04) */
+.dl-date.red { color: #dc2626; }
+.dl-holi { margin-left: 4px; font-size: 0.8em; font-weight: 700; color: #dc2626; }
+.sch-dcell.done .dl-date.red, .sch-dcell.done .dl-holi { color: #e5a3a3; }
+/* 상세 일차 칸: '1일차 10/8(목)' 을 한 줄로 (원래 .day-label 은 세로 줄세움이라 둘로 갈라졌다) */
+.sec .day-row .day-head .day-label { display: block; }
