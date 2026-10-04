@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>거래처별 현장관리</title>
-  <link rel="stylesheet" href="style.css?v=20261005a">
+  <link rel="stylesheet" href="style.css?v=20261005b">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -284,8 +284,12 @@
       <div class="svc-label">담당 <span class="sec-hint">— 누가 가나</span></div>
       <div id="svcStaff" class="svc-staff"></div>
       <!-- 필요한 부자재·공구 (2026-10-05): AS 갈 때 챙길 것. 설정 → AS 부자재·공구 목록에서 탭으로 고른다 -->
-      <div class="svc-label">필요한 부자재·공구 <span class="sec-hint">— 작업자에게 복사할 때 같이 나갑니다</span></div>
-      <div id="svcTools" class="chips chips-pick"></div>
+      <!-- 안 가져가면 현장에서 일을 못 한다 — 주황 박스로 눈에 띄게 (2026-10-05) -->
+      <div class="svc-tools-box">
+        <div class="svc-tools-title">🧰 필요한 부자재·공구 <span>꼭 챙기기!</span></div>
+        <div id="svcToolsPicked" class="svc-tools-picked"></div>
+        <div id="svcTools" class="chips chips-pick"></div>
+      </div>
       <!-- 업자 담당자: 작업자에게 복사할 때 갈 업자 연락처. 2명 이상이면 여기서 1명 고른다 -->
       <div id="svcBizWrap" hidden>
         <div class="svc-label">업자 담당자 <span class="sec-hint">— 작업자에게 갈 연락처</span></div>
@@ -350,9 +354,9 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261005a"></script>
-  <script src="store.js?v=20261005a"></script>
-  <script src="app.js?v=20261005a"></script>
+  <script src="share.js?v=20261005b"></script>
+  <script src="store.js?v=20261005b"></script>
+  <script src="app.js?v=20261005b"></script>
   <script src="app-switcher.js?v=20261001" data-app-id="schedule"></script>
 </body>
 </html>

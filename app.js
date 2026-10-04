@@ -1881,6 +1881,10 @@
   function renderServiceTools(c) {
     var wrap = $('svcTools'); wrap.innerHTML = '';
     var mine = c.v.tools || [];
+    // 고른 것을 박스 맨 위에 크게 — 칩 사이에서 켜진 것만 찾기 어렵다. 안 골랐으면 경고
+    var picked = $('svcToolsPicked');
+    picked.classList.toggle('none', !mine.length);
+    picked.textContent = mine.length ? '챙길 것 ' + mine.length + '개: ' + mine.join(', ') : '⚠ 아직 안 골랐습니다 — 아래에서 탭하세요';
     var all = (state.settings.serviceTools || []).slice();
     mine.forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
     all.forEach(function (t) {
