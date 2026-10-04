@@ -1,6 +1,6 @@
 // sw.js — 앱 파일만 캐시 (네트워크 우선, 실패 시 캐시). n8n webhook 은 캐시하지 않음.
-var CACHE = 'sitenote-v20261002d';
-var FILES = ['./', './index.html', './schedule.html', './style.css?v=20261002d', './share.js?v=20261002d', './store.js?v=20261002d', './app.js?v=20261002d', './manifest.json', './icon-192.png', './icon-512.png', './icon-schedule-192.png', './icon-schedule-512.png'];
+var CACHE = 'sitenote-v20261004a';
+var FILES = ['./', './index.html', './schedule.html', './style.css?v=20261004a', './share.js?v=20261004a', './store.js?v=20261004a', './app.js?v=20261004a', './manifest.json', './icon-192.png', './icon-512.png', './icon-schedule-192.png', './icon-schedule-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
