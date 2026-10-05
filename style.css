@@ -743,3 +743,21 @@ textarea { resize: vertical; }
 .person-form .pf-label { display: block; margin: 10px 0 4px; font-size: 12.5px; font-weight: 800; color: var(--muted); }
 .person-form .pf-label:first-child { margin-top: 0; }
 .modal .person-form textarea { min-height: 80px; }
+
+/* ---------- 기사 등급 · 전화 걸기 · 이름 바꾸기 (2026-10-05) ---------- */
+.gbadge { display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 5px; border-radius: 6px; font-size: 12px; font-weight: 900; text-align: center; line-height: 20px; }
+.gbadge.g-A, .pf-grade.g-A { --gc: #15803d; --gt: #ecfdf3; }
+.gbadge.g-B, .pf-grade.g-B { --gc: #2563eb; --gt: #eff6ff; }
+.gbadge.g-C, .pf-grade.g-C { --gc: #b45309; --gt: #fffbeb; }
+.gbadge.g-F, .pf-grade.g-F { --gc: #b91c1c; --gt: #fef2f2; }
+.pf-grade.g-none { --gc: #4b5563; --gt: #f3f4f6; }
+.gbadge { background: var(--gc); color: #fff; }
+.team-tel { color: #2563eb; font-weight: 700; text-decoration: none; }
+.pf-row { display: flex; gap: 6px; align-items: stretch; }
+.pf-row input { flex: 1; min-width: 0; }
+.pf-row .btn-sm, .pf-call { flex: none; white-space: nowrap; }
+.pf-call { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; background: #ecfdf3; color: #15803d; font-size: 14px; font-weight: 800; text-decoration: none; border: 1.5px solid #a7f3d0; }
+.pf-call[hidden] { display: none; }
+.pf-grades { display: flex; gap: 6px; flex-wrap: wrap; }
+.pf-grade { min-width: 52px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--gc); background: var(--gt); color: var(--gc); font-size: 15px; font-weight: 900; }
+.pf-grade.on { background: var(--gc); color: #fff; }

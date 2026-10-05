@@ -2609,14 +2609,24 @@
       var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
       box.appendChild(e);
     }
-    // 한 줄 = 이름 + 전화·차량 요약. 누르면 '기사 정보' 창에서 경력·페이·사는곳·메모까지 적는다
+    // 한 줄 = 등급 + 이름 + 전화·차량 요약. 줄을 누르면 '기사 정보' 창, 전화번호를 누르면 바로 전화 걸기
     team.forEach(function (name, i) {
       var p = Share.personOf(state.settings.people, name);
       var row = document.createElement('div'); row.className = 'team-row team-tap';
       var main = document.createElement('div'); main.className = 'team-main';
-      var t = document.createElement('div'); t.className = 'slist-name'; t.textContent = name;
+      var t = document.createElement('div'); t.className = 'slist-name';
+      if (p.grade) { var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade; t.appendChild(gb); }
+      t.appendChild(document.createTextNode(name));
       var sum = document.createElement('div'); sum.className = 'team-sum' + (p.phone ? '' : ' miss');
-      sum.textContent = [p.phone, p.car].filter(Boolean).join(' · ') || '연락처 없음';
+      if (p.phone) {
+        var tel = document.createElement('a'); tel.className = 'team-tel';
+        tel.href = 'tel:' + p.phone.replace(/[^0-9+]/g, ''); tel.textContent = '📞 ' + p.phone;
+        tel.onclick = function (e) { e.stopPropagation(); };   // 줄 전체의 '기사 정보 열기'와 겹치지 않게
+        sum.appendChild(tel);
+        if (p.car) sum.appendChild(document.createTextNode(' · ' + p.car));
+      } else {
+        sum.textContent = p.car ? '연락처 없음 · ' + p.car : '연락처 없음';
+      }
       main.appendChild(t); main.appendChild(sum);
       main.onclick = function () { openPersonSheet(name); };
       var go = document.createElement('span'); go.className = 'team-go'; go.textContent = '›';
@@ -2632,27 +2642,64 @@
       box.appendChild(row);
     });
   }
-  // 기사 정보 창 — 6칸 모두 글자로, 적는 대로 저장. 경력·페이·사는곳·메모는 카톡 복사 문구에 나가지 않는다
+  // 기사 정보 창 — 이름 바꾸기, 등급(A·B·C·F), 전화·차량·경력·페이·사는곳·메모(모두 글자). 적는 대로 저장.
+  // 등급·경력·페이·사는곳·메모는 카톡 복사 문구에 나가지 않는다
   var PERSON_FIELDS = [
-    { key: 'phone', label: '전화번호', ph: '010-…', mode: 'tel' },
+    { key: 'phone', label: '전화번호', ph: '010-…', mode: 'tel', call: true },
     { key: 'car', label: '차량번호', ph: '12가3456' },
     { key: 'career', label: '경력', ph: '예: 3년 · 샤시 전문' },
     { key: 'pay', label: '페이', ph: '예: 일 28만 식대포함' },
     { key: 'home', label: '사는곳', ph: '예: 부천 중동' },
     { key: 'memo', label: '메모', ph: '', area: true }
   ];
+  function telHref(v) { return 'tel:' + String(v || '').replace(/[^0-9+]/g, ''); }
   function openPersonSheet(name) {
     var p = Share.personOf(state.settings.people, name);
-    var html = '<div class="person-form">' + PERSON_FIELDS.map(function (f) {
-      return '<label class="pf-label">' + f.label + '</label>' + (f.area
+    var fieldHtml = function (f) {
+      var ctl = f.area
         ? '<textarea data-pf="' + f.key + '" rows="3" placeholder="' + esc(f.ph) + '">' + esc(p[f.key]) + '</textarea>'
-        : '<input type="text" data-pf="' + f.key + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : '') + ' autocomplete="off" placeholder="' + esc(f.ph) + '" value="' + esc(p[f.key]) + '">');
-    }).join('') + '</div>';
+        : '<input type="text" data-pf="' + f.key + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : '') + ' autocomplete="off" placeholder="' + esc(f.ph) + '" value="' + esc(p[f.key]) + '">';
+      if (f.call) ctl = '<div class="pf-row">' + ctl + '<a class="pf-call" id="pfCall" href="' + esc(telHref(p.phone)) + '"' + (p.phone ? '' : ' hidden') + '>📞 전화</a></div>';
+      return '<label class="pf-label">' + f.label + '</label>' + ctl;
+    };
+    var grades = [''].concat(Share.PERSON_GRADES);
+    var html = '<div class="person-form">' +
+      '<label class="pf-label">이름</label><div class="pf-row"><input type="text" id="pfName" autocomplete="off" value="' + esc(name) + '"><button type="button" class="btn-sm" id="pfRename">이름 바꾸기</button></div>' +
+      '<p class="hint admin-err" id="pfMsg" hidden></p>' +
+      '<label class="pf-label">등급</label><div class="pf-grades" id="pfGrades">' + grades.map(function (g) {
+        return '<button type="button" class="pf-grade g-' + (g || 'none') + (p.grade === g ? ' on' : '') + '" data-g="' + g + '">' + (g || '미정') + '</button>';
+      }).join('') + '</div>' +
+      PERSON_FIELDS.map(fieldHtml).join('') + '</div>';
     openModal('기사 정보 · ' + name, html, [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+
+    // 이름 바꾸기 — 명단·기사 정보·모든 현장의 인원이 한꺼번에 새 이름으로 바뀐다
+    var doRename = function () {
+      var r = Store.renameStaff(name, $('pfName').value);
+      if (!r.ok) { $('pfMsg').textContent = r.reason; $('pfMsg').hidden = false; return; }
+      var to = $('pfName').value.trim();
+      renderTeamList();
+      toast(r.sites ? '이름을 바꿨습니다 — 현장 ' + r.sites + '곳의 인원도 함께 바뀌었습니다' : '이름을 바꿨습니다');
+      openPersonSheet(to);
+    };
+    $('pfRename').onclick = doRename;
+    // 한글 IME 조합 중 Enter(keyCode 229) 는 글자 확정용이므로 무시
+    $('pfName').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); doRename(); } });
+    $('pfName').addEventListener('input', function () { $('pfMsg').hidden = true; });
+
+    $('pfGrades').querySelectorAll('button').forEach(function (b) {
+      b.onclick = function () {
+        Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { grade: b.dataset.g }) });
+        $('pfGrades').querySelectorAll('button').forEach(function (o) { o.classList.toggle('on', o === b); });
+        renderTeamList();
+      };
+    });
     $('modalBody').querySelectorAll('[data-pf]').forEach(function (el) {
       el.addEventListener('input', function () {
         var patch = {}; patch[el.dataset.pf] = el.value;
         Store.setSettings({ people: Share.mergePerson(state.settings.people, name, patch) });
+        if (el.dataset.pf === 'phone') {   // 전화 걸기 버튼도 지금 적은 번호를 따라간다
+          var c = $('pfCall'); c.href = telHref(el.value); c.hidden = !el.value.trim();
+        }
         renderTeamList();   // 뒤에 깔린 목록의 요약 줄도 바로 따라가게
       });
     });
