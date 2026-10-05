@@ -3,9 +3,10 @@ const assert = require('assert');
 const AdminLink = require('../adminlink.js');
 
 let pass = 0, fail = 0;
-const pending = [];
+// 테스트는 차례로 실행한다 — 진행 중 보호(같은 현장 id 로 겹친 호출 합치기)가 모듈 전체에서 공유되기 때문
+let chain = Promise.resolve();
 function test(name, fn) {
-  pending.push(Promise.resolve().then(fn).then(
+  chain = chain.then(() => Promise.resolve().then(fn).then(
     () => { pass++; console.log('  ✓', name); },
     (e) => { fail++; console.log('  ✗', name, '\n    ', e.message); }
   ));
@@ -139,7 +140,178 @@ test('adminOpenUrl', () => {
   assert.strictEqual(AdminLink.adminOpenUrl('recA'), 'https://jayunsu22.github.io/autoblog/admin.html#site=recA');
 });
 
-Promise.all(pending).then(() => {
+// ---------- 네트워크 함수 (가짜 fetch / 가짜 Store) ----------
+function fakeFetch(handler) {
+  const calls = [];
+  const fn = async (url, opts) => {
+    const call = { url, method: (opts && opts.method) || 'GET', body: opts && opts.body ? JSON.parse(opts.body) : null };
+    calls.push(call);
+    const out = await handler(call);
+    if (out instanceof Error) throw out;
+    return { ok: out.ok !== false, status: out.status || 200, json: async () => out.json };
+  };
+  fn.calls = calls;
+  return fn;
+}
+function fakeStore(s) {
+  const updates = [];
+  return {
+    updates,
+    getSite: (id) => (id === s.id ? s : null),
+    updateSite: (id, patch) => { updates.push(patch); Object.assign(s, patch); return s; }
+  };
+}
+const U = AdminLink.URLS;
+const is = (call, which) => call.url.indexOf(U[which]) === 0;
+const posts = (f, type) => f.calls.filter((c) => c.method === 'POST' && c.body && c.body.type === type);
+const unlinked = () => site({ name: '인천 부평', days: [{ date: '2026-10-07', staff: ['가', '나'] }] });
+const linkedSite = (synced, over) => site(Object.assign({
+  name: '인천 부평', adminId: 'recA', days: [{ date: '2026-10-07', staff: ['가', '나'] }], adminSynced: synced
+}, over || {}));
+
+console.log('createProject');
+test('id 를 받으면 adminId 와 adminSynced 를 저장하고 요청 body 는 createBody 와 같다', async () => {
+  const s = unlinked(), st = fakeStore(s);
+  const f = fakeFetch(() => ({ json: { id: 'recNEW' } }));
+  const id = await AdminLink.createProject('s1', { fetchFn: f, Store: st });
+  assert.strictEqual(id, 'recNEW');
+  assert.strictEqual(s.adminId, 'recNEW');
+  assert.deepStrictEqual(s.adminSynced, { name: '인천 부평', date: '2026-10-07', staff: ['가', '나'] });
+  assert.deepStrictEqual(posts(f, 'create_project')[0].body, AdminLink.createBody(unlinked()));
+});
+test('응답이 배열이거나 fields.id 여도 인식', async () => {
+  for (const json of [[{ id: 'recA1' }], { fields: { id: 'recA1' } }]) {
+    const s = unlinked(), st = fakeStore(s);
+    const id = await AdminLink.createProject('s1', { fetchFn: fakeFetch(() => ({ json })), Store: st });
+    assert.strictEqual(id, 'recA1');
+  }
+});
+test('응답에 id 가 없으면 목록에서 같은 이름 중 가장 새 것을 쓴다', async () => {
+  const s = unlinked(), st = fakeStore(s);
+  const f = fakeFetch((c) => (c.method === 'POST' ? { json: {} } : { json: { projects: [
+    { id: 'recOld', fields: { 현장명: '인천 부평', createdTime: '2026-09-01T00:00:00.000Z' } },
+    { id: 'recNew', fields: { 현장명: '인천 부평', createdTime: '2026-10-05T00:00:00.000Z' } },
+    { id: 'recOther', fields: { 현장명: '다른 곳', createdTime: '2026-10-06T00:00:00.000Z' } }
+  ] } }));
+  assert.strictEqual(await AdminLink.createProject('s1', { fetchFn: f, Store: st }), 'recNew');
+});
+test('응답도 목록도 실패하면 reject 하고 저장하지 않는다', async () => {
+  const s = unlinked(), st = fakeStore(s);
+  const f = fakeFetch(() => ({ ok: false, status: 500, json: {} }));
+  await assert.rejects(() => AdminLink.createProject('s1', { fetchFn: f, Store: st }));
+  assert.strictEqual(st.updates.length, 0);
+  assert.strictEqual(s.adminId, '');
+});
+test('현장명이 비어 있으면 요청 없이 reject', async () => {
+  const s = site({ name: '' }), st = fakeStore(s), f = fakeFetch(() => ({ json: { id: 'recX' } }));
+  await assert.rejects(() => AdminLink.createProject('s1', { fetchFn: f, Store: st }));
+  assert.strictEqual(f.calls.length, 0);
+});
+test('동시에 두 번 불러도 create_project 요청은 1번', async () => {
+  const s = unlinked(), st = fakeStore(s);
+  const f = fakeFetch(async () => { await new Promise((r) => setTimeout(r, 10)); return { json: { id: 'recNEW' } }; });
+  const deps = { fetchFn: f, Store: st };
+  const [a, b] = await Promise.all([AdminLink.createProject('s1', deps), AdminLink.createProject('s1', deps)]);
+  assert.strictEqual(a, 'recNEW'); assert.strictEqual(b, 'recNEW');
+  assert.strictEqual(posts(f, 'create_project').length, 1);
+});
+test('이미 adminId 가 있으면 요청 0번', async () => {
+  const s = linkedSite(null), st = fakeStore(s), f = fakeFetch(() => ({ json: {} }));
+  assert.strictEqual(await AdminLink.createProject('s1', { fetchFn: f, Store: st }), 'recA');
+  assert.strictEqual(f.calls.length, 0);
+});
+
+console.log('listProjects / linkExisting / unlink');
+test('listProjects: 보관함 제외, 시공기사 문자열을 쪼갠다', async () => {
+  const f = fakeFetch(() => ({ json: { projects: [
+    { id: 'r1', fields: { 현장명: '가', 시공일자: '2026-10-01', 시공기사: '염문철, 문승규' } },
+    { id: 'r2', fields: { 현장명: '나', 보관함: true } },
+    { id: 'r3', fields: { 현장명: '다' } }
+  ] } }));
+  const list = await AdminLink.listProjects({ fetchFn: f });
+  assert.deepStrictEqual(list, [
+    { id: 'r1', name: '가', date: '2026-10-01', workers: ['염문철', '문승규'] },
+    { id: 'r3', name: '다', date: '', workers: [] }
+  ]);
+});
+test('linkExisting: 관리자 현장명을 덮어쓰지 않도록 이름은 맞춘 것으로 기록, 날짜·인원은 첫 맞춤 대상', () => {
+  const s = unlinked(), st = fakeStore(s);
+  AdminLink.linkExisting('s1', 'recZ', { Store: st });
+  assert.strictEqual(s.adminId, 'recZ');
+  assert.deepStrictEqual(s.adminSynced, { name: '인천 부평', date: '', staff: [] });
+  assert.deepStrictEqual(AdminLink.needsSync(s), { name: false, date: true, staff: true, any: true });
+});
+test('unlink: adminId·adminSynced 비움', () => {
+  const s = linkedSite({ name: 'x', date: 'y', staff: [] }), st = fakeStore(s);
+  AdminLink.unlink('s1', { Store: st });
+  assert.strictEqual(s.adminId, ''); assert.strictEqual(s.adminSynced, null);
+});
+
+console.log('syncSite');
+const detail = (workers, tasks) => ({ json: { workers, tasks: tasks || [] } });
+test('이름만 바뀜 → update_project_name 1번(newName 만), update_workers 0번', async () => {
+  const s = linkedSite({ name: '옛 이름', date: '2026-10-07', staff: ['가', '나'] }), st = fakeStore(s);
+  const f = fakeFetch(() => ({ json: {} }));
+  const r = await AdminLink.syncSite('s1', { fetchFn: f, Store: st });
+  assert.strictEqual(r.ok, true);
+  const p = posts(f, 'update_project_name');
+  assert.strictEqual(p.length, 1);
+  assert.deepStrictEqual(p[0].body, { type: 'update_project_name', projectCode: 'recA', newName: '인천 부평' });
+  assert.strictEqual(posts(f, 'update_workers').length, 0);
+  assert.strictEqual(s.adminSynced.name, '인천 부평');
+});
+test('인원 추가 → detail 을 새로 받고 현재 명단 뒤에 붙여 update_workers', async () => {
+  const s = linkedSite({ name: '인천 부평', date: '2026-10-07', staff: ['가'] }), st = fakeStore(s);
+  const f = fakeFetch((c) => (is(c, 'detail') ? detail(['다', '가']) : { json: {} }));
+  const r = await AdminLink.syncSite('s1', { fetchFn: f, Store: st });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(f.calls.filter((c) => is(c, 'detail')).length, 1);
+  assert.deepStrictEqual(posts(f, 'update_workers')[0].body, { type: 'update_workers', projectCode: 'recA', workersText: '다,가,나' });
+  assert.deepStrictEqual(s.adminSynced.staff, ['가', '나']);
+  assert.deepStrictEqual(r.adminOnly, ['다']);
+});
+test('지난번에 넣은 이름이 빠졌고 배정이 있으면 명단에 남기고 kept 로 알린다', async () => {
+  const s = linkedSite({ name: '인천 부평', date: '2026-10-07', staff: ['가', '나', '다'] }), st = fakeStore(s);
+  const f = fakeFetch((c) => (is(c, 'detail') ? detail(['가', '나', '다'], [{ fields: { 밑작업기사: '다', 시공기사: '가' } }]) : { json: {} }));
+  const r = await AdminLink.syncSite('s1', { fetchFn: f, Store: st });
+  assert.deepStrictEqual(r.kept, ['다']);
+  assert.strictEqual(posts(f, 'update_workers').length, 0);   // 바뀔 것이 없다(다 가 남으므로)
+});
+test('배정 없는 빠진 이름은 명단에서 뺀다', async () => {
+  const s = linkedSite({ name: '인천 부평', date: '2026-10-07', staff: ['가', '나', '다'] }), st = fakeStore(s);
+  const f = fakeFetch((c) => (is(c, 'detail') ? detail(['가', '나', '다']) : { json: {} }));
+  await AdminLink.syncSite('s1', { fetchFn: f, Store: st });
+  assert.strictEqual(posts(f, 'update_workers')[0].body.workersText, '가,나');
+});
+test('update_project_name 이 실패해도 인원 단계는 계속하고, 실패한 단계의 기록은 그대로 둔다', async () => {
+  const s = linkedSite({ name: '옛 이름', date: '2026-10-07', staff: ['가'] }), st = fakeStore(s);
+  const f = fakeFetch((c) => {
+    if (c.method === 'POST' && c.body.type === 'update_project_name') return { ok: false, status: 500, json: {} };
+    if (is(c, 'detail')) return detail(['가']);
+    return { json: {} };
+  });
+  const r = await AdminLink.syncSite('s1', { fetchFn: f, Store: st });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.meta, 'fail');
+  assert.strictEqual(s.adminSynced.name, '옛 이름');
+  assert.deepStrictEqual(s.adminSynced.staff, ['가', '나']);
+});
+test('맞출 것이 없으면 요청 0번', async () => {
+  const s = linkedSite({ name: '인천 부평', date: '2026-10-07', staff: ['가', '나'] }), st = fakeStore(s);
+  const f = fakeFetch(() => ({ json: {} }));
+  const r = await AdminLink.syncSite('s1', { fetchFn: f, Store: st });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(f.calls.length, 0);
+});
+test('같은 현장의 syncSite 가 겹쳐도 요청은 한 번만', async () => {
+  const s = linkedSite({ name: '옛 이름', date: '2026-10-07', staff: ['가', '나'] }), st = fakeStore(s);
+  const f = fakeFetch(async () => { await new Promise((r) => setTimeout(r, 10)); return { json: {} }; });
+  const deps = { fetchFn: f, Store: st };
+  await Promise.all([AdminLink.syncSite('s1', deps), AdminLink.syncSite('s1', deps)]);
+  assert.strictEqual(posts(f, 'update_project_name').length, 1);
+});
+
+chain.then(() => {
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 });

@@ -112,6 +112,33 @@ function reset() {
     assert.strictEqual(got.name, 'X'); assert.strictEqual(got.parking, 'P');
     assert.strictEqual(Store.state.syncQueue.filter(o => o.type === 'site').length, 1);
   });
+  await test('현장업무 연결 칸: 새 현장은 adminId 빈 값, adminSynced null', () => {
+    reset();
+    const a = Store.addClient('A'); const s = Store.addSite(a.id);
+    assert.strictEqual(s.adminId, '');
+    assert.strictEqual(s.adminSynced, null);
+  });
+  await test('현장업무 연결 칸: 저장·백업 큐·다시 불러오기에서 유지', () => {
+    reset();
+    const a = Store.addClient('A'); const s = Store.addSite(a.id);
+    Store.updateSite(s.id, { adminId: 'recX', adminSynced: { name: 'N', date: '2026-10-07', staff: ['가'] } });
+    const q = Store.state.syncQueue.filter(o => o.type === 'site' && o.id === s.id);
+    assert.strictEqual(q.length, 1);
+    assert.strictEqual(q[0].data.adminId, 'recX');
+    Store.load();
+    assert.strictEqual(Store.getSite(s.id).adminId, 'recX');
+    assert.deepStrictEqual(Store.getSite(s.id).adminSynced, { name: 'N', date: '2026-10-07', staff: ['가'] });
+  });
+  await test('현장업무 연결 칸: 예전 현장(칸 없음)도 빈 값으로 보정', () => {
+    reset();
+    const a = Store.addClient('A'); const s = Store.addSite(a.id);
+    const raw = JSON.parse(localStorage.getItem('sitenote.v1'));
+    delete raw.sites[0].adminId; delete raw.sites[0].adminSynced;
+    localStorage.setItem('sitenote.v1', JSON.stringify(raw));
+    Store.load();
+    assert.strictEqual(Store.getSite(s.id).adminId, '');
+    assert.strictEqual(Store.getSite(s.id).adminSynced, null);
+  });
   await test('sitesOf: 정렬 적용', () => {
     reset();
     const a = Store.addClient('A');

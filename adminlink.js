@@ -105,11 +105,146 @@
     };
   }
 
+  // ---------- 웹훅 호출 (fetch·Store 는 deps 로 주입: { fetchFn, Store }) ----------
+  var BASE = 'https://primary-production-a6fa.up.railway.app/webhook';
+  var URLS = { save: BASE + '/film-quality-save', list: BASE + '/film-admin-get-v2', detail: BASE + '/film-quality-get-v2' };
+  var TIMEOUT_MS = 15000;
+
+  function request(deps, url, opt) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS) : null;
+    var o = Object.assign({}, opt || {});
+    if (ctrl) o.signal = ctrl.signal;
+    return Promise.resolve(deps.fetchFn(url, o)).then(function (res) {
+      if (timer) clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res;
+    }, function (e) { if (timer) clearTimeout(timer); throw e; });
+  }
+  function post(deps, body) {
+    return request(deps, URLS.save, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+  function getJson(deps, url) {
+    return request(deps, url, { method: 'GET', cache: 'no-store' }).then(function (res) { return res.json(); })
+      .then(function (d) { return Array.isArray(d) ? (d[0] || {}) : (d || {}); });
+  }
+  function rawProjects(deps) {
+    return getJson(deps, URLS.list + '?_t=' + Date.now()).then(function (d) { return d.projects || []; });
+  }
+
+  function listProjects(deps) {
+    return rawProjects(deps).then(function (arr) {
+      return arr.map(function (p) { return { id: p.id, f: p.fields || p }; })
+        .filter(function (p) { return !p.f.보관함; })
+        .map(function (p) {
+          return { id: p.id, name: str(p.f.현장명), date: str(p.f.시공일자),
+            workers: String(p.f.시공기사 || '').split(',').map(str).filter(Boolean) };
+        });
+    });
+  }
+
+  var creating = {};
+  function createProject(siteId, deps) {
+    var site = deps.Store.getSite(siteId);
+    if (!site) return Promise.reject(new Error('현장을 찾을 수 없습니다'));
+    if (str(site.adminId)) return Promise.resolve(site.adminId);
+    if (creating[siteId]) return creating[siteId];
+    var body = createBody(site);
+    if (!body.projectName) return Promise.reject(new Error('현장명을 먼저 적어주세요'));
+    var roster = rosterOf(site);
+    var p = post(deps, body).then(function (res) { return res.json().catch(function () { return null; }); })
+      .then(function (d) {
+        if (Array.isArray(d)) d = d[0];
+        var id = d && (d.id || (d.fields && d.fields.id));
+        if (id) return id;
+        // 응답에 id 가 없으면 목록을 다시 받아 방금 만든 이름 중 가장 새 것을 찾는다
+        return rawProjects(deps).then(function (arr) {
+          var same = arr.filter(function (x) { return str((x.fields || x).현장명) === body.projectName; })
+            .sort(function (a, b) { return String((b.fields || b).createdTime || '').localeCompare(String((a.fields || a).createdTime || '')); });
+          if (!same.length) throw new Error('새 현장업무 id 를 찾지 못했습니다');
+          return same[0].id;
+        });
+      })
+      .then(function (id) {
+        // id 를 얻은 뒤에만 저장한다 (반쪽 상태 금지)
+        deps.Store.updateSite(siteId, { adminId: id, adminSynced: { name: body.projectName, date: body.projectDate, staff: roster } });
+        return id;
+      })
+      .then(function (id) { delete creating[siteId]; return id; }, function (e) { delete creating[siteId]; throw e; });
+    creating[siteId] = p;
+    return p;
+  }
+
+  // 이미 있는 현장업무에 묶는다. 관리자 앱의 현장명을 덮어쓰지 않도록 이름은 맞춘 것으로 기록하고,
+  // 날짜·인원은 첫 맞춤 대상으로 남긴다.
+  function linkExisting(siteId, adminId, deps) {
+    var site = deps.Store.getSite(siteId);
+    return deps.Store.updateSite(siteId, { adminId: adminId, adminSynced: { name: adminTitle(site), date: '', staff: [] } });
+  }
+  function unlink(siteId, deps) {
+    return deps.Store.updateSite(siteId, { adminId: '', adminSynced: null });
+  }
+
+  var syncing = {};
+  function syncSite(siteId, deps) {
+    if (syncing[siteId]) return syncing[siteId];
+    var site = deps.Store.getSite(siteId);
+    var need = needsSync(site);
+    var result = { ok: true, meta: 'skip', staff: 'skip', kept: [], adminOnly: [], error: '' };
+    if (!need.any) return Promise.resolve(result);
+
+    var adminId = site.adminId;
+    var synced = { name: '', date: '', staff: [] };
+    Object.assign(synced, site.adminSynced || {});
+    synced.staff = (synced.staff || []).slice();
+    var name = adminTitle(site), date = firstDate(site), roster = rosterOf(site);
+
+    function metaStep() {
+      if (!need.name && !need.date) return Promise.resolve();
+      var body = { type: 'update_project_name', projectCode: adminId };
+      if (need.name) body.newName = name;
+      if (need.date) body.newDate = date;
+      return post(deps, body).then(function () {
+        if (need.name) synced.name = name;
+        if (need.date) synced.date = date;
+        result.meta = 'ok';
+      }, function (e) { result.ok = false; result.meta = 'fail'; result.error = e.message; });
+    }
+    function staffStep() {
+      if (!need.staff) return Promise.resolve();
+      return getJson(deps, URLS.detail + '?code=' + encodeURIComponent(adminId) + '&_t=' + Date.now()).then(function (d) {
+        var current = (d.workers || []).map(str).filter(Boolean);
+        var assigned = [];
+        (d.tasks || []).forEach(function (t) {
+          var f = t.fields || t;
+          [f.밑작업기사, f.시공기사].forEach(function (n) { n = str(n); if (n) assigned.push(n); });
+        });
+        var plan = planRoster({ desired: roster, current: current, prevSynced: synced.staff, assigned: assigned });
+        result.kept = plan.kept; result.adminOnly = plan.adminOnly;
+        var same = plan.next.length === current.length && plan.next.every(function (n, i) { return n === current[i]; });
+        if (same) return;
+        return post(deps, { type: 'update_workers', projectCode: adminId, workersText: plan.next.join(',') });
+      }).then(function () {
+        synced.staff = roster; result.staff = 'ok';
+      }, function (e) { result.ok = false; result.staff = 'fail'; result.error = result.error || e.message; });
+    }
+
+    var p = metaStep().then(staffStep).then(function () {
+      deps.Store.updateSite(siteId, { adminSynced: synced });
+      delete syncing[siteId];
+      return result;
+    }, function (e) { delete syncing[siteId]; throw e; });
+    syncing[siteId] = p;
+    return p;
+  }
+
   var AdminLink = {
     ADMIN_APP_URL: ADMIN_APP_URL, adminOpenUrl: adminOpenUrl,
     adminTitle: adminTitle, firstDate: firstDate, rosterOf: rosterOf,
     needsSync: needsSync, planRoster: planRoster, rankProjects: rankProjects,
-    parseAdminLinkHash: parseAdminLinkHash, createBody: createBody
+    parseAdminLinkHash: parseAdminLinkHash, createBody: createBody,
+    URLS: URLS, listProjects: listProjects, createProject: createProject,
+    linkExisting: linkExisting, unlink: unlink, syncSite: syncSite
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = AdminLink;

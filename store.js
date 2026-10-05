@@ -79,6 +79,8 @@
     s.needStaff = 0; // 총 필요 인원 (0 = 아직 안 정함)
     s.services = [];  // AS·추가작업
     s.review = { answers: {}, tags: [] };  // 현장 후기 (질문별 답 + 태그)
+    s.adminId = '';       // 연결된 현장업무(관리자 앱 현장) rec id — adminlink.js 가 적는다. 빈 값 = 연결 안 됨
+    s.adminSynced = null; // 마지막으로 현장업무에 맞춘 값 { name, date, staff }
     return s;
   }
   function cleanStaff(arr) {
