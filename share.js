@@ -778,9 +778,26 @@
     if (!m) return false;
     return !!HOLIDAYS[str(iso)] || new Date(+m[1], +m[2] - 1, +m[3]).getDay() === 0;
   }
+  // 기사 정보 칸: 전화·차량은 카톡 문구에 쓰이고, 경력·페이·사는곳·메모는 사장님이 보는 용도라 문구에는 절대 안 나간다
+  var PERSON_KEYS = ['phone', 'car', 'career', 'pay', 'home', 'memo'];
   function personOf(people, name) {
     var p = (people && people[str(name)]) || {};
-    return { name: str(name), phone: str(p.phone), car: str(p.car) };
+    var out = { name: str(name) };
+    PERSON_KEYS.forEach(function (k) { out[k] = str(p[k]); });
+    return out;
+  }
+  // 한 사람의 칸을 일부만 바꾼 새 표를 돌려준다(원본은 안 바뀐다). 6칸이 모두 비면 그 이름을 지운다
+  function mergePerson(people, name, patch) {
+    var out = Object.assign({}, people || {});
+    var n = str(name);
+    if (!n) return out;
+    var cur = personOf(people, n), next = {}, any = false;
+    PERSON_KEYS.forEach(function (k) {
+      next[k] = Object.prototype.hasOwnProperty.call(patch || {}, k) ? str(patch[k]) : cur[k];
+      if (next[k]) any = true;
+    });
+    if (any) out[n] = next; else delete out[n];
+    return out;
   }
   // 현장에 오는 사람과 오는 날 [{name, dates}] — 처음 나온 순.
   // 오늘 이후로 배치된 날이 있으면 그 날들만 (지난 날 인원까지 보내면 누가 오는지 헷갈린다),
@@ -1019,6 +1036,7 @@
     holidayName: holidayName,
     isRedDay: isRedDay,
     personOf: personOf,
+    mergePerson: mergePerson,
     contactKey: contactKey,
     clientContactsOf: clientContactsOf,
     serviceBizContact: serviceBizContact,

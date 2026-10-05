@@ -131,14 +131,15 @@
       };
     });
   }
-  // 연락처·차량 표 — 모양이 이상한 값(예전 데이터·손상)은 버리고 문자열만 남긴다
+  // 기사 정보 표(전화·차량·경력·페이·사는곳·메모) — 모양이 이상한 값(예전 데이터·손상)은 버리고 문자열만 남긴다
   function normalizePeople(raw) {
     var out = {};
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
     Object.keys(raw).forEach(function (name) {
       var p = raw[name] || {}, n = String(name).trim();
       if (!n) return;
-      out[n] = { phone: String(p.phone || '').trim(), car: String(p.car || '').trim() };
+      out[n] = {};
+      ['phone', 'car', 'career', 'pay', 'home', 'memo'].forEach(function (k) { out[n][k] = String(p[k] || '').trim(); });
     });
     return out;
   }

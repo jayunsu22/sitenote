@@ -139,6 +139,20 @@ function reset() {
     assert.strictEqual(Store.getSite(s.id).adminId, '');
     assert.strictEqual(Store.getSite(s.id).adminSynced, null);
   });
+  await test('기사 정보: 경력·페이·사는곳·메모가 저장·다시 불러오기에서 유지되고 모르는 칸은 버린다', () => {
+    reset();
+    Store.setSettings({ people: { '서영호': { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모', 이상한칸: 'x' } } });
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.people['서영호'],
+      { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모' });
+  });
+  await test('기사 정보: 예전 백업(전화·차량만)도 그대로 읽는다', () => {
+    reset();
+    Store.setSettings({ people: { '염문철': { phone: '010-3', car: '' } } });
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.people['염문철'],
+      { phone: '010-3', car: '', career: '', pay: '', home: '', memo: '' });
+  });
   await test('sitesOf: 정렬 적용', () => {
     reset();
     const a = Store.addClient('A');
@@ -289,7 +303,7 @@ function reset() {
     reset();
     Store.setSettings({ people: { '김기사': { phone: ' 010-1 ', car: '12가3456' } } });
     Store.load();
-    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-1', car: '12가3456' } });
+    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-1', car: '12가3456', career: '', pay: '', home: '', memo: '' } });
     mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], sites: [], photos: [],
       settings: { people: ['잘못된', '모양'] }, syncQueue: [] });
     Store.load();
@@ -424,7 +438,7 @@ function reset() {
     }) });
     const r = await Store.restore(true);
     assert.strictEqual(r.clients, 1);
-    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-9', car: '99가9999' } }, '연락처 표도 복원');
+    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-9', car: '99가9999', career: '', pay: '', home: '', memo: '' } }, '연락처 표도 복원');
     assert.strictEqual(r.photos, 1);
     assert.strictEqual(Store.photosOf('c9')[0].name, '명함');
     assert.strictEqual(Store.getPhoto('p9').bytes, 0, '누락 필드는 기본값으로 채움');

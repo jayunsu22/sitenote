@@ -992,5 +992,45 @@ test('공휴일·일요일은 빨간 날, 토요일·평일은 아니다', () =>
   assert.strictEqual(Share.isRedDay(''), false);
 });
 
+console.log('기사 정보 (경력·페이·사는곳·메모)');
+const 풀명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' } };
+test('personOf: 6칸을 돌려주고 없는 칸은 빈 문자열', () => {
+  assert.deepStrictEqual(Share.personOf(풀명부, '서영호'),
+    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' });
+  assert.deepStrictEqual(Share.personOf({}, '없는사람'),
+    { name: '없는사람', phone: '', car: '', career: '', pay: '', home: '', memo: '' });
+});
+test('mergePerson: 일부 칸만 바꿔도 나머지는 그대로, 원본은 안 바뀐다', () => {
+  const 다음 = Share.mergePerson(풀명부, '서영호', { phone: '010-9999-0000' });
+  assert.strictEqual(다음['서영호'].phone, '010-9999-0000');
+  assert.strictEqual(다음['서영호'].pay, '일 28만 비밀페이');
+  assert.strictEqual(다음['서영호'].memo, '지각 잦음 비밀메모');
+  assert.strictEqual(풀명부['서영호'].phone, '010-1111-2222');
+});
+test('mergePerson: 앞뒤 공백을 지우고, 모르는 칸은 무시하며, 새 이름도 만든다', () => {
+  const 다음 = Share.mergePerson({}, '염문철', { career: '  3년  ', 이상한칸: 'x', phone: '010-3333-4444' });
+  assert.deepStrictEqual(다음['염문철'], { phone: '010-3333-4444', car: '', career: '3년', pay: '', home: '', memo: '' });
+});
+test('mergePerson: 6칸이 모두 비면 그 이름을 지운다', () => {
+  const 시작 = { '염문철': { phone: '010', car: '', career: '', pay: '', home: '', memo: '' }, '서영호': { phone: '1' } };
+  const 다음 = Share.mergePerson(시작, '염문철', { phone: '' });
+  assert.ok(!('염문철' in 다음));
+  assert.ok('서영호' in 다음);
+});
+test('카톡 복사 문구에는 전화·차량 말고 경력·페이·사는곳·메모가 절대 안 나간다', () => {
+  const s = 현장();
+  const 문구들 = [
+    Share.buildWorkerContacts(s, 풀명부, '2026-09-24'),
+    Share.buildCarList(s, 풀명부, '2026-09-24'),
+  ];
+  const a = as현장();
+  문구들.push(Share.buildServiceVisit(a, a.services[0], 풀명부), Share.buildServiceCars(a, a.services[0], 풀명부));
+  문구들.forEach((t) => {
+    assert.ok(t.length > 0);
+    ['비밀페이', '비밀동네', '비밀메모', '샤시 전문'].forEach((w) => assert.ok(!t.includes(w), w + ' 가 문구에 들어감: ' + t));
+  });
+  assert.ok(문구들[0].includes('010-1111-2222'));   // 전화는 그대로 나간다
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
