@@ -1364,6 +1364,12 @@
     var sub = document.createElement('div'); sub.className = 'sh-sub';
     sub.innerHTML = '<span class="sh-when">📅 ' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
       (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '');
+    // 현장업무(관리자 앱) 연결 버튼 — 연결 전엔 '연결', 후엔 맞춤 상태와 함께 시트를 연다
+    var ab = document.createElement('button'); ab.type = 'button';
+    ab.className = 'sh-admin' + (s.adminId ? ' on' : '');
+    ab.textContent = s.adminId ? '🛠 현장업무 ' + adminBadge(s) : '🛠 현장업무 연결';
+    ab.onclick = function () { openAdminSheet(s.id); };
+    sub.appendChild(ab);
     // 거래처명을 누르면 그 업체 탭이 열린 거래처 화면으로 (같은 업체의 다른 현장을 바로 본다)
     if (client) {
       var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'sh-client';
@@ -1384,6 +1390,147 @@
     });
   }
   Store.onChange(function () { if (!$('viewSite').hidden) paintSiteStatus(); });
+
+  // ---------- 현장업무 연결 (관리자 앱 현장과 이어 붙이기 · 이름/날짜/인원 자동 맞춤) ----------
+  // 설계: docs/superpowers/specs/2026-10-05-현장연결-design.md · 로직은 adminlink.js
+  var adminDeps = { fetchFn: function (u, o) { return window.fetch(u, o); }, Store: Store };
+  var adminInfo = {};     // 현장 id → { busy, fail, failStamp, error, kept, adminOnly } (화면용, 저장하지 않음)
+  var adminTimers = {};   // 현장 id → 디바운스 타이머
+  var ADMIN_DEBOUNCE_MS = 3000;
+
+  function adminBadge(s) {
+    var i = adminInfo[s.id] || {};
+    if (i.busy) return '맞추는 중…';
+    if (i.fail) return '⚠ 맞춤 실패';
+    return AdminLink.needsSync(s).any ? '맞춤 대기' : '✓';
+  }
+  function adminRepaint() { if (!$('viewSite').hidden) paintSiteStatus(); }
+
+  function runAdminSync(siteId) {
+    var i = adminInfo[siteId] = Object.assign(adminInfo[siteId] || {}, { busy: true });
+    adminRepaint();
+    return AdminLink.syncSite(siteId, adminDeps).then(function (r) {
+      var cur = Store.getSite(siteId);
+      adminInfo[siteId] = { busy: false, fail: !r.ok, failStamp: cur ? cur.updatedAt : 0, error: r.error || '',
+        kept: r.kept || [], adminOnly: r.adminOnly || [] };
+      adminRepaint();
+      return r;
+    }, function (e) {
+      var cur = Store.getSite(siteId);
+      adminInfo[siteId] = { busy: false, fail: true, failStamp: cur ? cur.updatedAt : 0, error: e.message, kept: [], adminOnly: [] };
+      adminRepaint();
+    });
+  }
+  // 연결된 현장 중 맞출 게 있으면 3초 뒤 맞춘다. 실패한 뒤에는 그 현장이 바뀌기 전까지 자동으로 다시 하지 않는다(무한 재시도 방지)
+  function scheduleAdminSync() {
+    ((Store.state && Store.state.sites) || []).forEach(function (s) {
+      if (!s.adminId || !AdminLink.needsSync(s).any) return;
+      var id = s.id;
+      clearTimeout(adminTimers[id]);
+      adminTimers[id] = setTimeout(function () {
+        var cur = Store.getSite(id), i = adminInfo[id] || {};
+        if (!cur || !cur.adminId || !AdminLink.needsSync(cur).any || i.busy) return;
+        if (i.fail && i.failStamp === cur.updatedAt) return;
+        runAdminSync(id);
+      }, ADMIN_DEBOUNCE_MS);
+    });
+  }
+  Store.onChange(scheduleAdminSync);
+
+  function adminSheetError(siteId, msg) { openAdminSheet(siteId, msg); }
+
+  function openAdminSheet(siteId, errorMsg) {
+    var s = Store.getSite(siteId); if (!s) return;
+    var err = errorMsg ? '<p class="hint admin-err">⚠ ' + esc(errorMsg) + '</p>' : '';
+    var btn = function (act, label) { return '<button type="button" data-act="' + act + '">' + label + '</button>'; };
+    if (!s.adminId) {
+      var n = AdminLink.rosterOf(s).length, d = AdminLink.firstDate(s);
+      openModal('현장업무 연결',
+        '<p class="hint">이 현장의 현장명·시공일·인원이 현장업무(관리자 앱)와 한 번에 이어집니다. 이어진 뒤에는 여기서 고치면 현장업무에도 자동으로 반영됩니다.</p>' + err +
+        '<div class="sheet-list">' +
+          btn('create', '➕ 새 현장업무 만들기<small>' + esc(AdminLink.adminTitle(s) || '(현장명 없음)') + ' · ' + (d ? esc(Share.shortDate(d)) : '시공일 미정') + ' · 인원 ' + n + '명</small>') +
+          btn('pick', '📋 기존 현장업무에서 고르기<small>이미 관리자 앱에 만들어 둔 현장과 묶습니다</small>') +
+        '</div>',
+        [{ label: '닫기', onClick: closeModal }]);
+      $('modalBody').querySelectorAll('button[data-act]').forEach(function (b) {
+        b.onclick = function () { b.dataset.act === 'create' ? createAdminProject(siteId) : openAdminPicker(siteId); };
+      });
+      return;
+    }
+    var i = adminInfo[siteId] || {};
+    var notes = '';
+    if (i.kept && i.kept.length) notes += '<p class="hint">배정이 있어 남겨둠: ' + esc(i.kept.join(', ')) + '</p>';
+    if (i.adminOnly && i.adminOnly.length) notes += '<p class="hint">관리자 앱에만 있는 기사: ' + esc(i.adminOnly.join(', ')) + '</p>';
+    openModal('현장업무',
+      '<p class="hint">맞춤 상태: <b>' + esc(adminBadge(s)) + '</b>' + (i.fail && i.error ? ' (' + esc(i.error) + ')' : '') + '</p>' + err + notes +
+      '<div class="sheet-list">' +
+        btn('open', '🛠 현장업무 열기<small>관리자 앱의 이 현장으로 이동</small>') +
+        btn('sync', '🔄 지금 맞추기') +
+        '<button type="button" data-act="unlink" class="danger">연결 해제<small>관리자 앱의 현장은 그대로 남습니다</small></button>' +
+      '</div>',
+      [{ label: '닫기', onClick: closeModal }]);
+    $('modalBody').querySelectorAll('button[data-act]').forEach(function (b) {
+      b.onclick = function () {
+        var act = b.dataset.act;
+        if (act === 'open') { window.open(AdminLink.adminOpenUrl(s.adminId), '_blank'); return; }
+        if (act === 'sync') { closeModal(); runAdminSync(siteId).then(function (r) { toast(r && r.ok ? '맞췄습니다' : '맞추지 못했습니다'); }); return; }
+        if (act === 'unlink') {
+          modalConfirm('연결 해제', '일정 앱과 현장업무의 연결만 끊습니다. 관리자 앱의 현장은 지워지지 않습니다.', '연결 해제', true).then(function (ok) {
+            if (!ok) { openAdminSheet(siteId); return; }
+            AdminLink.unlink(siteId, adminDeps); adminInfo[siteId] = {}; adminRepaint(); toast('연결을 해제했습니다');
+          });
+        }
+      };
+    });
+  }
+
+  function createAdminProject(siteId) {
+    var s = Store.getSite(siteId);
+    if (!AdminLink.adminTitle(s)) { adminSheetError(siteId, '현장명을 먼저 적어주세요.'); return; }
+    openModal('현장업무 만들기', '<p class="hint">만드는 중…</p>', []);
+    AdminLink.createProject(siteId, adminDeps).then(function () {
+      closeModal(); adminRepaint(); toast('현장업무를 만들고 연결했습니다');
+    }, function (e) {
+      adminSheetError(siteId, '만들지 못했습니다: ' + e.message + ' — 관리자 앱에 이미 생겼는지 확인한 뒤 다시 시도하세요.');
+    });
+  }
+
+  function openAdminPicker(siteId) {
+    var s = Store.getSite(siteId);
+    openModal('기존 현장업무 고르기', '<p class="hint">불러오는 중…</p>', [{ label: '← 뒤로', onClick: function () { openAdminSheet(siteId); } }]);
+    AdminLink.listProjects(adminDeps).then(function (list) {
+      var linked = ((Store.state && Store.state.sites) || []).map(function (x) { return x.adminId; }).filter(Boolean);
+      var ranked = AdminLink.rankProjects(list, AdminLink.adminTitle(s), linked);
+      if (!ranked.length) { $('modalBody').innerHTML = '<p class="hint">고를 수 있는 현장업무가 없습니다.</p>'; return; }
+      $('modalBody').innerHTML = '<p class="hint">비슷한 이름이 위에 나옵니다. 이미 다른 현장에 연결된 것은 고를 수 없습니다.</p><div class="sheet-list">' +
+        ranked.map(function (p, k) {
+          return '<button type="button" data-k="' + k + '"' + (p.linked ? ' disabled' : '') + '>' + esc(p.name || '(이름없음)') + (p.similar ? ' <em class="sim">비슷함</em>' : '') +
+            '<small>' + (p.linked ? '이미 연결됨' : esc([p.date ? Share.shortDate(p.date) : '시공일 미정', p.workers.length ? '기사 ' + p.workers.length + '명' : ''].filter(Boolean).join(' · '))) + '</small></button>';
+        }).join('') + '</div>';
+      $('modalBody').querySelectorAll('button[data-k]').forEach(function (b) {
+        b.onclick = function () {
+          var p = ranked[+b.dataset.k];
+          AdminLink.linkExisting(siteId, p.id, adminDeps);
+          closeModal(); adminRepaint(); toast('연결했습니다 — 날짜·인원을 맞춥니다');
+        };
+      });
+    }, function (e) {
+      $('modalBody').innerHTML = '<p class="hint admin-err">⚠ 목록을 불러오지 못했습니다 (' + esc(e.message) + ')</p>';
+    });
+  }
+
+  // 견적 앱이 보낸 연결 주소(#adminlink=<현장 id>:<현장업무 id>)를 처리한다. route() 가 모르는 해시를 지우기 전에 먼저 본다
+  function handleAdminLinkHash() {
+    var al = AdminLink.parseAdminLinkHash(location.hash);
+    if (!al) return;
+    var ts = Store.getSite(al.siteId);
+    if (!ts) toast('이 폰에 없는 현장입니다');
+    else if (ts.adminId && ts.adminId !== al.adminId) toast('이미 다른 현장업무와 연결돼 있습니다');
+    else if (ts.adminId) toast('이미 연결돼 있습니다');
+    else if (((Store.state && Store.state.sites) || []).some(function (x) { return x.adminId === al.adminId; })) toast('그 현장업무는 다른 현장에 이미 연결돼 있습니다');
+    else { AdminLink.linkExisting(al.siteId, al.adminId, adminDeps); toast('현장업무를 연결했습니다'); }
+    history.replaceState(null, '', location.pathname + (ts ? '#site/' + al.siteId : ''));
+  }
 
   // ---------- 필름 준비 단계 (현장 상세 + 일정 화면 공용) ----------
   // 4칸 띠: 지난 단계·현재 단계는 파랑, 아직 안 온 단계는 빨강. 미확정(0)이면 네 칸 다 빨강.
@@ -2621,6 +2768,8 @@
 
   // ---------- 시작 ----------
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
+  handleAdminLinkHash();
+  scheduleAdminSync();   // 앱을 열 때 맞출 게 남은 연결 현장이 있으면 한 번 더
   // 첫 진입: 해시가 없고 마지막에 일정 화면을 봤으면 일정으로 시작
   if ((!location.hash || location.hash === '#') && state.settings.lastView === 'schedule') location.replace('#schedule');
   route();
