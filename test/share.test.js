@@ -996,9 +996,9 @@ console.log('기사 정보 (경력·페이·사는곳·메모)');
 const 풀명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' } };
 test('personOf: 6칸을 돌려주고 없는 칸은 빈 문자열', () => {
   assert.deepStrictEqual(Share.personOf(풀명부, '서영호'),
-    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' });
+    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모', grade: '' });
   assert.deepStrictEqual(Share.personOf({}, '없는사람'),
-    { name: '없는사람', phone: '', car: '', career: '', pay: '', home: '', memo: '' });
+    { name: '없는사람', phone: '', car: '', career: '', pay: '', home: '', memo: '', grade: '' });
 });
 test('mergePerson: 일부 칸만 바꿔도 나머지는 그대로, 원본은 안 바뀐다', () => {
   const 다음 = Share.mergePerson(풀명부, '서영호', { phone: '010-9999-0000' });
@@ -1009,7 +1009,7 @@ test('mergePerson: 일부 칸만 바꿔도 나머지는 그대로, 원본은 안
 });
 test('mergePerson: 앞뒤 공백을 지우고, 모르는 칸은 무시하며, 새 이름도 만든다', () => {
   const 다음 = Share.mergePerson({}, '염문철', { career: '  3년  ', 이상한칸: 'x', phone: '010-3333-4444' });
-  assert.deepStrictEqual(다음['염문철'], { phone: '010-3333-4444', car: '', career: '3년', pay: '', home: '', memo: '' });
+  assert.deepStrictEqual(다음['염문철'], { phone: '010-3333-4444', car: '', career: '3년', pay: '', home: '', memo: '', grade: '' });
 });
 test('mergePerson: 6칸이 모두 비면 그 이름을 지운다', () => {
   const 시작 = { '염문철': { phone: '010', car: '', career: '', pay: '', home: '', memo: '' }, '서영호': { phone: '1' } };
@@ -1030,6 +1030,29 @@ test('카톡 복사 문구에는 전화·차량 말고 경력·페이·사는곳
     ['비밀페이', '비밀동네', '비밀메모', '샤시 전문'].forEach((w) => assert.ok(!t.includes(w), w + ' 가 문구에 들어감: ' + t));
   });
   assert.ok(문구들[0].includes('010-1111-2222'));   // 전화는 그대로 나간다
+});
+
+console.log('기사 등급 (A·B·C·F)');
+test('PERSON_GRADES 는 A·B·C·F', () => {
+  assert.deepStrictEqual(Share.PERSON_GRADES, ['A', 'B', 'C', 'F']);
+});
+test('mergePerson: 등급은 A·B·C·F 만, 다른 값은 무시하고 기존 값을 유지', () => {
+  let p = Share.mergePerson({}, '염문철', { grade: 'B' });
+  assert.strictEqual(p['염문철'].grade, 'B');
+  p = Share.mergePerson(p, '염문철', { grade: 'D' });
+  assert.strictEqual(p['염문철'].grade, 'B');
+  p = Share.mergePerson(p, '염문철', { grade: '' });   // 미정으로 되돌리기
+  assert.ok(!('염문철' in p), '등급만 있던 사람이 미정이 되면 칸이 모두 빈다');
+});
+test('등급만 적은 사람도 지워지지 않는다', () => {
+  const p = Share.mergePerson({}, '서영호', { grade: 'A' });
+  assert.strictEqual(Share.personOf(p, '서영호').grade, 'A');
+});
+test('카톡 복사 문구에 등급은 안 나간다', () => {
+  const 명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', grade: 'F' } };
+  const t = Share.buildWorkerContacts(현장(), 명부, '2026-09-24');
+  assert.ok(t.includes('010-1111-2222'));
+  assert.ok(!t.includes('등급') && !/\bF\b/.test(t), t);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

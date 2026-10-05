@@ -144,14 +144,74 @@ function reset() {
     Store.setSettings({ people: { '서영호': { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모', 이상한칸: 'x' } } });
     Store.load();
     assert.deepStrictEqual(Store.state.settings.people['서영호'],
-      { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모' });
+      { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모', grade: '' });
   });
   await test('기사 정보: 예전 백업(전화·차량만)도 그대로 읽는다', () => {
     reset();
     Store.setSettings({ people: { '염문철': { phone: '010-3', car: '' } } });
     Store.load();
     assert.deepStrictEqual(Store.state.settings.people['염문철'],
-      { phone: '010-3', car: '', career: '', pay: '', home: '', memo: '' });
+      { phone: '010-3', car: '', career: '', pay: '', home: '', memo: '', grade: '' });
+  });
+  console.log('이름 바꾸기');
+  const 이름판 = () => {
+    reset();
+    Store.setSettings({ team: ['김정헌', '서영호', '염문철'], people: { '김정헌': { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모', grade: 'A' } } });
+    const c = Store.addClient('A'); const s1 = Store.addSite(c.id); const s2 = Store.addSite(c.id); const s3 = Store.addSite(c.id);
+    Store.addStaff(s1.id, 0, '김정헌'); Store.addStaff(s1.id, 0, '서영호');
+    Store.addStaff(s2.id, 0, '염문철');
+    const sv = Store.addService(s3.id); Store.updateService(s3.id, sv.id, { request: 'x', staff: ['김정헌'] });
+    return { s1, s2, s3, sv };
+  };
+  await test('renameStaff: 명단 순서는 그대로, 기사 정보(6칸+등급)가 새 이름으로 옮겨간다', () => {
+    이름판();
+    const r = Store.renameStaff('김정헌', '김정훈');
+    assert.strictEqual(r.ok, true);
+    assert.deepStrictEqual(Store.state.settings.team, ['김정훈', '서영호', '염문철']);
+    assert.ok(!('김정헌' in Store.state.settings.people));
+    assert.deepStrictEqual(Store.state.settings.people['김정훈'],
+      { phone: '010-1', car: '12가3456', career: '10년', pay: '일 28만', home: '부천', memo: '메모', grade: 'A' });
+  });
+  await test('renameStaff: 모든 현장의 날짜별 인원과 AS 담당도 새 이름으로 바뀐다', () => {
+    const { s1, s2, s3 } = 이름판();
+    Store.renameStaff('김정헌', '김정훈');
+    assert.deepStrictEqual(Store.getSite(s1.id).days[0].staff, ['김정훈', '서영호']);
+    assert.deepStrictEqual(Store.getSite(s2.id).days[0].staff, ['염문철']);
+    assert.deepStrictEqual(Store.getSite(s3.id).services[0].staff, ['김정훈']);
+  });
+  await test('renameStaff: 바뀐 현장만 백업 큐에 올라가고 설정도 올라간다', () => {
+    const { s1, s2, s3 } = 이름판();
+    Store.state.syncQueue = [];
+    Store.renameStaff('김정헌', '김정훈');
+    const ids = Store.state.syncQueue.filter(o => o.type === 'site').map(o => o.id).sort();
+    assert.deepStrictEqual(ids, [s1.id, s3.id].sort());
+    assert.ok(!ids.includes(s2.id));
+    assert.ok(Store.state.syncQueue.some(o => o.type === 'settings'));
+  });
+  await test('renameStaff: 이미 있는 이름·같은 이름·빈 이름·명단에 없는 이름은 거절하고 아무것도 안 바꾼다', () => {
+    이름판();
+    Store.state.syncQueue = [];
+    const before = JSON.stringify(Store.state.settings.team) + JSON.stringify(Store.state.settings.people);
+    assert.strictEqual(Store.renameStaff('김정헌', '서영호').ok, false);
+    assert.strictEqual(Store.renameStaff('김정헌', '김정헌').ok, false);
+    assert.strictEqual(Store.renameStaff('김정헌', '   ').ok, false);
+    assert.strictEqual(Store.renameStaff('없는사람', '새이름').ok, false);
+    assert.strictEqual(JSON.stringify(Store.state.settings.team) + JSON.stringify(Store.state.settings.people), before);
+    assert.strictEqual(Store.state.syncQueue.length, 0);
+  });
+  await test('renameStaff: 새 이름이 그 날 이미 들어 있으면(일당 기사) 중복 없이 합친다', () => {
+    const { s1 } = 이름판();
+    Store.addStaff(s1.id, 0, '최기사');
+    Store.renameStaff('김정헌', '최기사');
+    assert.deepStrictEqual(Store.getSite(s1.id).days[0].staff, ['최기사', '서영호']);
+  });
+  await test('기사 정보: 등급은 A·B·C·F 만 남고 나머지는 빈 값으로 읽힌다', () => {
+    reset();
+    Store.setSettings({ people: { '가': { grade: 'C' }, '나': { grade: 'Z' }, '다': { phone: '1' } } });
+    Store.load();
+    assert.strictEqual(Store.state.settings.people['가'].grade, 'C');
+    assert.strictEqual(Store.state.settings.people['나'].grade, '');
+    assert.strictEqual(Store.state.settings.people['다'].grade, '');
   });
   await test('sitesOf: 정렬 적용', () => {
     reset();
@@ -303,7 +363,7 @@ function reset() {
     reset();
     Store.setSettings({ people: { '김기사': { phone: ' 010-1 ', car: '12가3456' } } });
     Store.load();
-    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-1', car: '12가3456', career: '', pay: '', home: '', memo: '' } });
+    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-1', car: '12가3456', career: '', pay: '', home: '', memo: '', grade: '' } });
     mem['sitenote.v1'] = JSON.stringify({ version: 1, clients: [], sites: [], photos: [],
       settings: { people: ['잘못된', '모양'] }, syncQueue: [] });
     Store.load();
@@ -438,7 +498,7 @@ function reset() {
     }) });
     const r = await Store.restore(true);
     assert.strictEqual(r.clients, 1);
-    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-9', car: '99가9999', career: '', pay: '', home: '', memo: '' } }, '연락처 표도 복원');
+    assert.deepStrictEqual(Store.state.settings.people, { '김기사': { phone: '010-9', car: '99가9999', career: '', pay: '', home: '', memo: '', grade: '' } }, '연락처 표도 복원');
     assert.strictEqual(r.photos, 1);
     assert.strictEqual(Store.photosOf('c9')[0].name, '명함');
     assert.strictEqual(Store.getPhoto('p9').bytes, 0, '누락 필드는 기본값으로 채움');

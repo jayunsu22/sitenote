@@ -140,6 +140,7 @@
       if (!n) return;
       out[n] = {};
       ['phone', 'car', 'career', 'pay', 'home', 'memo'].forEach(function (k) { out[n][k] = String(p[k] || '').trim(); });
+      out[n].grade = Share.PERSON_GRADES.indexOf(String(p.grade || '').trim()) !== -1 ? String(p.grade).trim() : '';
     });
     return out;
   }
@@ -553,6 +554,36 @@
     commit(synced ? { op: 'upsert', type: 'settings', id: 'settings', data: settingsForSync() } : null);
   }
 
+  // 팀원 이름 바꾸기 — 명단·기사 정보(이름이 열쇠)·모든 현장의 날짜별 인원·AS 담당을 한꺼번에 새 이름으로 옮긴다.
+  // 명단에 없는 이름·이미 명단에 있는 이름·같은 이름·빈 이름은 아무것도 안 바꾸고 이유를 돌려준다.
+  // 새 이름이 어떤 날 이미 들어 있으면(일당 기사) 중복 없이 합친다. 바뀐 현장만 백업 큐에 올린다.
+  function renameStaff(oldName, newName) {
+    var from = String(oldName == null ? '' : oldName).trim(), to = String(newName == null ? '' : newName).trim();
+    if (!from || !to) return { ok: false, reason: '이름을 적어주세요' };
+    if (from === to) return { ok: false, reason: '같은 이름입니다' };
+    var team = (state.settings.team || []).slice();
+    var at = team.indexOf(from);
+    if (at === -1) return { ok: false, reason: '명단에 없는 이름입니다' };
+    if (team.indexOf(to) !== -1) return { ok: false, reason: '이미 명단에 있는 이름입니다' };
+    var swap = function (arr) {
+      var out = [];
+      (arr || []).forEach(function (n) { var v = n === from ? to : n; if (out.indexOf(v) === -1) out.push(v); });
+      return out;
+    };
+    var changed = 0;
+    state.sites.forEach(function (s) {
+      var hit = false;
+      s.days.forEach(function (d) { if (d.staff.indexOf(from) !== -1) { d.staff = swap(d.staff); hit = true; } });
+      (s.services || []).forEach(function (v) { if ((v.staff || []).indexOf(from) !== -1) { v.staff = swap(v.staff); hit = true; } });
+      if (hit) { s.updatedAt = Date.now(); enqueue({ op: 'upsert', type: 'site', id: s.id, data: s }); changed++; }
+    });
+    team[at] = to;
+    var people = Object.assign({}, state.settings.people);
+    if (people[from]) { people[to] = people[from]; delete people[from]; }
+    setSettings({ team: team, people: people });   // 저장 + 설정 백업 예약 (위에서 올린 현장 변경도 함께 나간다)
+    return { ok: true, sites: changed };
+  }
+
   // ---------- 동기화 ----------
   function pendingCount() { return state.syncQueue.length; }
 
@@ -676,7 +707,7 @@
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
-    setSettings: setSettings,
+    setSettings: setSettings, renameStaff: renameStaff,
     pendingCount: pendingCount, flush: flush, restore: restore,
     onChange: onChange,
     SYNC_URL: SYNC_URL, RESTORE_URL: RESTORE_URL
