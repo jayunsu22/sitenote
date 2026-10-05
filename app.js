@@ -2594,11 +2594,9 @@
     var ph = document.createElement('input'); ph.type = 'tel'; ph.placeholder = '연락처 010-…'; ph.value = p.phone;
     var car = document.createElement('input'); car.type = 'text'; car.placeholder = '차량번호 12가3456'; car.value = p.car;
     car.autocomplete = 'off';
+    // 전화·차량만 바꾼다 — 경력·페이·사는곳·메모 같은 다른 칸은 그대로 둔다(합치기)
     var save = function () {
-      var people = Object.assign({}, state.settings.people);
-      var v = { phone: ph.value.trim(), car: car.value.trim() };
-      if (v.phone || v.car) people[name] = v; else delete people[name];
-      Store.setSettings({ people: people });
+      Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { phone: ph.value, car: car.value }) });
     };
     ph.addEventListener('input', save); car.addEventListener('input', save);
     info.appendChild(ph); info.appendChild(car);
@@ -2611,23 +2609,78 @@
       var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
       box.appendChild(e);
     }
+    // 한 줄 = 이름 + 전화·차량 요약. 누르면 '기사 정보' 창에서 경력·페이·사는곳·메모까지 적는다
     team.forEach(function (name, i) {
       var p = Share.personOf(state.settings.people, name);
-      var row = document.createElement('div'); row.className = 'team-row';
-      var top = document.createElement('div'); top.className = 'team-top';
+      var row = document.createElement('div'); row.className = 'team-row team-tap';
+      var main = document.createElement('div'); main.className = 'team-main';
       var t = document.createElement('div'); t.className = 'slist-name'; t.textContent = name;
+      var sum = document.createElement('div'); sum.className = 'team-sum' + (p.phone ? '' : ' miss');
+      sum.textContent = [p.phone, p.car].filter(Boolean).join(' · ') || '연락처 없음';
+      main.appendChild(t); main.appendChild(sum);
+      main.onclick = function () { openPersonSheet(name); };
+      var go = document.createElement('span'); go.className = 'team-go'; go.textContent = '›';
+      go.onclick = main.onclick;
       var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
-      top.appendChild(t); top.appendChild(x);
-      var info = personInputs(name);
       x.onclick = function () {
         var next = team.slice(); next.splice(i, 1);
-        var people = Object.assign({}, state.settings.people); delete people[name];   // 연락처도 같이 지운다
+        var people = Object.assign({}, state.settings.people); delete people[name];   // 기사 정보도 같이 지운다
         Store.setSettings({ team: next, people: people });
         renderTeamList();
       };
-      row.appendChild(top); row.appendChild(info);
+      row.appendChild(main); row.appendChild(go); row.appendChild(x);
       box.appendChild(row);
     });
+  }
+  // 기사 정보 창 — 6칸 모두 글자로, 적는 대로 저장. 경력·페이·사는곳·메모는 카톡 복사 문구에 나가지 않는다
+  var PERSON_FIELDS = [
+    { key: 'phone', label: '전화번호', ph: '010-…', mode: 'tel' },
+    { key: 'car', label: '차량번호', ph: '12가3456' },
+    { key: 'career', label: '경력', ph: '예: 3년 · 샤시 전문' },
+    { key: 'pay', label: '페이', ph: '예: 일 28만 식대포함' },
+    { key: 'home', label: '사는곳', ph: '예: 부천 중동' },
+    { key: 'memo', label: '메모', ph: '', area: true }
+  ];
+  function openPersonSheet(name) {
+    var p = Share.personOf(state.settings.people, name);
+    var html = '<div class="person-form">' + PERSON_FIELDS.map(function (f) {
+      return '<label class="pf-label">' + f.label + '</label>' + (f.area
+        ? '<textarea data-pf="' + f.key + '" rows="3" placeholder="' + esc(f.ph) + '">' + esc(p[f.key]) + '</textarea>'
+        : '<input type="text" data-pf="' + f.key + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : '') + ' autocomplete="off" placeholder="' + esc(f.ph) + '" value="' + esc(p[f.key]) + '">');
+    }).join('') + '</div>';
+    openModal('기사 정보 · ' + name, html, [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+    $('modalBody').querySelectorAll('[data-pf]').forEach(function (el) {
+      el.addEventListener('input', function () {
+        var patch = {}; patch[el.dataset.pf] = el.value;
+        Store.setSettings({ people: Share.mergePerson(state.settings.people, name, patch) });
+        renderTeamList();   // 뒤에 깔린 목록의 요약 줄도 바로 따라가게
+      });
+    });
+  }
+
+  // 설정 탭 (2026-10-05) — 팀원 / 현장준비 / 후기 / 문구 / 백업. 항목은 모두 DOM 에 있고 data-stab 으로 보이기만 바꾼다
+  var SETTINGS_TABS = [
+    { key: 'team', label: '팀원', cls: 'tab-info' },
+    { key: 'prep', label: '현장준비', cls: 'tab-staff' },
+    { key: 'review', label: '후기', cls: 'tab-film' },
+    { key: 'text', label: '문구', cls: 'tab-supply' },
+    { key: 'backup', label: '백업', cls: 'tab-gray' }
+  ];
+  var settingsTab = 'team';
+  function pickSettingsTab(key, scroll) {
+    settingsTab = key;
+    document.querySelectorAll('#settingsTabs .site-tab').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === key); });
+    document.querySelectorAll('#viewSettings .settings-section').forEach(function (sec) { sec.hidden = sec.dataset.stab !== key; });
+    if (scroll) window.scrollTo(0, 0);
+  }
+  function renderSettingsTabs() {
+    var bar = $('settingsTabs'); bar.innerHTML = '';
+    SETTINGS_TABS.forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'site-tab ' + t.cls; b.dataset.tab = t.key; b.textContent = t.label;
+      b.onclick = function () { pickSettingsTab(t.key, true); };
+      bar.appendChild(b);
+    });
+    pickSettingsTab(settingsTab, false);
   }
   function renderSupplyDefaultList() {
     renderStringList($('supplyDefaultList'), state.settings.supplyDefaults || [], function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
@@ -2697,6 +2750,8 @@
     return m ? m[1] : '';
   }
   function renderSettings() {
+    settingsTab = 'team';   // 설정을 열 때마다 첫 탭에서 시작한다
+    renderSettingsTabs();
     $('backupKey').value = state.settings.backupKey || '';
     if ($('appVer')) $('appVer').textContent = '버전 ' + (appVersion() || '—');
     renderSyncStatus();

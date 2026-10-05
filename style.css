@@ -730,3 +730,16 @@ textarea { resize: vertical; }
 .modal .sheet-list .sim { margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 11.5px; font-style: normal; font-weight: 800; }
 .modal .admin-err { color: var(--danger); }
 .modal .sheet-list { max-height: 55vh; overflow-y: auto; }
+
+/* ---------- 설정 탭 · 기사 정보 (2026-10-05) ---------- */
+.tab-gray { --c: #4b5563; --t: #f3f4f6; }   /* 회색 — 백업 */
+.site-tabs:has(.tab-gray.on) { --tabc: #4b5563; }
+.team-tap { display: flex; align-items: center; gap: 4px; }
+.team-main { flex: 1; min-width: 0; padding: 2px 0; cursor: pointer; }
+.team-main .slist-name { font-size: 14px; font-weight: 700; }
+.team-sum { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+.team-sum.miss { color: #b45309; }
+.team-go { padding: 0 6px; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; }
+.person-form .pf-label { display: block; margin: 10px 0 4px; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.person-form .pf-label:first-child { margin-top: 0; }
+.modal .person-form textarea { min-height: 80px; }
