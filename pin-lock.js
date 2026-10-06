@@ -7,7 +7,7 @@
    열려 있다는 표시는 해시 앞 16자라서 암호를 바꾸면 이미 열린 기기가 한 번 잠긴다.
    이 잠금은 화면을 가리는 용도다(암호 비교가 브라우저에서 이뤄진다). 그래서 암호는 길게 쓴다. */
 (function () {
-  var HASH = 'a003cd9b9678a76cb3d2c7716575044695340503a755935065154c30ce40ea20';
+  var HASH = '96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e';
   var cs = document.currentScript;
   var KEY = (cs && cs.getAttribute('data-key')) || 'appPinUnlocked';
   var VALUE = HASH.slice(0, 16);
@@ -28,6 +28,7 @@
     '#pinGate p{margin:0 0 14px;font-size:14px;color:#64748b}' +
     '#pinGate input{width:100%;box-sizing:border-box;padding:13px;font-size:17px;text-align:center;border:1.5px solid #e2e8f0;' +
     'border-radius:10px;outline:none}#pinGate input:focus{border-color:#1f2a44}' +
+    '#pinGate .ver{margin:12px 0 0;font-size:11px;color:#94a3b8}' +
     '#pinGate button{width:100%;margin-top:10px;padding:13px;border:0;border-radius:10px;background:#1f2a44;color:#fff;' +
     'font-size:16px;font-weight:800}#pinGate .err{margin:10px 0 0;color:#dc2626;font-size:13.5px}';
 
@@ -35,8 +36,8 @@
   gate.id = 'pinGate';
   gate.innerHTML =
     '<form autocomplete="off"><div class="ic">🔒</div><h2>관리자 암호</h2><p>계속하려면 암호를 입력하세요.</p>' +
-    '<input type="password" autocomplete="off" placeholder="암호 입력"><button type="submit">확인</button>' +
-    '<p class="err" hidden>암호가 올바르지 않습니다.</p></form>';
+    '<input type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="암호 입력"><button type="submit">확인</button>' +
+    '<p class="err" hidden>암호가 올바르지 않습니다.</p><p class="ver">화면 버전 20261006c</p></form>';
   root.appendChild(style);
   root.appendChild(gate);
 
