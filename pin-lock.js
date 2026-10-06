@@ -7,7 +7,7 @@
    열려 있다는 표시는 해시 앞 16자라서 암호를 바꾸면 이미 열린 기기가 한 번 잠긴다.
    이 잠금은 화면을 가리는 용도다(암호 비교가 브라우저에서 이뤄진다). 그래서 암호는 길게 쓴다. */
 (function () {
-  var HASH = '0f0a7bcf9f760e453e4719af259d31ddba9a638dd73831df3e244b615a7c4c7e';
+  var HASH = 'a003cd9b9678a76cb3d2c7716575044695340503a755935065154c30ce40ea20';
   var cs = document.currentScript;
   var KEY = (cs && cs.getAttribute('data-key')) || 'appPinUnlocked';
   var VALUE = HASH.slice(0, 16);
