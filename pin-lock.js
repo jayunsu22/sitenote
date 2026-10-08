@@ -37,7 +37,7 @@
   gate.innerHTML =
     '<form autocomplete="off"><div class="ic">🔒</div><h2>관리자 암호</h2><p>계속하려면 암호를 입력하세요.</p>' +
     '<input type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="암호 입력"><button type="submit">확인</button>' +
-    '<p class="err" hidden>암호가 올바르지 않습니다.</p><p class="ver">화면 버전 20261006c</p></form>';
+    '<p class="err" hidden>암호가 올바르지 않습니다.</p><p class="ver">화면 버전 20261008a</p></form>';
   root.appendChild(style);
   root.appendChild(gate);
 

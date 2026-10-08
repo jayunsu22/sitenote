@@ -761,3 +761,7 @@ textarea { resize: vertical; }
 .pf-grades { display: flex; gap: 6px; flex-wrap: wrap; }
 .pf-grade { min-width: 52px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--gc); background: var(--gt); color: var(--gc); font-size: 15px; font-weight: 900; }
 .pf-grade.on { background: var(--gc); color: #fff; }
+/* 현장명 옆 주소 복사 (2026-10-08) — 내비에 붙여넣기 */
+.site-fields .frow-name .flabel { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nav-copy { flex: none; min-height: 34px; padding: 0 12px; border: 1.5px solid var(--primary, #2563eb); border-radius: 17px; background: #eff6ff; color: var(--primary-dark, #1d4ed8); font-size: 13px; font-weight: 800; }
+.nav-copy:active { background: #dbeafe; }

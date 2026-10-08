@@ -2375,6 +2375,17 @@
     // 현장명·달력지역은 공유 문구에 안 나가는 칸이라 고를 체크박스가 필요 없다
     if (f.key === 'name' || f.key === 'calRegion') cb.style.visibility = 'hidden';
     var label = document.createElement('div'); label.className = 'flabel'; label.textContent = f.label;
+    // 현장명 옆 '주소 복사' — 내비에 붙여넣는다 (호수·평형은 빼고 아파트 이름과 동까지)
+    if (f.key === 'name') {
+      var navBtn = document.createElement('button');
+      navBtn.type = 'button'; navBtn.className = 'nav-copy'; navBtn.textContent = '📋 주소 복사';
+      navBtn.onclick = function () {
+        var addr = Share.navAddress(Store.getSite(s.id) || s);
+        if (!addr) { toast('현장명을 먼저 적어주세요'); return; }
+        copyText(addr, '복사됨: ' + addr + ' — 내비에 붙여넣기 하세요');
+      };
+      label.appendChild(navBtn);
+    }
     var ctl = document.createElement('div'); ctl.className = 'fctl';
     row.appendChild(cb); row.appendChild(label); row.appendChild(ctl);
 
