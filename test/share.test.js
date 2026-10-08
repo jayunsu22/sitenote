@@ -1055,5 +1055,14 @@ test('카톡 복사 문구에 등급은 안 나간다', () => {
   assert.ok(!t.includes('등급') && !/\bF\b/.test(t), t);
 });
 
+test('navAddress: 내비용 — 호수·평형은 빼고 아파트 이름과 동까지', () => {
+  assert.strictEqual(Share.navAddress({ name: '군포 우륵아파트 704동 606호 30평' }), '군포 우륵아파트 704동');
+  assert.strictEqual(Share.navAddress({ name: '군포 세종아파트', unit: '645동 601호' }), '군포 세종아파트 645동');
+  assert.strictEqual(Share.navAddress({ name: '성남 포스테크노 b104호' }), '성남 포스테크노 b104호');   // 상가 호수는 그대로
+  assert.strictEqual(Share.navAddress({ name: '호반베르디움 3호선' }), '호반베르디움 3호선');
+  assert.strictEqual(Share.navAddress({ name: '아무개', address: '경기 군포시 산본로 123' }), '경기 군포시 산본로 123');
+  assert.strictEqual(Share.navAddress({ name: '' }), '');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

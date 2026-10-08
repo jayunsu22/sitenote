@@ -143,6 +143,23 @@
     return parts.length ? parts.join(' ') : '(이름없음)';
   }
 
+  /* 내비에 붙여넣을 주소 (2026-10-08). 현장명을 쓴다 — 주소 칸은 없애고 현장명에
+     '군포 우륵아파트 704동 606호 30평' 처럼 적는다. 내비 검색은 아파트 이름과 동까지면 충분하고,
+     '606호' '30평' 이 붙으면 검색이 안 되거나 엉뚱한 데가 나온다. 그래서 호수·평형은 뺀다.
+     예전에 적어둔 주소 칸이 있으면 그걸 먼저 쓴다. 동이 따로 칸(unit)에 있으면 붙여준다. */
+  function navAddress(site) {
+    if (!site) return '';
+    var base = str(site.address) || str(site.name);
+    var 빼기 = function (t) {
+      return t.replace(/(^|\s)\d+\s*호(?=[\s,)]|$)/g, '$1').replace(/\s*\d+(\.\d+)?\s*평(형)?/g, '')
+        .replace(/\s*\(\s*\)/g, '').replace(/\s+/g, ' ').trim();
+    };
+    var out = 빼기(base);
+    var 동 = /(\d+)\s*동/.exec(str(site.unit));
+    if (동 && !/\d+\s*동/.test(out)) out += ' ' + 동[1] + '동';
+    return out.trim();
+  }
+
   // 필름 번호만 한 줄에 하나씩. 대리점에 주문할 때 붙여넣는 용도라 시공위치는 뺀다.
   // 같은 번호가 여러 줄이면 한 번만(주문은 품목 목록이지 시공 목록이 아니다).
   // ☑ 된 줄이 하나라도 있으면 그 줄들만 복사한다 (골라서 주문). 하나도 없으면 전부.
@@ -995,6 +1012,7 @@
     fmtBytes: fmtBytes,
     isEmpty: isEmpty,
     titleLine: titleLine,
+    navAddress: navAddress,
     filmOrderText: filmOrderText,
     newFilmRow: newFilmRow,
     shortDate: shortDate,
