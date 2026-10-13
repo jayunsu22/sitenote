@@ -46,7 +46,7 @@
     return Share.titleLine(r.site);
   }
   function iconOf(t) {
-    if (t.auto) return { film: '🎞', staff: '👥', supply: '🧰' }[t.kind] || '📝';
+    if (t.auto) return { film: '🎞', staff: '👥', supply: '🧰', hold: '⏳' }[t.kind] || '📝';
     if (!t.link) return '📝';
     if (t.link.type === 'client') return t.title.indexOf('통화') !== -1 ? '📞' : '🏢';
     if (t.link.type === 'service') return '🔧';
@@ -56,7 +56,7 @@
   // ---------- 일정 화면 ----------
   function allTasks() {
     var rules = Store.state.settings.taskRules;
-    return Store.tasks().concat(Share.autoTasks(Store.state.sites, today(), rules));
+    return Store.tasks().concat(Share.autoTasks(Store.state.sites, today(), rules, Store.state.settings.holds));
   }
   // 일정 화면에서 쓸 묶음 한 번에 계산 (자동 할 일 포함)
   function scheduleGroups() { return Share.taskGroups(allTasks(), today()); }
@@ -325,6 +325,16 @@
       body.appendChild(meta);
       if (t.auto) body.appendChild(el('p', 'sheet-hint', '앱이 현장 상태를 보고 만든 할 일이에요. 아래에서 처리하면 저절로 사라져요.'));
 
+      if (t.kind === 'hold') {
+        var hs = section(body, '⏳ ' + Share.dayLabel(t.holdDate) + ' 대기 인원');
+        Share.heldOpen(Store.state.settings.holds, Store.state.sites, t.holdDate).forEach(function (n) {
+          hs.appendChild(el('div', 'task-film', n));
+        });
+        var ha = el('div', 'task-actions');
+        ha.appendChild(btn('btn-sm primary', '📅 그날 일정 보기', function () { $('taskSheet').hidden = true; d.openDay(t.holdDate); }));
+        hs.appendChild(ha);
+        hs.appendChild(el('p', 'sheet-hint', '현장 화면의 그날 인원에서 ⏳ 대기 묶음을 누르면 배정돼요.'));
+      }
       var r = resolve(t.link);
       if (t.link && !r) body.appendChild(el('p', 'sheet-hint', '연결했던 ' + GONE[t.link.type].replace('지운 ', '') + '이(가) 지워졌어요.'));
       if (r && r.client) renderClientPart(body, t, r.client);

@@ -42,7 +42,8 @@
       reviewQuestions: Share.DEFAULT_REVIEW_QUESTIONS.slice(),  // 현장 후기 탭 질문 (2026-09-27)
       reviewTags: Share.DEFAULT_REVIEW_TAGS.slice(),           // 현장 후기 태그 목록
       serviceTools: DEFAULT_SERVICE_TOOLS.slice(),             // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
-      taskRules: Object.assign({}, Share.DEFAULT_TASK_RULES)   // 자동 할 일 기준 일수 (2026-10-14)
+      taskRules: Object.assign({}, Share.DEFAULT_TASK_RULES),  // 자동 할 일 기준 일수 (2026-10-14)
+      holds: {}                                                // 대기 인원 — 날짜에 먼저 잡아 둔 사람 (2026-10-14)
     };
   }
   function stringList(arr, fallback) {
@@ -216,6 +217,7 @@
       state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
       state.settings.serviceTools = stringList(state.settings.serviceTools, DEFAULT_SERVICE_TOOLS);
       state.settings.taskRules = Share.normalizeTaskRules(state.settings.taskRules);
+      state.settings.holds = Share.normalizeHolds(state.settings.holds, Share.todayIso());
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.tasks = normalizeTasks(parsed.tasks);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
@@ -247,7 +249,7 @@
   function settingsForSync() {
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
-      serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules };
+      serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds };
   }
 
   // ---------- 거래처 ----------
@@ -325,6 +327,23 @@
   }
   // 완료 취소 — 메모 내역에 이미 남긴 줄은 지우지 않는다 (지우려면 메모 내역에서 직접)
   function uncompleteTask(id) { return updateTask(id, { done: false, doneAt: 0 }); }
+
+  // ---------- 대기 인원 (2026-10-14) ----------
+  // 그날 잡아 둔 사람 목록을 통째로 바꾼다. 빈 목록이면 그 날짜를 지운다
+  function setHold(iso, names) {
+    if (!Share.isIsoDate(iso)) return null;
+    var h = Object.assign({}, state.settings.holds || {});
+    h[iso] = names;
+    setSettings({ holds: Share.normalizeHolds(h, Share.todayIso()) });
+    return (state.settings.holds[iso] || []).slice();
+  }
+  function toggleHold(iso, name) {
+    var cur = ((state.settings.holds || {})[iso] || []).slice();
+    var k = String(name || '').replace(/\s+/g, '');
+    var i = cur.findIndex(function (n) { return n.replace(/\s+/g, '') === k; });
+    if (i === -1) cur.push(String(name).trim()); else cur.splice(i, 1);
+    return setHold(iso, cur);
+  }
 
   // ---------- 거래처 메모 내역 (2026-10-14) ----------
   function addClientNote(clientId, patch) {
@@ -655,7 +674,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -777,6 +796,7 @@
         state.settings.reviewTags = stringList(ds.reviewTags, Share.DEFAULT_REVIEW_TAGS);
         state.settings.serviceTools = stringList(ds.serviceTools, DEFAULT_SERVICE_TOOLS);   // 예전 백업엔 없다 → 기본값
         state.settings.taskRules = Share.normalizeTaskRules(ds.taskRules);
+        state.settings.holds = Share.normalizeHolds(ds.holds, Share.todayIso());
         state.clients = (data.clients || []).map(normalizeClient);
         // 할 일 (2026-10-14) — 옛 서버(할일 표 없음)는 tasks 를 안 준다. 그때는 폰의 할 일을 지우지 않는다
         if (Array.isArray(data.tasks)) state.tasks = normalizeTasks(data.tasks);
@@ -824,6 +844,7 @@
     addService: addService, updateService: updateService, removeService: removeService, setServiceToolReady: setServiceToolReady,
     tasks: tasks, getTask: getTask, addTask: addTask, updateTask: updateTask, deleteTask: deleteTask,
     completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered,
+    setHold: setHold, toggleHold: toggleHold,
     addClientNote: addClientNote, updateClientNote: updateClientNote, deleteClientNote: deleteClientNote,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,

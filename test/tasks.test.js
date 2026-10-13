@@ -131,6 +131,29 @@ test('taskGroups: 밀린 것·날짜 없는 것·날짜별 열린/끝난 것', (
   assert.ok(!('' in g.byDate));                                          // 날짜 없이 끝난 건 어디에도 안 보인다
 });
 
+// ---- 대기 인원 (2026-10-14) ----
+test('normalizeHolds: 날짜 아닌 키·빈 이름·중복 버림, 30일 넘게 지난 날 버림', () => {
+  const h = Share.normalizeHolds({ '2026-10-22': [' 안광윤 ', '윤인재', '안광윤', ''], 'x': ['a'], '2026-10-20': [], '2026-09-10': ['옛날'], '2026-09-20': ['최근'] }, 오늘);
+  assert.deepStrictEqual(h, { '2026-10-22': ['안광윤', '윤인재'], '2026-09-20': ['최근'] });
+  assert.deepStrictEqual(Share.normalizeHolds(null, 오늘), {});
+});
+test('heldOpen: 그날 현장·AS 에 들어간 사람은 대기에서 빠진다 (공백 무시)', () => {
+  const s = 현장({ date: '2026-10-22', days: [{ date: '2026-10-22', staff: ['안 광윤'] }],
+    services: [{ id: 'v1', date: '2026-10-22', staff: ['박기사'], tools: [], done: false }] });
+  const h = { '2026-10-22': ['안광윤', '윤인재', '박기사'] };
+  assert.deepStrictEqual(Share.heldOpen(h, [s], '2026-10-22'), ['윤인재']);
+  assert.deepStrictEqual(Share.heldOpen(h, [s], '2026-10-23'), []);
+});
+test('자동 할 일 인원 배정: 기준 일수 안이고 대기가 남았으면 뜬다', () => {
+  const h = { '2026-10-16': ['안광윤', '윤인재'], '2026-10-20': ['김기사'] };
+  const l = Share.autoTasks([], 오늘, 규칙, h);
+  assert.deepStrictEqual(l.map(t => t.id), ['auto:hold:2026-10-16']);
+  assert.strictEqual(l[0].kind, 'hold');
+  assert.strictEqual(l[0].title, '인원 배정: 10/16(금) 대기 2명 (안광윤·윤인재)');
+  assert.strictEqual(l[0].holdDate, '2026-10-16');
+  assert.deepStrictEqual(Share.autoTasks([], 오늘, 규칙), [], 'holds 를 안 주면 없음');
+});
+
 test('모집 문구: 날짜·동네·부족 인원, 현장명은 안 나간다', () => {
   const s = 현장({ name: '군포 우륵아파트 704동 606호', calRegion: '산본', needStaff: 3,
     days: [{ date: '2026-10-17', staff: ['김기사'] }, { date: '2026-10-18', staff: [] }] });

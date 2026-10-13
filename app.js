@@ -540,6 +540,11 @@
     // 폰에 기억해 둔 보기 방식을 그린다 (다른 기기에서 바꾼 게 restore 로 들어와도 맞춘다)
     calShow = CAL_SHOWS.indexOf(state.settings.calShow) !== -1 ? state.settings.calShow : 'count';
     taskDays = TaskUI.openTaskDays();
+    holdDays = {};
+    Object.keys(state.settings.holds || {}).forEach(function (iso) {
+      var open = Share.heldOpen(state.settings.holds, state.sites, iso);
+      if (open.length) holdDays[iso] = open;
+    });
     renderScheduleCal();
     renderScheduleList();
   }
@@ -547,6 +552,7 @@
   /* ---------- 위쪽 달력 ---------- */
   // 한 칸: 날짜 + 건수 배지. 건수가 0이면 점선 동그라미(= 넣을 수 있는 날).
   // 지난 날은 점선을 안 그린다 — 지나간 날에 새로 배정할 일은 없다.
+  var holdDays = {};   // 대기 인원이 남은 날 { iso: [이름] } — 인원 보기에 주황 '대기' (2026-10-14)
   var taskDays = {};   // 안 끝난 할 일이 있는 날 { iso: 건수 } — 달력 칸에 주황 점 (2026-10-14)
   function calCell(iso, opts) {
     var o = opts || {};
@@ -586,19 +592,26 @@
        몇 명 모자란지는 칸에 안 적는다 — 이름만 보려는 화면이라 숫자가 끼면 읽기 나쁘다
        (모자란 수는 칸을 길게 눌렀을 때 뜨는 설명과 현장 카드에 있다) */
     var st = o.staff;
-    if (calShow === 'staff' && n) {
+    var held = holdDays[iso] || [];
+    if (calShow === 'staff' && (n || held.length)) {
       mark.className = 'schcal-nm' + (past ? ' past' : '');
-      if (!st || !st.have) {
+      if (n && (!st || !st.have)) {
         var none = document.createElement('span');
         none.className = 'schcal-nml none'; none.textContent = '미배정';
         mark.appendChild(none);
-      } else {
+      } else if (st) {
         st.names.forEach(function (nm) {
           var l = document.createElement('span');
           l.className = 'schcal-nml'; l.textContent = nm;
           mark.appendChild(l);
         });
       }
+      // 대기 인원 — 그날로 잡아 뒀지만 아직 현장에 안 넣은 사람
+      held.forEach(function (nm) {
+        var l = document.createElement('span');
+        l.className = 'schcal-nml hold'; l.textContent = nm;
+        mark.appendChild(l);
+      });
     }
     else if (calShow === 'region' && rgs.length) {
       // 동네 이름은 두 줄까지 넣는다 (칸이 52×48, 한 줄 10px 이라 둘은 들어간다).
@@ -894,8 +907,10 @@
       var n = counts[pickedDate] || 0;
       var bar = document.createElement('div'); bar.className = 'sch-pick';
       var txt = document.createElement('div'); txt.className = 'sch-pick-txt';
+      var hopen = holdDays[pickedDate] || [];
       txt.innerHTML = '<b>' + esc(dateLabel(pickedDate)) + ' 고름</b><span>' +
-        (n ? '이 날 일정 ' + n + '건' : '이 날은 현장이 없습니다') + '</span>';
+        (n ? '이 날 일정 ' + n + '건' : '이 날은 현장이 없습니다') + '</span>' +
+        (hopen.length ? '<span class="sch-pick-hold">⏳ 대기 ' + hopen.length + '명: ' + esc(hopen.join('·')) + '</span>' : '');
       bar.appendChild(txt);
       if (n) {
         var view = document.createElement('button');
@@ -906,6 +921,10 @@
       var add = document.createElement('button');
       add.type = 'button'; add.className = 'sch-pick-add'; add.textContent = '일정 넣기';
       add.onclick = function () { openAddSheet(pickedDate); };
+      var hold = document.createElement('button');
+      hold.type = 'button'; hold.className = 'sch-pick-view sch-pick-holdbtn'; hold.textContent = '👤 인원 잡기';
+      hold.onclick = function () { openHoldPicker(pickedDate); };
+      bar.appendChild(hold);
       bar.appendChild(add);
       body.appendChild(bar);
     }
@@ -2311,9 +2330,9 @@
     box.appendChild(add);
   }
   // 인원 선택창(바텀시트): 설정의 팀원 명단은 칩으로(들어간 사람은 강조), 명단에 없는 사람은 아래 칸에 직접 입력
-  var staffPicker = { siteId: '', dayIndex: 0, onDone: null };
+  var staffPicker = { siteId: '', dayIndex: 0, onDone: null, hold: '' };
   function openStaffPicker(siteId, dayIndex, onDone) {
-    staffPicker = { siteId: siteId, dayIndex: dayIndex, onDone: onDone };
+    staffPicker = { siteId: siteId, dayIndex: dayIndex, onDone: onDone, hold: '' };
     renderStaffPicker();
     $('staffSheet').hidden = false;
     $('staffInput').value = '';
@@ -2324,7 +2343,42 @@
     var cb = staffPicker.onDone; staffPicker.onDone = null;
     if (cb) cb();
   }
+  // 대기 인원 잡기 (2026-10-14): 같은 인원 창을 날짜 하나에 대해 쓴다. 현장은 고르지 않는다
+  function openHoldPicker(iso) {
+    staffPicker = { siteId: '', dayIndex: 0, onDone: renderSchedule, hold: iso };
+    renderStaffPicker();
+    $('staffSheet').hidden = false;
+    $('staffInput').value = '';
+  }
+  function renderHoldPicker() {
+    var iso = staffPicker.hold;
+    $('staffSheetTitle').textContent = '👤 인원 잡기 — ' + dateLabel(iso);
+    var wrap = $('staffChips'); wrap.innerHTML = '';
+    var mine = (state.settings.holds || {})[iso] || [];
+    var busy = ((Share.dateStaff(state.sites)[iso] || {}).names || []);
+    var norm = function (v) { return String(v).replace(/\s+/g, ''); };
+    var isIn = function (list, n) { return list.some(function (x) { return norm(x) === norm(n); }); };
+    var hint = document.createElement('div'); hint.className = 'sec-empty';
+    hint.textContent = '현장은 나중에 — 그날 일할 사람만 먼저 잡아 둡니다. 현장 인원에 넣으면 대기에서 저절로 빠져요.';
+    wrap.appendChild(hint);
+    var names = (state.settings.team || []).slice();
+    mine.forEach(function (n) { if (!isIn(names, n)) names.push(n); });
+    names.forEach(function (n) {
+      var assigned = isIn(busy, n);
+      var on = isIn(mine, n);
+      var c = document.createElement('button'); c.type = 'button';
+      c.className = 'chip pick' + (on && !assigned ? ' on hold' : '') + (assigned ? ' busy' : '');
+      c.textContent = n + (assigned ? ' · 현장 배정됨' : on ? ' ✓' : '');
+      c.onclick = function () {
+        if (assigned) { toast(n + ' 은(는) 이날 이미 현장에 들어가 있어요'); return; }
+        Store.toggleHold(iso, n); renderStaffPicker();
+      };
+      wrap.appendChild(c);
+    });
+    $('staffPeople').innerHTML = '';
+  }
   function renderStaffPicker() {
+    if (staffPicker.hold) { renderHoldPicker(); return; }
     var s = Store.getSite(staffPicker.siteId); if (!s) { closeStaffPicker(); return; }
     var d = s.days[staffPicker.dayIndex] || { date: '', staff: [] };
     $('staffSheetTitle').textContent = '👤 인원 — ' + dayLabel(staffPicker.dayIndex, d.date);
@@ -2337,6 +2391,20 @@
       var hint = document.createElement('div'); hint.className = 'sec-empty';
       hint.textContent = '설정에서 팀원을 등록해두면 여기서 탭으로 넣을 수 있습니다. 지금은 아래에 이름을 입력하세요.';
       wrap.appendChild(hint);
+    }
+    // 그날 대기 인원을 맨 위에 따로 — 누르면 이 현장에 들어가고 대기에서 빠진다 (2026-10-14)
+    var waiting = Share.isIsoDate(d.date) ? Share.heldOpen(state.settings.holds, state.sites, d.date) : [];
+    if (waiting.length) {
+      var wh = document.createElement('div'); wh.className = 'staff-hold-head'; wh.textContent = '⏳ 그날 대기 — 누르면 이 현장으로';
+      wrap.appendChild(wh);
+      waiting.forEach(function (n) {
+        var c = document.createElement('button'); c.type = 'button'; c.className = 'chip pick hold';
+        c.textContent = n;
+        c.onclick = function () { Store.addStaff(staffPicker.siteId, staffPicker.dayIndex, n); renderStaffPicker(); };
+        wrap.appendChild(c);
+      });
+      var br = document.createElement('div'); br.className = 'staff-hold-sep'; wrap.appendChild(br);
+      names = names.filter(function (n) { return waiting.indexOf(n) === -1; });
     }
     names.forEach(function (n) {
       var on = d.staff.indexOf(n) !== -1;
@@ -2367,6 +2435,7 @@
   function addStaffFromInput() {
     var v = $('staffInput').value.trim();
     if (!v) return;
+    if (staffPicker.hold) { Store.toggleHold(staffPicker.hold, v); $('staffInput').value = ''; renderStaffPicker(); return; }
     Store.addStaff(staffPicker.siteId, staffPicker.dayIndex, v);
     $('staffInput').value = '';
     renderStaffPicker();
@@ -2989,7 +3058,12 @@
       if (state.settings.lastTab !== clientId) Store.setSettings({ lastTab: clientId });
       if ((location.hash || '') === '' || location.hash === '#') renderMain(); else go('');
     },
-    openService: function (siteId, svcId) { openServiceSheet(siteId, svcId, refreshView); }
+    openService: function (siteId, svcId) { openServiceSheet(siteId, svcId, refreshView); },
+    openDay: function (iso) {
+      pickedDate = '';
+      if ((location.hash || '') !== '#schedule') go('#schedule');
+      setTimeout(function () { pickDate(iso); scrollToPicked(); }, 0);
+    }
   });
   // '＋ 할 일' 은 떠 있는 버튼 대신 앱 이동(⊞) 패널 맨 위에 둔다 — 떠 있는 버튼이 두 개면 거슬린다 (2026-10-14)
   (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
