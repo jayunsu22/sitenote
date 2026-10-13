@@ -89,7 +89,17 @@
     if (t.auto) top.appendChild(el('span', 'task-auto', '자동'));
     main.appendChild(top);
     var lab = t.auto ? '' : linkLabel(t);
-    if (lab) main.appendChild(el('div', 'task-link' + (t.link && !resolve(t.link) ? ' gone' : ''), lab));
+    if (lab) {
+      var ln = el('div', 'task-link' + (t.link && !resolve(t.link) ? ' gone' : ''), lab);
+      // 현장·AS 에 연결된 할 일은 업체명과 시공 첫날을 옆에 붙인다 (2026-10-14)
+      var rr = resolve(t.link);
+      if (rr && rr.site) {
+        var cl = Store.getClient(rr.site.clientId);
+        if (cl) ln.appendChild(el('span', 'task-link-tag', cl.name));
+        if (Share.isIsoDate(rr.site.date)) ln.appendChild(el('span', 'task-link-tag date', '시공 ' + Share.dayLabel(rr.site.date)));
+      }
+      main.appendChild(ln);
+    }
     if (t.done && t.result) main.appendChild(el('div', 'task-result', t.result));
     main.onclick = function () { openTaskDetail(t); };
     row.appendChild(main);
