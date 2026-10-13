@@ -870,3 +870,22 @@ textarea { resize: vertical; }
 .sch-pick-txt { flex: 1 1 100%; }
 .sch-pick-add, .sch-pick-view { flex: 1 1 0; white-space: nowrap; padding-left: 6px; padding-right: 6px; }
 .sch-pick-txt .sch-pick-hold { color: #c2410c; }
+
+/* 할 일 넣기 창 키우기 · 빠른 버튼 · 담당자 📞 (2026-10-14) */
+.task-sheet { min-height: 86vh; }
+.task-presets { margin-bottom: 8px; }
+.task-presets .task-chips { gap: 6px; }
+.chip.pick.task-preset { padding: 8px 12px; font-size: 14px; }
+.chip.pick.task-preset-edit { background: transparent; border-style: dashed; color: var(--muted); }
+.preset-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.preset-name { flex: 1; min-width: 0; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; }
+.preset-mv, .preset-x { flex: none; width: 34px; height: 38px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 13px; color: #374151; }
+.preset-mv:disabled { opacity: .35; }
+.preset-x { color: var(--danger); border-color: #fecaca; background: #fff5f5; }
+.preset-add .btn-sm { flex: none; }
+.preset-done { width: 100%; margin-top: 2px; }
+.task-person { border-color: #86efac !important; background: #f0fdf4 !important; }
+.task-tel { flex: none; align-self: center; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: #dcfce7; font-size: 18px; text-decoration: none; }
+.task-person-call { display: block; margin: 0 0 12px; padding: 12px; border-radius: 10px; background: #16a34a; color: #fff;
+  font-size: 15px; font-weight: 800; text-align: center; text-decoration: none; }

@@ -583,7 +583,7 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team', 'holds'].sort());
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team', 'holds', 'taskPresets'].sort());
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 
@@ -833,6 +833,24 @@ function reset() {
     Store.setHold('2026-10-23', ['김기사']);
     Store.load();
     assert.deepStrictEqual(Store.state.settings.holds, { '2026-10-23': ['김기사'] });
+  });
+
+  await test('할 일 빠른 버튼: 기본 목록, 고치면 백업, 빈값·중복 정리', () => {
+    reset();
+    assert.strictEqual(Store.state.settings.taskPresets[0], '담당자 전화하기');
+    Store.setSettings({ taskPresets: ['통화', '발주'] });
+    assert.deepStrictEqual(Store.state.syncQueue.find(o => o.type === 'settings').data.taskPresets, ['통화', '발주']);
+    mem['sitenote.v1'] = JSON.stringify({ clients: [], sites: [], settings: { taskPresets: [' 통화 ', '', '통화', '발주'] } });
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.taskPresets, ['통화', '발주']);
+  });
+  await test('할 일 담당자 연결: 이름·번호 저장, 둘 다 비면 버림', () => {
+    reset();
+    const c = Store.addClient('한샘');
+    const t = Store.addTask({ title: '통화', link: { type: 'client', id: c.id, label: '한샘', person: { name: ' 김실장 ', phone: '010-1' } } });
+    assert.deepStrictEqual(Store.getTask(t.id).link.person, { name: '김실장', phone: '010-1' });
+    const t2 = Store.addTask({ title: '통화2', link: { type: 'client', id: c.id, label: '한샘', person: { name: '', phone: '' } } });
+    assert.strictEqual(Store.getTask(t2.id).link.person, undefined);
   });
 
   console.log('할 일 (2026-10-14)');

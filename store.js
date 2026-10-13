@@ -29,6 +29,8 @@
 
   // ---------- 기본값 ----------
   var DEFAULT_SERVICE_TOOLS = ['사포', '퍼티', '열풍기', '재단판'];
+  // 할 일 넣기 창의 빠른 버튼 (2026-10-14) — 누르면 '무엇을' 칸에 들어간다. 창 안 '⚙ 편집' 에서 고친다
+  var DEFAULT_TASK_PRESETS = ['담당자 전화하기', '필름 발주하기', '일정 확인하기', '인원 모집하기', '부자재 챙기기', '견적서 보내기', '현장 방문하기', 'AS 일정 잡기'];
   function defaultSettings() {
     return {
       questions: Object.assign({}, Share.DEFAULT_QUESTIONS),
@@ -43,7 +45,8 @@
       reviewTags: Share.DEFAULT_REVIEW_TAGS.slice(),           // 현장 후기 태그 목록
       serviceTools: DEFAULT_SERVICE_TOOLS.slice(),             // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
       taskRules: Object.assign({}, Share.DEFAULT_TASK_RULES),  // 자동 할 일 기준 일수 (2026-10-14)
-      holds: {}                                                // 대기 인원 — 날짜에 먼저 잡아 둔 사람 (2026-10-14)
+      holds: {},                                               // 대기 인원 — 날짜에 먼저 잡아 둔 사람 (2026-10-14)
+      taskPresets: DEFAULT_TASK_PRESETS.slice()                // 할 일 빠른 버튼 (2026-10-14)
     };
   }
   function stringList(arr, fallback) {
@@ -173,7 +176,12 @@
   var TASK_LINK_TYPES = ['client', 'site', 'service'];
   function normalizeLink(l) {
     if (!l || TASK_LINK_TYPES.indexOf(l.type) === -1 || !l.id) return null;
-    return { type: l.type, id: String(l.id), siteId: String(l.siteId || ''), label: String(l.label || '') };
+    var out = { type: l.type, id: String(l.id), siteId: String(l.siteId || ''), label: String(l.label || '') };
+    var p = l.person;
+    if (p && (String(p.name || '').trim() || String(p.phone || '').trim())) {
+      out.person = { name: String(p.name || '').trim(), phone: String(p.phone || '').trim() };
+    }
+    return out;
   }
   function normalizeTask(raw) {
     if (!raw || !raw.id) return null;
@@ -216,6 +224,7 @@
       state.settings.reviewQuestions = stringList(state.settings.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
       state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
       state.settings.serviceTools = stringList(state.settings.serviceTools, DEFAULT_SERVICE_TOOLS);
+      state.settings.taskPresets = stringList(state.settings.taskPresets, DEFAULT_TASK_PRESETS);
       state.settings.taskRules = Share.normalizeTaskRules(state.settings.taskRules);
       state.settings.holds = Share.normalizeHolds(state.settings.holds, Share.todayIso());
       state.clients = (parsed.clients || []).map(normalizeClient);
@@ -249,7 +258,8 @@
   function settingsForSync() {
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
-      serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds };
+      serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds,
+      taskPresets: state.settings.taskPresets };
   }
 
   // ---------- 거래처 ----------
@@ -674,7 +684,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -795,6 +805,7 @@
         state.settings.reviewQuestions = stringList(ds.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
         state.settings.reviewTags = stringList(ds.reviewTags, Share.DEFAULT_REVIEW_TAGS);
         state.settings.serviceTools = stringList(ds.serviceTools, DEFAULT_SERVICE_TOOLS);   // 예전 백업엔 없다 → 기본값
+        state.settings.taskPresets = stringList(ds.taskPresets, DEFAULT_TASK_PRESETS);
         state.settings.taskRules = Share.normalizeTaskRules(ds.taskRules);
         state.settings.holds = Share.normalizeHolds(ds.holds, Share.todayIso());
         state.clients = (data.clients || []).map(normalizeClient);
