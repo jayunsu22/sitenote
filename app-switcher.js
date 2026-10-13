@@ -5,9 +5,12 @@
    (예: songil.netlify.app 쪽 7개 앱은 서로 공유, autoblog/sitenote는 각자 따로).
    이 앱 전용 바로가기(2026-10-14): 페이지가 window.AppSwitcherActions 에
    { icon, name, onClick } 을 넣어 두면 패널 맨 위 '이 앱에서' 칸에 버튼으로 뜬다.
-   스크립트 순서와 상관없이 패널을 열 때 읽는다. 없으면 칸이 안 생긴다(다른 앱은 그대로). */
+   스크립트 순서와 상관없이 패널을 열 때 읽는다. 없으면 칸이 안 생긴다(다른 앱은 그대로).
+   버튼 옮기기(2026-10-14): 버튼을 꾹 잡고 끌면 옮겨진다. 놓으면 가까운 쪽 화면 끝(왼쪽/오른쪽)에 붙고,
+   높이와 쪽은 이 기기에 기억한다(같은 주소의 앱끼리 공유). 살짝 누르면 지금처럼 패널이 열린다. */
 (function () {
   var STORAGE_KEY = 'myAppSwitcherList_v1';
+  var POS_KEY = 'myAppSwitcherPos_v1';   // { side: 'left'|'right', y: 0~1 (화면 높이 비율) }
 
   var DEFAULT_APPS = [
     { id: 'admin', name: '필름현장관리자', icon: '🏢', url: 'https://jayunsu22.github.io/autoblog/admin.html' },
@@ -50,7 +53,9 @@
     var css = ''
       + '.aswBtn{position:fixed;top:50%;right:6px;transform:translateY(-50%);z-index:99998;'
       + 'width:40px;height:40px;border-radius:50%;background:rgba(37,99,235,.85);color:#fff;border:none;'
-      + 'display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;padding:0;}'
+      + 'display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer;padding:0;'
+      + 'touch-action:none;-webkit-user-select:none;user-select:none;}'
+      + '.aswBtn.drag{background:rgba(37,99,235,1);box-shadow:0 6px 16px rgba(0,0,0,.35);transform:translate(-50%,-50%) scale(1.15);}'
       + '.aswOverlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99999;display:none;}'
       + '.aswOverlay.on{display:block;}'
       + '.aswPanel{position:absolute;top:0;left:0;right:0;max-height:88vh;overflow:auto;background:#fff;'
@@ -249,6 +254,65 @@
     document.getElementById('aswOverlay').classList.remove('on');
   }
 
+  // ---------- 버튼 위치 (끌어서 옮기기) ----------
+  function loadPos() {
+    try {
+      var p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+      if (p && (p.side === 'left' || p.side === 'right') && p.y >= 0 && p.y <= 1) return p;
+    } catch (e) { /* 저장소를 못 읽으면 기본 위치 */ }
+    return { side: 'right', y: 0.5 };
+  }
+  function savePos(p) {
+    try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch (e) { /* 시크릿 모드 등 */ }
+  }
+  function applyPos(btn, p) {
+    btn.style.top = (p.y * 100) + '%';
+    btn.style.left = p.side === 'left' ? '6px' : 'auto';
+    btn.style.right = p.side === 'right' ? '6px' : 'auto';
+    btn.style.transform = '';
+  }
+  // 손가락이 8px 넘게 움직이면 끌기, 아니면 누르기(패널 열기)
+  function makeDraggable(btn) {
+    var start = null, dragging = false, justDragged = false;
+    btn.addEventListener('pointerdown', function (e) {
+      start = { x: e.clientX, y: e.clientY };
+      dragging = false;
+      try { btn.setPointerCapture(e.pointerId); } catch (er) { /* 지원 안 함 */ }
+    });
+    btn.addEventListener('pointermove', function (e) {
+      if (!start) return;
+      if (!dragging && Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) < 8) return;
+      dragging = true;
+      btn.classList.add('drag');
+      btn.style.left = e.clientX + 'px';
+      btn.style.right = 'auto';
+      btn.style.top = e.clientY + 'px';
+      btn.style.transform = 'translate(-50%,-50%) scale(1.15)';
+      e.preventDefault();
+    });
+    var end = function (e) {
+      if (!start) return;
+      start = null;
+      btn.classList.remove('drag');
+      if (!dragging) return;
+      dragging = false;
+      justDragged = true;
+      setTimeout(function () { justDragged = false; }, 300);
+      var h = window.innerHeight || 1;
+      var y = Math.min(0.94, Math.max(0.06, e.clientY / h));
+      var p = { side: e.clientX < (window.innerWidth || 0) / 2 ? 'left' : 'right', y: Math.round(y * 1000) / 1000 };
+      savePos(p);
+      applyPos(btn, p);
+    };
+    btn.addEventListener('pointerup', end);
+    btn.addEventListener('pointercancel', end);
+    // 끌고 놓은 직후 생기는 click 은 패널을 열지 않는다
+    btn.addEventListener('click', function (e) {
+      if (justDragged) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+      openPanel();
+    });
+  }
+
   function init() {
     injectStyle();
 
@@ -257,7 +321,8 @@
     btn.type = 'button';
     btn.setAttribute('aria-label', '내 앱 전환');
     btn.innerHTML = svgGrid();
-    btn.addEventListener('click', openPanel);
+    applyPos(btn, loadPos());
+    makeDraggable(btn);
     document.body.appendChild(btn);
 
     var overlay = document.createElement('div');
