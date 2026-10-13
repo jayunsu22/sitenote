@@ -767,7 +767,6 @@ textarea { resize: vertical; }
 .nav-copy:active { background: #dbeafe; }
 
 /* ---------- 할 일 (2026-10-14) ---------- */
-#viewSchedule .schedule-body { padding-bottom: 96px; }   /* 떠 있는 '＋ 할 일' 버튼에 마지막 카드가 가리지 않게 */
 .schcal-cell { position: relative; }
 .schcal-task { position: absolute; top: 4px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
 .schcal-cell.today .schcal-task { background: #fde68a; }

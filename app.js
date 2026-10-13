@@ -2921,7 +2921,15 @@
     },
     openService: function (siteId, svcId) { openServiceSheet(siteId, svcId, refreshView); }
   });
-  $('btnAddTask').onclick = function () { TaskUI.openTaskSheet({ date: pickedDate || Share.todayIso() }); };
+  // '＋ 할 일' 은 떠 있는 버튼 대신 앱 이동(⊞) 패널 맨 위에 둔다 — 떠 있는 버튼이 두 개면 거슬린다 (2026-10-14)
+  (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
+    icon: '＋', name: '할 일 넣기',
+    onClick: function () {
+      var s = /^#site\//.test(location.hash || '') ? Store.getSite(currentSiteId) : null;
+      if (s) { TaskUI.openTaskSheet({ link: { type: 'site', id: s.id, siteId: s.id, label: Share.titleLine(s) } }); return; }
+      TaskUI.openTaskSheet({ date: (location.hash === '#schedule' && pickedDate) || Share.todayIso() });
+    }
+  });
   $('btnSiteTask').onclick = function () {
     var s = Store.getSite(currentSiteId); if (!s) return;
     TaskUI.openTaskSheet({ link: { type: 'site', id: s.id, siteId: s.id, label: Share.titleLine(s) } });
