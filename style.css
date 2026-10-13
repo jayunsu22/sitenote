@@ -889,3 +889,14 @@ textarea { resize: vertical; }
   border-radius: 50%; background: #dcfce7; font-size: 18px; text-decoration: none; }
 .task-person-call { display: block; margin: 0 0 12px; padding: 12px; border-radius: 10px; background: #16a34a; color: #fff;
   font-size: 15px; font-weight: 800; text-align: center; text-decoration: none; }
+
+/* 할 일 창: 관련된 사람 연락처 목록 · 삭제하기 (2026-10-14) */
+.task-contact { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px;
+  border: 1.5px solid var(--border); border-radius: 10px; background: #fff; color: var(--text); text-decoration: none; }
+.task-contact:active { background: #f0fdf4; }
+.task-contact.mine { border-color: #86efac; background: #f0fdf4; }
+.task-contact-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.task-contact-txt b { font-size: 15px; font-weight: 800; }
+.task-contact-txt span { font-size: 12.5px; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-contact-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #dcfce7; font-size: 18px; }
+.task-del { display: block; width: 100%; margin-top: 14px; padding: 12px; border-color: #fecaca; background: #fff5f5; color: var(--danger); font-size: 14px; }
