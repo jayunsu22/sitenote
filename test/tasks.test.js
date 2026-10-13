@@ -131,5 +131,15 @@ test('taskGroups: 밀린 것·날짜 없는 것·날짜별 열린/끝난 것', (
   assert.ok(!('' in g.byDate));                                          // 날짜 없이 끝난 건 어디에도 안 보인다
 });
 
+test('모집 문구: 날짜·동네·부족 인원, 현장명은 안 나간다', () => {
+  const s = 현장({ name: '군포 우륵아파트 704동 606호', calRegion: '산본', needStaff: 3,
+    days: [{ date: '2026-10-17', staff: ['김기사'] }, { date: '2026-10-18', staff: [] }] });
+  const t = Share.buildRecruitText(s);
+  assert.ok(t.includes('10/17(토), 10/18(일)'), t);
+  assert.ok(t.includes('📍 산본'), t);
+  assert.ok(t.includes('👥 2명'), t);
+  assert.ok(!t.includes('우륵') && !t.includes('606'), t);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

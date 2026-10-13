@@ -1033,6 +1033,18 @@
     });
     return out;
   }
+  // 밴드에 올리는 인원 모집 문구. 현장명·주소는 넣지 않는다(공개 게시판) — 동네 이름만
+  function buildRecruitText(site) {
+    var st = staffStatus(site);
+    var days = daysOf(site).map(function (d) { return str(d.date); }).filter(isIsoDate).map(dayLabel);
+    var lines = ['🙋 필름시공 같이 일하실 분 구합니다'];
+    if (days.length) lines.push('📅 ' + days.join(', '));
+    var rg = regionOf(site);
+    if (rg) lines.push('📍 ' + rg);
+    if (st.short) lines.push('👥 ' + st.short + '명');
+    lines.push('가능하신 분 댓글이나 연락 주세요');
+    return lines.join('\n');
+  }
   // 같은 날 안의 순서: 시각 있는 것(이른 순) → 오전 → 오후 → 시간 없음
   function taskTimeKey(t) {
     var v = str(t && t.time);
@@ -1067,6 +1079,7 @@
     autoTasks: autoTasks,
     taskTimeKey: taskTimeKey,
     taskGroups: taskGroups,
+    buildRecruitText: buildRecruitText,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,

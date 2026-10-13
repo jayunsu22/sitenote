@@ -765,3 +765,79 @@ textarea { resize: vertical; }
 .site-fields .frow-name .flabel { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nav-copy { flex: none; min-height: 34px; padding: 0 12px; border: 1.5px solid var(--primary, #2563eb); border-radius: 17px; background: #eff6ff; color: var(--primary-dark, #1d4ed8); font-size: 13px; font-weight: 800; }
 .nav-copy:active { background: #dbeafe; }
+
+/* ---------- 할 일 (2026-10-14) ---------- */
+#viewSchedule .schedule-body { padding-bottom: 96px; }   /* 떠 있는 '＋ 할 일' 버튼에 마지막 카드가 가리지 않게 */
+.schcal-cell { position: relative; }
+.schcal-task { position: absolute; top: 4px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.schcal-cell.today .schcal-task { background: #fde68a; }
+.add-kind-task { border-color: #fde68a; background: #fffbeb; }
+.add-kind-task b { color: #b45309; }
+
+.task-day { margin: 0 0 12px; padding: 6px 4px 4px; border-left: 3px solid #fbbf24; background: transparent; }
+.task-day-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 4px 8px; }
+.task-day-head b { font-size: 14px; font-weight: 800; }
+.task-day-head span { font-size: 12px; font-weight: 700; color: var(--muted); }
+.task-day-add { margin-left: auto; width: 32px; height: 28px; border: 1.5px dashed #fbbf24; border-radius: 8px; background: #fffbeb; color: #b45309; font-weight: 800; }
+.task-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px 6px 8px; }
+.task-row + .task-row { border-top: 1px dashed var(--border); }
+.task-ck { flex: none; width: 24px; height: 24px; margin-top: 1px; border: 2px solid #94a3b8; border-radius: 6px; background: #fff;
+  color: #fff; font-size: 14px; font-weight: 900; line-height: 20px; padding: 0; text-align: center; }
+.task-ck.on { background: var(--success); border-color: var(--success); }
+.task-main { flex: 1; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; color: var(--text); }
+.task-top { font-size: 15px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.task-top > span { margin-right: 5px; }
+.task-top > span:last-child { margin-right: 0; }
+.task-ic { display: inline-block; }
+.task-time { flex: none; color: #b45309; font-weight: 800; font-size: 13.5px; }
+.task-was { flex: none; color: var(--danger); font-weight: 800; font-size: 12.5px; }
+.task-auto { display: inline-block; vertical-align: 2px; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: #fef3c7; color: #92400e; }
+.task-link { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.task-link.gone { color: #9ca3af; text-decoration: line-through; }
+.task-result { margin-top: 3px; font-size: 13px; color: #374151; white-space: pre-wrap; }
+.task-row.done .task-title { color: var(--muted); text-decoration: line-through; font-weight: 600; }
+.task-done-toggle { display: block; margin: 2px 0 0 8px; padding: 4px 0; border: 0; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 700; }
+
+.task-box { margin: 0 0 12px; padding: 8px 8px 4px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--card); }
+.task-late { border-color: #fca5a5; background: #fef2f2; }
+.task-box-head { display: block; width: 100%; padding: 2px 4px 6px; border: 0; background: transparent; text-align: left; font-size: 14px; font-weight: 800; color: var(--text); }
+.task-late .task-box-head { color: #b91c1c; }
+.task-undated .task-box-head { color: #4b5563; }
+
+.task-sheet { max-height: 88vh; overflow-y: auto; }
+.task-sec { margin: 0 0 14px; }
+.task-sec-h { font-size: 13px; font-weight: 800; color: #374151; margin: 0 0 6px; }
+.task-sub { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 8px 0 4px; }
+.task-input { width: 100%; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; font-size: 15px; }
+.task-date, .task-time-in, .task-select { display: block; width: 100%; margin-top: 6px; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 15px; }
+.task-chips { margin-bottom: 0; }
+.task-linkbox .task-select:first-child { margin-top: 8px; }
+.task-meta { font-size: 13px; font-weight: 700; color: var(--muted); margin: -4px 0 10px; }
+.task-film { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; }
+.task-short { font-size: 14px; font-weight: 800; color: var(--danger); margin-bottom: 6px; }
+.task-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.task-actions .primary, .task-foot .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.task-call { text-decoration: none; display: inline-flex; align-items: center; }
+.task-check { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 2px; border: 0; border-bottom: 1px solid var(--border); background: transparent; font-size: 15px; font-weight: 600; text-align: left; color: var(--text); }
+.task-check .task-ck { margin-top: 0; }
+.task-check.on span:last-child { color: var(--muted); text-decoration: line-through; }
+.task-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.task-foot .task-ok { flex: 1; padding: 12px; font-size: 15px; }
+
+.notes-wrap .fixed-sub { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notes-body { padding-top: 12px; }
+.note-add { display: flex; gap: 8px; margin-bottom: 10px; }
+.note-add textarea { flex: 1; min-width: 0; }
+.note-add-btns { display: flex; flex-direction: column; gap: 6px; }
+.note-add-btns .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.note-line { padding: 8px 2px; border-top: 1px solid var(--border); cursor: pointer; }
+.note-h { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.note-kind { color: #b45309; }
+.note-from { padding: 0 6px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: 11px; }
+.note-text { margin-top: 2px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.task-rules { display: flex; flex-direction: column; gap: 8px; }
+.rule-row { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.rule-name { flex: 1; font-weight: 700; }
+.rule-pre, .rule-post { color: var(--muted); font-size: 13px; }
+.rule-num { width: 56px; padding: 8px; border: 1.5px solid var(--border); border-radius: 8px; text-align: center; font-size: 15px; }
