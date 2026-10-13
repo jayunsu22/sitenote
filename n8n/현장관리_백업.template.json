@@ -2,7 +2,7 @@
   "name": "거래처별 현장관리 백업",
   "nodes": [
     {
-      "id": "7b2e8245-3356-478a-80c4-e0382ffa68d2",
+      "id": "badf64f3-184f-4f1b-8634-a91b151cffdc",
       "name": "sync Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -10,7 +10,7 @@
         0,
         0
       ],
-      "webhookId": "b3eaaff0-704b-46c2-805b-55fe175bd782",
+      "webhookId": "caa76dd2-dde7-4f38-892d-24a55c950970",
       "parameters": {
         "httpMethod": "POST",
         "path": "sitenote-sync",
@@ -19,7 +19,7 @@
       }
     },
     {
-      "id": "722167cc-dd1c-4c51-b3c5-49aa47bbcab2",
+      "id": "7a9d7544-4acb-4281-b34f-a5688db41a69",
       "name": "키검사·배치생성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -28,11 +28,11 @@
         0
       ],
       "parameters": {
-        "jsCode": "\n// 백업키 검사 + 타입별 10건 배치 생성 (Airtable upsert 는 요청당 최대 10건)\nconst KEY = \"__BACKUP_KEY__\";\nconst body = $input.first().json.body || {};\nif (!body.key || body.key !== KEY) return [{ json: { error: 'unauthorized' } }];\nconst ops = Array.isArray(body.ops) ? body.ops : [];\nconst TABLE = { client: '거래처', site: '현장', photo: '사진', settings: '설정' };\nconst now = new Date().toISOString();\nconst byTable = {};\nfor (const op of ops) {\n  const table = TABLE[op.type]; if (!table || !op.id) continue;\n  const d = op.data || {};\n  let fields = { id: String(op.id), data: JSON.stringify(d), '수정시각': now, '삭제': op.op === 'delete' };\n  if (op.type === 'client') Object.assign(fields, { '이름': d.name || '', '순서': Number(d.order || 0) });\n  if (op.type === 'site') Object.assign(fields, { '현장명': d.name || '', '거래처id': d.clientId || '', '시작날짜': d.date || '' });\n  if (op.type === 'photo') Object.assign(fields, { '이름': d.name || '', '거래처id': d.clientId || '' });\n  if (op.op === 'delete') fields = { id: String(op.id), '삭제': true, '수정시각': now };\n  (byTable[table] = byTable[table] || []).push({ fields });\n}\nconst out = [];\nfor (const table of Object.keys(byTable)) {\n  const recs = byTable[table];\n  for (let i = 0; i < recs.length; i += 10) {\n    out.push({ json: { table, body: { performUpsert: { fieldsToMergeOn: ['id'] }, records: recs.slice(i, i + 10), typecast: true } } });\n  }\n}\nif (!out.length) return [{ json: { table: '', body: null, empty: true } }];\nreturn out;\n"
+        "jsCode": "\n// 백업키 검사 + 타입별 10건 배치 생성 (Airtable upsert 는 요청당 최대 10건)\nconst KEY = \"__BACKUP_KEY__\";\nconst body = $input.first().json.body || {};\nif (!body.key || body.key !== KEY) return [{ json: { error: 'unauthorized' } }];\nconst ops = Array.isArray(body.ops) ? body.ops : [];\nconst TABLE = { client: '거래처', site: '현장', photo: '사진', settings: '설정', task: '할일' };\nconst now = new Date().toISOString();\nconst byTable = {};\nfor (const op of ops) {\n  const table = TABLE[op.type]; if (!table || !op.id) continue;\n  const d = op.data || {};\n  let fields = { id: String(op.id), data: JSON.stringify(d), '수정시각': now, '삭제': op.op === 'delete' };\n  if (op.type === 'client') Object.assign(fields, { '이름': d.name || '', '순서': Number(d.order || 0) });\n  if (op.type === 'site') Object.assign(fields, { '현장명': d.name || '', '거래처id': d.clientId || '', '시작날짜': d.date || '' });\n  if (op.type === 'photo') Object.assign(fields, { '이름': d.name || '', '거래처id': d.clientId || '' });\n  if (op.type === 'task') Object.assign(fields, { '제목': d.title || '', '날짜': d.date || '' });\n  if (op.op === 'delete') fields = { id: String(op.id), '삭제': true, '수정시각': now };\n  (byTable[table] = byTable[table] || []).push({ fields });\n}\nconst out = [];\nfor (const table of Object.keys(byTable)) {\n  const recs = byTable[table];\n  for (let i = 0; i < recs.length; i += 10) {\n    out.push({ json: { table, body: { performUpsert: { fieldsToMergeOn: ['id'] }, records: recs.slice(i, i + 10), typecast: true } } });\n  }\n}\nif (!out.length) return [{ json: { table: '', body: null, empty: true } }];\nreturn out;\n"
       }
     },
     {
-      "id": "68f64f72-a5df-482e-9934-ab3a52d0ef2a",
+      "id": "d0e985b5-0ebc-4720-b08a-763e5f83f8e9",
       "name": "인증됨?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -49,7 +49,7 @@
           },
           "conditions": [
             {
-              "id": "0516f065-4162-4d57-9801-e540d426268f",
+              "id": "b9ff95b4-af3f-40a2-951a-186b8e132412",
               "leftValue": "={{ $json.error }}",
               "rightValue": "",
               "operator": {
@@ -65,7 +65,7 @@
       }
     },
     {
-      "id": "c3b4af3f-bcd4-4f58-ad4d-6a22c4666516",
+      "id": "e7667de4-8bcc-4690-9141-f0d8a3c847f8",
       "name": "보낼 것 있음?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
           },
           "conditions": [
             {
-              "id": "a3245c7f-fd9d-4c78-a34b-1233f7622b2a",
+              "id": "ff3519e5-ebfe-476f-8c50-928e8a2d0f44",
               "leftValue": "={{ !!$json.empty }}",
               "rightValue": "",
               "operator": {
@@ -98,7 +98,7 @@
       }
     },
     {
-      "id": "22fdc255-a9d8-4251-9970-09cf20f92c5d",
+      "id": "718367fb-a2e2-4b77-90f7-e8a1544a960a",
       "name": "Airtable upsert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -124,7 +124,7 @@
       }
     },
     {
-      "id": "97c69f5c-f05c-4330-b282-fe87527fcaee",
+      "id": "83ca6571-497a-4338-aa54-167ba80f33ee",
       "name": "결과집계",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -137,7 +137,7 @@
       }
     },
     {
-      "id": "62d9e249-bf2b-437f-b6b7-7e28f2b1608f",
+      "id": "d383bb28-c748-4ebe-9856-c10a23267272",
       "name": "응답 OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -152,7 +152,7 @@
       }
     },
     {
-      "id": "d42c1246-5340-40bd-a001-2f95360d33be",
+      "id": "5289f715-f5a2-477d-8b39-cbb5d7ade178",
       "name": "응답 (빈 요청)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -167,7 +167,7 @@
       }
     },
     {
-      "id": "07facb3b-5287-47b9-ad31-73bd126f2e01",
+      "id": "e078b20d-dd4f-4f03-a41a-1d4a2604e2b3",
       "name": "응답 401",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -184,7 +184,7 @@
       }
     },
     {
-      "id": "ab4d0872-d5db-4c1d-a8a4-6e1159c105d1",
+      "id": "d9010b13-6be2-4141-98c3-beec07ecc144",
       "name": "restore Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -192,7 +192,7 @@
         0,
         400
       ],
-      "webhookId": "e4fd16fe-58c5-4645-b6c6-a13dfa5ec18a",
+      "webhookId": "8e078083-0bf6-4ed0-98a3-2345af4337c8",
       "parameters": {
         "httpMethod": "GET",
         "path": "sitenote-restore",
@@ -201,7 +201,7 @@
       }
     },
     {
-      "id": "2255b9d7-dfb2-4422-a26b-eec611728813",
+      "id": "485bba25-6105-4d56-bb33-9761373b4cab",
       "name": "복원 키검사",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -214,7 +214,7 @@
       }
     },
     {
-      "id": "100fa194-8347-4e68-b385-4a46595ae952",
+      "id": "fcc374a1-9b4c-4e3c-985f-0c9d38f52976",
       "name": "복원 인증됨?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -231,7 +231,7 @@
           },
           "conditions": [
             {
-              "id": "b8a69f6a-4282-43ac-9e6f-b35b4e004463",
+              "id": "fb7c2b3e-d156-42bb-8498-663b8ef79c14",
               "leftValue": "={{ $json.error }}",
               "rightValue": "",
               "operator": {
@@ -247,7 +247,7 @@
       }
     },
     {
-      "id": "2bee220c-2f10-4a58-bd97-fa66c8ee766d",
+      "id": "4696b8a1-ca3e-412e-864b-033845dab5f2",
       "name": "거래처 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -301,7 +301,7 @@
       "executeOnce": true
     },
     {
-      "id": "ac2bb582-69de-4054-b3d8-03df0631390e",
+      "id": "4e884d54-4f85-4656-a705-8362516a1259",
       "name": "현장 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -355,7 +355,7 @@
       "executeOnce": true
     },
     {
-      "id": "a1d1d23c-d6c8-494e-8cba-7b73e292cdd4",
+      "id": "33a2d729-ea55-42da-8a3c-b3ef6f0f11dc",
       "name": "설정 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -409,7 +409,7 @@
       "executeOnce": true
     },
     {
-      "id": "46c319a4-f90e-40c2-9da6-92ad6ef00229",
+      "id": "4cb078e9-47e2-4685-b723-0f20144c2671",
       "name": "사진 읽기",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -463,7 +463,61 @@
       "executeOnce": true
     },
     {
-      "id": "fe06cfd5-59b5-48da-8668-da976f55f086",
+      "id": "61436d5a-6c6a-4553-9d7d-a7651c2cd4f5",
+      "name": "할일 읽기",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        520
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "J5wefJCMalpjjm3Q",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.airtable.com/v0/__BASE_ID__/할일",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filterByFormula",
+              "value": "NOT({삭제})"
+            },
+            {
+              "name": "pageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}"
+            }
+          }
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "b704191a-fb25-4b97-929c-b9de7ef6f359",
       "name": "복원 합치기",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -472,11 +526,11 @@
         320
       ],
       "parameters": {
-        "jsCode": "\n// 4개 테이블 결과를 앱이 기대하는 형태로 합침\nfunction rows(nodeName) {\n  const out = [];\n  for (const it of $(nodeName).all()) {\n    const recs = (it.json.records) ? it.json.records : [];\n    for (const r of recs) {\n      const f = r.fields || {};\n      if (f['삭제']) continue;\n      try { out.push(JSON.parse(f.data || '{}')); } catch (e) { /* 손상된 행 무시 */ }\n    }\n  }\n  return out;\n}\nconst clients = rows('거래처 읽기');\nconst sites = rows('현장 읽기');\nconst photos = rows('사진 읽기');\nconst settingsRows = rows('설정 읽기');\nreturn [{ json: { clients, sites, photos, settings: settingsRows[0] || {} } }];\n"
+        "jsCode": "\n// 5개 테이블 결과를 앱이 기대하는 형태로 합침\nfunction rows(nodeName) {\n  const out = [];\n  for (const it of $(nodeName).all()) {\n    const recs = (it.json.records) ? it.json.records : [];\n    for (const r of recs) {\n      const f = r.fields || {};\n      if (f['삭제']) continue;\n      try { out.push(JSON.parse(f.data || '{}')); } catch (e) { /* 손상된 행 무시 */ }\n    }\n  }\n  return out;\n}\nconst clients = rows('거래처 읽기');\nconst sites = rows('현장 읽기');\nconst photos = rows('사진 읽기');\nconst settingsRows = rows('설정 읽기');\nconst tasks = rows('할일 읽기');\nreturn [{ json: { clients, sites, photos, settings: settingsRows[0] || {}, tasks } }];\n"
       }
     },
     {
-      "id": "d6c08392-8a0f-477e-8da8-bb62c9e68b7d",
+      "id": "d3999b69-a917-4018-b37a-baf62fe60024",
       "name": "복원 응답",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -491,7 +545,7 @@
       }
     },
     {
-      "id": "478abecd-2635-4dca-a80a-f642fe0ab1e6",
+      "id": "c4b4334c-b135-4851-8611-8ef4766bc2a7",
       "name": "복원 응답 401",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -663,6 +717,17 @@
       ]
     },
     "사진 읽기": {
+      "main": [
+        [
+          {
+            "node": "할일 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "할일 읽기": {
       "main": [
         [
           {
