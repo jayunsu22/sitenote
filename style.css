@@ -825,9 +825,10 @@ textarea { resize: vertical; }
 
 .notes-wrap .fixed-sub { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notes-body { padding-top: 12px; }
-.note-add { display: flex; gap: 8px; margin-bottom: 10px; }
-.note-add textarea { flex: 1; min-width: 0; }
-.note-add-btns { display: flex; flex-direction: column; gap: 6px; }
+.note-add { margin-bottom: 10px; }
+.note-add textarea { display: block; width: 100%; }
+.note-add-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.note-add-btns .btn-sm { padding: 10px 16px; }
 .note-add-btns .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .note-line { padding: 8px 2px; border-top: 1px solid var(--border); cursor: pointer; }
 .note-h { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
@@ -840,3 +841,16 @@ textarea { resize: vertical; }
 .rule-name { flex: 1; font-weight: 700; }
 .rule-pre, .rule-post { color: var(--muted); font-size: 13px; }
 .rule-num { width: 56px; padding: 8px; border: 1.5px solid var(--border); border-radius: 8px; text-align: center; font-size: 15px; }
+
+/* 발주처 담당자 (2026-10-14) */
+.owner-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.owner-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px 32px; grid-template-areas: "name role call del" "phone phone call del"; gap: 6px; align-items: center;
+  padding: 8px; border: 1.5px solid var(--border); border-radius: 10px; background: #fafafa; }
+.owner-row input { min-width: 0; padding: 8px 9px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; }
+.owner-name { grid-area: name; font-weight: 700; }
+.owner-role { grid-area: role; }
+.owner-phone { grid-area: phone; }
+.owner-call { grid-area: call; display: flex; align-items: center; justify-content: center; align-self: stretch; border-radius: 8px; background: #dcfce7; text-decoration: none; font-size: 18px; }
+.owner-call.disabled { background: #f3f4f6; opacity: .5; }
+.owner-del { grid-area: del; align-self: stretch; border: 0; border-radius: 8px; background: transparent; color: #9ca3af; font-size: 16px; }
+.svc-owners { margin: 0 0 8px; }

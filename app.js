@@ -1888,6 +1888,24 @@
     host.appendChild(svcPanel);
     fillServiceForm(true);
   }
+  // 고객 연락처 칸 위: 이 현장 발주처 담당자를 눌러서 채우기 (2026-10-14)
+  function renderSvcOwners(site) {
+    var wrap = $('svcOwners'); if (!wrap) return;
+    wrap.innerHTML = '';
+    var list = Share.ownerRows(site && site.owners);
+    wrap.hidden = !list.length;
+    list.forEach(function (r) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'chip pick';
+      b.textContent = '🏢 ' + (r.name || r.phone) + (r.role ? ' (' + r.role + ')' : '');
+      b.onclick = function () {
+        $('svcCustomer').value = r.name || r.role || '';
+        $('svcPhone').value = r.phone || '';
+        svcSave({ customer: $('svcCustomer').value, phone: $('svcPhone').value });
+        syncSvcCall();
+      };
+      wrap.appendChild(b);
+    });
+  }
   // 폼 칸을 지금 접수(svcSheet) 값으로 채운다 — 창으로 열 때와 탭에 붙일 때 같이 쓴다
   function fillServiceForm(isNew) {
     var c = curService(); if (!c) return;
@@ -1898,6 +1916,7 @@
     $('svcCustomer').value = c.v.customer || '';
     $('svcPhone').value = c.v.phone || '';
     syncSvcCall();
+    renderSvcOwners(c.site);
     $('svcDone').checked = !!c.v.done;
     $('svcOk').textContent = svcSheet.inline ? '✓ 접수 완료' : '확인';
     svcExtraRow = false;
@@ -2382,7 +2401,7 @@
     if (key === 'name' || key === 'unit' || key === 'size') $('siteTitle').textContent = Share.titleLine(s);
   }
   // 라벨 오른쪽 좁은 칸으로는 부족한 항목들 - 입력칸을 아래 줄로 내려 가로 폭을 꽉 채운다
-  var WIDE_TYPES = { multiline: 1, films: 1, link: 1 };
+  var WIDE_TYPES = { multiline: 1, films: 1, link: 1, contacts: 1 };
 
   function fieldRow(s, f) {
     var row = document.createElement('div');
@@ -2474,6 +2493,8 @@
       box3.appendChild(link); box3.appendChild(open); ctl.appendChild(box3);
     } else if (f.type === 'films') {
       renderFilms(ctl, s, save);
+    } else if (f.type === 'contacts') {
+      renderOwners(ctl, s, save);
     } else { // multiline
       var ta = document.createElement('textarea'); ta.rows = 4; ta.value = s[f.key] || '';
       ta.placeholder = f.placeholder || '카톡 대화 복붙, 기타 메모';
@@ -2482,6 +2503,54 @@
     }
     refreshRowState(row, s, f.key);
     return row;
+  }
+  /* 발주처 담당자 (2026-10-14) — 한 줄에 이름·역할·전화. 📞 로 바로 걸고 ✕ 로 뺀다.
+     적는 대로 저장한다. 빈 줄은 저장은 되지만 공유 문구·빈칸 판정에서는 없는 것으로 친다 */
+  function renderOwners(ctl, s, save) {
+    ctl.innerHTML = '';
+    var rows = ((Store.getSite(s.id) || s).owners || []).map(function (r) { return Object.assign({ name: '', role: '', phone: '' }, r); });
+    var commit = function () { var p = {}; p.owners = rows.map(function (r) { return Object.assign({}, r); }); save(p); };
+    var list = document.createElement('div'); list.className = 'owner-list';
+    rows.forEach(function (r, i) {
+      var line = document.createElement('div'); line.className = 'owner-row';
+      var mk = function (key, ph, cls, type) {
+        var inp = document.createElement('input'); inp.type = type || 'text'; inp.className = cls; inp.placeholder = ph;
+        inp.value = r[key] || ''; inp.autocomplete = 'off';
+        if (type === 'tel') inp.inputMode = 'tel';
+        inp.addEventListener('input', function () { r[key] = inp.value; commit(); syncCall(); });
+        line.appendChild(inp);
+        return inp;
+      };
+      mk('name', '이름', 'owner-name');
+      mk('role', '역할 (현장소장)', 'owner-role');
+      var ph = mk('phone', '010-0000-0000', 'owner-phone', 'tel');
+      var call = document.createElement('a'); call.className = 'owner-call'; call.textContent = '📞'; call.title = '전화 걸기';
+      var syncCall = function () {
+        var t = ph.value.replace(/[^0-9+]/g, '');
+        call.href = t ? 'tel:' + t : '#';
+        call.classList.toggle('disabled', !t);
+      };
+      call.onclick = function (e) { if (call.classList.contains('disabled')) e.preventDefault(); };
+      syncCall();
+      line.appendChild(call);
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'owner-del'; del.textContent = '✕'; del.title = '빼기';
+      del.onclick = function () {
+        var who = (r.name || r.phone || '').trim();
+        var go_ = function () { rows.splice(i, 1); commit(); renderOwners(ctl, Store.getSite(s.id) || s, save); };
+        if (!who) { go_(); return; }
+        modalConfirm('담당자 빼기', '"' + who + '" 을(를) 뺄까요?', '빼기', true).then(function (ok) { if (ok) go_(); });
+      };
+      line.appendChild(del);
+      list.appendChild(line);
+    });
+    ctl.appendChild(list);
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'film-add owner-add'; add.textContent = '＋ 담당자 추가';
+    add.onclick = function () {
+      rows.push({ name: '', role: '', phone: '' }); commit();
+      renderOwners(ctl, Store.getSite(s.id) || s, save);
+      var names = ctl.querySelectorAll('.owner-name'); if (names.length) names[names.length - 1].focus();
+    };
+    ctl.appendChild(add);
   }
   function renderFilms(ctl, s, save) {
     ctl.innerHTML = '';
@@ -2552,7 +2621,8 @@
     el.className = n ? '' : 'none';
   }
   function setAllChecked(on) {
-    Share.FIELDS.forEach(function (f) { checked[f.key] = on && f.key !== 'name'; });
+    // 발주처 담당자는 '전체 선택' 에 안 들어간다 — 고객 번호는 그 칸을 직접 체크했을 때만 기사님께 나간다 (2026-10-14)
+    Share.FIELDS.forEach(function (f) { checked[f.key] = on && f.key !== 'name' && f.key !== 'owners'; });
     document.querySelectorAll('#siteFields .fcheck').forEach(function (cb) {
       var k = cb.dataset.key;
       cb.checked = !!checked[k];

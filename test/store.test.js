@@ -808,6 +808,18 @@ function reset() {
     assert.deepStrictEqual(Store.state.settings.serviceTools, ['사포', '퍼티', '열풍기', '재단판']);
   });
 
+  await test('발주처 담당자: 새 현장은 빈 목록, 옛 현장 보정, 모양 정리', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    assert.deepStrictEqual(s.owners, []);
+    mem['sitenote.v1'] = JSON.stringify({ clients: [{ id: 'c1', name: 'A', order: 0 }],
+      sites: [{ id: 's1', clientId: 'c1', name: 'x', films: [] },
+              { id: 's2', clientId: 'c1', name: 'y', films: [], owners: [{ name: ' 김과장 ', role: '소장', phone: '010' }, 'bad', null] }] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite('s1').owners, []);
+    assert.deepStrictEqual(Store.getSite('s2').owners, [{ name: '김과장', role: '소장', phone: '010' }]);
+  });
+
   console.log('할 일 (2026-10-14)');
   await test('addTask: 제목 필수, 기본값, 큐 type=task', () => {
     reset();

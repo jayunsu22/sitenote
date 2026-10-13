@@ -13,6 +13,9 @@
     // 현장명에 같이 적는 게 빠르다. 예전에 저장한 값은 titleLine 이 그대로 붙여준다.
     // 현장주소 칸도 뺐다(2026-09-17). 네비에 직접 넣는 게 빠르다.
     { key: 'name',    label: '현장명',        type: 'text' },
+    // 발주처 담당자 (2026-10-14) — 이 현장을 맡긴 쪽 사람들(현장소장·집주인·경리 …). 여러 명.
+    // 우리가 채우는 칸이라 질문 대상이 아니다. 팀원 공유는 체크했을 때만 나간다(고객 번호가 기사님께 퍼지지 않게)
+    { key: 'owners',  label: '발주처 담당자', type: 'contacts', shareLabel: '🏢 발주처 담당자' },
     // 달력지역 - 일정 화면 '지역 보기' 칸에 뜰 이름. 비워두면 현장명에서 알아서 뽑는다.
     // 뽑은 게 마음에 안 들 때('인천'만 잡힌다든지) 여기에 직접 적으면 그게 뜬다.
     // 공유 문구에는 안 나간다 - 우리가 일정 잡으려고 쓰는 칸이라 업자·팀원과 상관없다
@@ -126,6 +129,7 @@
     var v = site[key];
     if (f.type === 'select') return !v || str(v.v) === '' || v.v === '미확인';
     if (f.type === 'films') return !Array.isArray(v) || !v.some(function (r) { return r && str(r.code) !== ''; });
+    if (f.type === 'contacts') return !ownerRows(v).length;
     return str(v) === '';
   }
 
@@ -223,8 +227,16 @@
   // 팀원에게 공유: 선택된 키 중 채워진 항목만. 제목 줄은 항상 포함(날짜는 date 선택 시 제목 줄 뒤에)
   // 현장 정보 줄 (주소·비번·출입·주차·필름 …) — has 에 켜진 칸만, FIELDS 순서로.
   // 팀원 공유 문구와 AS 지시 문구가 같이 쓴다
+  // 발주처 담당자 중 이름이나 번호가 있는 줄만
+  function ownerRows(v) {
+    return (Array.isArray(v) ? v : []).filter(function (r) { return r && (str(r.name) || str(r.phone)); });
+  }
+  function ownerLine(r) {
+    return (str(r.name) + (str(r.role) ? '(' + str(r.role) + ')' : '') + ' ' + str(r.phone)).trim();
+  }
   function infoLines(site, has) {
     var lines = [];
+    if (has.owners) lines.push(FIELD_MAP.owners.shareLabel + ':\n' + ownerRows(site.owners).map(ownerLine).join('\n'));
     if (has.address) lines.push('📍 ' + str(site.address));
     if (has.pwLobby) lines.push('공동현관비번: ' + str(site.pwLobby));
     if (has.pwUnit) lines.push('세대비번: ' + str(site.pwUnit));
@@ -1079,6 +1091,8 @@
     autoTasks: autoTasks,
     taskTimeKey: taskTimeKey,
     taskGroups: taskGroups,
+    ownerRows: ownerRows,
+    ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
