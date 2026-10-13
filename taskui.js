@@ -435,12 +435,7 @@
       meta.textContent = [t.date ? Share.dayLabel(t.date) : '날짜 없음', t.time, t.auto ? '' : linkLabel(t)].filter(Boolean).join(' · ');
       body.appendChild(meta);
       if (t.auto) body.appendChild(el('p', 'sheet-hint', '앱이 현장 상태를 보고 만든 할 일이에요. 아래에서 처리하면 저절로 사라져요.'));
-      var ptel = personTel(t);
-      if (ptel) {
-        var pa = el('a', 'task-person-call', '📞 ' + (t.link.person.name || '') + ' ' + t.link.person.phone + ' 전화 걸기');
-        pa.href = 'tel:' + ptel;
-        body.appendChild(pa);
-      }
+      renderContacts(body, t);
 
       if (t.kind === 'hold') {
         var hs = section(body, '⏳ ' + Share.dayLabel(t.holdDate) + ' 대기 인원');
@@ -485,17 +480,80 @@
         };
       }
       body.appendChild(foot);
+      body.appendChild(btn('btn-sm task-del', '🗑 할 일 삭제하기', function () {
+        d.modalConfirm('할 일 삭제', '"' + t.title + '" 을(를) 지울까요?', '삭제', true).then(function (ok) {
+          if (!ok) return;
+          Store.deleteTask(t.id); d.toast('지웠어요'); closeSheet();
+        });
+      }));
+    });
+  }
+
+  /* 할 일에 관련된 사람 모두의 연락처 (2026-10-14) — 눌러서 바로 전화.
+     현장: 발주처 담당자 · 거래처 담당자 · 그 현장 팀원 / AS: + 고객 · 담당 기사 /
+     거래처: 거래처 담당자 · 진행 중인 현장들의 발주처 담당자. 이 할 일에 고른 담당자가 맨 위. 같은 번호는 한 번만 */
+  function digits(v) { return String(v || '').replace(/[^\d+]/g, ''); }
+  function contactsFor(t) {
+    var out = [], seen = {};
+    var add = function (name, phone, tag, mine) {
+      var tel = digits(phone);
+      if (!tel || seen[tel]) return;
+      seen[tel] = 1;
+      out.push({ name: String(name || '').trim(), phone: String(phone).trim(), tel: tel, tag: tag, mine: !!mine });
+    };
+    var p = t.link && t.link.person;
+    if (p) add(p.name, p.phone, '이 할 일 담당', true);
+    var r = resolve(t.link);
+    if (!r) return out;
+    var people = Store.state.settings.people || {};
+    var team = function (names, tag) {
+      names.forEach(function (n) { add(n, Share.personOf(people, n).phone, tag); });
+    };
+    var siteParts = function (s) {
+      Share.ownerRows(s.owners).forEach(function (o) { add(o.name || o.role, o.phone, '🏢 발주처' + (o.role ? ' · ' + o.role : '')); });
+      var c = Store.getClient(s.clientId);
+      if (c) (c.contacts || []).forEach(function (x) { if (x) add(x.name, x.phone, '거래처 ' + c.name); });
+      var staff = [];
+      Share.daysOf(s).forEach(function (dd) { (dd.staff || []).forEach(function (n) { if (staff.indexOf(n) === -1) staff.push(n); }); });
+      team(staff, '👷 팀원');
+    };
+    if (r.service) {
+      add(r.service.customer || '고객', r.service.phone, '🙋 AS 고객');
+      team(r.service.staff || [], '🔧 AS 기사');
+      siteParts(r.site);
+    } else if (r.site) {
+      siteParts(r.site);
+    } else if (r.client) {
+      (r.client.contacts || []).forEach(function (x) { if (x) add(x.name, x.phone, '거래처 ' + r.client.name); });
+      // 진행 중인 현장(마지막 날이 2주 안 지났거나 날짜 없음)의 발주처 담당자
+      var cut = Share.addDays(today(), -14);
+      Store.sitesOf(r.client.id).forEach(function (s) {
+        var ds = Share.daysOf(s).map(function (dd) { return dd.date; }).filter(Share.isIsoDate).sort();
+        if (ds.length && ds[ds.length - 1] < cut) return;
+        Share.ownerRows(s.owners).forEach(function (o) { add(o.name || o.role, o.phone, '🏢 ' + Share.titleLine(s)); });
+      });
+    }
+    return out;
+  }
+  function renderContacts(body, t) {
+    var list = contactsFor(t);
+    if (!list.length) return;
+    var s = section(body, '📞 연락처 — 눌러서 전화');
+    list.forEach(function (x) {
+      var a = el('a', 'task-contact' + (x.mine ? ' mine' : ''));
+      a.href = 'tel:' + x.tel;
+      var txt = el('span', 'task-contact-txt');
+      txt.appendChild(el('b', '', x.name || x.phone));
+      txt.appendChild(el('span', '', x.tag + ' · ' + x.phone));
+      a.appendChild(txt);
+      a.appendChild(el('span', 'task-contact-ic', '📞'));
+      s.appendChild(a);
     });
   }
   function renderClientPart(body, t, c) {
     var s = section(body, '거래처');
     var row = el('div', 'task-actions');
     row.appendChild(btn('btn-sm', '🏢 ' + c.name + ' 열기', function () { $('taskSheet').hidden = true; d.openClient(c.id); }));
-    (c.contacts || []).filter(function (p) { return p && p.phone; }).slice(0, 2).forEach(function (p) {
-      var a = el('a', 'btn-sm task-call', '📞 ' + (p.name || p.phone));
-      a.href = 'tel:' + String(p.phone).replace(/[^\d+]/g, '');
-      row.appendChild(a);
-    });
     if (!t.auto) row.appendChild(btn('btn-sm', '＋ 후속 할 일', function () {
       openTaskSheet({ link: { type: 'client', id: c.id, siteId: '', label: c.name }, date: Share.addDays(today(), 1) });
     }));
@@ -539,18 +597,6 @@
         if (!x || !x.name) return;
         su.appendChild(checkLine(x.name, x.ready, function () { Store.toggleSupply(site.id, i); openTaskDetail(t); }));
       });
-    }
-    // 발주처 담당자에게 바로 전화
-    var owners = Share.ownerRows(site.owners).filter(function (r) { return r.phone; });
-    if (owners.length) {
-      var os = section(body, '🏢 발주처 담당자');
-      var oa = el('div', 'task-actions');
-      owners.forEach(function (r) {
-        var a = el('a', 'btn-sm task-call', '📞 ' + (r.name || r.phone) + (r.role ? ' (' + r.role + ')' : ''));
-        a.href = 'tel:' + String(r.phone).replace(/[^\d+]/g, '');
-        oa.appendChild(a);
-      });
-      os.appendChild(oa);
     }
     var go = el('div', 'task-actions');
     go.appendChild(btn('btn-sm', '🏠 현장 열기', function () { $('taskSheet').hidden = true; d.go('#site/' + site.id); }));
