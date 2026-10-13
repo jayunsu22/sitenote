@@ -474,7 +474,7 @@
 
   function renderMain() {
     ensureCurrentClient();
-    renderTabs(); renderFixed(); renderCards(); renderSyncBadge();
+    renderTabs(); renderFixed(); TaskUI.renderClientNotes($('notesWrap'), currentClientId); renderCards(); renderSyncBadge();
   }
 
   // ---------- 백업 상태 배지 ----------
@@ -539,6 +539,7 @@
   function renderSchedule() {
     // 폰에 기억해 둔 보기 방식을 그린다 (다른 기기에서 바꾼 게 restore 로 들어와도 맞춘다)
     calShow = CAL_SHOWS.indexOf(state.settings.calShow) !== -1 ? state.settings.calShow : 'count';
+    taskDays = TaskUI.openTaskDays();
     renderScheduleCal();
     renderScheduleList();
   }
@@ -546,6 +547,7 @@
   /* ---------- 위쪽 달력 ---------- */
   // 한 칸: 날짜 + 건수 배지. 건수가 0이면 점선 동그라미(= 넣을 수 있는 날).
   // 지난 날은 점선을 안 그린다 — 지나간 날에 새로 배정할 일은 없다.
+  var taskDays = {};   // 안 끝난 할 일이 있는 날 { iso: 건수 } — 달력 칸에 주황 점 (2026-10-14)
   function calCell(iso, opts) {
     var o = opts || {};
     var today = Share.todayIso();
@@ -619,6 +621,7 @@
     else if (past) mark.className = 'schcal-blank';
     else mark.className = 'schcal-free';
     b.appendChild(mark);
+    if (taskDays[iso]) { var tdot = document.createElement('span'); tdot.className = 'schcal-task'; b.appendChild(tdot); }
     b.title = dateLabel(iso) + (Share.holidayName(iso) ? ' ' + Share.holidayName(iso) : '') + (o.svc ? ' · AS ' + o.svc + '건' : '') + ' · ' +
       (n ? '현장 ' + n + '건' + (n >= 2 && !past ? ' (겹침)' : '') + (rgs.length ? ' — ' + rgs.join(', ') : '')
          : '현장 없음') +
@@ -915,23 +918,35 @@
     var upAs = Share.upcomingServices(state.sites, today);
     var asMain = upAs.filter(function (x) { return x.service.date <= winEnd; });
     var asLater = upAs.filter(function (x) { return x.service.date > winEnd; });
+    // 할 일 (2026-10-14): 밀린 것·날짜 없는 것은 맨 위 상자, 나머지는 날짜별 묶음으로 현장 카드 사이에 끼운다
+    var tg = TaskUI.scheduleGroups();
+    var tDates = Object.keys(tg.byDate).filter(function (k) { return k >= today && (tg.byDate[k].open.length || tg.byDate[k].done.length); }).sort();
+    var tMain = tDates.filter(function (k) { return k <= winEnd; });
+    var tLater = tDates.filter(function (k) { return k > winEnd; });
+    var tPast = Object.keys(tg.byDate).filter(function (k) { return k < today && tg.byDate[k].done.length; }).sort().reverse();
+    if (tg.overdue.length) body.appendChild(TaskUI.renderOverdueBox(tg.overdue));
+    if (tg.undated.length) body.appendChild(TaskUI.renderUndatedBox(tg.undated));
 
     // 지난 일정: 맨 위에 접어두고, 펼치면 최근 날짜부터 거꾸로
-    if (g.pastCount) {
+    if (g.pastCount || tPast.length) {
       var pastBtn = document.createElement('button');
       pastBtn.type = 'button'; pastBtn.className = 'sch-more';
-      var pLast = g.past[0].end, pFirst = g.past[g.past.length - 1].start;
-      pastBtn.textContent = (showPast ? '▾' : '▸') + ' 지난 일정 ' + g.pastCount + '건 (' +
+      var pEnds = g.past.map(function (r) { return r.end; }).concat(tPast).sort();
+      var pStarts = g.past.map(function (r) { return r.start; }).concat(tPast).sort();
+      var pLast = pEnds[pEnds.length - 1], pFirst = pStarts[0];
+      pastBtn.textContent = (showPast ? '▾' : '▸') + ' 지난 일정 ' + g.pastCount + '건' +
+        (tPast.length ? ' · 끝낸 할 일 ' + tPast.length + '일' : '') + ' (' +
         Share.shortDate(pFirst) + ' ~ ' + Share.shortDate(pLast) + ')';
       pastBtn.onclick = function () { showPast = !showPast; renderScheduleList(); };
       body.appendChild(pastBtn);
       if (showPast) {
         g.past.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
+        tPast.forEach(function (k) { body.appendChild(TaskUI.renderTaskDay(k, tg.byDate[k])); });
         var sep = document.createElement('div'); sep.className = 'sch-sep'; body.appendChild(sep);
       }
     }
 
-    if (!g.runs.length && !g.laterCount && !upAs.length) {
+    if (!g.runs.length && !g.laterCount && !upAs.length && !tDates.length) {
       var e = document.createElement('div'); e.className = 'empty-state';
       e.textContent = '앞으로 한 달 안에 현장이 없습니다. 위 달력에서 날짜를 눌러 현장을 넣으세요.' +
         (noDate ? ' (시공날짜가 없는 현장 ' + noDate + '건은 거래처 탭에 있습니다)' : '');
@@ -939,27 +954,30 @@
       return;
     }
 
-    // 현장 카드와 AS 카드를 날짜순으로 섞는다. 같은 날이면 현장이 먼저
-    var mix = function (runs, asList) {
-      var i = 0;
-      runs.forEach(function (r) {
-        while (i < asList.length && asList[i].service.date < r.next) body.appendChild(renderServiceCard(asList[i++]));
-        body.appendChild(renderRunCard(r, dup, 차례++));
-      });
-      while (i < asList.length) body.appendChild(renderServiceCard(asList[i++]));
+    // 할 일 묶음·현장 카드·AS 카드를 날짜순으로 섞는다. 같은 날이면 할 일 → 현장 → AS
+    var mix = function (runs, asList, taskDates) {
+      var items = [];
+      taskDates.forEach(function (k) { items.push({ d: k, o: 0, make: function () { return TaskUI.renderTaskDay(k, tg.byDate[k]); } }); });
+      runs.forEach(function (r) { items.push({ d: r.next, o: 1, make: function () { return renderRunCard(r, dup, 차례++); } }); });
+      asList.forEach(function (x) { items.push({ d: x.service.date, o: 2, make: function () { return renderServiceCard(x); } }); });
+      items.forEach(function (it, i) { it.i = i; });
+      items.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : (a.o - b.o) || (a.i - b.i)); });
+      items.forEach(function (it) { body.appendChild(it.make()); });
     };
-    mix(g.runs, asMain);
+    mix(g.runs, asMain, tMain);
 
-    if (g.laterCount || asLater.length) {
+    if (g.laterCount || asLater.length || tLater.length) {
       var more = document.createElement('button');
       more.type = 'button'; more.className = 'sch-more';
-      var lStarts = g.later.map(function (r) { return r.start; }).concat(asLater.map(function (x) { return x.service.date; })).sort();
-      var lEnds = g.later.map(function (r) { return r.end; }).concat(asLater.map(function (x) { return x.service.date; })).sort();
-      more.textContent = (showLater ? '▾' : '▸') + ' 이후 일정 ' + (g.laterCount + asLater.length) + '건 (' +
+      var lStarts = g.later.map(function (r) { return r.start; }).concat(asLater.map(function (x) { return x.service.date; })).concat(tLater).sort();
+      var lEnds = g.later.map(function (r) { return r.end; }).concat(asLater.map(function (x) { return x.service.date; })).concat(tLater).sort();
+      var tLaterN = tLater.reduce(function (n, k) { return n + tg.byDate[k].open.length; }, 0);
+      more.textContent = (showLater ? '▾' : '▸') + ' 이후 일정 ' + (g.laterCount + asLater.length) + '건' +
+        (tLaterN ? ' · 할 일 ' + tLaterN + '건' : '') + ' (' +
         Share.shortDate(lStarts[0]) + ' ~ ' + Share.shortDate(lEnds[lEnds.length - 1]) + ')';
       more.onclick = function () { showLater = !showLater; renderScheduleList(); };
       body.appendChild(more);
-      if (showLater) mix(g.later, asLater);
+      if (showLater) mix(g.later, asLater, tLater);
     }
   }
 
@@ -1171,14 +1189,18 @@
     b.onclick = fn; wrap.appendChild(b);
   }
   function openAddSheet(iso) {
-    if (!Store.clients().length) { alert('거래처를 먼저 만들어 주세요. 거래처 화면의 ＋ 버튼입니다.'); return; }
+    if (!Store.clients().length) { TaskUI.openTaskSheet({ date: iso }); return; }   // 거래처가 없으면 할 일만 넣을 수 있다
     newSiteDate = iso;
     addSheetStep('일정 넣기', '어떤 일정인가요?', function (wrap) {
       [['➕ 신규 현장', '새 현장을 이 날짜로 만듭니다', 'site'],
-       ['🔧 AS·추가작업', '이미 한 현장에 AS·추가작업을 이 날짜로 잡습니다', 'svc']].forEach(function (k) {
+       ['🔧 AS·추가작업', '이미 한 현장에 AS·추가작업을 이 날짜로 잡습니다', 'svc'],
+       ['📝 할 일', '통화·필름 주문·인원 모집·챙길 것 — 이 날짜로 적습니다', 'task']].forEach(function (k) {
         var b = document.createElement('button'); b.type = 'button'; b.className = 'add-kind add-kind-' + k[2];
         b.innerHTML = '<b>' + esc(k[0]) + '</b><span>' + esc(k[1]) + '</span>';
-        b.onclick = function () { pickClientStep(k[2]); };
+        b.onclick = function () {
+          if (k[2] === 'task') { closeNewSiteSheet(); TaskUI.openTaskSheet({ date: newSiteDate }); return; }
+          pickClientStep(k[2]);
+        };
         wrap.appendChild(b);
       });
     });
@@ -2816,6 +2838,7 @@
     renderTeamList();
     renderSupplyDefaultList();
     renderServiceToolList();
+    TaskUI.renderTaskRules($('taskRules'));
     renderReviewSettingLists();
     var wrap = $('questionList'); wrap.innerHTML = '';
     Share.FIELDS.filter(function (f) { return f.question; }).forEach(function (f) {
@@ -2877,6 +2900,31 @@
       if (!ok) return;
       Store.setSettings({ questions: Object.assign({}, Share.DEFAULT_QUESTIONS) }); renderSettings(); toast('초기화됨');
     });
+  };
+
+  // ---------- 할 일 (2026-10-14) ----------
+  // 할 일 창을 닫거나 저장하면 지금 보고 있는 화면을 다시 그린다
+  function refreshView() {
+    var h = location.hash || '';
+    if (h === '#schedule') renderSchedule();
+    else if (/^#site\//.test(h)) renderSite();
+    else if (h === '#settings' || h === '#reviews') return;
+    else renderMain();
+  }
+  TaskUI.init({
+    toast: toast, copyText: copyText, go: go, modalPrompt: modalPrompt, modalConfirm: modalConfirm, modalSheet: modalSheet,
+    refresh: refreshView,
+    openClient: function (clientId) {
+      currentClientId = clientId;
+      if (state.settings.lastTab !== clientId) Store.setSettings({ lastTab: clientId });
+      if ((location.hash || '') === '' || location.hash === '#') renderMain(); else go('');
+    },
+    openService: function (siteId, svcId) { openServiceSheet(siteId, svcId, refreshView); }
+  });
+  $('btnAddTask').onclick = function () { TaskUI.openTaskSheet({ date: pickedDate || Share.todayIso() }); };
+  $('btnSiteTask').onclick = function () {
+    var s = Store.getSite(currentSiteId); if (!s) return;
+    TaskUI.openTaskSheet({ link: { type: 'site', id: s.id, siteId: s.id, label: Share.titleLine(s) } });
   };
 
   // ---------- 시작 ----------

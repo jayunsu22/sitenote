@@ -6,7 +6,7 @@
   <title>거래처별 현장관리</title>
   <!-- 사장님 전용 화면 — 관리자 암호(관리자 앱과 같은 암호, 한 번 열면 같이 열림) -->
   <script src="pin-lock.js?v=20261008a" data-key="adminUnlocked"></script>
-  <link rel="stylesheet" href="style.css?v=20261008a">
+  <link rel="stylesheet" href="style.css?v=20261014a">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -83,6 +83,9 @@
         </div>
       </div>
 
+      <!-- 거래처 메모 내역 (2026-10-14): 날짜별로 쌓이는 기록. 할 일을 끝낼 때 적은 결과도 여기로 온다 -->
+      <div id="notesWrap" class="fixed-wrap notes-wrap" hidden></div>
+
       <div id="cards" class="cards"></div>
       <div id="emptyState" class="empty-state" hidden></div>
     </div>
@@ -96,6 +99,7 @@
       <button id="btnBack" class="icon-btn" title="뒤로">←</button>
       <h1 id="siteTitle" class="topbar-title topbar-title-center">현장</h1>
       <div class="topbar-actions">
+        <button id="btnSiteTask" class="icon-btn" title="이 현장 할 일 넣기">📝</button>
         <button id="btnColor" class="icon-btn" title="색상 변경">🎨</button>
         <button id="btnDeleteSite" class="icon-btn" title="삭제">🗑</button>
       </div>
@@ -131,6 +135,7 @@
          빈 날은 점선 동그라미라 배정할 날을 바로 고를 수 있다 (2026-09-23) -->
     <div id="scheduleCal" class="sch-cal"></div>
     <div id="scheduleBody" class="schedule-body"></div>
+    <button id="btnAddTask" class="fab" title="할 일 넣기">＋ 할 일</button>
   </section>
 
   <!-- ========== 후기 모아보기 (2026-09-27) ========== -->
@@ -186,6 +191,11 @@
           <input type="text" id="supplyInput" placeholder="항목 (예: 칼날)" autocomplete="off">
           <button id="btnAddSupplyDefault" class="btn-sm">추가</button>
         </div>
+      </div>
+      <div class="settings-section" data-stab="prep">
+        <h2>자동 할 일</h2>
+        <p class="hint">일정 화면 '오늘' 에 앱이 알아서 넣는 할 일입니다. 며칠 전부터 띄울지 정합니다.</p>
+        <div id="taskRules" class="task-rules"></div>
       </div>
       <div class="settings-section" data-stab="prep">
         <h2>AS 부자재·공구</h2>
@@ -365,6 +375,18 @@
     </div>
   </div>
 
+  <!-- ========== 할 일 (바텀시트, 2026-10-14) ==========
+       넣기·고치기 창과 할 일 창(연결 대상별 동작)이 같은 틀을 쓴다. 내용은 taskui.js 가 그린다 -->
+  <div id="taskSheet" class="sheet-bg" hidden>
+    <div class="sheet task-sheet">
+      <div class="sheet-head">
+        <h3 id="taskSheetTitle">📝 할 일</h3>
+        <button id="taskClose" class="icon-btn" title="닫기">✕</button>
+      </div>
+      <div id="taskBody"></div>
+    </div>
+  </div>
+
   <!-- ========== 공용 모달 ========== -->
   <div id="modal" class="modal-overlay" hidden>
     <div class="modal">
@@ -374,11 +396,12 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261008a"></script>
-  <script src="store.js?v=20261008a"></script>
+  <script src="share.js?v=20261014a"></script>
+  <script src="store.js?v=20261014a"></script>
   <script src="owner-key.js?v=20261010"></script>
   <script src="adminlink.js?v=20261008a"></script>
-  <script src="app.js?v=20261008a"></script>
+  <script src="taskui.js?v=20261014a"></script>
+  <script src="app.js?v=20261014a"></script>
   <script src="app-switcher.js?v=20261006e" data-app-id="schedule"></script>
 </body>
 </html>

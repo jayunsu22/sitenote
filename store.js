@@ -41,7 +41,8 @@
       supplyDefaults: ['본드', '장갑'],  // 새 현장에 자동으로 깔리는 부자재
       reviewQuestions: Share.DEFAULT_REVIEW_QUESTIONS.slice(),  // 현장 후기 탭 질문 (2026-09-27)
       reviewTags: Share.DEFAULT_REVIEW_TAGS.slice(),           // 현장 후기 태그 목록
-      serviceTools: DEFAULT_SERVICE_TOOLS.slice()              // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
+      serviceTools: DEFAULT_SERVICE_TOOLS.slice(),             // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
+      taskRules: Object.assign({}, Share.DEFAULT_TASK_RULES)   // 자동 할 일 기준 일수 (2026-10-14)
     };
   }
   function stringList(arr, fallback) {
@@ -51,7 +52,7 @@
     return out;
   }
   function defaultState() {
-    return { version: 1, clients: [], sites: [], photos: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
+    return { version: 1, clients: [], sites: [], photos: [], tasks: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
   }
   function supplyRows(names) {
     return (names || []).map(function (n) { return { name: String(n || '').trim(), ready: false }; })
@@ -126,6 +127,8 @@
         phone: String(v.phone || ''),         // 고객 연락처 (2026-10-02)
         bizContact: String(v.bizContact || ''), // 작업자에게 갈 업자 담당자 (이름, 없으면 번호)
         tools: cleanStaff(v.tools),           // 챙길 부자재·공구 (2026-10-05) — 빈값·중복 정리는 인원과 같은 규칙
+        // 챙긴 부자재·공구 (2026-10-14) — 할 일 창에서 체크한다. tools 에 없는 이름은 버린다
+        toolsReady: cleanStaff(v.toolsReady).filter(function (n) { return cleanStaff(v.tools).indexOf(n) !== -1; }),
         done: !!v.done,
         createdAt: Number(v.createdAt) || 0
       };
@@ -145,8 +148,40 @@
     return out;
   }
   function normalizeClient(raw) {
-    return Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
+    var c = Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
+    c.notes = normalizeNotes(c.notes);
+    return c;
   }
+  // 거래처 메모 내역 (2026-10-14) — 날짜별로 쌓이는 기록, 최신이 맨 앞. 할 일을 끝낼 때 결과가 여기로 온다
+  function normalizeNotes(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function (n) { return n && n.id && String(n.text || '').trim(); }).map(function (n) {
+      return { id: String(n.id), date: String(n.date || ''), text: String(n.text).trim(), kind: String(n.kind || ''),
+        taskId: String(n.taskId || ''), createdAt: Number(n.createdAt) || 0 };
+    });
+  }
+  // 할 일 (2026-10-14). link 는 거래처·현장·AS 중 하나 또는 null. label 은 만들 때의 이름 — 대상이 지워져도 보이게
+  var TASK_LINK_TYPES = ['client', 'site', 'service'];
+  function normalizeLink(l) {
+    if (!l || TASK_LINK_TYPES.indexOf(l.type) === -1 || !l.id) return null;
+    return { type: l.type, id: String(l.id), siteId: String(l.siteId || ''), label: String(l.label || '') };
+  }
+  function normalizeTask(raw) {
+    if (!raw || !raw.id) return null;
+    return {
+      id: String(raw.id),
+      title: String(raw.title || '').trim(),
+      date: Share.isIsoDate(raw.date) ? raw.date : '',
+      time: String(raw.time || ''),
+      link: normalizeLink(raw.link),
+      done: !!raw.done,
+      doneAt: Number(raw.doneAt) || 0,
+      result: String(raw.result || ''),
+      createdAt: Number(raw.createdAt) || 0,
+      updatedAt: Number(raw.updatedAt) || 0
+    };
+  }
+  function normalizeTasks(raw) { return (Array.isArray(raw) ? raw : []).map(normalizeTask).filter(Boolean); }
   // 사진(명함·단가표 등): 거래처 고정값에 붙는 이미지.
   // 폰 상태에는 작은 thumb 만 두고, 원본은 IndexedDB + 백업 조각 행에 따로 보관한다.
   // (구버전에서 만든 사진은 dataUrl 을 그대로 들고 있고, 그대로 동작한다)
@@ -172,7 +207,9 @@
       state.settings.reviewQuestions = stringList(state.settings.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
       state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
       state.settings.serviceTools = stringList(state.settings.serviceTools, DEFAULT_SERVICE_TOOLS);
+      state.settings.taskRules = Share.normalizeTaskRules(state.settings.taskRules);
       state.clients = (parsed.clients || []).map(normalizeClient);
+      state.tasks = normalizeTasks(parsed.tasks);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
       state.photos = (parsed.photos || []).map(normalizePhoto);
       state.syncQueue = parsed.syncQueue || [];
@@ -202,7 +239,7 @@
   function settingsForSync() {
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
-      serviceTools: state.settings.serviceTools };
+      serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules };
   }
 
   // ---------- 거래처 ----------
@@ -245,6 +282,62 @@
     state.photos = state.photos.filter(function (p) { return p.clientId !== id; });
     state.clients = state.clients.filter(function (c) { return c.id !== id; });
     commit({ op: 'delete', type: 'client', id: id });
+  }
+
+  // ---------- 할 일 (2026-10-14) ----------
+  function tasks() { return state.tasks.slice().sort(function (a, b) { return a.createdAt - b.createdAt; }); }
+  function getTask(id) { return state.tasks.find(function (t) { return t.id === id; }) || null; }
+  function saveTask(t) { commit({ op: 'upsert', type: 'task', id: t.id, data: t }); return t; }
+  function addTask(patch) {
+    var now = Date.now();
+    var t = normalizeTask(Object.assign({}, patch || {}, { id: genId('t'), done: false, doneAt: 0, result: '', createdAt: now, updatedAt: now }));
+    if (!t.title) return null;
+    state.tasks.push(t);
+    return saveTask(t);
+  }
+  function updateTask(id, patch) {
+    var t = getTask(id); if (!t) return null;
+    var n = normalizeTask(Object.assign({}, t, patch, { id: t.id, updatedAt: Date.now() }));
+    if (!n.title) n.title = t.title;   // 제목을 지우면 예전 제목 유지
+    Object.assign(t, n);
+    return saveTask(t);
+  }
+  function deleteTask(id) {
+    state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
+    commit({ op: 'delete', type: 'task', id: id });
+  }
+  // 끝내기: 거래처에 연결된 할 일이고 결과를 적었으면 그 거래처 메모 내역 맨 위에 남긴다
+  function completeTask(id, result) {
+    var t = getTask(id); if (!t) return null;
+    var text = String(result == null ? '' : result).trim();
+    if (t.link && t.link.type === 'client' && text && getClient(t.link.id)) {
+      addClientNote(t.link.id, { text: text, kind: t.title.indexOf('통화') !== -1 ? '통화' : '', taskId: t.id });
+    }
+    return updateTask(id, { done: true, doneAt: Date.now(), result: text });
+  }
+  // 완료 취소 — 메모 내역에 이미 남긴 줄은 지우지 않는다 (지우려면 메모 내역에서 직접)
+  function uncompleteTask(id) { return updateTask(id, { done: false, doneAt: 0 }); }
+
+  // ---------- 거래처 메모 내역 (2026-10-14) ----------
+  function addClientNote(clientId, patch) {
+    var c = getClient(clientId); if (!c) return null;
+    var p = patch || {};
+    var text = String(p.text || '').trim();
+    if (!text) return null;
+    var n = { id: genId('n'), date: Share.isIsoDate(p.date) ? p.date : Share.todayIso(), text: text,
+      kind: String(p.kind || ''), taskId: String(p.taskId || ''), createdAt: Date.now() };
+    updateClient(clientId, { notes: [n].concat(c.notes || []) });
+    return n;
+  }
+  function updateClientNote(clientId, noteId, text) {
+    var c = getClient(clientId); if (!c) return null;
+    var v = String(text || '').trim();
+    if (!v) return null;
+    return updateClient(clientId, { notes: (c.notes || []).map(function (n) { return n.id === noteId ? Object.assign({}, n, { text: v }) : n; }) });
+  }
+  function deleteClientNote(clientId, noteId) {
+    var c = getClient(clientId); if (!c) return null;
+    return updateClient(clientId, { notes: (c.notes || []).filter(function (n) { return n.id !== noteId; }) });
   }
 
   // ---------- 현장 ----------
@@ -344,6 +437,19 @@
   function setFilmStage(siteId, k) {
     var s = getSite(siteId); if (!s) return null;
     return updateSite(siteId, { filmStage: Share.filmStageOf({ filmStage: k }) });
+  }
+  // 할 일 창의 '주문함' — 주문 전이면 '필름 주문'(2)으로 올린다. 이미 수령했으면 그대로
+  function markFilmOrdered(siteId) {
+    var s = getSite(siteId); if (!s) return null;
+    return setFilmStage(siteId, Math.max(Share.filmStageOf(s), 2));
+  }
+  // AS 챙길 것 체크 (2026-10-14)
+  function setServiceToolReady(siteId, svcId, name, ready) {
+    var s = getSite(siteId); if (!s) return null;
+    var v = (s.services || []).find(function (x) { return x.id === svcId; }); if (!v) return null;
+    var list = (v.toolsReady || []).filter(function (n) { return n !== name; });
+    if (ready) list.push(name);
+    return updateService(siteId, svcId, { toolsReady: list });
   }
   function toggleFilm(siteId, i) {
     var s = getSite(siteId); if (!s || !s.films[i]) return null;
@@ -541,10 +647,11 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
+    if (patch && patch.taskRules) state.settings.taskRules = Share.normalizeTaskRules(patch.taskRules);
     // 보내는 칸이 바뀐 때만 올린다 (2026-09-24).
     // 예전엔 화면만 옮겨도(lastView·lastTab) 설정 전체를 올렸다. 그래서 다른 브라우저에서 앱을
     // 열기만 해도 그쪽의 빈 팀원 명단·부자재 기본값이 백업을 덮어썼다 — 위젯이 네이버 브라우저로
@@ -661,7 +768,10 @@
         state.settings.reviewQuestions = stringList(ds.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
         state.settings.reviewTags = stringList(ds.reviewTags, Share.DEFAULT_REVIEW_TAGS);
         state.settings.serviceTools = stringList(ds.serviceTools, DEFAULT_SERVICE_TOOLS);   // 예전 백업엔 없다 → 기본값
+        state.settings.taskRules = Share.normalizeTaskRules(ds.taskRules);
         state.clients = (data.clients || []).map(normalizeClient);
+        // 할 일 (2026-10-14) — 옛 서버(할일 표 없음)는 tasks 를 안 준다. 그때는 폰의 할 일을 지우지 않는다
+        if (Array.isArray(data.tasks)) state.tasks = normalizeTasks(data.tasks);
         state.sites = (data.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
         var metas = [], chunksById = {};
         (data.photos || []).forEach(function (r) {
@@ -703,7 +813,10 @@
     setReviewAnswer: setReviewAnswer, toggleReviewTag: toggleReviewTag,
     renameReviewQuestion: renameReviewQuestion, moveReviewQuestion: moveReviewQuestion,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
-    addService: addService, updateService: updateService, removeService: removeService,
+    addService: addService, updateService: updateService, removeService: removeService, setServiceToolReady: setServiceToolReady,
+    tasks: tasks, getTask: getTask, addTask: addTask, updateTask: updateTask, deleteTask: deleteTask,
+    completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered,
+    addClientNote: addClientNote, updateClientNote: updateClientNote, deleteClientNote: deleteClientNote,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,

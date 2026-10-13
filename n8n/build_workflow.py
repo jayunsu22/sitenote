@@ -5,15 +5,16 @@
 (--base/--key 없이 실행하면 __BASE_ID__/__BACKUP_KEY__ 자리표시자가 들어간 템플릿 출력)
 
 설계 (docs/superpowers/specs 참조):
-- POST /webhook/sitenote-sync   { key, ops:[{op:'upsert'|'delete', type:'client'|'site'|'photo'|'settings', id, data}] }
+- POST /webhook/sitenote-sync   { key, ops:[{op:'upsert'|'delete', type:'client'|'site'|'photo'|'settings'|'task', id, data}] }
     → 키 검사 → 타입별 10건씩 Airtable upsert(PATCH performUpsert, fieldsToMergeOn=['id'])
     → delete 는 행을 지우지 않고 '삭제' 체크(툼스톤)로 처리해 노드 수를 줄임
-- GET  /webhook/sitenote-restore?key=…  → 4개 테이블 전체(삭제 제외) → {clients, sites, photos, settings}
+- GET  /webhook/sitenote-restore?key=…  → 5개 테이블 전체(삭제 제외) → {clients, sites, photos, settings, tasks}
+- 할일 표(2026-10-14): 일정 화면 할 일. 앱은 응답에 tasks 가 없으면(옛 워크플로우) 폰의 할 일을 그대로 둔다
 """
 import json, sys, uuid, argparse
 
 AIRTABLE_CRED = {"airtableTokenApi": {"id": "J5wefJCMalpjjm3Q", "name": "Airtable Personal Access Token account 2"}}
-TABLES = {"client": "거래처", "site": "현장", "photo": "사진", "settings": "설정"}
+TABLES = {"client": "거래처", "site": "현장", "photo": "사진", "settings": "설정", "task": "할일"}
 
 def nid():
     return str(uuid.uuid4())
@@ -28,7 +29,7 @@ const KEY = %s;
 const body = $input.first().json.body || {};
 if (!body.key || body.key !== KEY) return [{ json: { error: 'unauthorized' } }];
 const ops = Array.isArray(body.ops) ? body.ops : [];
-const TABLE = { client: '거래처', site: '현장', photo: '사진', settings: '설정' };
+const TABLE = { client: '거래처', site: '현장', photo: '사진', settings: '설정', task: '할일' };
 const now = new Date().toISOString();
 const byTable = {};
 for (const op of ops) {
@@ -38,6 +39,7 @@ for (const op of ops) {
   if (op.type === 'client') Object.assign(fields, { '이름': d.name || '', '순서': Number(d.order || 0) });
   if (op.type === 'site') Object.assign(fields, { '현장명': d.name || '', '거래처id': d.clientId || '', '시작날짜': d.date || '' });
   if (op.type === 'photo') Object.assign(fields, { '이름': d.name || '', '거래처id': d.clientId || '' });
+  if (op.type === 'task') Object.assign(fields, { '제목': d.title || '', '날짜': d.date || '' });
   if (op.op === 'delete') fields = { id: String(op.id), '삭제': true, '수정시각': now };
   (byTable[table] = byTable[table] || []).push({ fields });
 }
@@ -60,7 +62,7 @@ return [{ json: { ok: true } }];
 ''' % json.dumps(backup_key, ensure_ascii=False)
 
     restore_merge = r'''
-// 4개 테이블 결과를 앱이 기대하는 형태로 합침
+// 5개 테이블 결과를 앱이 기대하는 형태로 합침
 function rows(nodeName) {
   const out = [];
   for (const it of $(nodeName).all()) {
@@ -77,7 +79,8 @@ const clients = rows('거래처 읽기');
 const sites = rows('현장 읽기');
 const photos = rows('사진 읽기');
 const settingsRows = rows('설정 읽기');
-return [{ json: { clients, sites, photos, settings: settingsRows[0] || {} } }];
+const tasks = rows('할일 읽기');
+return [{ json: { clients, sites, photos, settings: settingsRows[0] || {}, tasks } }];
 '''
 
     def http_read(name, table, pos):
@@ -145,6 +148,7 @@ return [{ json: { clients, sites, photos, settings: settingsRows[0] || {} } }];
         http_read("현장 읽기", "현장", [880, 320]),
         http_read("설정 읽기", "설정", [1100, 320]),
         http_read("사진 읽기", "사진", [1320, 320]),
+        http_read("할일 읽기", "할일", [1320, 520]),
         {"id": nid(), "name": "복원 합치기", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [1540, 320],
          "parameters": {"jsCode": restore_merge}},
         {"id": nid(), "name": "복원 응답", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [1760, 320],
@@ -169,7 +173,8 @@ return [{ json: { clients, sites, photos, settings: settingsRows[0] || {} } }];
         "거래처 읽기": c(["현장 읽기"]),
         "현장 읽기": c(["설정 읽기"]),
         "설정 읽기": c(["사진 읽기"]),
-        "사진 읽기": c(["복원 합치기"]),
+        "사진 읽기": c(["할일 읽기"]),
+        "할일 읽기": c(["복원 합치기"]),
         "복원 합치기": c(["복원 응답"]),
     }
     return {"name": "거래처별 현장관리 백업", "nodes": nodes, "connections": connections,

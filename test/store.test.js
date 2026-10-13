@@ -583,7 +583,7 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'team']);
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team']);
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 
@@ -806,6 +806,117 @@ function reset() {
     Store.load();
     assert.deepStrictEqual(Store.getSite('s1').services[0].tools, []);
     assert.deepStrictEqual(Store.state.settings.serviceTools, ['사포', '퍼티', '열풍기', '재단판']);
+  });
+
+  console.log('할 일 (2026-10-14)');
+  await test('addTask: 제목 필수, 기본값, 큐 type=task', () => {
+    reset();
+    assert.strictEqual(Store.addTask({ title: '  ' }), null);
+    const t = Store.addTask({ title: ' 한샘 통화 ', date: '2026-10-15', time: '13:00' });
+    assert.strictEqual(t.title, '한샘 통화');
+    assert.strictEqual(t.done, false); assert.strictEqual(t.result, ''); assert.strictEqual(t.link, null);
+    assert.deepStrictEqual(Store.tasks().map(x => x.id), [t.id]);
+    const q = Store.state.syncQueue.find(o => o.type === 'task');
+    assert.strictEqual(q.id, t.id); assert.strictEqual(q.op, 'upsert');
+  });
+  await test('updateTask / deleteTask (삭제도 큐)', () => {
+    reset();
+    const t = Store.addTask({ title: 'a' });
+    Store.updateTask(t.id, { title: 'b', date: '2026-10-20' });
+    assert.strictEqual(Store.getTask(t.id).title, 'b');
+    Store.deleteTask(t.id);
+    assert.strictEqual(Store.getTask(t.id), null);
+    assert.strictEqual(Store.state.syncQueue.find(o => o.id === t.id).op, 'delete');
+  });
+  await test('completeTask 거래처 연결: 결과가 메모 내역 맨 위에 (통화 표시, taskId)', () => {
+    reset();
+    const c = Store.addClient('한샘');
+    Store.addClientNote(c.id, { text: '예전 메모', date: '2026-10-01' });
+    const t = Store.addTask({ title: '김실장 통화', link: { type: 'client', id: c.id, label: '한샘' } });
+    Store.completeTask(t.id, ' 단가 3% 인상 ');
+    const notes = Store.getClient(c.id).notes;
+    assert.strictEqual(notes.length, 2);
+    assert.strictEqual(notes[0].text, '단가 3% 인상');
+    assert.strictEqual(notes[0].kind, '통화');
+    assert.strictEqual(notes[0].taskId, t.id);
+    assert.strictEqual(notes[0].date, Share.todayIso());
+    assert.strictEqual(Store.getTask(t.id).done, true);
+    assert.ok(Store.getTask(t.id).doneAt > 0);
+  });
+  await test('completeTask: 결과가 비면 메모 안 생김, 완료 취소해도 메모는 남음', () => {
+    reset();
+    const c = Store.addClient('한샘');
+    const t = Store.addTask({ title: '샘플 보내기', link: { type: 'client', id: c.id, label: '한샘' } });
+    Store.completeTask(t.id, '');
+    assert.deepStrictEqual(Store.getClient(c.id).notes, []);
+    const t2 = Store.addTask({ title: '확인', link: { type: 'client', id: c.id, label: '한샘' } });
+    Store.completeTask(t2.id, '확인함');
+    Store.uncompleteTask(t2.id);
+    assert.strictEqual(Store.getTask(t2.id).done, false);
+    assert.strictEqual(Store.getClient(c.id).notes.length, 1);
+    assert.strictEqual(Store.getClient(c.id).notes[0].kind, '', '제목에 통화가 없으면 빈 종류');
+  });
+  await test('메모 내역 고치기·지우기, 빈 글은 안 넣음', () => {
+    reset();
+    const c = Store.addClient('A');
+    assert.strictEqual(Store.addClientNote(c.id, { text: ' ' }), null);
+    const n = Store.addClientNote(c.id, { text: '첫 메모' });
+    Store.updateClientNote(c.id, n.id, '고친 메모');
+    assert.strictEqual(Store.getClient(c.id).notes[0].text, '고친 메모');
+    Store.deleteClientNote(c.id, n.id);
+    assert.deepStrictEqual(Store.getClient(c.id).notes, []);
+  });
+  await test('markFilmOrdered: 미확정·확정 → 주문(2), 수령(3)은 그대로', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.markFilmOrdered(s.id);
+    assert.strictEqual(Store.getSite(s.id).filmStage, 2);
+    Store.setFilmStage(s.id, 3); Store.markFilmOrdered(s.id);
+    assert.strictEqual(Store.getSite(s.id).filmStage, 3);
+  });
+  await test('AS 공구 챙김 체크 (tools 에 없는 이름은 버림)', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    const v = Store.addService(s.id, { request: '문 AS', tools: ['퍼티', '사포'] });
+    assert.deepStrictEqual(v.toolsReady, []);
+    Store.setServiceToolReady(s.id, v.id, '퍼티', true);
+    Store.setServiceToolReady(s.id, v.id, '없는것', true);
+    assert.deepStrictEqual(Store.getSite(s.id).services[0].toolsReady, ['퍼티']);
+    Store.setServiceToolReady(s.id, v.id, '퍼티', false);
+    assert.deepStrictEqual(Store.getSite(s.id).services[0].toolsReady, []);
+  });
+  await test('옛 데이터 보정: 거래처 notes, 할 일 모양, taskRules', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ clients: [{ id: 'c1', name: 'A', order: 0 }], sites: [],
+      tasks: [{ id: 't1', title: 'x', link: { type: 'site', id: 's0' } }, { title: 'id 없음' }, null],
+      settings: { taskRules: { filmDays: 5 } } });
+    Store.load();
+    assert.deepStrictEqual(Store.getClient('c1').notes, []);
+    assert.strictEqual(Store.tasks().length, 1);
+    const t = Store.getTask('t1');
+    assert.strictEqual(t.date, ''); assert.strictEqual(t.done, false);
+    assert.deepStrictEqual(t.link, { type: 'site', id: 's0', siteId: '', label: '' });
+    assert.deepStrictEqual(Store.state.settings.taskRules, { filmDays: 5, staffDays: 3, supplyDays: 1 });
+  });
+  await test('taskRules 바꾸면 설정이 백업 큐에 올라간다', () => {
+    reset();
+    Store.setSettings({ taskRules: { filmDays: 4, staffDays: 3, supplyDays: 1 } });
+    const q = Store.state.syncQueue.find(o => o.type === 'settings');
+    assert.deepStrictEqual(q.data.taskRules, { filmDays: 4, staffDays: 3, supplyDays: 1 });
+  });
+  await test('restore: tasks 가 오면 교체, 안 오면(옛 서버) 폰 할 일 유지', async () => {
+    reset();
+    Store.setSettings({ backupKey: 'k' });
+    const mine = Store.addTask({ title: '내 할 일' });
+    fetchImpl = async () => ({ ok: true, json: async () => ({ clients: [], sites: [], photos: [], settings: {} }) });
+    await Store.restore(true);
+    assert.deepStrictEqual(Store.tasks().map(t => t.id), [mine.id]);
+    fetchImpl = async () => ({ ok: true, json: async () => ({ clients: [], sites: [], photos: [], settings: { taskRules: { filmDays: 2 } },
+      tasks: [{ id: 't9', title: '서버 할 일', date: '2026-10-20' }] }) });
+    await Store.restore(true);
+    assert.deepStrictEqual(Store.tasks().map(t => t.id), ['t9']);
+    assert.strictEqual(Store.state.settings.taskRules.filmDays, 2);
+    fetchImpl = async () => ({ ok: true, json: async () => ({ ok: true }) });
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
