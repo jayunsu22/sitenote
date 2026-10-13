@@ -2,7 +2,10 @@
    사용법: <script src="app-switcher.js?v=YYYYMMDD" data-app-id="settle"></script>
    data-app-id가 기본 목록 항목의 id와 같으면 그 줄이 "지금 보는 중"으로 표시됨.
    목록 수정(순서/이름/추가/삭제)은 localStorage에 저장되며, 같은 도메인 안의 앱끼리만 공유됨
-   (예: songil.netlify.app 쪽 7개 앱은 서로 공유, autoblog/sitenote는 각자 따로). */
+   (예: songil.netlify.app 쪽 7개 앱은 서로 공유, autoblog/sitenote는 각자 따로).
+   이 앱 전용 바로가기(2026-10-14): 페이지가 window.AppSwitcherActions 에
+   { icon, name, onClick } 을 넣어 두면 패널 맨 위 '이 앱에서' 칸에 버튼으로 뜬다.
+   스크립트 순서와 상관없이 패널을 열 때 읽는다. 없으면 칸이 안 생긴다(다른 앱은 그대로). */
 (function () {
   var STORAGE_KEY = 'myAppSwitcherList_v1';
 
@@ -78,6 +81,10 @@
       + 'box-sizing:border-box;margin-bottom:6px;}'
       + '.aswAddRow button{width:100%;padding:8px;font-size:13px;font-weight:700;background:#2563eb;color:#fff;'
       + 'border:none;border-radius:7px;cursor:pointer;}'
+      + '.aswActs{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px;border-bottom:1px solid #eee;background:#fffbeb;}'
+      + '.aswActsH{width:100%;font-size:12px;font-weight:800;color:#92400e;}'
+      + '.aswAct{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 14px;'
+      + 'border:none;border-radius:10px;background:#2563eb;color:#fff;font-size:15px;font-weight:800;cursor:pointer;}'
       + '.aswReset{display:block;text-align:center;padding:10px;font-size:12px;color:#999;'
       + 'text-decoration:underline;cursor:pointer;background:none;border:none;width:100%;}';
     var style = document.createElement('style');
@@ -101,8 +108,17 @@
       + '<div class="aswHead"><h2>내 앱</h2><div class="aswHeadBtns">'
       + '<button id="aswEditToggle" class="' + (editing ? 'active' : '') + '">' + (editing ? '완료' : '편집') + '</button>'
       + '<button id="aswCloseBtn">✕</button>'
-      + '</div></div>'
-      + '<div id="aswList">';
+      + '</div></div>';
+    var acts = pageActions();
+    if (acts.length && !editing) {
+      html += '<div class="aswActs"><div class="aswActsH">이 앱에서</div>';
+      acts.forEach(function (a, i) {
+        html += '<button type="button" class="aswAct" data-act-i="' + i + '">'
+          + (a.icon ? '<span>' + escHtml(a.icon) + '</span>' : '') + escHtml(a.name || '') + '</button>';
+      });
+      html += '</div>';
+    }
+    html += '<div id="aswList">';
 
     list.forEach(function (app, idx) {
       var isCurrent = currentAppId && app.id === currentAppId;
@@ -139,6 +155,11 @@
     bindPanelEvents();
   }
 
+  function pageActions() {
+    var a = window.AppSwitcherActions;
+    return Array.isArray(a) ? a.filter(function (x) { return x && typeof x.onClick === 'function'; }) : [];
+  }
+
   function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -155,6 +176,14 @@
     });
     var closeBtn = document.getElementById('aswCloseBtn');
     if (closeBtn) closeBtn.addEventListener('click', closePanel);
+
+    document.querySelectorAll('.aswAct').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = pageActions()[parseInt(b.getAttribute('data-act-i'), 10)];
+        closePanel();
+        if (a) a.onClick();
+      });
+    });
 
     document.querySelectorAll('.aswEditBtns button').forEach(function (btn) {
       btn.addEventListener('click', function () {
