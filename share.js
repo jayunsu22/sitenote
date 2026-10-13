@@ -985,7 +985,88 @@
     });
   }
 
+  /* ---------- 할 일 (2026-10-14) ----------
+     직접 넣는 할 일은 store 에 저장하고, 자동 할 일은 저장하지 않고 화면을 그릴 때마다 현장 상태로 계산한다.
+     자동 할 일은 '오늘' 에만 뜬다 — 조건이 풀리면(필름 주문, 인원 채움, 부자재 체크) 저절로 사라진다.
+     기준 일수는 설정(taskRules)에서 바꾼다. 시공 첫날이 지난 현장은 만들지 않는다 */
+  var DEFAULT_TASK_RULES = { filmDays: 3, staffDays: 3, supplyDays: 1 };
+  var MAX_TASK_DAYS = 14;
+  function normalizeTaskRules(raw) {
+    var r = raw && typeof raw === 'object' ? raw : {};
+    var out = {};
+    Object.keys(DEFAULT_TASK_RULES).forEach(function (k) {
+      var v = Number(r[k]);
+      out[k] = (isFinite(v) && v >= 0 && v <= MAX_TASK_DAYS && str(r[k]) !== '') ? Math.floor(v) : DEFAULT_TASK_RULES[k];
+    });
+    return out;
+  }
+  // 오늘부터 iso 까지 n 일 이하 남았나 (오늘 포함, 지난 날 제외)
+  function within(today, iso, n) {
+    if (!isIsoDate(iso)) return false;
+    var d = dayDiff(today, iso);
+    return d >= 0 && d <= n;
+  }
+  function autoTasks(sites, today, rules) {
+    var r = normalizeTaskRules(rules);
+    var out = [];
+    var make = function (kind, id, title, link) {
+      out.push({ id: id, auto: true, kind: kind, title: title, date: today, time: '', link: link, done: false });
+    };
+    (sites || []).forEach(function (s) {
+      if (!s || !s.id) return;
+      var name = titleLine(s);
+      var siteLink = { type: 'site', id: s.id, siteId: s.id, label: name };
+      var first = str(s.date);
+      if (within(today, first, r.filmDays) && filmStageOf(s) < 2) make('film', 'auto:film:' + s.id, '필름 주문: ' + name, siteLink);
+      var st = staffStatus(s);
+      if (within(today, first, r.staffDays) && st.short > 0) make('staff', 'auto:staff:' + s.id, '인원 모집: ' + name + ' (' + st.short + '명 부족)', siteLink);
+      var sup = (s.supplies || []).some(function (x) { return x && str(x.name) && !x.ready; });
+      if (within(today, first, r.supplyDays) && sup) make('supply', 'auto:supply:' + s.id, '부자재 준비: ' + name, siteLink);
+      servicesOf(s).forEach(function (v) {
+        if (v.done || !within(today, str(v.date), r.supplyDays)) return;
+        var ready = v.toolsReady || [];
+        var left = (v.tools || []).some(function (t) { return ready.indexOf(t) === -1; });
+        if (!left) return;
+        make('supply', 'auto:supply:' + s.id + ':' + v.id, serviceLabel(v) + ' 부자재: ' + name,
+          { type: 'service', id: v.id, siteId: s.id, label: name + ' ' + serviceLabel(v) });
+      });
+    });
+    return out;
+  }
+  // 같은 날 안의 순서: 시각 있는 것(이른 순) → 오전 → 오후 → 시간 없음
+  function taskTimeKey(t) {
+    var v = str(t && t.time);
+    if (/^\d{2}:\d{2}$/.test(v)) return '1' + v;
+    if (v === '오전') return '2';
+    if (v === '오후') return '3';
+    return '4';
+  }
+  function byTime(a, b) { return taskTimeKey(a).localeCompare(taskTimeKey(b)) || (a.createdAt || 0) - (b.createdAt || 0); }
+  // 일정 화면용 묶기. overdue = 날짜가 지났는데 안 끝남(위 빨간 상자), undated = 날짜 없고 안 끝남,
+  // byDate = 날짜마다 { open, done }. 지난 날짜의 안 끝난 할 일은 overdue 로만 간다
+  function taskGroups(tasks, today) {
+    var g = { overdue: [], undated: [], byDate: {} };
+    var day = function (iso) { return g.byDate[iso] || (g.byDate[iso] = { open: [], done: [] }); };
+    (tasks || []).forEach(function (t) {
+      if (!t) return;
+      var d = str(t.date);
+      if (!isIsoDate(d)) { if (!t.done) g.undated.push(t); return; }
+      if (t.done) { day(d).done.push(t); return; }
+      if (d < today) { g.overdue.push(t); day(d); return; }
+      day(d).open.push(t);
+    });
+    g.overdue.sort(function (a, b) { return a.date.localeCompare(b.date) || byTime(a, b); });
+    g.undated.sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+    Object.keys(g.byDate).forEach(function (k) { g.byDate[k].open.sort(byTime); g.byDate[k].done.sort(byTime); });
+    return g;
+  }
+
   var Share = {
+    DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
+    normalizeTaskRules: normalizeTaskRules,
+    autoTasks: autoTasks,
+    taskTimeKey: taskTimeKey,
+    taskGroups: taskGroups,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,
