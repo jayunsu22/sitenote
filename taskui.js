@@ -93,7 +93,37 @@
     if (t.done && t.result) main.appendChild(el('div', 'task-result', t.result));
     main.onclick = function () { openTaskDetail(t); };
     row.appendChild(main);
+    var tel = personTel(t);
+    if (tel) {
+      var call = el('a', 'task-tel', '📞');
+      call.href = 'tel:' + tel;
+      call.title = (t.link.person.name || t.link.person.phone) + ' 에게 전화';
+      call.setAttribute('aria-label', call.title);
+      call.onclick = function (e) { e.stopPropagation(); };
+      row.appendChild(call);
+    }
     return row;
+  }
+  function personTel(t) {
+    var p = t && t.link && t.link.person;
+    return p && p.phone ? String(p.phone).replace(/[^\d+]/g, '') : '';
+  }
+  // 연결 대상에서 고를 수 있는 담당자 — 거래처: 거래처 담당자 / 현장·AS: 발주처 담당자 + 그 거래처 담당자
+  function peopleFor(pick) {
+    var out = [];
+    var add = function (name, phone, tag) {
+      name = String(name || '').trim(); phone = String(phone || '').trim();
+      if (!name && !phone) return;
+      if (out.some(function (x) { return x.name === name && x.phone === phone; })) return;
+      out.push({ name: name, phone: phone, tag: tag });
+    };
+    if ((pick.type === 'site' || pick.type === 'service') && pick.siteId) {
+      var s = Store.getSite(pick.siteId);
+      Share.ownerRows(s && s.owners).forEach(function (r) { add(r.name || r.role, r.phone, '🏢 발주처'); });
+    }
+    var c = pick.clientId && Store.getClient(pick.clientId);
+    if (c && (pick.type === 'client' || pick.siteId)) (c.contacts || []).forEach(function (r) { add(r && r.name, r && r.phone, c.name); });
+    return out;
   }
   // 날짜 하나의 할 일 묶음 — 머리줄 + 열린 할 일 + '완료 N건' 접기
   var openDone = {};   // 펼친 완료 묶음 { iso: true }
@@ -190,7 +220,7 @@
       link: t ? t.link : (o.link || null)
     };
     // 연결 고르는 중간 상태 (거래처 → 현장 → AS)
-    var pick = { type: f.link ? f.link.type : '', clientId: '', siteId: '', svcId: '' };
+    var pick = { type: f.link ? f.link.type : '', clientId: '', siteId: '', svcId: '', person: (f.link && f.link.person) || null };
     if (f.link) {
       var r = resolve(f.link);
       if (r && r.client) pick.clientId = r.client.id;
@@ -199,10 +229,67 @@
     }
     openSheet(t ? '할 일 고치기' : '📝 할 일 넣기', function (body) {
       var s1 = section(body, '무엇을');
-      var ti = el('textarea', 'task-input'); ti.rows = 2; ti.value = f.title;
-      ti.placeholder = '예: 한샘 김실장 통화 — 단가 확인';
+      var ti = el('textarea', 'task-input'); ti.rows = 3; ti.value = f.title;
+      ti.placeholder = '위 버튼을 누르거나 직접 적기 — 예: 한샘 김실장 통화, 단가 확인';
       ti.oninput = function () { f.title = ti.value; };
+      // 빠른 버튼 (2026-10-14) — 누르면 칸에 들어간다. 이미 적은 게 있으면 그 앞에 붙인다
+      var presetBox = el('div', 'task-presets');
+      var editing = false;
+      var drawPresets = function () {
+        presetBox.innerHTML = '';
+        var list = (Store.state.settings.taskPresets || []).slice();
+        if (!editing) {
+          var row = el('div', 'chips chips-pick task-chips');
+          list.forEach(function (p) {
+            row.appendChild(btn('chip pick task-preset', p, function () {
+              var cur = ti.value.trim();
+              ti.value = cur ? p + ' — ' + cur : p + ' ';
+              f.title = ti.value;
+              // 전화·통화 버튼인데 아직 연결이 없으면 거래처 고르기를 열어 둔다 (담당자 📞 를 바로 고를 수 있게)
+              if (/전화|통화/.test(p) && !pick.type && drawLink) { pick.type = 'client'; drawLink(); }
+              ti.focus();
+              try { ti.setSelectionRange(ti.value.length, ti.value.length); } catch (e) { /* 지원 안 함 */ }
+            }));
+          });
+          row.appendChild(btn('chip pick task-preset-edit', '⚙ 편집', function () { editing = true; drawPresets(); }));
+          presetBox.appendChild(row);
+          return;
+        }
+        // 편집: 이름 고치기 · 순서 ▲▼ · 빼기 · 추가
+        var save = function (next) { Store.setSettings({ taskPresets: next }); drawPresets(); };
+        list.forEach(function (p, i) {
+          var r = el('div', 'preset-row');
+          var inp = el('input', 'preset-name'); inp.type = 'text'; inp.value = p;
+          inp.onchange = function () {
+            var v = inp.value.trim();
+            if (!v) { inp.value = p; return; }
+            var next = list.slice(); next[i] = v; save(next);
+          };
+          r.appendChild(inp);
+          var up = btn('preset-mv', '▲', function () { if (i === 0) return; var n = list.slice(); n.splice(i - 1, 0, n.splice(i, 1)[0]); save(n); });
+          var dn = btn('preset-mv', '▼', function () { if (i === list.length - 1) return; var n = list.slice(); n.splice(i + 1, 0, n.splice(i, 1)[0]); save(n); });
+          var x = btn('preset-x', '✕', function () { var n = list.slice(); n.splice(i, 1); save(n); });
+          up.disabled = i === 0; dn.disabled = i === list.length - 1;
+          r.appendChild(up); r.appendChild(dn); r.appendChild(x);
+          presetBox.appendChild(r);
+        });
+        var addRow = el('div', 'preset-row preset-add');
+        var ni = el('input', 'preset-name'); ni.type = 'text'; ni.placeholder = '새 버튼 이름 (예: 샘플 보내기)';
+        var doAdd = function () {
+          var v = ni.value.trim(); if (!v) { ni.focus(); return; }
+          if (list.indexOf(v) !== -1) { d.toast('이미 있어요'); return; }
+          save(list.concat([v]));
+        };
+        ni.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); doAdd(); } });
+        addRow.appendChild(ni);
+        addRow.appendChild(btn('btn-sm primary', '추가', doAdd));
+        presetBox.appendChild(addRow);
+        presetBox.appendChild(btn('btn-sm preset-done', '✓ 편집 끝', function () { editing = false; drawPresets(); }));
+      };
+      s1.appendChild(presetBox);
       s1.appendChild(ti);
+      var drawLink = null;
+      drawPresets();
 
       var s2 = section(body, '언제');
       var dateIn = el('input', 'task-date'); dateIn.type = 'date';
@@ -245,11 +332,11 @@
 
       var s4 = section(body, '무엇과 연결 (안 넣어도 돼요)');
       var linkBox = el('div', 'task-linkbox');
-      var drawLink = function () {
+      drawLink = function () {
         s4.querySelectorAll('.task-chips').forEach(function (x) { x.remove(); });
         var row = chipRow(s4, [{ label: '없음', value: '' }, { label: '🏢 거래처', value: 'client' },
           { label: '🏠 현장', value: 'site' }, { label: '🔧 AS', value: 'service' }], pick.type, function (v) {
-          pick.type = v; pick.svcId = '';
+          pick.type = v; pick.svcId = ''; pick.person = null;
           if (v === 'client') pick.siteId = '';
           drawLink();
         });
@@ -258,19 +345,38 @@
         if (!pick.type) return;
         var cs = Store.clients();
         linkBox.appendChild(selectBox(cs.map(function (c) { return { label: c.name, value: c.id }; }), pick.clientId,
-          function (v) { pick.clientId = v; pick.siteId = ''; pick.svcId = ''; drawLink(); }, '거래처 고르기'));
-        if (pick.type === 'client' || !pick.clientId) return;
+          function (v) { pick.clientId = v; pick.siteId = ''; pick.svcId = ''; pick.person = null; drawLink(); }, '거래처 고르기'));
+        if (pick.type === 'client') { drawPerson(); return; }
+        if (!pick.clientId) return;
         var sites = Store.sitesOf(pick.clientId);
         linkBox.appendChild(selectBox(sites.map(function (s) {
           return { label: Share.titleLine(s) + (Share.isIsoDate(s.date) ? ' · ' + Share.shortDate(s.date) : ''), value: s.id };
-        }), pick.siteId, function (v) { pick.siteId = v; pick.svcId = ''; drawLink(); }, '현장 고르기'));
-        if (pick.type !== 'service' || !pick.siteId) return;
+        }), pick.siteId, function (v) { pick.siteId = v; pick.svcId = ''; pick.person = null; drawLink(); }, '현장 고르기'));
+        if (pick.type !== 'service' || !pick.siteId) { drawPerson(); return; }
         var site = Store.getSite(pick.siteId);
         var svcs = Share.servicesOf(site);
         if (!svcs.length) { linkBox.appendChild(el('p', 'sheet-hint', '이 현장에는 AS·추가작업이 없어요.')); return; }
         linkBox.appendChild(selectBox(svcs.map(function (v) {
           return { label: Share.serviceLabel(v) + ' · ' + (v.request || '(내용 없음)').slice(0, 20) + (v.date ? ' · ' + Share.shortDate(v.date) : ''), value: v.id };
         }), pick.svcId, function (v) { pick.svcId = v; }, 'AS 고르기'));
+        drawPerson();
+      };
+      // 담당자 한 명 고르기 — 고르면 일정 화면 할 일 줄에 📞 가 붙어 바로 건다
+      var drawPerson = function () {
+        var people = peopleFor(pick);
+        if (!people.length) {
+          if (pick.type === 'client' && pick.clientId) linkBox.appendChild(el('p', 'sheet-hint', '이 거래처에 담당자가 없어요. 거래처 고정값 → 담당자에 넣으면 여기서 고를 수 있어요.'));
+          return;
+        }
+        var cur = pick.person ? pick.person.name + '|' + pick.person.phone : '';
+        var sel = selectBox(people.map(function (p) {
+          return { label: '📞 ' + (p.name || '이름 없음') + (p.phone ? ' ' + p.phone : '') + ' · ' + p.tag, value: p.name + '|' + p.phone };
+        }), cur, function (v) {
+          var hit = people.find(function (p) { return p.name + '|' + p.phone === v; });
+          pick.person = hit ? { name: hit.name, phone: hit.phone } : null;
+        }, '담당자 고르기 (📞 바로 걸기)');
+        sel.classList.add('task-person');
+        linkBox.appendChild(sel);
       };
       s4.appendChild(linkBox);
       drawLink();
@@ -299,6 +405,11 @@
     });
   }
   function buildLink(pick) {
+    var l = buildLinkBase(pick);
+    if (l && pick.person && (pick.person.name || pick.person.phone)) l.person = { name: pick.person.name, phone: pick.person.phone };
+    return l;
+  }
+  function buildLinkBase(pick) {
     if (pick.type === 'client' && pick.clientId) {
       var c = Store.getClient(pick.clientId);
       return c ? { type: 'client', id: c.id, siteId: '', label: c.name } : null;
@@ -324,6 +435,12 @@
       meta.textContent = [t.date ? Share.dayLabel(t.date) : '날짜 없음', t.time, t.auto ? '' : linkLabel(t)].filter(Boolean).join(' · ');
       body.appendChild(meta);
       if (t.auto) body.appendChild(el('p', 'sheet-hint', '앱이 현장 상태를 보고 만든 할 일이에요. 아래에서 처리하면 저절로 사라져요.'));
+      var ptel = personTel(t);
+      if (ptel) {
+        var pa = el('a', 'task-person-call', '📞 ' + (t.link.person.name || '') + ' ' + t.link.person.phone + ' 전화 걸기');
+        pa.href = 'tel:' + ptel;
+        body.appendChild(pa);
+      }
 
       if (t.kind === 'hold') {
         var hs = section(body, '⏳ ' + Share.dayLabel(t.holdDate) + ' 대기 인원');
