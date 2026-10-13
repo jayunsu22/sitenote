@@ -66,7 +66,7 @@
     var s = { id: genId('s'), clientId: clientId, color: color, createdAt: now, updatedAt: now };
     Share.FIELDS.forEach(function (f) {
       if (f.type === 'select') s[f.key] = { v: '미확인', memo: '' };
-      else if (f.type === 'films') s[f.key] = [];
+      else if (f.type === 'films' || f.type === 'contacts') s[f.key] = [];
       else s[f.key] = '';
     });
     // 일정: 1일차 = 시작날짜(비어있음), 부자재는 설정의 기본 항목 복사
@@ -100,6 +100,7 @@
       if (f.type === 'select' && (!s[f.key] || typeof s[f.key] !== 'object')) s[f.key] = { v: '미확인', memo: '' };
       if (f.type === 'films' && !Array.isArray(s[f.key])) s[f.key] = [];
     });
+    s.owners = normalizeOwners(s.owners);
     s.films = s.films.map(function (r) { return Object.assign({ place: '', code: '', ready: false }, r || {}, { ready: !!(r && r.ready) }); });
     if (!Array.isArray(s.days) || !s.days.length) s.days = [{ date: String(s.date || ''), staff: [] }];
     s.days = s.days.map(function (d) { return { date: String((d && d.date) || ''), staff: cleanStaff(d && d.staff) }; });
@@ -112,6 +113,13 @@
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
     return s;
+  }
+  // 발주처 담당자 { name, role, phone } — 모양이 이상한 줄은 버린다 (빈 줄은 적는 중일 수 있어 둔다)
+  function normalizeOwners(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function (r) { return r && typeof r === 'object'; }).map(function (r) {
+      return { name: String(r.name || '').trim(), role: String(r.role || '').trim(), phone: String(r.phone || '').trim() };
+    });
   }
   // AS·추가작업 목록 — 예전 현장엔 없다(빈 목록). 모양이 이상한 줄은 버린다
   function normalizeServices(raw) {

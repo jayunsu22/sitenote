@@ -413,6 +413,18 @@
         su.appendChild(checkLine(x.name, x.ready, function () { Store.toggleSupply(site.id, i); openTaskDetail(t); }));
       });
     }
+    // 발주처 담당자에게 바로 전화
+    var owners = Share.ownerRows(site.owners).filter(function (r) { return r.phone; });
+    if (owners.length) {
+      var os = section(body, '🏢 발주처 담당자');
+      var oa = el('div', 'task-actions');
+      owners.forEach(function (r) {
+        var a = el('a', 'btn-sm task-call', '📞 ' + (r.name || r.phone) + (r.role ? ' (' + r.role + ')' : ''));
+        a.href = 'tel:' + String(r.phone).replace(/[^\d+]/g, '');
+        oa.appendChild(a);
+      });
+      os.appendChild(oa);
+    }
     var go = el('div', 'task-actions');
     go.appendChild(btn('btn-sm', '🏠 현장 열기', function () { $('taskSheet').hidden = true; d.go('#site/' + site.id); }));
     body.appendChild(go);
@@ -467,16 +479,17 @@
     if (!notesOpen) return;
     var body = el('div', 'fixed-body notes-body');
     var inRow = el('div', 'note-add');
-    var ta = el('textarea'); ta.rows = 2; ta.placeholder = '직접 적기 — 오늘 날짜로 쌓여요';
+    // 적는 칸은 폭을 다 쓰고, 버튼은 그 아래 한 줄에 (2026-10-14)
+    var ta = el('textarea'); ta.rows = 3; ta.placeholder = '직접 적기 — 오늘 날짜로 쌓여요';
     inRow.appendChild(ta);
     var col = el('div', 'note-add-btns');
-    col.appendChild(btn('btn-sm primary', '추가', function () {
+    col.appendChild(btn('btn-sm', '＋ 할 일', function () {
+      openTaskSheet({ link: { type: 'client', id: c.id, siteId: '', label: c.name }, date: Share.addDays(today(), 1) });
+    }));
+    col.appendChild(btn('btn-sm primary', '메모 추가', function () {
       if (!Store.addClientNote(clientId, { text: ta.value })) { ta.focus(); return; }
       d.toast('메모를 남겼어요');
       renderClientNotes(wrap, clientId);
-    }));
-    col.appendChild(btn('btn-sm', '＋ 할 일', function () {
-      openTaskSheet({ link: { type: 'client', id: c.id, siteId: '', label: c.name }, date: Share.addDays(today(), 1) });
     }));
     inRow.appendChild(col);
     body.appendChild(inRow);

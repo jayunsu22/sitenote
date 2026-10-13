@@ -28,9 +28,25 @@ const full = () => Object.assign(blank(), {
 });
 
 console.log('FIELDS');
-test('17개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다)', () => {
+test('발주처 담당자: 질문 대상 아님, 이름·번호 없는 줄은 빈 칸, 체크하면 공유 문구에 한 사람씩', () => {
+  assert.ok(!Share.DEFAULT_QUESTIONS.owners);
+  assert.strictEqual(Share.isEmpty(Object.assign(blank(), { owners: [] }), 'owners'), true);
+  assert.strictEqual(Share.isEmpty(Object.assign(blank(), { owners: [{ name: ' ', role: '소장', phone: '' }] }), 'owners'), true);
+  const s = Object.assign(full(), { owners: [
+    { name: '김과장', role: '현장소장', phone: '010-1234-5678' },
+    { name: '박대리', role: '', phone: '010-9876-5432' },
+    { name: '', role: '', phone: '' }
+  ] });
+  assert.strictEqual(Share.isEmpty(s, 'owners'), false);
+  const out = Share.buildShare(s, ['owners', 'pwLobby']).split('\n\n');
+  assert.deepStrictEqual(out[1], '🏢 발주처 담당자:\n김과장(현장소장) 010-1234-5678\n박대리 010-9876-5432');
+  assert.strictEqual(out[2].indexOf('공동현관비번'), 0, '발주처는 비번보다 위');
+  assert.strictEqual(Share.buildShare(s, ['pwLobby']).indexOf('발주처'), -1, '체크 안 하면 안 나간다');
+});
+
+test('18개 항목, 순서 고정 (동/호수·평형·주소는 칸이 없다, 발주처 담당자는 현장명 바로 아래)', () => {
   assert.deepStrictEqual(Share.FIELDS.map(f => f.key),
-    ['name','calRegion','date','pwLobby','pwUnit','barrier','gate','carReg','parking','cargoEv','startTime','toilet','note','films','quoteUrl','photoUrl','memo']);
+    ['name','owners','calRegion','date','pwLobby','pwUnit','barrier','gate','carReg','parking','cargoEv','startTime','toilet','note','films','quoteUrl','photoUrl','memo']);
 });
 test('입구차단기: 세대 비번과 출입구 사이, 기본값 경비호출, 업자 질문·공유 문구에 나온다', () => {
   assert.strictEqual(Share.DEFAULT_BARRIER, '경비호출');
