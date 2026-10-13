@@ -583,7 +583,7 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team']);
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team', 'holds'].sort());
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 
@@ -818,6 +818,21 @@ function reset() {
     Store.load();
     assert.deepStrictEqual(Store.getSite('s1').owners, []);
     assert.deepStrictEqual(Store.getSite('s2').owners, [{ name: '김과장', role: '소장', phone: '010' }]);
+  });
+
+  await test('대기 인원: 잡기·빼기, 설정으로 백업, 다시 불러와도 유지', () => {
+    reset();
+    Store.toggleHold('2026-10-22', '안광윤');
+    Store.toggleHold('2026-10-22', '윤인재');
+    Store.toggleHold('2026-10-22', '안 광윤');   // 공백 무시 — 같은 사람이라 빠진다
+    assert.deepStrictEqual(Store.state.settings.holds, { '2026-10-22': ['윤인재'] });
+    const q = Store.state.syncQueue.find(o => o.type === 'settings');
+    assert.deepStrictEqual(q.data.holds, { '2026-10-22': ['윤인재'] });
+    Store.setHold('2026-10-22', []);
+    assert.deepStrictEqual(Store.state.settings.holds, {});
+    Store.setHold('2026-10-23', ['김기사']);
+    Store.load();
+    assert.deepStrictEqual(Store.state.settings.holds, { '2026-10-23': ['김기사'] });
   });
 
   console.log('할 일 (2026-10-14)');

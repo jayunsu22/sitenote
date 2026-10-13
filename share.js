@@ -1018,7 +1018,7 @@
     var d = dayDiff(today, iso);
     return d >= 0 && d <= n;
   }
-  function autoTasks(sites, today, rules) {
+  function autoTasks(sites, today, rules, holds) {
     var r = normalizeTaskRules(rules);
     var out = [];
     var make = function (kind, id, title, link) {
@@ -1043,6 +1043,14 @@
           { type: 'service', id: v.id, siteId: s.id, label: name + ' ' + serviceLabel(v) });
       });
     });
+    // 대기 인원이 남은 날 — 현장 배정을 잊지 않게 (인원 모집과 같은 기준 일수)
+    Object.keys(holds || {}).sort().forEach(function (iso) {
+      if (!within(today, iso, r.staffDays)) return;
+      var open = heldOpen(holds, sites, iso);
+      if (!open.length) return;
+      out.push({ id: 'auto:hold:' + iso, auto: true, kind: 'hold', holdDate: iso, date: today, time: '', link: null, done: false,
+        title: '인원 배정: ' + dayLabel(iso) + ' 대기 ' + open.length + '명 (' + open.join('·') + ')' });
+    });
     return out;
   }
   // 밴드에 올리는 인원 모집 문구. 현장명·주소는 넣지 않는다(공개 게시판) — 동네 이름만
@@ -1057,6 +1065,36 @@
     lines.push('가능하신 분 댓글이나 연락 주세요');
     return lines.join('\n');
   }
+  /* ---------- 대기 인원 (2026-10-14) ----------
+     사람을 먼저 그날로 잡아 두고 현장은 나중에 정한다. holds = { 'YYYY-MM-DD': [이름…] }.
+     대기 = 잡아 둔 사람 − 그날 현장·AS 에 이미 들어간 사람. 현장에 넣으면 저절로 대기에서 빠진다 */
+  var HOLD_KEEP_DAYS = 30;
+  function normalizeHolds(raw, today) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    var oldest = isIsoDate(today) ? addDays(today, -HOLD_KEEP_DAYS) : '';
+    Object.keys(raw).forEach(function (iso) {
+      if (!isIsoDate(iso) || (oldest && iso < oldest)) return;
+      var seen = {}, names = [];
+      (Array.isArray(raw[iso]) ? raw[iso] : []).forEach(function (n) {
+        var v = str(n), k = normName(v);
+        if (v && !seen[k]) { seen[k] = 1; names.push(v); }
+      });
+      if (names.length) out[iso] = names;
+    });
+    return out;
+  }
+  function heldOpen(holds, sites, iso) {
+    var list = (holds && holds[iso]) || [];
+    if (!list.length) return [];
+    var busy = {};
+    (sites || []).forEach(function (s) {
+      daysOf(s).forEach(function (d) { if (str(d.date) === iso) staffOf(d).forEach(function (n) { busy[normName(n)] = 1; }); });
+      servicesOf(s).forEach(function (v) { if (str(v.date) === iso) staffOf(v).forEach(function (n) { busy[normName(n)] = 1; }); });
+    });
+    return list.filter(function (n) { return !busy[normName(n)]; });
+  }
+
   // 같은 날 안의 순서: 시각 있는 것(이른 순) → 오전 → 오후 → 시간 없음
   function taskTimeKey(t) {
     var v = str(t && t.time);
@@ -1091,6 +1129,8 @@
     autoTasks: autoTasks,
     taskTimeKey: taskTimeKey,
     taskGroups: taskGroups,
+    normalizeHolds: normalizeHolds,
+    heldOpen: heldOpen,
     ownerRows: ownerRows,
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,

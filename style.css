@@ -854,3 +854,19 @@ textarea { resize: vertical; }
 .owner-call.disabled { background: #f3f4f6; opacity: .5; }
 .owner-del { grid-area: del; align-self: stretch; border: 0; border-radius: 8px; background: transparent; color: #9ca3af; font-size: 16px; }
 .svc-owners { margin: 0 0 8px; }
+
+/* 대기 인원 (2026-10-14) */
+.schcal-nml.hold { color: #c2410c; font-weight: 800; }
+.schcal-nml.hold::after { content: ' 대기'; font-size: 9px; font-weight: 700; }
+.sch-pick-hold { display: block; color: #c2410c; font-weight: 800; }
+.sch-pick-holdbtn { border-color: #fdba74; color: #c2410c; }
+.chip.pick.hold { background: #fff7ed; border-color: #fb923c; color: #9a3412; }
+.chip.pick.on.hold { background: #fed7aa; border-color: #ea580c; color: #7c2d12; }
+.chip.pick.busy { opacity: .55; }
+.staff-hold-head { width: 100%; font-size: 12.5px; font-weight: 800; color: #c2410c; }
+.staff-hold-sep { width: 100%; height: 0; border-top: 1px dashed var(--border); margin: 2px 0; }
+/* 고른 날짜 줄: 버튼이 셋(보기·인원 잡기·일정 넣기)이 되어 글자는 윗줄 전체, 버튼은 아랫줄로 */
+.sch-pick { flex-wrap: wrap; }
+.sch-pick-txt { flex: 1 1 100%; }
+.sch-pick-add, .sch-pick-view { flex: 1 1 0; white-space: nowrap; padding-left: 6px; padding-right: 6px; }
+.sch-pick-txt .sch-pick-hold { color: #c2410c; }
