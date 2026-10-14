@@ -949,3 +949,7 @@ textarea { resize: vertical; }
 .inc-hint { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
 .schcal-cell.today .schcal-inc { color: #fff; }
 .schcal-cell.today .schcal-inc.minus { color: #fecaca; }
+.schcal-incbox { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.schcal-incsum { font-size: 10px; font-weight: 800; color: #6b7280; letter-spacing: -0.4px; }
+.schcal-incsum.minus { color: var(--danger); }
+.schcal-cell.today .schcal-incsum { color: rgba(255,255,255,0.85); }

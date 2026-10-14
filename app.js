@@ -596,7 +596,14 @@
     // 수익 보기 (2026-10-14): 그날 적어 둔 남은 돈 합계를 만원 단위로. 적은 게 없으면 비워 둔다
     var inc = calShow === 'income' ? Share.incomeOfDay(state.settings.income, iso) : 0;
     if (calShow === 'income') {
-      if (inc) { mark.className = 'schcal-inc' + (inc < 0 ? ' minus' : ''); mark.textContent = Share.manwon(inc); }
+      // 첫 줄 = 그날 수익, 둘째 줄 = 그 달 1일부터 그날까지 쌓인 합계
+      if (inc) {
+        mark.className = 'schcal-incbox';
+        var l1 = document.createElement('span'); l1.className = 'schcal-inc' + (inc < 0 ? ' minus' : ''); l1.textContent = Share.manwon(inc);
+        var run = Share.incomeRunning(state.settings.income, iso);
+        var l2 = document.createElement('span'); l2.className = 'schcal-incsum' + (run < 0 ? ' minus' : ''); l2.textContent = '합' + (Share.manwon(run) || '0');
+        mark.appendChild(l1); mark.appendChild(l2);
+      }
       else mark.className = 'schcal-blank';
     }
     else if (calShow === 'staff' && (n || held.length)) {
@@ -646,7 +653,7 @@
          : '현장 없음') +
       (n && st && st.have ? ' · 인원 ' + st.have + '명' + (st.slots > st.have ? ' (같은 사람 겹침)' : '') : '');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
-    if (calShow === 'income') b.title = dateLabel(iso) + ' · 수익 ' + (inc ? Share.wonText(inc) : '없음');
+    if (calShow === 'income') b.title = dateLabel(iso) + ' · 수익 ' + (inc ? Share.wonText(inc) + ' · 이달 합계 ' + Share.wonText(Share.incomeRunning(state.settings.income, iso)) : '없음');
     // 수익 보기에서는 날짜를 누르면 그날 수익 적는 창이 뜬다
     b.onclick = function () { if (민직후) return; if (calShow === 'income') { openIncomeSheet(iso); return; } pickDate(iso); };
     return b;
