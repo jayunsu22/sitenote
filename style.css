@@ -904,3 +904,26 @@ textarea { resize: vertical; }
 /* 할 일 줄: 현장 옆 업체명 · 시공 첫날 (2026-10-14) */
 .task-link-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 700; vertical-align: 1px; }
 .task-link-tag.date { background: #ecfdf5; color: #047857; }
+
+/* 팀원 한 사람 일정 잡기 달력 (2026-10-14) */
+.team-cal { flex: 0 0 auto; margin-right: 8px; padding: 6px 10px; font-size: 13px; font-weight: 800; color: #9a3412; background: #fff7ed; border: 1.5px solid #fb923c; border-radius: 8px; white-space: nowrap; }
+.holdcal-nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 2px 0 8px; }
+.holdcal-nav b { font-size: 16px; min-width: 110px; text-align: center; }
+.holdcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.holdcal-wd { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding-bottom: 2px; }
+.holdcal-wd.sun { color: var(--danger); }
+.holdcal-wd.sat { color: var(--primary); }
+.holdcal-day { min-height: 54px; padding: 4px 2px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; font: inherit; color: var(--text); }
+.holdcal-day .n { font-size: 15px; font-weight: 800; }
+.holdcal-day .t { font-size: 10.5px; font-weight: 800; line-height: 1.2; }
+.holdcal-day.red .n { color: var(--danger); }
+.holdcal-day.today { border-color: var(--primary); }
+.holdcal-day.on { background: #fed7aa; border-color: #ea580c; }
+.holdcal-day.on .t { color: #7c2d12; }
+.holdcal-day.busy { background: #eff6ff; border-color: #bfdbfe; }
+.holdcal-day.busy .t { color: var(--primary-dark); }
+.holdcal-day.past { opacity: 0.4; }
+.holdcal-blank { min-height: 54px; }
+.holdcal-info { margin-top: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.holdcal-info b { color: #9a3412; }
+.holdcal-done { width: 100%; margin-top: 12px; padding: 12px; font-size: 15px; font-weight: 800; color: #fff; background: var(--primary); border: none; border-radius: 10px; }
