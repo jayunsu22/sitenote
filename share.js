@@ -1127,6 +1127,14 @@
     });
     return { total: total, days: days };
   }
+  // 그 달 1일부터 iso 날까지 쌓인 합계 (달력 칸 아랫줄)
+  function incomeRunning(income, iso) {
+    var ym = String(iso).slice(0, 7), total = 0;
+    Object.keys(income || {}).forEach(function (d) {
+      if (d.slice(0, 7) === ym && d <= iso) total += incomeOfDay(income, d);
+    });
+    return total;
+  }
   // 달력 칸용 짧은 표시: 400000 → '40만', 425000 → '42.5만', 85000 → '8.5만', -50000 → '-5만', 3000 → '3천'
   function manwon(amt) {
     var n = Math.round(Number(amt) || 0);
@@ -1185,7 +1193,7 @@
     taskTimeKey: taskTimeKey,
     taskGroups: taskGroups,
     normalizeHolds: normalizeHolds,
-    normalizeIncome: normalizeIncome, incomeOfDay: incomeOfDay, incomeOfMonth: incomeOfMonth,
+    normalizeIncome: normalizeIncome, incomeOfDay: incomeOfDay, incomeOfMonth: incomeOfMonth, incomeRunning: incomeRunning,
     manwon: manwon, parseManwon: parseManwon, wonText: wonText,
     heldOpen: heldOpen,
     ownerRows: ownerRows,

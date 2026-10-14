@@ -1089,6 +1089,9 @@ test('하루 수익: 만원 표시·입력 읽기·합계', () => {
   assert.strictEqual(Share.incomeOfDay(inc, '2026-10-02'), 200000);
   assert.deepStrictEqual(Share.incomeOfMonth(inc, '2026-10'), { total: 600000, days: 2 });
   assert.strictEqual(Share.wonText(1234567), '1,234,567원');
+  assert.strictEqual(Share.incomeRunning(inc, '2026-10-01'), 400000);
+  assert.strictEqual(Share.incomeRunning(inc, '2026-10-02'), 600000);
+  assert.strictEqual(Share.incomeRunning(inc, '2026-11-01'), 0);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
