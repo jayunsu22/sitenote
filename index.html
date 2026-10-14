@@ -6,7 +6,7 @@
   <title>거래처별 현장관리</title>
   <!-- 사장님 전용 화면 — 관리자 암호(관리자 앱과 같은 암호, 한 번 열면 같이 열림) -->
   <script src="pin-lock.js?v=20261008a" data-key="adminUnlocked"></script>
-  <link rel="stylesheet" href="style.css?v=20261014i">
+  <link rel="stylesheet" href="style.css?v=20261014j">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -266,6 +266,25 @@
     </div>
   </div>
 
+  <!-- ========== 팀원 한 사람 일정 잡기 (바텀시트, 2026-10-14) ==========
+       설정 → 팀원 → 📅. 달력에서 날짜를 누르면 그날 대기 인원으로 잡히고, 다시 누르면 빠진다 -->
+  <div id="holdCalSheet" class="sheet-bg" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="holdCalTitle">📅 일정 잡기</h3>
+        <button id="holdCalClose" class="icon-btn" title="닫기">✕</button>
+      </div>
+      <div class="holdcal-nav">
+        <button id="holdCalPrev" class="icon-btn" title="이전 달">‹</button>
+        <b id="holdCalMonth"></b>
+        <button id="holdCalNext" class="icon-btn" title="다음 달">›</button>
+      </div>
+      <div id="holdCalGrid" class="holdcal-grid"></div>
+      <div id="holdCalInfo" class="holdcal-info"></div>
+      <button id="holdCalDone" class="holdcal-done">✅ 다 됐어요 (닫기)</button>
+    </div>
+  </div>
+
   <!-- ========== AS·추가작업 (바텀시트) ==========
        끝난 현장에 온 요청을 그 현장 안에 적는다. 적는 대로 바로 저장된다 -->
   <div id="svcSheet" class="sheet-bg" hidden>
@@ -401,7 +420,7 @@
   <script src="owner-key.js?v=20261010"></script>
   <script src="adminlink.js?v=20261008a"></script>
   <script src="taskui.js?v=20261014i"></script>
-  <script src="app.js?v=20261014f"></script>
+  <script src="app.js?v=20261014g"></script>
   <script src="app-switcher.js?v=20261014d" data-app-id="schedule"></script>
 </body>
 </html>

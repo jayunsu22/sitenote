@@ -2343,6 +2343,66 @@
     var cb = staffPicker.onDone; staffPicker.onDone = null;
     if (cb) cb();
   }
+  /* 팀원 한 사람 일정 잡기 (2026-10-14).
+     인원 잡기는 날짜마다 창을 열어야 해서 불편했다 — 사람을 먼저 고르고 달력에서 날짜를 누르면
+     그날 '대기' 로 잡힌다(다시 누르면 빠짐). 이미 그날 현장·AS 에 들어간 날은 '현장' 으로 보이고 못 누른다.
+     지난 날짜는 흐리게. 누를 때마다 바로 저장(동기화)된다 */
+  var holdCal = { name: '', y: 0, m: 0 };
+  function openHoldCalendar(name) {
+    var t = Share.todayIso().split('-');
+    holdCal = { name: name, y: +t[0], m: +t[1] - 1 };
+    renderHoldCalendar();
+    $('holdCalSheet').hidden = false;
+  }
+  function closeHoldCalendar() {
+    $('holdCalSheet').hidden = true;
+    if (!$('viewSettings').hidden) renderTeamList();
+    if (typeof renderSchedule === 'function' && $('viewSchedule') && !$('viewSchedule').hidden) renderSchedule();
+  }
+  function renderHoldCalendar() {
+    var name = holdCal.name, y = holdCal.y, m = holdCal.m;
+    var pad = function (v) { return (v < 10 ? '0' : '') + v; };
+    var norm = function (v) { return String(v).replace(/\s+/g, ''); };
+    var today = Share.todayIso();
+    var holds = state.settings.holds || {};
+    var staffByDate = Share.dateStaff(state.sites);
+    $('holdCalTitle').textContent = '📅 ' + name + ' 일정 잡기';
+    $('holdCalMonth').textContent = y + '년 ' + (m + 1) + '월';
+    var grid = $('holdCalGrid'); grid.innerHTML = '';
+    ['일', '월', '화', '수', '목', '금', '토'].forEach(function (w, i) {
+      var d = document.createElement('div'); d.className = 'holdcal-wd' + (i === 0 ? ' sun' : i === 6 ? ' sat' : ''); d.textContent = w;
+      grid.appendChild(d);
+    });
+    var first = new Date(y, m, 1).getDay(), last = new Date(y, m + 1, 0).getDate();
+    for (var b = 0; b < first; b++) { var e = document.createElement('div'); e.className = 'holdcal-blank'; grid.appendChild(e); }
+    var heldCount = 0;
+    for (var day = 1; day <= last; day++) (function (day) {
+      var iso = y + '-' + pad(m + 1) + '-' + pad(day);
+      var busy = ((staffByDate[iso] || {}).names || []).some(function (n) { return norm(n) === norm(name); });
+      var on = (holds[iso] || []).some(function (n) { return norm(n) === norm(name); });
+      var past = iso < today;
+      if (on && !busy) heldCount++;
+      var c = document.createElement('button'); c.type = 'button';
+      c.className = 'holdcal-day' + (busy ? ' busy' : on ? ' on' : '') + (past ? ' past' : '') +
+        (iso === today ? ' today' : '') + (Share.isRedDay(iso) ? ' red' : '');
+      c.innerHTML = '<span class="n">' + day + '</span><span class="t">' + (busy ? '현장' : on ? '잡음' : '') + '</span>';
+      c.onclick = function () {
+        if (busy) { toast(name + ' 은(는) 이날 이미 현장에 들어가 있어요'); return; }
+        if (past) { toast('지난 날짜는 잡을 수 없어요'); return; }
+        Store.toggleHold(iso, name);
+        renderHoldCalendar();
+      };
+      grid.appendChild(c);
+    })(day);
+    $('holdCalInfo').innerHTML = '날짜를 누르면 그날 <b>대기</b>로 잡히고, 다시 누르면 빠집니다. 바로 저장돼요.<br>' +
+      '이번 달 잡은 날: <b>' + heldCount + '일</b> · 파란 칸은 이미 현장에 들어간 날';
+  }
+  $('holdCalClose').onclick = closeHoldCalendar;
+  $('holdCalDone').onclick = closeHoldCalendar;
+  $('holdCalSheet').onclick = function (e) { if (e.target === $('holdCalSheet')) closeHoldCalendar(); };
+  $('holdCalPrev').onclick = function () { holdCal.m--; if (holdCal.m < 0) { holdCal.m = 11; holdCal.y--; } renderHoldCalendar(); };
+  $('holdCalNext').onclick = function () { holdCal.m++; if (holdCal.m > 11) { holdCal.m = 0; holdCal.y++; } renderHoldCalendar(); };
+
   // 대기 인원 잡기 (2026-10-14): 같은 인원 창을 날짜 하나에 대해 쓴다. 현장은 고르지 않는다
   function openHoldPicker(iso) {
     staffPicker = { siteId: '', dayIndex: 0, onDone: renderSchedule, hold: iso };
@@ -2803,6 +2863,9 @@
       main.onclick = function () { openPersonSheet(name); };
       var go = document.createElement('span'); go.className = 'team-go'; go.textContent = '›';
       go.onclick = main.onclick;
+      // 📅 일정: 이 사람을 여러 날짜에 한 번에 잡는다 (날짜마다 인원 창을 여는 대신)
+      var cal = document.createElement('button'); cal.type = 'button'; cal.className = 'team-cal'; cal.textContent = '📅 일정';
+      cal.onclick = function (e) { e.stopPropagation(); openHoldCalendar(name); };
       var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
       x.onclick = function () {
         var next = team.slice(); next.splice(i, 1);
@@ -2810,7 +2873,7 @@
         Store.setSettings({ team: next, people: people });
         renderTeamList();
       };
-      row.appendChild(main); row.appendChild(go); row.appendChild(x);
+      row.appendChild(main); row.appendChild(cal); row.appendChild(go); row.appendChild(x);
       box.appendChild(row);
     });
   }
