@@ -46,6 +46,7 @@
       serviceTools: DEFAULT_SERVICE_TOOLS.slice(),             // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
       taskRules: Object.assign({}, Share.DEFAULT_TASK_RULES),  // 자동 할 일 기준 일수 (2026-10-14)
       holds: {},                                               // 대기 인원 — 날짜에 먼저 잡아 둔 사람 (2026-10-14)
+      income: {},                                              // 하루 수익 — 사장님이 직접 적는 남은 돈 (2026-10-14)
       taskPresets: DEFAULT_TASK_PRESETS.slice()                // 할 일 빠른 버튼 (2026-10-14)
     };
   }
@@ -227,6 +228,7 @@
       state.settings.taskPresets = stringList(state.settings.taskPresets, DEFAULT_TASK_PRESETS);
       state.settings.taskRules = Share.normalizeTaskRules(state.settings.taskRules);
       state.settings.holds = Share.normalizeHolds(state.settings.holds, Share.todayIso());
+      state.settings.income = Share.normalizeIncome(state.settings.income);
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.tasks = normalizeTasks(parsed.tasks);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
@@ -259,7 +261,7 @@
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
       serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds,
-      taskPresets: state.settings.taskPresets };
+      taskPresets: state.settings.taskPresets, income: state.settings.income };
   }
 
   // ---------- 거래처 ----------
@@ -353,6 +355,29 @@
     var i = cur.findIndex(function (n) { return n.replace(/\s+/g, '') === k; });
     if (i === -1) cur.push(String(name).trim()); else cur.splice(i, 1);
     return setHold(iso, cur);
+  }
+
+  // ---------- 하루 수익 (2026-10-14) ----------
+  function saveIncomeDay(iso, list) {
+    var inc = Object.assign({}, state.settings.income || {});
+    inc[iso] = list;
+    setSettings({ income: Share.normalizeIncome(inc) });
+    return (state.settings.income[iso] || []).slice();
+  }
+  function addIncome(iso, amt, memo) {
+    if (!Share.isIsoDate(iso) || !Math.round(Number(amt) || 0)) return null;
+    var list = ((state.settings.income || {})[iso] || []).slice();
+    list.push({ id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), amt: Math.round(amt), memo: String(memo || '').trim() });
+    return saveIncomeDay(iso, list);
+  }
+  function updateIncome(iso, id, amt, memo) {
+    var list = ((state.settings.income || {})[iso] || []).map(function (e) {
+      return e.id === id ? { id: e.id, amt: Math.round(Number(amt) || 0), memo: String(memo || '').trim() } : e;
+    });
+    return saveIncomeDay(iso, list);
+  }
+  function deleteIncome(iso, id) {
+    return saveIncomeDay(iso, ((state.settings.income || {})[iso] || []).filter(function (e) { return e.id !== id; }));
   }
 
   // ---------- 거래처 메모 내역 (2026-10-14) ----------
@@ -684,7 +709,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -808,6 +833,7 @@
         state.settings.taskPresets = stringList(ds.taskPresets, DEFAULT_TASK_PRESETS);
         state.settings.taskRules = Share.normalizeTaskRules(ds.taskRules);
         state.settings.holds = Share.normalizeHolds(ds.holds, Share.todayIso());
+        state.settings.income = Share.normalizeIncome(ds.income);   // 예전 백업엔 없다 → 빈 표
         state.clients = (data.clients || []).map(normalizeClient);
         // 할 일 (2026-10-14) — 옛 서버(할일 표 없음)는 tasks 를 안 준다. 그때는 폰의 할 일을 지우지 않는다
         if (Array.isArray(data.tasks)) state.tasks = normalizeTasks(data.tasks);
@@ -855,7 +881,7 @@
     addService: addService, updateService: updateService, removeService: removeService, setServiceToolReady: setServiceToolReady,
     tasks: tasks, getTask: getTask, addTask: addTask, updateTask: updateTask, deleteTask: deleteTask,
     completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered,
-    setHold: setHold, toggleHold: toggleHold,
+    setHold: setHold, toggleHold: toggleHold, addIncome: addIncome, updateIncome: updateIncome, deleteIncome: deleteIncome,
     addClientNote: addClientNote, updateClientNote: updateClientNote, deleteClientNote: deleteClientNote,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,

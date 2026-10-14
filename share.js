@@ -1095,6 +1095,61 @@
     return list.filter(function (n) { return !busy[normName(n)]; });
   }
 
+  /* ---------- 하루 수익 (2026-10-14) ----------
+     사장님이 그날 인건비·자재비 등을 빼고 남은 돈을 직접 적는다. income = { 'YYYY-MM-DD': [{ id, amt(원), memo }] }.
+     지난 날 기록이라 오래돼도 지우지 않는다. 금액 0·잘못된 날짜는 버린다 */
+  function normalizeIncome(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    Object.keys(raw).forEach(function (iso) {
+      if (!isIsoDate(iso)) return;
+      var list = [];
+      (Array.isArray(raw[iso]) ? raw[iso] : []).forEach(function (e, i) {
+        if (!e) return;
+        var amt = Math.round(Number(e.amt) || 0);
+        if (!amt) return;
+        list.push({ id: str(e.id) || (iso + '-' + i), amt: amt, memo: str(e.memo) });
+      });
+      if (list.length) out[iso] = list;
+    });
+    return out;
+  }
+  function incomeOfDay(income, iso) {
+    return ((income && income[iso]) || []).reduce(function (a, e) { return a + (Number(e.amt) || 0); }, 0);
+  }
+  // 'YYYY-MM' 한 달 합계와 적은 날 수
+  function incomeOfMonth(income, ym) {
+    var total = 0, days = 0;
+    Object.keys(income || {}).forEach(function (iso) {
+      if (iso.slice(0, 7) !== ym) return;
+      var d = incomeOfDay(income, iso);
+      if (d) { total += d; days++; }
+    });
+    return { total: total, days: days };
+  }
+  // 달력 칸용 짧은 표시: 400000 → '40만', 425000 → '42.5만', 85000 → '8.5만', -50000 → '-5만', 3000 → '3천'
+  function manwon(amt) {
+    var n = Math.round(Number(amt) || 0);
+    if (!n) return '';
+    var sign = n < 0 ? '-' : '', a = Math.abs(n);
+    if (a < 10000) return sign + Math.round(a / 1000) + '천';
+    var v = Math.round(a / 1000) / 10;   // 만원 단위, 소수 한 자리
+    return sign + (v % 1 ? v.toFixed(1) : String(v)) + '만';
+  }
+  // 입력 칸: '40' 또는 '40만' 은 40만원, '425000' 처럼 큰 수는 원 단위로 본다. '-5' 는 -5만원(손해 본 날)
+  function parseManwon(text) {
+    var t = String(text == null ? '' : text).replace(/[,\s원]/g, '');
+    var m = /^(-?)(\d+(?:\.\d+)?)(만)?$/.exec(t);
+    if (!m) return 0;
+    var v = parseFloat(m[2]);
+    var won = (m[3] || v < 10000) ? Math.round(v * 10000) : Math.round(v);
+    return m[1] ? -won : won;
+  }
+  function wonText(amt) {
+    var n = Math.round(Number(amt) || 0);
+    return (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원';
+  }
+
   // 같은 날 안의 순서: 시각 있는 것(이른 순) → 오전 → 오후 → 시간 없음
   function taskTimeKey(t) {
     var v = str(t && t.time);
@@ -1130,6 +1185,8 @@
     taskTimeKey: taskTimeKey,
     taskGroups: taskGroups,
     normalizeHolds: normalizeHolds,
+    normalizeIncome: normalizeIncome, incomeOfDay: incomeOfDay, incomeOfMonth: incomeOfMonth,
+    manwon: manwon, parseManwon: parseManwon, wonText: wonText,
     heldOpen: heldOpen,
     ownerRows: ownerRows,
     ownerLine: ownerLine,

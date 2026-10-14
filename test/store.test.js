@@ -583,8 +583,26 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team', 'holds', 'taskPresets'].sort());
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'taskRules', 'team', 'holds', 'taskPresets', 'income'].sort());
     assert.deepStrictEqual(op.data.team, ['김기사']);
+  });
+
+  await test('하루 수익: 넣기·고치기·지우기 → 설정 백업 큐에 income', () => {
+    reset();
+    Store.addIncome('2026-10-14', 400000, '청라 룩스');
+    Store.addIncome('2026-10-14', 250000, '');
+    let list = Store.state.settings.income['2026-10-14'];
+    assert.strictEqual(list.length, 2);
+    Store.updateIncome('2026-10-14', list[0].id, 450000, '청라 룩스 2명');
+    list = Store.state.settings.income['2026-10-14'];
+    assert.deepStrictEqual([list[0].amt, list[0].memo], [450000, '청라 룩스 2명']);
+    Store.deleteIncome('2026-10-14', list[1].id);
+    assert.strictEqual(Store.state.settings.income['2026-10-14'].length, 1);
+    const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
+    assert.strictEqual(op.type, 'settings');
+    assert.strictEqual(op.data.income['2026-10-14'][0].amt, 450000);
+    Store.deleteIncome('2026-10-14', list[0].id);
+    assert.ok(!Store.state.settings.income['2026-10-14']);   // 다 지우면 그 날짜도 빠진다
   });
 
   console.log('일정 — 현장 변경');

@@ -1080,5 +1080,16 @@ test('navAddress: 내비용 — 호수·평형은 빼고 아파트 이름과 동
   assert.strictEqual(Share.navAddress({ name: '' }), '');
 });
 
+
+test('하루 수익: 만원 표시·입력 읽기·합계', () => {
+  assert.deepStrictEqual([400000, 425000, 85000, -50000, 3000].map(Share.manwon), ['40만', '42.5만', '8.5만', '-5만', '3천']);
+  assert.deepStrictEqual(['40', '40만', '42.5', '425000', '-5', '40만원', '1,200,000', 'abc'].map(Share.parseManwon),
+    [400000, 400000, 425000, 425000, -50000, 400000, 1200000, 0]);
+  const inc = Share.normalizeIncome({ '2026-10-01': [{ id: 'a', amt: 400000 }, { amt: 0 }], '2026-10-02': [{ amt: 250000 }, { amt: -50000 }], 'x': [{ amt: 1 }] });
+  assert.strictEqual(Share.incomeOfDay(inc, '2026-10-02'), 200000);
+  assert.deepStrictEqual(Share.incomeOfMonth(inc, '2026-10'), { total: 600000, days: 2 });
+  assert.strictEqual(Share.wonText(1234567), '1,234,567원');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

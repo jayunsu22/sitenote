@@ -508,7 +508,7 @@
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calShow = 'count';   // 달력 칸에 건수 / 시공지역 / 인원 중 뭘 볼까 (설정에 기억해 둔다)
-  var CAL_SHOWS = ['count', 'region', 'staff'];
+  var CAL_SHOWS = ['count', 'region', 'staff', 'income'];
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
@@ -593,7 +593,13 @@
        (모자란 수는 칸을 길게 눌렀을 때 뜨는 설명과 현장 카드에 있다) */
     var st = o.staff;
     var held = holdDays[iso] || [];
-    if (calShow === 'staff' && (n || held.length)) {
+    // 수익 보기 (2026-10-14): 그날 적어 둔 남은 돈 합계를 만원 단위로. 적은 게 없으면 비워 둔다
+    var inc = calShow === 'income' ? Share.incomeOfDay(state.settings.income, iso) : 0;
+    if (calShow === 'income') {
+      if (inc) { mark.className = 'schcal-inc' + (inc < 0 ? ' minus' : ''); mark.textContent = Share.manwon(inc); }
+      else mark.className = 'schcal-blank';
+    }
+    else if (calShow === 'staff' && (n || held.length)) {
       mark.className = 'schcal-nm' + (past ? ' past' : '');
       if (n && (!st || !st.have)) {
         var none = document.createElement('span');
@@ -640,7 +646,9 @@
          : '현장 없음') +
       (n && st && st.have ? ' · 인원 ' + st.have + '명' + (st.slots > st.have ? ' (같은 사람 겹침)' : '') : '');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
-    b.onclick = function () { if (민직후) return; pickDate(iso); };
+    if (calShow === 'income') b.title = dateLabel(iso) + ' · 수익 ' + (inc ? Share.wonText(inc) : '없음');
+    // 수익 보기에서는 날짜를 누르면 그날 수익 적는 창이 뜬다
+    b.onclick = function () { if (민직후) return; if (calShow === 'income') { openIncomeSheet(iso); return; } pickDate(iso); };
     return b;
   }
 
@@ -771,7 +779,7 @@
   /* 건수 · 지역 · 인원 — 셋을 나란히 두고 보고 있는 것에 불을 켠다.
      돌려 가며 누르는 버튼 하나로는 지금 뭘 보고 있는지, 뭘 더 볼 수 있는지 모른다.
      어느 쪽을 보고 있었는지는 폰에 기억해 둔다 */
-  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤' };
+  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤', income: '수익 💰' };
   function calShowRow() {
     var row = document.createElement('div'); row.className = 'schcal-segs';
     CAL_SHOWS.forEach(function (k) {
@@ -830,6 +838,11 @@
         var weekTotal = 0;
         for (var wi = 0; wi < 7; wi++) weekTotal += counts[Share.addDays(calWeek, wi)] || 0;
         wsum.innerHTML = '이번 주 <b>' + weekTotal + '건</b>';
+        if (calShow === 'income') {
+          var wInc = 0;
+          for (var wj = 0; wj < 7; wj++) wInc += Share.incomeOfDay(state.settings.income, Share.addDays(calWeek, wj));
+          wsum.innerHTML = '이번 주 수익 <b class="inc">' + (wInc ? Share.manwon(wInc) + '원' : '0원') + '</b>';
+        }
         wnav.appendChild(wsum);
       }
       box.appendChild(wnav);
@@ -862,6 +875,10 @@
         return ymOf(k) === calMonth ? a + counts[k] : a;
       }, 0);
       sum.innerHTML = '이번 달 <b>' + monthTotal + '건</b>';
+      if (calShow === 'income') {
+        var mInc = Share.incomeOfMonth(state.settings.income, calMonth);
+        sum.innerHTML = '수익 <b class="inc">' + Share.wonText(mInc.total) + '</b>';
+      }
       nav.appendChild(prev); nav.appendChild(label); nav.appendChild(next); nav.appendChild(sum);
       box.appendChild(nav);
 
@@ -2343,6 +2360,77 @@
     var cb = staffPicker.onDone; staffPicker.onDone = null;
     if (cb) cb();
   }
+  /* ---------- 하루 수익 적기 (2026-10-14) ----------
+     일정 → '수익 💰' 보기에서 날짜를 누르면 뜬다. 그날 인건비·자재비 등을 빼고 남은 돈을 직접 적는다.
+     한 날에 여러 줄(현장별 등)을 적을 수 있고, 줄마다 ✏️ 고치기 · ✕ 지우기. 적는 대로 저장(백업)된다 */
+  var incomeIso = '', incomeEditId = '';
+  function openIncomeSheet(iso) {
+    incomeIso = iso; incomeEditId = '';
+    $('incAmt').value = ''; $('incMemo').value = '';
+    renderIncomeSheet();
+    $('incomeSheet').hidden = false;
+    setTimeout(function () { $('incAmt').focus(); }, 50);
+  }
+  function closeIncomeSheet() {
+    $('incomeSheet').hidden = true;
+    renderSchedule();
+  }
+  function renderIncomeSheet() {
+    var iso = incomeIso;
+    var list = (state.settings.income || {})[iso] || [];
+    var dayTotal = Share.incomeOfDay(state.settings.income, iso);
+    var mon = Share.incomeOfMonth(state.settings.income, iso.slice(0, 7));
+    $('incTitle').textContent = '💰 ' + dateLabel(iso) + ' 수익';
+    var box = $('incList'); box.innerHTML = '';
+    if (!list.length) {
+      var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 적은 수익이 없어요. 아래에 금액과 내역을 적으세요.';
+      box.appendChild(e);
+    }
+    list.forEach(function (it) {
+      var row = document.createElement('div'); row.className = 'inc-row' + (it.id === incomeEditId ? ' editing' : '');
+      var amt = document.createElement('b'); amt.className = 'inc-amt' + (it.amt < 0 ? ' minus' : ''); amt.textContent = Share.wonText(it.amt);
+      var memo = document.createElement('span'); memo.className = 'inc-memo'; memo.textContent = it.memo || '(내역 없음)';
+      var ed = document.createElement('button'); ed.type = 'button'; ed.className = 'inc-btn'; ed.textContent = '✏️'; ed.title = '고치기';
+      ed.onclick = function () {
+        incomeEditId = it.id;
+        $('incAmt').value = String(it.amt % 1000 === 0 ? it.amt / 10000 : it.amt);   // 적은 그대로 만원 단위로 (42만5천 → 42.5)
+        $('incMemo').value = it.memo || '';
+        renderIncomeSheet();
+        $('incAmt').focus();
+      };
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'inc-btn del'; del.textContent = '✕'; del.title = '지우기';
+      del.onclick = function () {
+        if (!confirm(Share.wonText(it.amt) + (it.memo ? ' (' + it.memo + ')' : '') + '\n이 수익을 지울까요?')) return;
+        Store.deleteIncome(iso, it.id);
+        if (incomeEditId === it.id) { incomeEditId = ''; $('incAmt').value = ''; $('incMemo').value = ''; }
+        renderIncomeSheet();
+      };
+      row.appendChild(amt); row.appendChild(memo); row.appendChild(ed); row.appendChild(del);
+      box.appendChild(row);
+    });
+    $('incDayTotal').innerHTML = '이날 합계 <b class="' + (dayTotal < 0 ? 'minus' : '') + '">' + Share.wonText(dayTotal) + '</b>' +
+      ' · ' + (+iso.slice(5, 7)) + '월 합계 <b>' + Share.wonText(mon.total) + '</b> (' + mon.days + '일)';
+    $('incSave').textContent = incomeEditId ? '✏️ 고치기 저장' : '💾 넣기';
+    $('incCancelEdit').hidden = !incomeEditId;
+  }
+  function saveIncomeForm() {
+    var amt = Share.parseManwon($('incAmt').value);
+    if (!amt) { toast('금액을 적어 주세요 (예: 40 = 40만원)'); $('incAmt').focus(); return; }
+    var memo = $('incMemo').value.trim();
+    if (incomeEditId) Store.updateIncome(incomeIso, incomeEditId, amt, memo);
+    else Store.addIncome(incomeIso, amt, memo);
+    toast((incomeEditId ? '고쳤어요 · ' : '넣었어요 · ') + Share.wonText(amt));
+    incomeEditId = ''; $('incAmt').value = ''; $('incMemo').value = '';
+    renderIncomeSheet();
+  }
+  $('incSave').onclick = saveIncomeForm;
+  $('incAmt').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); $('incMemo').focus(); } };
+  $('incMemo').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); saveIncomeForm(); } };
+  $('incCancelEdit').onclick = function () { incomeEditId = ''; $('incAmt').value = ''; $('incMemo').value = ''; renderIncomeSheet(); };
+  $('incClose').onclick = closeIncomeSheet;
+  $('incDone').onclick = closeIncomeSheet;
+  $('incomeSheet').onclick = function (e) { if (e.target === $('incomeSheet')) closeIncomeSheet(); };
+
   /* 팀원 한 사람 일정 잡기 (2026-10-14).
      인원 잡기는 날짜마다 창을 열어야 해서 불편했다 — 사람을 먼저 고르고 달력에서 날짜를 누르면
      그날 '대기' 로 잡힌다(다시 누르면 빠짐). 이미 그날 현장·AS 에 들어간 날은 '현장' 으로 보이고 못 누른다.
