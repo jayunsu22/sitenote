@@ -2929,6 +2929,8 @@
     info.appendChild(ph); info.appendChild(car);
     return info;
   }
+  // 팀원 명단에서 지금 보고 있는 등급 탭 ('' = 전체). 앱을 다시 열면 전체부터 (2026-10-16)
+  var teamTab = '';
   function renderTeamList() {
     var box = $('teamList'); box.innerHTML = '';
     var team = state.settings.team || [];
@@ -2936,15 +2938,41 @@
       var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
       box.appendChild(e);
     }
-    // 한 줄 = 등급 + 이름 · [수정] [전화] [일정] [×] (2026-10-16).
+    // 등급 탭: 전체 / A / B / C / F — 옆의 숫자는 그 등급 사람 수.
+    // 등급을 안 정한 사람(미정)은 [전체]에서만 보인다
+    var gradeOf = function (n) { return Share.personOf(state.settings.people, n).grade; };
+    if (team.length) {
+      var tabs = document.createElement('div'); tabs.className = 'team-tabs';
+      [''].concat(Share.PERSON_GRADES).forEach(function (g) {
+        var n = g ? team.filter(function (nm) { return gradeOf(nm) === g; }).length : team.length;
+        var b = document.createElement('button'); b.type = 'button';
+        b.className = 'team-tab g-' + (g || 'all') + (teamTab === g ? ' on' : '');
+        b.innerHTML = (g ? esc(g) : '전체') + '<span class="tt-n">' + n + '</span>';
+        b.onclick = function () { teamTab = g; renderTeamList(); };
+        tabs.appendChild(b);
+      });
+      box.appendChild(tabs);
+    }
+    var shown = teamTab ? team.filter(function (nm) { return gradeOf(nm) === teamTab; }) : team;
+    if (team.length && !shown.length) {
+      var none = document.createElement('div'); none.className = 'sec-empty';
+      none.textContent = teamTab + '등급인 사람이 아직 없습니다. [수정]에서 등급을 정할 수 있습니다.';
+      box.appendChild(none);
+    }
+    // 한 줄 = 이름+등급+페이 · [수정] [전화] [일정] [×] (2026-10-16).
     // 전화번호는 글자로 띄우지 않는다 — [전화]로 바로 걸고, 번호가 없으면 그 버튼이 비활성
-    team.forEach(function (name, i) {
+    shown.forEach(function (name) {
+      var i = team.indexOf(name);
       var p = Share.personOf(state.settings.people, name);
       var row = document.createElement('div'); row.className = 'team-row team-tap';
       var main = document.createElement('div'); main.className = 'team-main';
       var t = document.createElement('div'); t.className = 'slist-name';
-      if (p.grade) { var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade; t.appendChild(gb); }
       t.appendChild(document.createTextNode(name));
+      if (p.grade) {   // 이름 뒤에 등급 — 서영호A(23)
+        var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade;
+        gb.title = '등급 ' + p.grade;
+        t.appendChild(gb);
+      }
       if (p.pay) {   // 이름 뒤에 일당 — 서영호(23)
         var pay = document.createElement('span'); pay.className = 'team-pay'; pay.textContent = '(' + p.pay + ')';
         pay.title = '일당 ' + p.pay + '만원';
@@ -3170,7 +3198,8 @@
   function renderSupplyDefaultList() {
     renderStringList($('supplyDefaultList'), state.settings.supplyDefaults || [], function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
   }
-  bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); renderTeamList(); });
+  // 새로 넣은 사람은 등급이 아직 없으니, 등급 탭을 보고 있었으면 [전체]로 돌려 바로 보이게 한다
+  bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); teamTab = ''; renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
   // AS 부자재·공구 (2026-10-05) — AS·추가작업 접수에서 탭으로 고르는 목록
   function renderServiceToolList() {

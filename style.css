@@ -756,11 +756,11 @@ textarea { resize: vertical; }
 .modal .person-form textarea { min-height: 80px; }
 
 /* ---------- 기사 등급 · 전화 걸기 · 이름 바꾸기 (2026-10-05) ---------- */
-.gbadge { display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 5px; border-radius: 6px; font-size: 12px; font-weight: 900; text-align: center; line-height: 20px; }
-.gbadge.g-A, .pf-grade.g-A { --gc: #15803d; --gt: #ecfdf3; }
-.gbadge.g-B, .pf-grade.g-B { --gc: #2563eb; --gt: #eff6ff; }
-.gbadge.g-C, .pf-grade.g-C { --gc: #b45309; --gt: #fffbeb; }
-.gbadge.g-F, .pf-grade.g-F { --gc: #b91c1c; --gt: #fef2f2; }
+.gbadge { display: inline-block; min-width: 20px; margin-left: 3px; padding: 0 5px; border-radius: 6px; font-size: 12px; font-weight: 900; text-align: center; line-height: 20px; }
+.gbadge.g-A, .pf-grade.g-A, .team-tab.g-A { --gc: #15803d; --gt: #ecfdf3; }
+.gbadge.g-B, .pf-grade.g-B, .team-tab.g-B { --gc: #2563eb; --gt: #eff6ff; }
+.gbadge.g-C, .pf-grade.g-C, .team-tab.g-C { --gc: #b45309; --gt: #fffbeb; }
+.gbadge.g-F, .pf-grade.g-F, .team-tab.g-F { --gc: #b91c1c; --gt: #fef2f2; }
 .pf-grade.g-none { --gc: #4b5563; --gt: #f3f4f6; }
 .gbadge { background: var(--gc); color: #fff; }
 .pf-row { display: flex; gap: 6px; align-items: stretch; }
@@ -780,6 +780,15 @@ textarea { resize: vertical; }
 .pf-sel { width: 100%; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 15px; font-weight: 700; color: var(--text); }
 /* 팀원 명단: 이름 뒤 일당 — 서영호(23) */
 .team-pay { margin-left: 1px; color: #047857; font-weight: 800; }
+/* 등급 탭: 전체 / A / B / C / F (2026-10-16) — 고른 탭만 그 등급 색으로 */
+.team-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
+.team-tab { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 8px 4px; border: 1.5px solid var(--border); border-radius: 9px; background: #fff;
+  font-size: 13.5px; font-weight: 800; color: #4b5563; }
+.team-tab.g-all { --gc: #1f2a44; --gt: #eef2f7; }
+.team-tab .tt-n { font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.team-tab.on { background: var(--gt); border-color: var(--gc); color: var(--gc); }
+.team-tab.on .tt-n { color: inherit; }
 .pf-grades { display: flex; gap: 6px; flex-wrap: wrap; }
 .pf-grade { min-width: 52px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--gc); background: var(--gt); color: var(--gc); font-size: 15px; font-weight: 900; }
 .pf-grade.on { background: var(--gc); color: #fff; }
