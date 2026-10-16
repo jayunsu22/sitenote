@@ -2945,6 +2945,11 @@
       var t = document.createElement('div'); t.className = 'slist-name';
       if (p.grade) { var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade; t.appendChild(gb); }
       t.appendChild(document.createTextNode(name));
+      if (p.pay) {   // 이름 뒤에 일당 — 서영호(23)
+        var pay = document.createElement('span'); pay.className = 'team-pay'; pay.textContent = '(' + p.pay + ')';
+        pay.title = '일당 ' + p.pay + (/^\d+$/.test(p.pay) ? '만원' : '');
+        t.appendChild(pay);
+      }
       main.appendChild(t);
       main.onclick = function () { openPersonSheet(name); };   // 이름을 눌러도 기사 정보가 열린다
 
@@ -2995,11 +3000,24 @@
     { key: 'phone', label: '전화번호', ph: '010-…', mode: 'tel', call: true },
     { key: 'car', label: '차량번호', ph: '12가3456' },
     { key: 'career', label: '경력', ph: '예: 3년 · 샤시 전문' },
-    { key: 'pay', label: '페이', ph: '예: 일 28만 식대포함' },
+    { key: 'pay', label: '페이 (일당, 만원)', ph: '', sel: true },
     { key: 'home', label: '사는곳', ph: '예: 부천 중동' },
     { key: 'memo', label: '메모', ph: '', area: true }
   ];
   function telHref(v) { return 'tel:' + String(v || '').replace(/[^0-9+]/g, ''); }
+  // 페이(일당) 고르기 — 8~30 만원. '만원'은 붙이지 않고 숫자만 저장한다 (2026-10-16).
+  // 예전에 '일 28만 식대포함' 처럼 글자로 적어둔 값은 지우지 않고 맨 위에 남겨둔다
+  var PAY_MIN = 8, PAY_MAX = 30;
+  function payOptions(cur) {
+    var v = String(cur == null ? '' : cur).trim();
+    var inList = /^\d+$/.test(v) && +v >= PAY_MIN && +v <= PAY_MAX;
+    var out = ['<option value=""' + (v ? '' : ' selected') + '>미정</option>'];
+    if (v && !inList) out.push('<option value="' + esc(v) + '" selected>' + esc(v) + ' (예전에 적은 값)</option>');
+    for (var n = PAY_MIN; n <= PAY_MAX; n++) {
+      out.push('<option value="' + n + '"' + (inList && +v === n ? ' selected' : '') + '>' + n + '</option>');
+    }
+    return out.join('');
+  }
   /* 기사 사진 (2026-10-16) — 한 사람에 한 장.
      사진 자체는 다른 사진(명함·단가표)과 같은 곳에 저장하고(폰은 IndexedDB, 백업은 조각 행),
      기사 정보에는 그 사진의 id 만 적어둔다. 이름을 바꿔도 사진은 그대로 따라간다. */
@@ -3062,7 +3080,9 @@
   function openPersonSheet(name) {
     var p = Share.personOf(state.settings.people, name);
     var fieldHtml = function (f) {
-      var ctl = f.area
+      var ctl = f.sel
+        ? '<select class="pf-sel" data-pf="' + f.key + '">' + payOptions(p[f.key]) + '</select>'
+        : f.area
         ? '<textarea data-pf="' + f.key + '" rows="3" placeholder="' + esc(f.ph) + '">' + esc(p[f.key]) + '</textarea>'
         : '<input type="text" data-pf="' + f.key + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : '') + ' autocomplete="off" placeholder="' + esc(f.ph) + '" value="' + esc(p[f.key]) + '">';
       if (f.call) ctl = '<div class="pf-row">' + ctl + '<a class="pf-call" id="pfCall" href="' + esc(telHref(p.phone)) + '"' + (p.phone ? '' : ' hidden') + '>📞 전화</a></div>';
@@ -3115,6 +3135,7 @@
       };
     });
     $('modalBody').querySelectorAll('[data-pf]').forEach(function (el) {
+      el.addEventListener('change', function () { el.dispatchEvent(new Event('input')); });   // 드롭다운(페이)
       el.addEventListener('input', function () {
         var patch = {}; patch[el.dataset.pf] = el.value;
         Store.setSettings({ people: Share.mergePerson(state.settings.people, name, patch) });
