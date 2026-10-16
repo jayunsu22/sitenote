@@ -3075,8 +3075,11 @@
       '<label class="pf-label">등급</label><div class="pf-grades" id="pfGrades">' + grades.map(function (g) {
         return '<button type="button" class="pf-grade g-' + (g || 'none') + (p.grade === g ? ' on' : '') + '" data-g="' + g + '">' + (g || '미정') + '</button>';
       }).join('') + '</div>' +
-      PERSON_FIELDS.map(fieldHtml).join('') +
-      '<label class="pf-label">사진</label><div class="pf-photo" id="pfPhoto"></div>' +
+      // 사진은 메모 바로 위 (메모를 길게 쓰면 사진이 저 아래로 밀려서, 2026-10-16)
+      PERSON_FIELDS.map(function (f) {
+        var photo = '<label class="pf-label">사진</label><div class="pf-photo" id="pfPhoto"></div>';
+        return (f.key === 'memo' ? photo : '') + fieldHtml(f);
+      }).join('') +
       '<input type="file" id="pfPhotoInput" accept="image/*" hidden>' + '</div>';
     // 칸은 적는 대로 저장되지만, 눌러서 확인할 수 있는 [저장]을 따로 둔다 (백업까지 바로 보낸다)
     openModal('기사 정보 · ' + name, html, [
