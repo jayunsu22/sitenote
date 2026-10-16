@@ -810,12 +810,20 @@
   // 기사 정보 칸: 전화·차량은 카톡 문구에 쓰이고, 경력·페이·사는곳·메모는 사장님이 보는 용도라 문구에는 절대 안 나간다
   // photo 는 사진 자체가 아니라 사진 한 장의 id (사진은 다른 사진들과 같은 곳에 저장된다, 2026-10-16)
   var PERSON_KEYS = ['phone', 'car', 'career', 'pay', 'home', 'memo', 'grade', 'photo'];
+  // 페이(일당) — 8~30 만원, 숫자만 쓴다. '일 28만 식대포함' 처럼 적어둔 예전 값은 숫자만 남긴다 (2026-10-16)
+  var PAY_MIN = 8, PAY_MAX = 30;
+  function payOf(v) {
+    var m = /\d+/.exec(str(v));
+    if (!m) return '';
+    var n = parseInt(m[0], 10);
+    return (n >= PAY_MIN && n <= PAY_MAX) ? String(n) : '';
+  }
   var PERSON_GRADES = ['A', 'B', 'C', 'F'];   // 기사 등급 — 사장님이 보는 용도, 카톡 문구에는 안 나간다
   function gradeOk(v) { return PERSON_GRADES.indexOf(str(v)) !== -1 ? str(v) : ''; }
   function personOf(people, name) {
     var p = (people && people[str(name)]) || {};
     var out = { name: str(name) };
-    PERSON_KEYS.forEach(function (k) { out[k] = k === 'grade' ? gradeOk(p[k]) : str(p[k]); });
+    PERSON_KEYS.forEach(function (k) { out[k] = k === 'grade' ? gradeOk(p[k]) : k === 'pay' ? payOf(p[k]) : str(p[k]); });
     return out;
   }
   // 한 사람의 칸을 일부만 바꾼 새 표를 돌려준다(원본은 안 바뀐다). 6칸이 모두 비면 그 이름을 지운다
@@ -826,7 +834,7 @@
     var cur = personOf(people, n), next = {}, any = false;
     PERSON_KEYS.forEach(function (k) {
       var given = Object.prototype.hasOwnProperty.call(patch || {}, k);
-      var v = !given ? cur[k] : k === 'grade' ? (str(patch[k]) === '' ? '' : (gradeOk(patch[k]) || cur[k])) : str(patch[k]);
+      var v = !given ? cur[k] : k === 'grade' ? (str(patch[k]) === '' ? '' : (gradeOk(patch[k]) || cur[k])) : k === 'pay' ? payOf(patch[k]) : str(patch[k]);
       next[k] = v;
       if (next[k]) any = true;
     });
@@ -1272,6 +1280,9 @@
     holidayName: holidayName,
     isRedDay: isRedDay,
     personOf: personOf,
+    payOf: payOf,
+    PAY_MIN: PAY_MIN,
+    PAY_MAX: PAY_MAX,
     mergePerson: mergePerson,
     PERSON_GRADES: PERSON_GRADES,
     contactKey: contactKey,

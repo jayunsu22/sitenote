@@ -779,9 +779,7 @@ textarea { resize: vertical; }
 /* 페이 드롭다운 — 다른 칸과 같은 모양 (2026-10-16) */
 .pf-sel { width: 100%; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 15px; font-weight: 700; color: var(--text); }
 /* 팀원 명단: 이름 뒤 일당 — 서영호(23) */
-/* 예전에 글자로 적어둔 페이('일 28만 식대포함')는 줄이 길어지지 않게 잘라 보여준다 */
-.team-pay { display: inline-block; max-width: 96px; margin-left: 1px; color: #047857; font-weight: 800;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.team-pay { margin-left: 1px; color: #047857; font-weight: 800; }
 .pf-grades { display: flex; gap: 6px; flex-wrap: wrap; }
 .pf-grade { min-width: 52px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--gc); background: var(--gt); color: var(--gc); font-size: 15px; font-weight: 900; }
 .pf-grade.on { background: var(--gc); color: #fff; }

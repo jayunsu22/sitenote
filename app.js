@@ -2947,7 +2947,7 @@
       t.appendChild(document.createTextNode(name));
       if (p.pay) {   // 이름 뒤에 일당 — 서영호(23)
         var pay = document.createElement('span'); pay.className = 'team-pay'; pay.textContent = '(' + p.pay + ')';
-        pay.title = '일당 ' + p.pay + (/^\d+$/.test(p.pay) ? '만원' : '');
+        pay.title = '일당 ' + p.pay + '만원';
         t.appendChild(pay);
       }
       main.appendChild(t);
@@ -3005,16 +3005,12 @@
     { key: 'memo', label: '메모', ph: '', area: true }
   ];
   function telHref(v) { return 'tel:' + String(v || '').replace(/[^0-9+]/g, ''); }
-  // 페이(일당) 고르기 — 8~30 만원. '만원'은 붙이지 않고 숫자만 저장한다 (2026-10-16).
-  // 예전에 '일 28만 식대포함' 처럼 글자로 적어둔 값은 지우지 않고 맨 위에 남겨둔다
-  var PAY_MIN = 8, PAY_MAX = 30;
+  // 페이(일당) 고르기 — 8~30 만원, 숫자만 (Share.payOf 가 예전에 적어둔 '일 28만 식대포함' 도 28 로 읽는다)
   function payOptions(cur) {
-    var v = String(cur == null ? '' : cur).trim();
-    var inList = /^\d+$/.test(v) && +v >= PAY_MIN && +v <= PAY_MAX;
+    var v = Share.payOf(cur);
     var out = ['<option value=""' + (v ? '' : ' selected') + '>미정</option>'];
-    if (v && !inList) out.push('<option value="' + esc(v) + '" selected>' + esc(v) + ' (예전에 적은 값)</option>');
-    for (var n = PAY_MIN; n <= PAY_MAX; n++) {
-      out.push('<option value="' + n + '"' + (inList && +v === n ? ' selected' : '') + '>' + n + '</option>');
+    for (var n = Share.PAY_MIN; n <= Share.PAY_MAX; n++) {
+      out.push('<option value="' + n + '"' + (+v === n ? ' selected' : '') + '>' + n + '</option>');
     }
     return out.join('');
   }

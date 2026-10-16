@@ -1009,17 +1009,17 @@ test('공휴일·일요일은 빨간 날, 토요일·평일은 아니다', () =>
 });
 
 console.log('기사 정보 (경력·페이·사는곳·메모)');
-const 풀명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' } };
+const 풀명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' } };   // pay 는 예전처럼 글자로 적힌 값 — 숫자만 읽힌다
 test('personOf: 칸을 모두 돌려주고 없는 칸은 빈 문자열', () => {
   assert.deepStrictEqual(Share.personOf(풀명부, '서영호'),
-    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모', grade: '', photo: '' });
+    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '28', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모', grade: '', photo: '' });
   assert.deepStrictEqual(Share.personOf({}, '없는사람'),
     { name: '없는사람', phone: '', car: '', career: '', pay: '', home: '', memo: '', grade: '', photo: '' });
 });
 test('mergePerson: 일부 칸만 바꿔도 나머지는 그대로, 원본은 안 바뀐다', () => {
   const 다음 = Share.mergePerson(풀명부, '서영호', { phone: '010-9999-0000' });
   assert.strictEqual(다음['서영호'].phone, '010-9999-0000');
-  assert.strictEqual(다음['서영호'].pay, '일 28만 비밀페이');
+  assert.strictEqual(다음['서영호'].pay, '28', '글자로 적힌 예전 페이는 숫자만 남는다');
   assert.strictEqual(다음['서영호'].memo, '지각 잦음 비밀메모');
   assert.strictEqual(풀명부['서영호'].phone, '010-1111-2222');
 });
@@ -1051,6 +1051,24 @@ test('카톡 복사 문구에는 전화·차량 말고 경력·페이·사는곳
 console.log('기사 등급 (A·B·C·F)');
 test('PERSON_GRADES 는 A·B·C·F', () => {
   assert.deepStrictEqual(Share.PERSON_GRADES, ['A', 'B', 'C', 'F']);
+});
+test('payOf: 8~30 숫자만, 글자로 적은 예전 값은 숫자만 남기고, 벗어나면 미정', () => {
+  assert.strictEqual(Share.payOf('23'), '23');
+  assert.strictEqual(Share.payOf(23), '23');
+  assert.strictEqual(Share.payOf('일 28만 식대포함'), '28');
+  assert.strictEqual(Share.payOf('8'), '8');
+  assert.strictEqual(Share.payOf('30'), '30');
+  assert.strictEqual(Share.payOf('7'), '', '8 아래는 미정');
+  assert.strictEqual(Share.payOf('31'), '', '30 위는 미정');
+  assert.strictEqual(Share.payOf('일당 150000'), '', '원 단위로 적힌 값은 미정');
+  assert.strictEqual(Share.payOf(''), '');
+  assert.strictEqual(Share.payOf('식대포함'), '');
+});
+test('mergePerson: 페이는 숫자만 저장된다', () => {
+  let p = Share.mergePerson({}, '염문철', { pay: '일 23만 식대포함' });
+  assert.strictEqual(p['염문철'].pay, '23');
+  p = Share.mergePerson(p, '염문철', { pay: '' });
+  assert.strictEqual(Share.personOf(p, '염문철').pay, '');
 });
 test('mergePerson: 사진 id 칸은 그대로 오가고, 사진만 남아도 이름이 유지된다', () => {
   let p = Share.mergePerson({}, '염문철', { photo: 'p_abc' });
