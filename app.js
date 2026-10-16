@@ -2936,7 +2936,8 @@
       var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
       box.appendChild(e);
     }
-    // 한 줄 = 등급 + 이름 + 전화·차량 요약. 줄을 누르면 '기사 정보' 창, 전화번호를 누르면 바로 전화 걸기
+    // 한 줄 = 등급 + 이름 · [수정] [전화] [일정] [×] (2026-10-16).
+    // 전화번호는 글자로 띄우지 않는다 — [전화]로 바로 걸고, 번호가 없으면 그 버튼이 비활성
     team.forEach(function (name, i) {
       var p = Share.personOf(state.settings.people, name);
       var row = document.createElement('div'); row.className = 'team-row team-tap';
@@ -2944,31 +2945,46 @@
       var t = document.createElement('div'); t.className = 'slist-name';
       if (p.grade) { var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade; t.appendChild(gb); }
       t.appendChild(document.createTextNode(name));
-      var sum = document.createElement('div'); sum.className = 'team-sum' + (p.phone ? '' : ' miss');
+      main.appendChild(t);
+      main.onclick = function () { openPersonSheet(name); };   // 이름을 눌러도 기사 정보가 열린다
+
+      // 수정 — 기사 정보 창(이름·등급·전화·차량·경력·페이·사는곳·메모)
+      var edit = document.createElement('button'); edit.type = 'button'; edit.className = 'team-btn edit'; edit.textContent = '수정';
+      edit.title = '기사 정보 고치기';
+      edit.onclick = function (e) { e.stopPropagation(); openPersonSheet(name); };
+
+      // 전화 — 번호가 있으면 바로 걸기, 없으면 비활성(수정에서 번호를 넣어야 켜진다)
+      var call;
       if (p.phone) {
-        var tel = document.createElement('a'); tel.className = 'team-tel';
-        tel.href = 'tel:' + p.phone.replace(/[^0-9+]/g, ''); tel.textContent = '📞 ' + p.phone;
-        tel.onclick = function (e) { e.stopPropagation(); };   // 줄 전체의 '기사 정보 열기'와 겹치지 않게
-        sum.appendChild(tel);
-        if (p.car) sum.appendChild(document.createTextNode(' · ' + p.car));
+        call = document.createElement('a'); call.className = 'team-btn call';
+        call.href = telHref(p.phone); call.textContent = '전화'; call.title = p.phone + ' 로 전화';
+        call.onclick = function (e) { e.stopPropagation(); };
       } else {
-        sum.textContent = p.car ? '연락처 없음 · ' + p.car : '연락처 없음';
+        call = document.createElement('button'); call.type = 'button'; call.className = 'team-btn call'; call.textContent = '전화';
+        call.disabled = true; call.title = '연락처 없음 — [수정]에서 번호를 넣으세요';
+        call.onclick = function (e) { e.stopPropagation(); };
       }
-      main.appendChild(t); main.appendChild(sum);
-      main.onclick = function () { openPersonSheet(name); };
-      var go = document.createElement('span'); go.className = 'team-go'; go.textContent = '›';
-      go.onclick = main.onclick;
-      // 📅 일정: 이 사람을 여러 날짜에 한 번에 잡는다 (날짜마다 인원 창을 여는 대신)
-      var cal = document.createElement('button'); cal.type = 'button'; cal.className = 'team-cal'; cal.textContent = '📅 일정';
+
+      // 일정 — 이 사람을 여러 날짜에 한 번에 잡는다 (날짜마다 인원 창을 여는 대신)
+      var cal = document.createElement('button'); cal.type = 'button'; cal.className = 'team-btn cal'; cal.textContent = '일정';
+      cal.title = '여러 날짜에 한 번에 넣기';
       cal.onclick = function (e) { e.stopPropagation(); openHoldCalendar(name); };
+
+      // × — 지우기 전에 한 번 물어본다 (실수로 누르면 기사 정보까지 날아가므로)
       var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
-      x.onclick = function () {
-        var next = team.slice(); next.splice(i, 1);
-        var people = Object.assign({}, state.settings.people); delete people[name];   // 기사 정보도 같이 지운다
-        Store.setSettings({ team: next, people: people });
-        renderTeamList();
+      x.onclick = function (e) {
+        e.stopPropagation();
+        modalConfirm('팀원 삭제', name + ' 님을 명단에서 지울까요? 전화·차량·경력 같은 기사 정보도 같이 지워집니다. (이미 잡아둔 현장의 인원 이름은 그대로 남습니다)', '삭제', true)
+          .then(function (ok) {
+            if (!ok) return;
+            var next = team.slice(); next.splice(i, 1);
+            var people = Object.assign({}, state.settings.people); delete people[name];   // 기사 정보도 같이 지운다
+            Store.setSettings({ team: next, people: people });
+            renderTeamList();
+            toast(name + ' 님을 명단에서 지웠습니다');
+          });
       };
-      row.appendChild(main); row.appendChild(cal); row.appendChild(go); row.appendChild(x);
+      row.appendChild(main); row.appendChild(edit); row.appendChild(call); row.appendChild(cal); row.appendChild(x);
       box.appendChild(row);
     });
   }

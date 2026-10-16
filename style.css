@@ -734,12 +734,18 @@ textarea { resize: vertical; }
 /* ---------- 설정 탭 · 기사 정보 (2026-10-05) ---------- */
 .tab-gray { --c: #4b5563; --t: #f3f4f6; }   /* 회색 — 백업 */
 .site-tabs:has(.tab-gray.on) { --tabc: #4b5563; }
-.team-tap { display: flex; align-items: center; gap: 4px; }
+.team-tap { display: flex; align-items: center; gap: 6px; }
 .team-main { flex: 1; min-width: 0; padding: 2px 0; cursor: pointer; }
-.team-main .slist-name { font-size: 14px; font-weight: 700; }
-.team-sum { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
-.team-sum.miss { color: #b45309; }
-.team-go { padding: 0 6px; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; }
+.team-main .slist-name { font-size: 15px; font-weight: 800; }
+/* 한 줄 버튼 (2026-10-16): 이름 · 수정 · 전화 · 일정 · ×. 아이콘 없이 글자만 */
+.team-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 46px; padding: 7px 9px;
+  border: 1.5px solid; border-radius: 8px; font-size: 13px; font-weight: 800; line-height: 1.2; white-space: nowrap; text-decoration: none; }
+.team-btn.edit { color: #1e40af; background: #eff6ff; border-color: #93c5fd; }
+.team-btn.call { color: #15803d; background: #ecfdf3; border-color: #a7f3d0; }
+.team-btn.call:disabled { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
+.team-btn.cal { color: #9a3412; background: #fff7ed; border-color: #fb923c; }
+.team-row .x { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; color: #6b7280; font-size: 18px; }
 .person-form .pf-label { display: block; margin: 10px 0 4px; font-size: 12.5px; font-weight: 800; color: var(--muted); }
 .person-form .pf-label:first-child { margin-top: 0; }
 .modal .person-form textarea { min-height: 80px; }
@@ -752,7 +758,6 @@ textarea { resize: vertical; }
 .gbadge.g-F, .pf-grade.g-F { --gc: #b91c1c; --gt: #fef2f2; }
 .pf-grade.g-none { --gc: #4b5563; --gt: #f3f4f6; }
 .gbadge { background: var(--gc); color: #fff; }
-.team-tel { color: #2563eb; font-weight: 700; text-decoration: none; }
 .pf-row { display: flex; gap: 6px; align-items: stretch; }
 .pf-row input { flex: 1; min-width: 0; }
 .pf-row .btn-sm, .pf-call { flex: none; white-space: nowrap; }
@@ -906,7 +911,6 @@ textarea { resize: vertical; }
 .task-link-tag.date { background: #ecfdf5; color: #047857; }
 
 /* 팀원 한 사람 일정 잡기 달력 (2026-10-14) */
-.team-cal { flex: 0 0 auto; margin-right: 8px; padding: 6px 10px; font-size: 13px; font-weight: 800; color: #9a3412; background: #fff7ed; border: 1.5px solid #fb923c; border-radius: 8px; white-space: nowrap; }
 .holdcal-nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 2px 0 8px; }
 .holdcal-nav b { font-size: 16px; min-width: 110px; text-align: center; }
 .holdcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
