@@ -808,7 +808,8 @@
     return !!HOLIDAYS[str(iso)] || new Date(+m[1], +m[2] - 1, +m[3]).getDay() === 0;
   }
   // 기사 정보 칸: 전화·차량은 카톡 문구에 쓰이고, 경력·페이·사는곳·메모는 사장님이 보는 용도라 문구에는 절대 안 나간다
-  var PERSON_KEYS = ['phone', 'car', 'career', 'pay', 'home', 'memo', 'grade'];
+  // photo 는 사진 자체가 아니라 사진 한 장의 id (사진은 다른 사진들과 같은 곳에 저장된다, 2026-10-16)
+  var PERSON_KEYS = ['phone', 'car', 'career', 'pay', 'home', 'memo', 'grade', 'photo'];
   var PERSON_GRADES = ['A', 'B', 'C', 'F'];   // 기사 등급 — 사장님이 보는 용도, 카톡 문구에는 안 나간다
   function gradeOk(v) { return PERSON_GRADES.indexOf(str(v)) !== -1 ? str(v) : ''; }
   function personOf(people, name) {

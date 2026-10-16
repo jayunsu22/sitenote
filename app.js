@@ -2978,6 +2978,7 @@
           .then(function (ok) {
             if (!ok) return;
             var next = team.slice(); next.splice(i, 1);
+            if (p.photo) Store.deletePhoto(p.photo);                                      // 사진도 같이 지운다
             var people = Object.assign({}, state.settings.people); delete people[name];   // 기사 정보도 같이 지운다
             Store.setSettings({ team: next, people: people });
             renderTeamList();
@@ -2999,6 +3000,65 @@
     { key: 'memo', label: '메모', ph: '', area: true }
   ];
   function telHref(v) { return 'tel:' + String(v || '').replace(/[^0-9+]/g, ''); }
+  /* 기사 사진 (2026-10-16) — 한 사람에 한 장.
+     사진 자체는 다른 사진(명함·단가표)과 같은 곳에 저장하고(폰은 IndexedDB, 백업은 조각 행),
+     기사 정보에는 그 사진의 id 만 적어둔다. 이름을 바꿔도 사진은 그대로 따라간다. */
+  var PERSON_PHOTO_OWNER = 'person';   // 거래처가 아니라 '사람' 사진이라는 표시
+  function renderPersonPhoto(name) {
+    var box = $('pfPhoto'); if (!box) return;
+    box.innerHTML = '';
+    var p = Share.personOf(state.settings.people, name);
+    var photo = p.photo ? Store.getPhoto(p.photo) : null;
+    if (!photo) {
+      var add = document.createElement('button'); add.type = 'button'; add.className = 'pf-photo-add';
+      add.textContent = '＋ 사진 넣기 (촬영 · 앨범)';
+      add.onclick = function () { $('pfPhotoInput').click(); };
+      box.appendChild(add);
+      return;
+    }
+    var img = document.createElement('img'); img.alt = name;
+    var small = photo.thumb || photo.dataUrl;
+    if (Share.isImageDataUrl(small)) img.src = small;
+    Store.photoData(photo.id).then(function (url) {   // 원본은 읽는 대로 교체 (크게 볼 때 선명하게)
+      if (Share.isImageDataUrl(url) && box.contains(img)) img.src = url;
+    });
+    img.title = '탭하면 크게';
+    img.onclick = function () { img.classList.toggle('big'); };
+    var act = document.createElement('div'); act.className = 'pf-photo-act';
+    var chg = document.createElement('button'); chg.type = 'button'; chg.className = 'btn-sm'; chg.textContent = '바꾸기';
+    chg.onclick = function () { $('pfPhotoInput').click(); };
+    var del = document.createElement('button'); del.type = 'button'; del.className = 'btn-sm btn-danger'; del.textContent = '사진 삭제';
+    del.onclick = function () {
+      modalConfirm('사진 삭제', name + ' 님 사진을 지울까요?', '삭제', true).then(function (ok) {
+        if (ok) { clearPersonPhoto(name); toast('사진을 지웠습니다'); }
+        openPersonSheet(name);   // 확인창이 이 창을 덮었으므로, 지우든 취소든 기사 정보로 돌아온다
+      });
+    };
+    act.appendChild(chg); act.appendChild(del);
+    box.appendChild(img); box.appendChild(act);
+  }
+  // 그 사람에게 걸린 사진을 저장소에서 지우고 기사 정보의 사진 id 도 비운다
+  function clearPersonPhoto(name) {
+    var p = Share.personOf(state.settings.people, name);
+    if (!p.photo) return;
+    Store.deletePhoto(p.photo);
+    Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { photo: '' }) });
+  }
+  function setPersonPhoto(name, file) {
+    if (!/^image\//.test(file.type || '')) { toast('이미지 파일만 넣을 수 있습니다'); return; }
+    toast('사진 처리 중…');
+    compressImage(file).then(function (r) {
+      return Store.addPhoto(PERSON_PHOTO_OWNER, { name: name, thumb: r.thumb, dataUrl: r.dataUrl, w: r.w, h: r.h, bytes: r.bytes });
+    }).then(function (saved) {
+      if (!saved) { toast('폰 저장공간이 가득 찼습니다 — 사진을 지우고 다시 시도하세요'); return; }
+      clearPersonPhoto(name);   // 예전 사진은 지운다 (한 사람에 한 장)
+      Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { photo: saved.id }) });
+      renderPersonPhoto(name);
+      toast('사진을 넣었습니다');
+    }).catch(function (e) {
+      toast((e && e.message) || '사진을 읽지 못했습니다');
+    });
+  }
   function openPersonSheet(name) {
     var p = Share.personOf(state.settings.people, name);
     var fieldHtml = function (f) {
@@ -3015,8 +3075,20 @@
       '<label class="pf-label">등급</label><div class="pf-grades" id="pfGrades">' + grades.map(function (g) {
         return '<button type="button" class="pf-grade g-' + (g || 'none') + (p.grade === g ? ' on' : '') + '" data-g="' + g + '">' + (g || '미정') + '</button>';
       }).join('') + '</div>' +
-      PERSON_FIELDS.map(fieldHtml).join('') + '</div>';
-    openModal('기사 정보 · ' + name, html, [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+      PERSON_FIELDS.map(fieldHtml).join('') +
+      '<label class="pf-label">사진</label><div class="pf-photo" id="pfPhoto"></div>' +
+      '<input type="file" id="pfPhotoInput" accept="image/*" hidden>' + '</div>';
+    // 칸은 적는 대로 저장되지만, 눌러서 확인할 수 있는 [저장]을 따로 둔다 (백업까지 바로 보낸다)
+    openModal('기사 정보 · ' + name, html, [
+      { label: '닫기', onClick: closeModal },
+      { label: '💾 저장', cls: 'primary', onClick: function () { closeModal(); renderTeamList(); saveNow(); } }
+    ]);
+    renderPersonPhoto(name);
+    $('pfPhotoInput').onchange = function () {
+      var f = ($('pfPhotoInput').files || [])[0];
+      $('pfPhotoInput').value = '';
+      if (f) setPersonPhoto(name, f);
+    };
 
     // 이름 바꾸기 — 명단·기사 정보·모든 현장의 인원이 한꺼번에 새 이름으로 바뀐다
     var doRename = function () {

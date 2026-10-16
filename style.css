@@ -763,6 +763,14 @@ textarea { resize: vertical; }
 .pf-row .btn-sm, .pf-call { flex: none; white-space: nowrap; }
 .pf-call { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; background: #ecfdf3; color: #15803d; font-size: 14px; font-weight: 800; text-decoration: none; border: 1.5px solid #a7f3d0; }
 .pf-call[hidden] { display: none; }
+/* 기사 사진 한 장 (2026-10-16) — 없으면 점선 칸, 있으면 그림 + [바꾸기][사진 삭제] */
+.pf-photo { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.pf-photo-add { width: 100%; padding: 22px 12px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #f8fafc;
+  color: var(--primary); font-size: 14px; font-weight: 800; }
+.pf-photo img { width: 108px; height: 108px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--border); background: #f3f4f6; }
+.pf-photo img.big { width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.pf-photo-act { display: flex; flex-direction: column; gap: 6px; }
+.pf-photo-act .btn-sm { white-space: nowrap; }
 .pf-grades { display: flex; gap: 6px; flex-wrap: wrap; }
 .pf-grade { min-width: 52px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--gc); background: var(--gt); color: var(--gc); font-size: 15px; font-weight: 900; }
 .pf-grade.on { background: var(--gc); color: #fff; }
