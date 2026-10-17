@@ -237,9 +237,14 @@ textarea { resize: vertical; }
 .qrow input { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
 
 /* ---------- 모달 / 토스트 ---------- */
-.modal-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.modal { width: 100%; max-width: 420px; background: var(--card); border-radius: 16px; padding: 18px; }
-.modal h3 { margin: 0 0 12px; font-size: 16px; font-weight: 800; }
+.modal-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+/* 창이 길어도(기사 정보처럼) 제목과 아래 버튼은 늘 보이고 본문만 굴러간다 (2026-10-16) */
+.modal { width: 100%; max-width: 420px; background: var(--card); border-radius: 16px; padding: 18px;
+  display: flex; flex-direction: column; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); }
+.modal h3 { margin: 0 0 12px; font-size: 16px; font-weight: 800; flex: none; }
+.modal > #modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.modal > .modal-btns { flex: none; margin-top: 0; padding-top: 12px; border-top: 1px solid var(--border); }
 .modal input[type="text"], .modal textarea { width: 100%; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; }
 .modal textarea { min-height: 160px; font-size: 14px; }
 .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
@@ -734,30 +739,56 @@ textarea { resize: vertical; }
 /* ---------- 설정 탭 · 기사 정보 (2026-10-05) ---------- */
 .tab-gray { --c: #4b5563; --t: #f3f4f6; }   /* 회색 — 백업 */
 .site-tabs:has(.tab-gray.on) { --tabc: #4b5563; }
-.team-tap { display: flex; align-items: center; gap: 4px; }
+.team-tap { display: flex; align-items: center; gap: 6px; }
 .team-main { flex: 1; min-width: 0; padding: 2px 0; cursor: pointer; }
-.team-main .slist-name { font-size: 14px; font-weight: 700; }
-.team-sum { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
-.team-sum.miss { color: #b45309; }
-.team-go { padding: 0 6px; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; }
+.team-main .slist-name { font-size: 15px; font-weight: 800; }
+/* 한 줄 버튼 (2026-10-16): 이름 · 수정 · 전화 · 일정 · ×. 아이콘 없이 글자만 */
+.team-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 46px; padding: 7px 9px;
+  border: 1.5px solid; border-radius: 8px; font-size: 13px; font-weight: 800; line-height: 1.2; white-space: nowrap; text-decoration: none; }
+.team-btn.edit { color: #1e40af; background: #eff6ff; border-color: #93c5fd; }
+.team-btn.call { color: #15803d; background: #ecfdf3; border-color: #a7f3d0; }
+.team-btn.call:disabled { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
+.team-btn.cal { color: #9a3412; background: #fff7ed; border-color: #fb923c; }
+.team-row .x { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fff; color: #6b7280; font-size: 18px; }
 .person-form .pf-label { display: block; margin: 10px 0 4px; font-size: 12.5px; font-weight: 800; color: var(--muted); }
 .person-form .pf-label:first-child { margin-top: 0; }
 .modal .person-form textarea { min-height: 80px; }
 
 /* ---------- 기사 등급 · 전화 걸기 · 이름 바꾸기 (2026-10-05) ---------- */
-.gbadge { display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 5px; border-radius: 6px; font-size: 12px; font-weight: 900; text-align: center; line-height: 20px; }
-.gbadge.g-A, .pf-grade.g-A { --gc: #15803d; --gt: #ecfdf3; }
-.gbadge.g-B, .pf-grade.g-B { --gc: #2563eb; --gt: #eff6ff; }
-.gbadge.g-C, .pf-grade.g-C { --gc: #b45309; --gt: #fffbeb; }
-.gbadge.g-F, .pf-grade.g-F { --gc: #b91c1c; --gt: #fef2f2; }
+.gbadge { display: inline-block; min-width: 20px; margin-left: 3px; padding: 0 5px; border-radius: 6px; font-size: 12px; font-weight: 900; text-align: center; line-height: 20px; }
+.gbadge.g-A, .pf-grade.g-A, .team-tab.g-A { --gc: #15803d; --gt: #ecfdf3; }
+.gbadge.g-B, .pf-grade.g-B, .team-tab.g-B { --gc: #2563eb; --gt: #eff6ff; }
+.gbadge.g-C, .pf-grade.g-C, .team-tab.g-C { --gc: #b45309; --gt: #fffbeb; }
+.gbadge.g-F, .pf-grade.g-F, .team-tab.g-F { --gc: #b91c1c; --gt: #fef2f2; }
 .pf-grade.g-none { --gc: #4b5563; --gt: #f3f4f6; }
 .gbadge { background: var(--gc); color: #fff; }
-.team-tel { color: #2563eb; font-weight: 700; text-decoration: none; }
 .pf-row { display: flex; gap: 6px; align-items: stretch; }
 .pf-row input { flex: 1; min-width: 0; }
 .pf-row .btn-sm, .pf-call { flex: none; white-space: nowrap; }
 .pf-call { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; background: #ecfdf3; color: #15803d; font-size: 14px; font-weight: 800; text-decoration: none; border: 1.5px solid #a7f3d0; }
 .pf-call[hidden] { display: none; }
+/* 기사 사진 한 장 (2026-10-16) — 없으면 점선 칸, 있으면 그림 + [바꾸기][사진 삭제] */
+.pf-photo { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.pf-photo-add { width: 100%; padding: 22px 12px; border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #f8fafc;
+  color: var(--primary); font-size: 14px; font-weight: 800; }
+.pf-photo img { width: 108px; height: 108px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--border); background: #f3f4f6; }
+.pf-photo img.big { width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.pf-photo-act { display: flex; flex-direction: column; gap: 6px; }
+.pf-photo-act .btn-sm { white-space: nowrap; }
+/* 페이 드롭다운 — 다른 칸과 같은 모양 (2026-10-16) */
+.pf-sel { width: 100%; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 15px; font-weight: 700; color: var(--text); }
+/* 팀원 명단: 이름 뒤 일당 — 서영호(23) */
+.team-pay { margin-left: 1px; color: #047857; font-weight: 800; }
+/* 등급 탭: 전체 / A / B / C / F (2026-10-16) — 고른 탭만 그 등급 색으로 */
+.team-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
+.team-tab { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 8px 4px; border: 1.5px solid var(--border); border-radius: 9px; background: #fff;
+  font-size: 13.5px; font-weight: 800; color: #4b5563; }
+.team-tab.g-all { --gc: #1f2a44; --gt: #eef2f7; }
+.team-tab .tt-n { font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.team-tab.on { background: var(--gt); border-color: var(--gc); color: var(--gc); }
+.team-tab.on .tt-n { color: inherit; }
 .pf-grades { display: flex; gap: 6px; flex-wrap: wrap; }
 .pf-grade { min-width: 52px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--gc); background: var(--gt); color: var(--gc); font-size: 15px; font-weight: 900; }
 .pf-grade.on { background: var(--gc); color: #fff; }
@@ -905,6 +936,53 @@ textarea { resize: vertical; }
 .task-link-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 700; vertical-align: 1px; }
 .task-link-tag.date { background: #ecfdf5; color: #047857; }
 
+/* 팀원 한 사람 일정 잡기 달력 (2026-10-14) */
+.holdcal-nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 2px 0 8px; }
+.holdcal-nav b { font-size: 16px; min-width: 110px; text-align: center; }
+.holdcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.holdcal-wd { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding-bottom: 2px; }
+.holdcal-wd.sun { color: var(--danger); }
+.holdcal-wd.sat { color: var(--primary); }
+.holdcal-day { min-height: 54px; padding: 4px 2px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; font: inherit; color: var(--text); }
+.holdcal-day .n { font-size: 15px; font-weight: 800; }
+.holdcal-day .t { font-size: 10.5px; font-weight: 800; line-height: 1.2; }
+.holdcal-day.red .n { color: var(--danger); }
+.holdcal-day.today { border-color: var(--primary); }
+.holdcal-day.on { background: #fed7aa; border-color: #ea580c; }
+.holdcal-day.on .t { color: #7c2d12; }
+.holdcal-day.busy { background: #eff6ff; border-color: #bfdbfe; }
+.holdcal-day.busy .t { color: var(--primary-dark); }
+.holdcal-day.past { opacity: 0.4; }
+.holdcal-blank { min-height: 54px; }
+.holdcal-info { margin-top: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.holdcal-info b { color: #9a3412; }
+.holdcal-done { width: 100%; margin-top: 12px; padding: 12px; font-size: 15px; font-weight: 800; color: #fff; background: var(--primary); border: none; border-radius: 10px; }
+
+/* 하루 수익 (2026-10-14) */
+.schcal-inc { font-size: 12px; font-weight: 900; color: #047857; letter-spacing: -0.3px; }
+.schcal-inc.minus { color: var(--danger); }
+.schcal-sum b.inc { color: #047857; }
+.inc-list { display: flex; flex-direction: column; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.inc-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 10px; background: #f0fdf4; }
+.inc-row.editing { border-color: var(--primary); background: #eff6ff; }
+.inc-amt { flex: 0 0 auto; font-size: 15px; color: #047857; }
+.inc-amt.minus { color: var(--danger); }
+.inc-memo { flex: 1; min-width: 0; font-size: 13px; color: var(--text); word-break: break-all; }
+.inc-btn { flex: 0 0 auto; width: 34px; height: 34px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 14px; }
+.inc-btn.del { color: var(--danger); border-color: #fca5a5; font-weight: 900; }
+.inc-total { margin: 10px 0 8px; font-size: 13px; color: var(--muted); }
+.inc-total b { color: #047857; font-size: 15px; }
+.inc-total b.minus { color: var(--danger); }
+.inc-form { display: flex; flex-direction: column; gap: 6px; }
+.inc-form input { padding: 11px; font-size: 16px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; }
+.inc-form-btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+.inc-hint { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.schcal-cell.today .schcal-inc { color: #fff; }
+.schcal-cell.today .schcal-inc.minus { color: #fecaca; }
+.schcal-incbox { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.schcal-incsum { font-size: 10px; font-weight: 800; color: #6b7280; letter-spacing: -0.4px; }
+.schcal-incsum.minus { color: var(--danger); }
+.schcal-cell.today .schcal-incsum { color: rgba(255,255,255,0.85); }
 /* 견적요청 내역 (quote_requests.js) */
 .qreq-badge { padding: 1px 8px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11.5px; font-weight: 800; }
 .qreq-badge[hidden] { display: none; }

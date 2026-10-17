@@ -1009,25 +1009,25 @@ test('공휴일·일요일은 빨간 날, 토요일·평일은 아니다', () =>
 });
 
 console.log('기사 정보 (경력·페이·사는곳·메모)');
-const 풀명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' } };
-test('personOf: 6칸을 돌려주고 없는 칸은 빈 문자열', () => {
+const 풀명부 = { '서영호': { phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모' } };   // pay 는 예전처럼 글자로 적힌 값 — 숫자만 읽힌다
+test('personOf: 칸을 모두 돌려주고 없는 칸은 빈 문자열', () => {
   assert.deepStrictEqual(Share.personOf(풀명부, '서영호'),
-    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '일 28만 비밀페이', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모', grade: '' });
+    { name: '서영호', phone: '010-1111-2222', car: '12가3456', career: '샤시 전문 10년', pay: '28', home: '부천 중동 비밀동네', memo: '지각 잦음 비밀메모', grade: '', photo: '' });
   assert.deepStrictEqual(Share.personOf({}, '없는사람'),
-    { name: '없는사람', phone: '', car: '', career: '', pay: '', home: '', memo: '', grade: '' });
+    { name: '없는사람', phone: '', car: '', career: '', pay: '', home: '', memo: '', grade: '', photo: '' });
 });
 test('mergePerson: 일부 칸만 바꿔도 나머지는 그대로, 원본은 안 바뀐다', () => {
   const 다음 = Share.mergePerson(풀명부, '서영호', { phone: '010-9999-0000' });
   assert.strictEqual(다음['서영호'].phone, '010-9999-0000');
-  assert.strictEqual(다음['서영호'].pay, '일 28만 비밀페이');
+  assert.strictEqual(다음['서영호'].pay, '28', '글자로 적힌 예전 페이는 숫자만 남는다');
   assert.strictEqual(다음['서영호'].memo, '지각 잦음 비밀메모');
   assert.strictEqual(풀명부['서영호'].phone, '010-1111-2222');
 });
 test('mergePerson: 앞뒤 공백을 지우고, 모르는 칸은 무시하며, 새 이름도 만든다', () => {
   const 다음 = Share.mergePerson({}, '염문철', { career: '  3년  ', 이상한칸: 'x', phone: '010-3333-4444' });
-  assert.deepStrictEqual(다음['염문철'], { phone: '010-3333-4444', car: '', career: '3년', pay: '', home: '', memo: '', grade: '' });
+  assert.deepStrictEqual(다음['염문철'], { phone: '010-3333-4444', car: '', career: '3년', pay: '', home: '', memo: '', grade: '', photo: '' });
 });
-test('mergePerson: 6칸이 모두 비면 그 이름을 지운다', () => {
+test('mergePerson: 모든 칸이 비면 그 이름을 지운다 (사진 id 포함)', () => {
   const 시작 = { '염문철': { phone: '010', car: '', career: '', pay: '', home: '', memo: '' }, '서영호': { phone: '1' } };
   const 다음 = Share.mergePerson(시작, '염문철', { phone: '' });
   assert.ok(!('염문철' in 다음));
@@ -1051,6 +1051,32 @@ test('카톡 복사 문구에는 전화·차량 말고 경력·페이·사는곳
 console.log('기사 등급 (A·B·C·F)');
 test('PERSON_GRADES 는 A·B·C·F', () => {
   assert.deepStrictEqual(Share.PERSON_GRADES, ['A', 'B', 'C', 'F']);
+});
+test('payOf: 8~30 숫자만, 글자로 적은 예전 값은 숫자만 남기고, 벗어나면 미정', () => {
+  assert.strictEqual(Share.payOf('23'), '23');
+  assert.strictEqual(Share.payOf(23), '23');
+  assert.strictEqual(Share.payOf('일 28만 식대포함'), '28');
+  assert.strictEqual(Share.payOf('8'), '8');
+  assert.strictEqual(Share.payOf('30'), '30');
+  assert.strictEqual(Share.payOf('7'), '', '8 아래는 미정');
+  assert.strictEqual(Share.payOf('31'), '', '30 위는 미정');
+  assert.strictEqual(Share.payOf('일당 150000'), '', '원 단위로 적힌 값은 미정');
+  assert.strictEqual(Share.payOf(''), '');
+  assert.strictEqual(Share.payOf('식대포함'), '');
+});
+test('mergePerson: 페이는 숫자만 저장된다', () => {
+  let p = Share.mergePerson({}, '염문철', { pay: '일 23만 식대포함' });
+  assert.strictEqual(p['염문철'].pay, '23');
+  p = Share.mergePerson(p, '염문철', { pay: '' });
+  assert.strictEqual(Share.personOf(p, '염문철').pay, '');
+});
+test('mergePerson: 사진 id 칸은 그대로 오가고, 사진만 남아도 이름이 유지된다', () => {
+  let p = Share.mergePerson({}, '염문철', { photo: 'p_abc' });
+  assert.strictEqual(Share.personOf(p, '염문철').photo, 'p_abc');
+  p = Share.mergePerson(p, '염문철', { phone: '010-1111-2222' });
+  assert.strictEqual(Share.personOf(p, '염문철').photo, 'p_abc', '다른 칸을 고쳐도 사진은 그대로');
+  p = Share.mergePerson(p, '염문철', { photo: '' });
+  assert.strictEqual(Share.personOf(p, '염문철').photo, '', '사진만 지우기');
 });
 test('mergePerson: 등급은 A·B·C·F 만, 다른 값은 무시하고 기존 값을 유지', () => {
   let p = Share.mergePerson({}, '염문철', { grade: 'B' });
@@ -1078,6 +1104,20 @@ test('navAddress: 내비용 — 호수·평형은 빼고 아파트 이름과 동
   assert.strictEqual(Share.navAddress({ name: '호반베르디움 3호선' }), '호반베르디움 3호선');
   assert.strictEqual(Share.navAddress({ name: '아무개', address: '경기 군포시 산본로 123' }), '경기 군포시 산본로 123');
   assert.strictEqual(Share.navAddress({ name: '' }), '');
+});
+
+
+test('하루 수익: 만원 표시·입력 읽기·합계', () => {
+  assert.deepStrictEqual([400000, 425000, 85000, -50000, 3000].map(Share.manwon), ['40만', '42.5만', '8.5만', '-5만', '3천']);
+  assert.deepStrictEqual(['40', '40만', '42.5', '425000', '-5', '40만원', '1,200,000', 'abc'].map(Share.parseManwon),
+    [400000, 400000, 425000, 425000, -50000, 400000, 1200000, 0]);
+  const inc = Share.normalizeIncome({ '2026-10-01': [{ id: 'a', amt: 400000 }, { amt: 0 }], '2026-10-02': [{ amt: 250000 }, { amt: -50000 }], 'x': [{ amt: 1 }] });
+  assert.strictEqual(Share.incomeOfDay(inc, '2026-10-02'), 200000);
+  assert.deepStrictEqual(Share.incomeOfMonth(inc, '2026-10'), { total: 600000, days: 2 });
+  assert.strictEqual(Share.wonText(1234567), '1,234,567원');
+  assert.strictEqual(Share.incomeRunning(inc, '2026-10-01'), 400000);
+  assert.strictEqual(Share.incomeRunning(inc, '2026-10-02'), 600000);
+  assert.strictEqual(Share.incomeRunning(inc, '2026-11-01'), 0);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

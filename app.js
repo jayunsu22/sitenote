@@ -508,7 +508,7 @@
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calShow = 'count';   // 달력 칸에 건수 / 시공지역 / 인원 중 뭘 볼까 (설정에 기억해 둔다)
-  var CAL_SHOWS = ['count', 'region', 'staff'];
+  var CAL_SHOWS = ['count', 'region', 'staff', 'income'];
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
@@ -593,7 +593,20 @@
        (모자란 수는 칸을 길게 눌렀을 때 뜨는 설명과 현장 카드에 있다) */
     var st = o.staff;
     var held = holdDays[iso] || [];
-    if (calShow === 'staff' && (n || held.length)) {
+    // 수익 보기 (2026-10-14): 그날 적어 둔 남은 돈 합계를 만원 단위로. 적은 게 없으면 비워 둔다
+    var inc = calShow === 'income' ? Share.incomeOfDay(state.settings.income, iso) : 0;
+    if (calShow === 'income') {
+      // 첫 줄 = 그날 수익, 둘째 줄 = 그 달 1일부터 그날까지 쌓인 합계
+      if (inc) {
+        mark.className = 'schcal-incbox';
+        var l1 = document.createElement('span'); l1.className = 'schcal-inc' + (inc < 0 ? ' minus' : ''); l1.textContent = Share.manwon(inc);
+        var run = Share.incomeRunning(state.settings.income, iso);
+        var l2 = document.createElement('span'); l2.className = 'schcal-incsum' + (run < 0 ? ' minus' : ''); l2.textContent = '합' + (Share.manwon(run) || '0');
+        mark.appendChild(l1); mark.appendChild(l2);
+      }
+      else mark.className = 'schcal-blank';
+    }
+    else if (calShow === 'staff' && (n || held.length)) {
       mark.className = 'schcal-nm' + (past ? ' past' : '');
       if (n && (!st || !st.have)) {
         var none = document.createElement('span');
@@ -640,7 +653,9 @@
          : '현장 없음') +
       (n && st && st.have ? ' · 인원 ' + st.have + '명' + (st.slots > st.have ? ' (같은 사람 겹침)' : '') : '');
     // 밀고 손을 뗄 때 손가락이 얹힌 칸이 눌리면 엉뚱한 날이 골라진다
-    b.onclick = function () { if (민직후) return; pickDate(iso); };
+    if (calShow === 'income') b.title = dateLabel(iso) + ' · 수익 ' + (inc ? Share.wonText(inc) + ' · 이달 합계 ' + Share.wonText(Share.incomeRunning(state.settings.income, iso)) : '없음');
+    // 수익 보기에서는 날짜를 누르면 그날 수익 적는 창이 뜬다
+    b.onclick = function () { if (민직후) return; if (calShow === 'income') { openIncomeSheet(iso); return; } pickDate(iso); };
     return b;
   }
 
@@ -771,7 +786,7 @@
   /* 건수 · 지역 · 인원 — 셋을 나란히 두고 보고 있는 것에 불을 켠다.
      돌려 가며 누르는 버튼 하나로는 지금 뭘 보고 있는지, 뭘 더 볼 수 있는지 모른다.
      어느 쪽을 보고 있었는지는 폰에 기억해 둔다 */
-  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤' };
+  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤', income: '수익 💰' };
   function calShowRow() {
     var row = document.createElement('div'); row.className = 'schcal-segs';
     CAL_SHOWS.forEach(function (k) {
@@ -830,6 +845,11 @@
         var weekTotal = 0;
         for (var wi = 0; wi < 7; wi++) weekTotal += counts[Share.addDays(calWeek, wi)] || 0;
         wsum.innerHTML = '이번 주 <b>' + weekTotal + '건</b>';
+        if (calShow === 'income') {
+          var wInc = 0;
+          for (var wj = 0; wj < 7; wj++) wInc += Share.incomeOfDay(state.settings.income, Share.addDays(calWeek, wj));
+          wsum.innerHTML = '이번 주 수익 <b class="inc">' + (wInc ? Share.manwon(wInc) + '원' : '0원') + '</b>';
+        }
         wnav.appendChild(wsum);
       }
       box.appendChild(wnav);
@@ -862,6 +882,10 @@
         return ymOf(k) === calMonth ? a + counts[k] : a;
       }, 0);
       sum.innerHTML = '이번 달 <b>' + monthTotal + '건</b>';
+      if (calShow === 'income') {
+        var mInc = Share.incomeOfMonth(state.settings.income, calMonth);
+        sum.innerHTML = '수익 <b class="inc">' + Share.wonText(mInc.total) + '</b>';
+      }
       nav.appendChild(prev); nav.appendChild(label); nav.appendChild(next); nav.appendChild(sum);
       box.appendChild(nav);
 
@@ -2343,6 +2367,137 @@
     var cb = staffPicker.onDone; staffPicker.onDone = null;
     if (cb) cb();
   }
+  /* ---------- 하루 수익 적기 (2026-10-14) ----------
+     일정 → '수익 💰' 보기에서 날짜를 누르면 뜬다. 그날 인건비·자재비 등을 빼고 남은 돈을 직접 적는다.
+     한 날에 여러 줄(현장별 등)을 적을 수 있고, 줄마다 ✏️ 고치기 · ✕ 지우기. 적는 대로 저장(백업)된다 */
+  var incomeIso = '', incomeEditId = '';
+  function openIncomeSheet(iso) {
+    incomeIso = iso; incomeEditId = '';
+    $('incAmt').value = ''; $('incMemo').value = '';
+    renderIncomeSheet();
+    $('incomeSheet').hidden = false;
+    setTimeout(function () { $('incAmt').focus(); }, 50);
+  }
+  function closeIncomeSheet() {
+    $('incomeSheet').hidden = true;
+    renderSchedule();
+  }
+  function renderIncomeSheet() {
+    var iso = incomeIso;
+    var list = (state.settings.income || {})[iso] || [];
+    var dayTotal = Share.incomeOfDay(state.settings.income, iso);
+    var mon = Share.incomeOfMonth(state.settings.income, iso.slice(0, 7));
+    $('incTitle').textContent = '💰 ' + dateLabel(iso) + ' 수익';
+    var box = $('incList'); box.innerHTML = '';
+    if (!list.length) {
+      var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 적은 수익이 없어요. 아래에 금액과 내역을 적으세요.';
+      box.appendChild(e);
+    }
+    list.forEach(function (it) {
+      var row = document.createElement('div'); row.className = 'inc-row' + (it.id === incomeEditId ? ' editing' : '');
+      var amt = document.createElement('b'); amt.className = 'inc-amt' + (it.amt < 0 ? ' minus' : ''); amt.textContent = Share.wonText(it.amt);
+      var memo = document.createElement('span'); memo.className = 'inc-memo'; memo.textContent = it.memo || '(내역 없음)';
+      var ed = document.createElement('button'); ed.type = 'button'; ed.className = 'inc-btn'; ed.textContent = '✏️'; ed.title = '고치기';
+      ed.onclick = function () {
+        incomeEditId = it.id;
+        $('incAmt').value = String(it.amt % 1000 === 0 ? it.amt / 10000 : it.amt);   // 적은 그대로 만원 단위로 (42만5천 → 42.5)
+        $('incMemo').value = it.memo || '';
+        renderIncomeSheet();
+        $('incAmt').focus();
+      };
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'inc-btn del'; del.textContent = '✕'; del.title = '지우기';
+      del.onclick = function () {
+        if (!confirm(Share.wonText(it.amt) + (it.memo ? ' (' + it.memo + ')' : '') + '\n이 수익을 지울까요?')) return;
+        Store.deleteIncome(iso, it.id);
+        if (incomeEditId === it.id) { incomeEditId = ''; $('incAmt').value = ''; $('incMemo').value = ''; }
+        renderIncomeSheet();
+      };
+      row.appendChild(amt); row.appendChild(memo); row.appendChild(ed); row.appendChild(del);
+      box.appendChild(row);
+    });
+    $('incDayTotal').innerHTML = '이날 합계 <b class="' + (dayTotal < 0 ? 'minus' : '') + '">' + Share.wonText(dayTotal) + '</b>' +
+      ' · ' + (+iso.slice(5, 7)) + '월 합계 <b>' + Share.wonText(mon.total) + '</b> (' + mon.days + '일)';
+    $('incSave').textContent = incomeEditId ? '✏️ 고치기 저장' : '💾 넣기';
+    $('incCancelEdit').hidden = !incomeEditId;
+  }
+  function saveIncomeForm() {
+    var amt = Share.parseManwon($('incAmt').value);
+    if (!amt) { toast('금액을 적어 주세요 (예: 40 = 40만원)'); $('incAmt').focus(); return; }
+    var memo = $('incMemo').value.trim();
+    if (incomeEditId) Store.updateIncome(incomeIso, incomeEditId, amt, memo);
+    else Store.addIncome(incomeIso, amt, memo);
+    toast((incomeEditId ? '고쳤어요 · ' : '넣었어요 · ') + Share.wonText(amt));
+    incomeEditId = ''; $('incAmt').value = ''; $('incMemo').value = '';
+    renderIncomeSheet();
+  }
+  $('incSave').onclick = saveIncomeForm;
+  $('incAmt').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); $('incMemo').focus(); } };
+  $('incMemo').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); saveIncomeForm(); } };
+  $('incCancelEdit').onclick = function () { incomeEditId = ''; $('incAmt').value = ''; $('incMemo').value = ''; renderIncomeSheet(); };
+  $('incClose').onclick = closeIncomeSheet;
+  $('incDone').onclick = closeIncomeSheet;
+  $('incomeSheet').onclick = function (e) { if (e.target === $('incomeSheet')) closeIncomeSheet(); };
+
+  /* 팀원 한 사람 일정 잡기 (2026-10-14).
+     인원 잡기는 날짜마다 창을 열어야 해서 불편했다 — 사람을 먼저 고르고 달력에서 날짜를 누르면
+     그날 '대기' 로 잡힌다(다시 누르면 빠짐). 이미 그날 현장·AS 에 들어간 날은 '현장' 으로 보이고 못 누른다.
+     지난 날짜는 흐리게. 누를 때마다 바로 저장(동기화)된다 */
+  var holdCal = { name: '', y: 0, m: 0 };
+  function openHoldCalendar(name) {
+    var t = Share.todayIso().split('-');
+    holdCal = { name: name, y: +t[0], m: +t[1] - 1 };
+    renderHoldCalendar();
+    $('holdCalSheet').hidden = false;
+  }
+  function closeHoldCalendar() {
+    $('holdCalSheet').hidden = true;
+    if (!$('viewSettings').hidden) renderTeamList();
+    if (typeof renderSchedule === 'function' && $('viewSchedule') && !$('viewSchedule').hidden) renderSchedule();
+  }
+  function renderHoldCalendar() {
+    var name = holdCal.name, y = holdCal.y, m = holdCal.m;
+    var pad = function (v) { return (v < 10 ? '0' : '') + v; };
+    var norm = function (v) { return String(v).replace(/\s+/g, ''); };
+    var today = Share.todayIso();
+    var holds = state.settings.holds || {};
+    var staffByDate = Share.dateStaff(state.sites);
+    $('holdCalTitle').textContent = '📅 ' + name + ' 일정 잡기';
+    $('holdCalMonth').textContent = y + '년 ' + (m + 1) + '월';
+    var grid = $('holdCalGrid'); grid.innerHTML = '';
+    ['일', '월', '화', '수', '목', '금', '토'].forEach(function (w, i) {
+      var d = document.createElement('div'); d.className = 'holdcal-wd' + (i === 0 ? ' sun' : i === 6 ? ' sat' : ''); d.textContent = w;
+      grid.appendChild(d);
+    });
+    var first = new Date(y, m, 1).getDay(), last = new Date(y, m + 1, 0).getDate();
+    for (var b = 0; b < first; b++) { var e = document.createElement('div'); e.className = 'holdcal-blank'; grid.appendChild(e); }
+    var heldCount = 0;
+    for (var day = 1; day <= last; day++) (function (day) {
+      var iso = y + '-' + pad(m + 1) + '-' + pad(day);
+      var busy = ((staffByDate[iso] || {}).names || []).some(function (n) { return norm(n) === norm(name); });
+      var on = (holds[iso] || []).some(function (n) { return norm(n) === norm(name); });
+      var past = iso < today;
+      if (on && !busy) heldCount++;
+      var c = document.createElement('button'); c.type = 'button';
+      c.className = 'holdcal-day' + (busy ? ' busy' : on ? ' on' : '') + (past ? ' past' : '') +
+        (iso === today ? ' today' : '') + (Share.isRedDay(iso) ? ' red' : '');
+      c.innerHTML = '<span class="n">' + day + '</span><span class="t">' + (busy ? '현장' : on ? '잡음' : '') + '</span>';
+      c.onclick = function () {
+        if (busy) { toast(name + ' 은(는) 이날 이미 현장에 들어가 있어요'); return; }
+        if (past) { toast('지난 날짜는 잡을 수 없어요'); return; }
+        Store.toggleHold(iso, name);
+        renderHoldCalendar();
+      };
+      grid.appendChild(c);
+    })(day);
+    $('holdCalInfo').innerHTML = '날짜를 누르면 그날 <b>대기</b>로 잡히고, 다시 누르면 빠집니다. 바로 저장돼요.<br>' +
+      '이번 달 잡은 날: <b>' + heldCount + '일</b> · 파란 칸은 이미 현장에 들어간 날';
+  }
+  $('holdCalClose').onclick = closeHoldCalendar;
+  $('holdCalDone').onclick = closeHoldCalendar;
+  $('holdCalSheet').onclick = function (e) { if (e.target === $('holdCalSheet')) closeHoldCalendar(); };
+  $('holdCalPrev').onclick = function () { holdCal.m--; if (holdCal.m < 0) { holdCal.m = 11; holdCal.y--; } renderHoldCalendar(); };
+  $('holdCalNext').onclick = function () { holdCal.m++; if (holdCal.m > 11) { holdCal.m = 0; holdCal.y++; } renderHoldCalendar(); };
+
   // 대기 인원 잡기 (2026-10-14): 같은 인원 창을 날짜 하나에 대해 쓴다. 현장은 고르지 않는다
   function openHoldPicker(iso) {
     staffPicker = { siteId: '', dayIndex: 0, onDone: renderSchedule, hold: iso };
@@ -2774,6 +2929,8 @@
     info.appendChild(ph); info.appendChild(car);
     return info;
   }
+  // 팀원 명단에서 지금 보고 있는 등급 탭 ('' = 전체). 앱을 다시 열면 전체부터 (2026-10-16)
+  var teamTab = '';
   function renderTeamList() {
     var box = $('teamList'); box.innerHTML = '';
     var team = state.settings.team || [];
@@ -2781,36 +2938,87 @@
       var e = document.createElement('div'); e.className = 'sec-empty'; e.textContent = '아직 없음';
       box.appendChild(e);
     }
-    // 한 줄 = 등급 + 이름 + 전화·차량 요약. 줄을 누르면 '기사 정보' 창, 전화번호를 누르면 바로 전화 걸기
-    team.forEach(function (name, i) {
+    // 등급 탭: 전체 / A / B / C / F — 옆의 숫자는 그 등급 사람 수.
+    // 등급을 안 정한 사람(미정)은 [전체]에서만 보인다
+    var gradeOf = function (n) { return Share.personOf(state.settings.people, n).grade; };
+    if (team.length) {
+      var tabs = document.createElement('div'); tabs.className = 'team-tabs';
+      [''].concat(Share.PERSON_GRADES).forEach(function (g) {
+        var n = g ? team.filter(function (nm) { return gradeOf(nm) === g; }).length : team.length;
+        var b = document.createElement('button'); b.type = 'button';
+        b.className = 'team-tab g-' + (g || 'all') + (teamTab === g ? ' on' : '');
+        b.innerHTML = (g ? esc(g) : '전체') + '<span class="tt-n">' + n + '</span>';
+        b.onclick = function () { teamTab = g; renderTeamList(); };
+        tabs.appendChild(b);
+      });
+      box.appendChild(tabs);
+    }
+    var shown = teamTab ? team.filter(function (nm) { return gradeOf(nm) === teamTab; }) : team;
+    if (team.length && !shown.length) {
+      var none = document.createElement('div'); none.className = 'sec-empty';
+      none.textContent = teamTab + '등급인 사람이 아직 없습니다. [수정]에서 등급을 정할 수 있습니다.';
+      box.appendChild(none);
+    }
+    // 한 줄 = 이름+등급+페이 · [수정] [전화] [일정] [×] (2026-10-16).
+    // 전화번호는 글자로 띄우지 않는다 — [전화]로 바로 걸고, 번호가 없으면 그 버튼이 비활성
+    shown.forEach(function (name) {
+      var i = team.indexOf(name);
       var p = Share.personOf(state.settings.people, name);
       var row = document.createElement('div'); row.className = 'team-row team-tap';
       var main = document.createElement('div'); main.className = 'team-main';
       var t = document.createElement('div'); t.className = 'slist-name';
-      if (p.grade) { var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade; t.appendChild(gb); }
       t.appendChild(document.createTextNode(name));
-      var sum = document.createElement('div'); sum.className = 'team-sum' + (p.phone ? '' : ' miss');
-      if (p.phone) {
-        var tel = document.createElement('a'); tel.className = 'team-tel';
-        tel.href = 'tel:' + p.phone.replace(/[^0-9+]/g, ''); tel.textContent = '📞 ' + p.phone;
-        tel.onclick = function (e) { e.stopPropagation(); };   // 줄 전체의 '기사 정보 열기'와 겹치지 않게
-        sum.appendChild(tel);
-        if (p.car) sum.appendChild(document.createTextNode(' · ' + p.car));
-      } else {
-        sum.textContent = p.car ? '연락처 없음 · ' + p.car : '연락처 없음';
+      if (p.grade) {   // 이름 뒤에 등급 — 서영호A(23)
+        var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade;
+        gb.title = '등급 ' + p.grade;
+        t.appendChild(gb);
       }
-      main.appendChild(t); main.appendChild(sum);
-      main.onclick = function () { openPersonSheet(name); };
-      var go = document.createElement('span'); go.className = 'team-go'; go.textContent = '›';
-      go.onclick = main.onclick;
+      if (p.pay) {   // 이름 뒤에 일당 — 서영호(23)
+        var pay = document.createElement('span'); pay.className = 'team-pay'; pay.textContent = '(' + p.pay + ')';
+        pay.title = '일당 ' + p.pay + '만원';
+        t.appendChild(pay);
+      }
+      main.appendChild(t);
+      main.onclick = function () { openPersonSheet(name); };   // 이름을 눌러도 기사 정보가 열린다
+
+      // 수정 — 기사 정보 창(이름·등급·전화·차량·경력·페이·사는곳·메모)
+      var edit = document.createElement('button'); edit.type = 'button'; edit.className = 'team-btn edit'; edit.textContent = '수정';
+      edit.title = '기사 정보 고치기';
+      edit.onclick = function (e) { e.stopPropagation(); openPersonSheet(name); };
+
+      // 전화 — 번호가 있으면 바로 걸기, 없으면 비활성(수정에서 번호를 넣어야 켜진다)
+      var call;
+      if (p.phone) {
+        call = document.createElement('a'); call.className = 'team-btn call';
+        call.href = telHref(p.phone); call.textContent = '전화'; call.title = p.phone + ' 로 전화';
+        call.onclick = function (e) { e.stopPropagation(); };
+      } else {
+        call = document.createElement('button'); call.type = 'button'; call.className = 'team-btn call'; call.textContent = '전화';
+        call.disabled = true; call.title = '연락처 없음 — [수정]에서 번호를 넣으세요';
+        call.onclick = function (e) { e.stopPropagation(); };
+      }
+
+      // 일정 — 이 사람을 여러 날짜에 한 번에 잡는다 (날짜마다 인원 창을 여는 대신)
+      var cal = document.createElement('button'); cal.type = 'button'; cal.className = 'team-btn cal'; cal.textContent = '일정';
+      cal.title = '여러 날짜에 한 번에 넣기';
+      cal.onclick = function (e) { e.stopPropagation(); openHoldCalendar(name); };
+
+      // × — 지우기 전에 한 번 물어본다 (실수로 누르면 기사 정보까지 날아가므로)
       var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
-      x.onclick = function () {
-        var next = team.slice(); next.splice(i, 1);
-        var people = Object.assign({}, state.settings.people); delete people[name];   // 기사 정보도 같이 지운다
-        Store.setSettings({ team: next, people: people });
-        renderTeamList();
+      x.onclick = function (e) {
+        e.stopPropagation();
+        modalConfirm('팀원 삭제', name + ' 님을 명단에서 지울까요? 전화·차량·경력 같은 기사 정보도 같이 지워집니다. (이미 잡아둔 현장의 인원 이름은 그대로 남습니다)', '삭제', true)
+          .then(function (ok) {
+            if (!ok) return;
+            var next = team.slice(); next.splice(i, 1);
+            if (p.photo) Store.deletePhoto(p.photo);                                      // 사진도 같이 지운다
+            var people = Object.assign({}, state.settings.people); delete people[name];   // 기사 정보도 같이 지운다
+            Store.setSettings({ team: next, people: people });
+            renderTeamList();
+            toast(name + ' 님을 명단에서 지웠습니다');
+          });
       };
-      row.appendChild(main); row.appendChild(go); row.appendChild(x);
+      row.appendChild(main); row.appendChild(edit); row.appendChild(call); row.appendChild(cal); row.appendChild(x);
       box.appendChild(row);
     });
   }
@@ -2820,15 +3028,85 @@
     { key: 'phone', label: '전화번호', ph: '010-…', mode: 'tel', call: true },
     { key: 'car', label: '차량번호', ph: '12가3456' },
     { key: 'career', label: '경력', ph: '예: 3년 · 샤시 전문' },
-    { key: 'pay', label: '페이', ph: '예: 일 28만 식대포함' },
+    { key: 'pay', label: '페이 (일당, 만원)', ph: '', sel: true },
     { key: 'home', label: '사는곳', ph: '예: 부천 중동' },
     { key: 'memo', label: '메모', ph: '', area: true }
   ];
   function telHref(v) { return 'tel:' + String(v || '').replace(/[^0-9+]/g, ''); }
+  // 페이(일당) 고르기 — 8~30 만원, 숫자만 (Share.payOf 가 예전에 적어둔 '일 28만 식대포함' 도 28 로 읽는다)
+  function payOptions(cur) {
+    var v = Share.payOf(cur);
+    var out = ['<option value=""' + (v ? '' : ' selected') + '>미정</option>'];
+    for (var n = Share.PAY_MIN; n <= Share.PAY_MAX; n++) {
+      out.push('<option value="' + n + '"' + (+v === n ? ' selected' : '') + '>' + n + '</option>');
+    }
+    return out.join('');
+  }
+  /* 기사 사진 (2026-10-16) — 한 사람에 한 장.
+     사진 자체는 다른 사진(명함·단가표)과 같은 곳에 저장하고(폰은 IndexedDB, 백업은 조각 행),
+     기사 정보에는 그 사진의 id 만 적어둔다. 이름을 바꿔도 사진은 그대로 따라간다. */
+  var PERSON_PHOTO_OWNER = 'person';   // 거래처가 아니라 '사람' 사진이라는 표시
+  function renderPersonPhoto(name) {
+    var box = $('pfPhoto'); if (!box) return;
+    box.innerHTML = '';
+    var p = Share.personOf(state.settings.people, name);
+    var photo = p.photo ? Store.getPhoto(p.photo) : null;
+    if (!photo) {
+      var add = document.createElement('button'); add.type = 'button'; add.className = 'pf-photo-add';
+      add.textContent = '＋ 사진 넣기 (촬영 · 앨범)';
+      add.onclick = function () { $('pfPhotoInput').click(); };
+      box.appendChild(add);
+      return;
+    }
+    var img = document.createElement('img'); img.alt = name;
+    var small = photo.thumb || photo.dataUrl;
+    if (Share.isImageDataUrl(small)) img.src = small;
+    Store.photoData(photo.id).then(function (url) {   // 원본은 읽는 대로 교체 (크게 볼 때 선명하게)
+      if (Share.isImageDataUrl(url) && box.contains(img)) img.src = url;
+    });
+    img.title = '탭하면 크게';
+    img.onclick = function () { img.classList.toggle('big'); };
+    var act = document.createElement('div'); act.className = 'pf-photo-act';
+    var chg = document.createElement('button'); chg.type = 'button'; chg.className = 'btn-sm'; chg.textContent = '바꾸기';
+    chg.onclick = function () { $('pfPhotoInput').click(); };
+    var del = document.createElement('button'); del.type = 'button'; del.className = 'btn-sm btn-danger'; del.textContent = '사진 삭제';
+    del.onclick = function () {
+      modalConfirm('사진 삭제', name + ' 님 사진을 지울까요?', '삭제', true).then(function (ok) {
+        if (ok) { clearPersonPhoto(name); toast('사진을 지웠습니다'); }
+        openPersonSheet(name);   // 확인창이 이 창을 덮었으므로, 지우든 취소든 기사 정보로 돌아온다
+      });
+    };
+    act.appendChild(chg); act.appendChild(del);
+    box.appendChild(img); box.appendChild(act);
+  }
+  // 그 사람에게 걸린 사진을 저장소에서 지우고 기사 정보의 사진 id 도 비운다
+  function clearPersonPhoto(name) {
+    var p = Share.personOf(state.settings.people, name);
+    if (!p.photo) return;
+    Store.deletePhoto(p.photo);
+    Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { photo: '' }) });
+  }
+  function setPersonPhoto(name, file) {
+    if (!/^image\//.test(file.type || '')) { toast('이미지 파일만 넣을 수 있습니다'); return; }
+    toast('사진 처리 중…');
+    compressImage(file).then(function (r) {
+      return Store.addPhoto(PERSON_PHOTO_OWNER, { name: name, thumb: r.thumb, dataUrl: r.dataUrl, w: r.w, h: r.h, bytes: r.bytes });
+    }).then(function (saved) {
+      if (!saved) { toast('폰 저장공간이 가득 찼습니다 — 사진을 지우고 다시 시도하세요'); return; }
+      clearPersonPhoto(name);   // 예전 사진은 지운다 (한 사람에 한 장)
+      Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { photo: saved.id }) });
+      renderPersonPhoto(name);
+      toast('사진을 넣었습니다');
+    }).catch(function (e) {
+      toast((e && e.message) || '사진을 읽지 못했습니다');
+    });
+  }
   function openPersonSheet(name) {
     var p = Share.personOf(state.settings.people, name);
     var fieldHtml = function (f) {
-      var ctl = f.area
+      var ctl = f.sel
+        ? '<select class="pf-sel" data-pf="' + f.key + '">' + payOptions(p[f.key]) + '</select>'
+        : f.area
         ? '<textarea data-pf="' + f.key + '" rows="3" placeholder="' + esc(f.ph) + '">' + esc(p[f.key]) + '</textarea>'
         : '<input type="text" data-pf="' + f.key + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : '') + ' autocomplete="off" placeholder="' + esc(f.ph) + '" value="' + esc(p[f.key]) + '">';
       if (f.call) ctl = '<div class="pf-row">' + ctl + '<a class="pf-call" id="pfCall" href="' + esc(telHref(p.phone)) + '"' + (p.phone ? '' : ' hidden') + '>📞 전화</a></div>';
@@ -2841,8 +3119,23 @@
       '<label class="pf-label">등급</label><div class="pf-grades" id="pfGrades">' + grades.map(function (g) {
         return '<button type="button" class="pf-grade g-' + (g || 'none') + (p.grade === g ? ' on' : '') + '" data-g="' + g + '">' + (g || '미정') + '</button>';
       }).join('') + '</div>' +
-      PERSON_FIELDS.map(fieldHtml).join('') + '</div>';
-    openModal('기사 정보 · ' + name, html, [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+      // 사진은 메모 바로 위 (메모를 길게 쓰면 사진이 저 아래로 밀려서, 2026-10-16)
+      PERSON_FIELDS.map(function (f) {
+        var photo = '<label class="pf-label">사진</label><div class="pf-photo" id="pfPhoto"></div>';
+        return (f.key === 'memo' ? photo : '') + fieldHtml(f);
+      }).join('') +
+      '<input type="file" id="pfPhotoInput" accept="image/*" hidden>' + '</div>';
+    // 칸은 적는 대로 저장되지만, 눌러서 확인할 수 있는 [저장]을 따로 둔다 (백업까지 바로 보낸다)
+    openModal('기사 정보 · ' + name, html, [
+      { label: '닫기', onClick: closeModal },
+      { label: '💾 저장', cls: 'primary', onClick: function () { closeModal(); renderTeamList(); saveNow(); } }
+    ]);
+    renderPersonPhoto(name);
+    $('pfPhotoInput').onchange = function () {
+      var f = ($('pfPhotoInput').files || [])[0];
+      $('pfPhotoInput').value = '';
+      if (f) setPersonPhoto(name, f);
+    };
 
     // 이름 바꾸기 — 명단·기사 정보·모든 현장의 인원이 한꺼번에 새 이름으로 바뀐다
     var doRename = function () {
@@ -2866,6 +3159,7 @@
       };
     });
     $('modalBody').querySelectorAll('[data-pf]').forEach(function (el) {
+      el.addEventListener('change', function () { el.dispatchEvent(new Event('input')); });   // 드롭다운(페이)
       el.addEventListener('input', function () {
         var patch = {}; patch[el.dataset.pf] = el.value;
         Store.setSettings({ people: Share.mergePerson(state.settings.people, name, patch) });
@@ -2904,7 +3198,8 @@
   function renderSupplyDefaultList() {
     renderStringList($('supplyDefaultList'), state.settings.supplyDefaults || [], function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
   }
-  bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); renderTeamList(); });
+  // 새로 넣은 사람은 등급이 아직 없으니, 등급 탭을 보고 있었으면 [전체]로 돌려 바로 보이게 한다
+  bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); teamTab = ''; renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
   // AS 부자재·공구 (2026-10-05) — AS·추가작업 접수에서 탭으로 고르는 목록
   function renderServiceToolList() {
