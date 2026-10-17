@@ -904,3 +904,16 @@ textarea { resize: vertical; }
 /* 할 일 줄: 현장 옆 업체명 · 시공 첫날 (2026-10-14) */
 .task-link-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 700; vertical-align: 1px; }
 .task-link-tag.date { background: #ecfdf5; color: #047857; }
+
+/* 견적요청 내역 (quote_requests.js) */
+.qreq-badge { padding: 1px 8px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11.5px; font-weight: 800; }
+.qreq-badge[hidden] { display: none; }
+.qreq-body { padding-top: 10px; }
+.qreq-add { display: block; width: 100%; padding: 11px; margin-bottom: 8px; background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.qreq-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 9px 2px; border: 0; border-top: 1px solid var(--border); background: transparent; text-align: left; color: var(--text); cursor: pointer; }
+.qreq-st { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: #fff; }
+.qreq-st.red { background: #e5484d; } .qreq-st.amber { background: #f5a524; } .qreq-st.green { background: #2f9e62; }
+.qreq-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14px; }
+.qreq-sum { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qreq-m { font-size: 12px; color: var(--muted); }
+.qreq-err { color: #b91c1c; }

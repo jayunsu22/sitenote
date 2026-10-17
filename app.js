@@ -474,7 +474,7 @@
 
   function renderMain() {
     ensureCurrentClient();
-    renderTabs(); renderFixed(); TaskUI.renderClientNotes($('notesWrap'), currentClientId); renderCards(); renderSyncBadge();
+    renderTabs(); renderFixed(); TaskUI.renderClientNotes($('notesWrap'), currentClientId); QuoteRequests.render($('qreqWrap'), currentClientId); renderCards(); renderSyncBadge();
   }
 
   // ---------- 백업 상태 배지 ----------
