@@ -1767,7 +1767,7 @@
     $('modalBody').querySelectorAll('button[data-act]').forEach(function (b) {
       b.onclick = function () {
         var act = b.dataset.act;
-        if (act === 'open') { window.open(AdminLink.adminOpenUrl(s.adminId), '_blank'); return; }
+        if (act === 'open') { window.open(AdminLink.adminOpenUrl(s.adminId, s.quoteCode), '_blank'); return; }   // 견적코드도 같이 넘긴다
         if (act === 'sync') { closeModal(); runAdminSync(siteId).then(function (r) { toast(r && r.ok ? '맞췄습니다' : '맞추지 못했습니다'); }); return; }
         if (act === 'unlink') {
           modalConfirm('연결 해제', '일정 앱과 현장업무의 연결만 끊습니다. 관리자 앱의 현장은 지워지지 않습니다.', '연결 해제', true).then(function (ok) {

@@ -8,7 +8,11 @@
   var Share = root.Share || (typeof require === 'function' ? require('./share.js') : null);
 
   var ADMIN_APP_URL = 'https://jayunsu22.github.io/autoblog/admin.html';
-  function adminOpenUrl(adminId) { return ADMIN_APP_URL + '#site=' + adminId; }
+  // 견적코드를 같이 보내면 관리자 앱이 그 현장의 '방문견적 보기' 버튼에 이어 둔다 (2026-10-18)
+  function adminOpenUrl(adminId, quoteCode) {
+    var q = String(quoteCode == null ? '' : quoteCode).trim();
+    return ADMIN_APP_URL + '#site=' + adminId + (/^[A-Za-z0-9_-]+$/.test(q) ? '&quote=' + q : '');
+  }
 
   // 비슷함 기준: 숫자 없는 두 글자 조각이 2개 이상 겹침 (견적 앱 QuoteToSite.현장정렬 과 같은 규칙)
   var SIMILAR_MIN = 2;

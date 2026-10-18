@@ -311,6 +311,13 @@ test('같은 현장의 syncSite 가 겹쳐도 요청은 한 번만', async () =>
   assert.strictEqual(posts(f, 'update_project_name').length, 1);
 });
 
+test('adminOpenUrl: 견적코드를 주면 주소에 &quote= 로 붙고, 없거나 이상하면 안 붙는다', () => {
+  assert.strictEqual(AdminLink.adminOpenUrl('recX'), 'https://jayunsu22.github.io/autoblog/admin.html#site=recX');
+  assert.strictEqual(AdminLink.adminOpenUrl('recX', 'AB12CD34'), 'https://jayunsu22.github.io/autoblog/admin.html#site=recX&quote=AB12CD34');
+  assert.strictEqual(AdminLink.adminOpenUrl('recX', '  '), 'https://jayunsu22.github.io/autoblog/admin.html#site=recX');
+  assert.strictEqual(AdminLink.adminOpenUrl('recX', '/q/AB12'), 'https://jayunsu22.github.io/autoblog/admin.html#site=recX', '주소 형태는 안 붙인다 — 코드만');
+});
+
 chain.then(() => {
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
