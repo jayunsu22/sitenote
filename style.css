@@ -467,6 +467,12 @@ textarea { resize: vertical; }
 /* 같은 날 다른 현장에도 들어가 있는 사람 — 두 군데 부르면 한쪽이 빈다 */
 .sch-name.dup { background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1.5px var(--danger); }
 .sch-name.add { background: transparent; border: 1.5px dashed #cbd5e1; color: var(--muted); font-size: 14px; padding: 5px 12px; }
+/* 이름 탭=전화 / [−] 빼기 모드 (2026-10-18) — 현장 상세의 이름 칩과 같은 규칙 */
+.sch-name.call { text-decoration: none; display: inline-flex; align-items: center; }
+.sch-name.nophone { background: #f3f4f6; color: #6b7280; }
+.sch-name.del { background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1.5px var(--danger); }
+.sch-name.del-toggle { background: transparent; border: 1.5px dashed #fca5a5; color: var(--danger); font-size: 14px; padding: 5px 12px; }
+.sch-name.del-toggle.on { background: var(--danger); border-style: solid; border-color: var(--danger); color: #fff; }
 .sch-people .cnt { margin-left: auto; }
 /* 날마다 배치 현황 — 1일차는 찼는데 2일차가 빈 경우가 흔하다 */
 .sch-days { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }

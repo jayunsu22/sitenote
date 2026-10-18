@@ -89,7 +89,7 @@
     if (mp && Store.getPhoto(mp[1])) { showView('viewMain'); renderMain(); openPhotoViewer(mp[1]); return; }
     closePhotoViewer();
     if (h === '#settings') { showView('viewSettings'); renderSettings(); return; }
-    if (h === '#schedule') { rememberView('schedule'); showView('viewSchedule'); renderSchedule(); return; }
+    if (h === '#schedule') { rememberView('schedule'); showView('viewSchedule'); schDelKey = ''; renderSchedule(); return; }
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
@@ -536,6 +536,8 @@
   }
   function dateLabel(iso) { return Share.shortDate(iso) + ' (' + weekdayOf(iso) + ')'; }
 
+  // 일정 화면에서 '빼기 모드'인 카드 ('현장id@일차', '' = 없음). 화면에 들어오면 풀린다
+  var schDelKey = '';
   function renderSchedule() {
     // 폰에 기억해 둔 보기 방식을 그린다 (다른 기기에서 바꾼 게 restore 로 들어와도 맞춘다)
     calShow = CAL_SHOWS.indexOf(state.settings.calShow) !== -1 ? state.settings.calShow : 'count';
@@ -1160,21 +1162,47 @@
     // 이름은 이 칸 안에서만 줄바꿈한다. 배치 수는 바깥에 둬야 오른쪽 위에 남는다
     var namesBox = document.createElement('div'); namesBox.className = 'sch-names';
     line.appendChild(namesBox);
+    // 이름을 탭하면 전화 (현장 상세와 같다). 빼기는 [−] 로 빼기 모드에 들어간 뒤 ✕ 로 (2026-10-18)
+    var delKey = id + '@' + first, inDel = schDelKey === delKey;
     names.forEach(function (n) {
       var isDup = !!dupNames[String(n).replace(/\s+/g, '')];
-      var a = document.createElement('button');
-      a.type = 'button';
-      a.className = 'sch-name' + (isDup ? ' dup' : '');
-      a.textContent = n + (isDup ? ' ⚠' : '');
-      a.title = isDup ? n + ' — 같은 날 다른 현장에도 들어가 있음' : n;
-      a.onclick = function (e) { e.stopPropagation(); openStaffPicker(id, first, renderSchedule); };
+      var phone = Share.personOf(state.settings.people, n).phone;
+      var a;
+      if (inDel) {
+        a = document.createElement('button'); a.type = 'button';
+        a.className = 'sch-name del' + (isDup ? ' dup' : '');
+        a.textContent = n + ' ✕';
+        a.title = n + ' — 탭하면 이 날에서 뺍니다';
+        a.onclick = function (e) { e.stopPropagation(); Store.removeStaff(id, first, n); renderSchedule(); };
+      } else if (phone) {
+        a = document.createElement('a');
+        a.className = 'sch-name call' + (isDup ? ' dup' : '');
+        a.href = telHref(phone);
+        a.textContent = n + (isDup ? ' ⚠' : '');
+        a.title = (isDup ? n + ' — 같은 날 다른 현장에도 들어가 있음 · ' : '') + phone + ' 로 전화';
+        a.onclick = function (e) { e.stopPropagation(); };
+      } else {
+        a = document.createElement('button'); a.type = 'button';
+        a.className = 'sch-name nophone' + (isDup ? ' dup' : '');
+        a.textContent = n + (isDup ? ' ⚠' : '');
+        a.title = n + ' — 연락처 없음';
+        a.onclick = function (e) { e.stopPropagation(); toast(n + ' 연락처가 없습니다 — 설정 › 팀원에서 번호를 넣으세요'); };
+      }
       namesBox.appendChild(a);
     });
     var addName = document.createElement('button');
     addName.type = 'button'; addName.className = 'sch-name add'; addName.textContent = '＋';
     addName.setAttribute('aria-label', '인원 넣기');
-    addName.onclick = function (e) { e.stopPropagation(); openStaffPicker(id, first, renderSchedule); };
+    addName.onclick = function (e) { e.stopPropagation(); schDelKey = ''; openStaffPicker(id, first, renderSchedule); };
     namesBox.appendChild(addName);
+    if (names.length) {
+      var delName = document.createElement('button');
+      delName.type = 'button'; delName.className = 'sch-name del-toggle' + (inDel ? ' on' : '');
+      delName.textContent = inDel ? '완료' : '−';
+      delName.title = inDel ? '빼기 끝내기' : '인원 빼기 — 누르면 이름에 ✕ 가 생깁니다';
+      delName.onclick = function (e) { e.stopPropagation(); schDelKey = inDel ? '' : delKey; renderSchedule(); };
+      namesBox.appendChild(delName);
+    }
     if (!multi) line.appendChild(staffCountBadge(s, first, true));
     body.appendChild(line);
 
