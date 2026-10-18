@@ -982,6 +982,19 @@ function reset() {
     fetchImpl = async () => ({ ok: true, json: async () => ({ ok: true }) });
   });
 
+  await test('거래처 탭 색: 새 거래처는 기본(-1), updateClient 로 바꾸고 잘못된 값은 기본', () => {
+    reset();
+    const c = Store.addClient('A인테리어');
+    assert.strictEqual(c.tabColor, -1);
+    Store.updateClient(c.id, { tabColor: 5 });
+    assert.strictEqual(Store.getClient(c.id).tabColor, 5);
+    Store.load();
+    assert.strictEqual(Store.getClient(c.id).tabColor, 5, '다시 불러도 유지');
+    Store.updateClient(c.id, { tabColor: 99 });
+    Store.load();
+    assert.strictEqual(Store.getClient(c.id).tabColor, -1, '범위 밖은 기본으로');
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

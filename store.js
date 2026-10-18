@@ -163,6 +163,7 @@
   function normalizeClient(raw) {
     var c = Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
     c.notes = normalizeNotes(c.notes);
+    c.tabColor = Share.tabColorOf(c);   // 탭 색 (-1 = 기본)
     return c;
   }
   // 거래처 메모 내역 (2026-10-14) — 날짜별로 쌓이는 기록, 최신이 맨 앞. 할 일을 끝낼 때 결과가 여기로 온다

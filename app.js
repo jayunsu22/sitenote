@@ -121,7 +121,8 @@
     var wrap = $('tabs'); wrap.innerHTML = '';
     Store.clients().forEach(function (c) {
       var b = document.createElement('button');
-      b.className = 'tab' + (c.id === currentClientId ? ' active' : '');
+      var tc = Share.tabColorOf(c);
+      b.className = 'tab' + (tc >= 0 ? ' tabc-' + tc : '') + (c.id === currentClientId ? ' active' : '');
       b.textContent = c.name; b.dataset.id = c.id;
       b.onclick = function () { selectClient(c.id); };
       attachLongPress(b, function () { clientMenu(c.id); });
@@ -149,7 +150,8 @@
     var grid = document.createElement('div'); grid.className = 'tabs-all-grid';
     clients.forEach(function (c) {
       var b = document.createElement('button'); b.type = 'button';
-      b.className = 'tab-chip' + (c.id === currentClientId ? ' on' : '');
+      var tc2 = Share.tabColorOf(c);
+      b.className = 'tab-chip' + (tc2 >= 0 ? ' tabc-' + tc2 : '') + (c.id === currentClientId ? ' on' : '');
       b.textContent = c.name;
       b.onclick = function () { tabsAllOpen = false; selectClient(c.id); };
       attachLongPress(b, function () { clientMenu(c.id); });
@@ -173,18 +175,39 @@
     var c = Store.getClient(id); if (!c) return;
     var ids = Store.clients().map(function (x) { return x.id; });
     var i = ids.indexOf(id);
-    var items = [{ label: '✏️ 이름 변경', value: 'rename' }];
+    var items = [{ label: '✏️ 이름 변경', value: 'rename' }, { label: '🎨 탭 색상', value: 'color' }];
     if (i > 0) items.push({ label: '◀ 왼쪽으로 이동', value: 'left' });
     if (i < ids.length - 1) items.push({ label: '▶ 오른쪽으로 이동', value: 'right' });
     items.push({ label: '🗑 거래처 삭제', value: 'delete', cls: 'danger' });
     modalSheet(c.name, items).then(function (v) {
       if (v === 'rename') return renameClient(id);
+      if (v === 'color') return clientColorPicker(id);
       if (v === 'delete') return deleteClient(id);
       if (v === 'left' || v === 'right') {
         var j = v === 'left' ? i - 1 : i + 1;
         ids.splice(i, 1); ids.splice(j, 0, id);
         Store.reorderClients(ids); renderMain();
       }
+    });
+  }
+  // 거래처 탭 색 고르기 (2026-10-18) — 탭을 길게 눌러 나오는 메뉴에서 연다
+  function clientColorPicker(id) {
+    var c = Store.getClient(id); if (!c) return;
+    var cur = Share.tabColorOf(c);
+    var dots = '';
+    for (var i = 0; i < Share.TAB_COLORS; i++) {
+      dots += '<button type="button" class="tabcolor tabc-' + i + (cur === i ? ' on' : '') + '" data-i="' + i + '" aria-label="색 ' + (i + 1) + '"></button>';
+    }
+    var html = '<p class="hint">탭과 펼친 목록에 이 색이 들어갑니다.</p>' +
+      '<div class="tabcolor-grid">' + dots +
+      '<button type="button" class="tabcolor none' + (cur < 0 ? ' on' : '') + '" data-i="-1">기본</button></div>';
+    openModal('탭 색상 · ' + c.name, html, [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+    $('modalBody').querySelectorAll('[data-i]').forEach(function (b) {
+      b.onclick = function () {
+        Store.updateClient(id, { tabColor: parseInt(b.dataset.i, 10) });
+        closeModal(); renderMain();
+        toast(parseInt(b.dataset.i, 10) < 0 ? '기본 색으로 되돌렸습니다' : '탭 색을 바꿨습니다');
+      };
     });
   }
   function renameClient(id) {

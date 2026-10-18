@@ -1120,5 +1120,18 @@ test('하루 수익: 만원 표시·입력 읽기·합계', () => {
   assert.strictEqual(Share.incomeRunning(inc, '2026-11-01'), 0);
 });
 
+console.log('거래처 탭 색');
+test('tabColorOf: 0~7 만, 그 밖이면 -1(기본)', () => {
+  assert.strictEqual(Share.TAB_COLORS, 8);
+  assert.strictEqual(Share.tabColorOf({ tabColor: 0 }), 0);
+  assert.strictEqual(Share.tabColorOf({ tabColor: 7 }), 7);
+  assert.strictEqual(Share.tabColorOf({ tabColor: '3' }), 3);
+  assert.strictEqual(Share.tabColorOf({}), -1);
+  assert.strictEqual(Share.tabColorOf({ tabColor: -1 }), -1);
+  assert.strictEqual(Share.tabColorOf({ tabColor: 8 }), -1);
+  assert.strictEqual(Share.tabColorOf({ tabColor: '파랑' }), -1);
+  assert.strictEqual(Share.tabColorOf(null), -1);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

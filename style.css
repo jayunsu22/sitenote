@@ -72,6 +72,34 @@ textarea { resize: vertical; }
 .tab-chip { padding: 9px 13px; border: 1.5px solid #cbd5e1; border-radius: 999px; background: #fff;
   font-size: 14px; font-weight: 700; color: #334155; line-height: 1.2; }
 .tab-chip.on { background: #4fa3b8; border-color: #4fa3b8; color: #fff; }
+/* 거래처 탭 색 (2026-10-18) — 업체마다 골라서 탭·펼친 목록에 입힌다.
+   --tc 진한 색(고른 탭 배경·밑줄), --tt 옅은 색(안 고른 탭 배경) */
+.tabc-0 { --tc: #e11d48; --tt: #ffe4e6; }   /* 빨강 */
+.tabc-1 { --tc: #ea580c; --tt: #ffedd5; }   /* 주황 */
+.tabc-2 { --tc: #a16207; --tt: #fef9c3; }   /* 노랑 */
+.tabc-3 { --tc: #16a34a; --tt: #dcfce7; }   /* 초록 */
+.tabc-4 { --tc: #0d9488; --tt: #ccfbf1; }   /* 청록 */
+.tabc-5 { --tc: #2563eb; --tt: #dbeafe; }   /* 파랑 */
+.tabc-6 { --tc: #7c3aed; --tt: #ede9fe; }   /* 보라 */
+.tabc-7 { --tc: #db2777; --tt: #fce7f3; }   /* 분홍 */
+.tab.tabc-0, .tab.tabc-1, .tab.tabc-2, .tab.tabc-3,
+.tab.tabc-4, .tab.tabc-5, .tab.tabc-6, .tab.tabc-7 {
+  background: var(--tt); color: var(--tc); box-shadow: inset 0 -3px 0 var(--tc); }
+.tab.tabc-0.active, .tab.tabc-1.active, .tab.tabc-2.active, .tab.tabc-3.active,
+.tab.tabc-4.active, .tab.tabc-5.active, .tab.tabc-6.active, .tab.tabc-7.active {
+  background: var(--tc); color: #fff; box-shadow: none; }
+.tab-chip.tabc-0, .tab-chip.tabc-1, .tab-chip.tabc-2, .tab-chip.tabc-3,
+.tab-chip.tabc-4, .tab-chip.tabc-5, .tab-chip.tabc-6, .tab-chip.tabc-7 {
+  background: var(--tt); border-color: var(--tc); color: var(--tc); }
+.tab-chip.tabc-0.on, .tab-chip.tabc-1.on, .tab-chip.tabc-2.on, .tab-chip.tabc-3.on,
+.tab-chip.tabc-4.on, .tab-chip.tabc-5.on, .tab-chip.tabc-6.on, .tab-chip.tabc-7.on {
+  background: var(--tc); border-color: var(--tc); color: #fff; }
+/* 색 고르는 창 */
+.tabcolor-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.tabcolor { width: 46px; height: 46px; border-radius: 12px; border: 2px solid transparent; background: var(--tc); }
+.tabcolor.on { border-color: var(--text); box-shadow: 0 0 0 2px #fff inset; }
+.tabcolor.none { width: auto; padding: 0 14px; background: #f3f4f6; color: #374151; font-size: 14px; font-weight: 800; border-color: var(--border); }
+.tabcolor.none.on { border-color: var(--text); }
 
 /* ---------- 메인 본문 ---------- */
 .main-body { flex: 1; padding: 12px 12px 96px; }

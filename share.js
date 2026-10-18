@@ -64,6 +64,12 @@
   FIELDS.forEach(function (f) { if (f.question) DEFAULT_QUESTIONS[f.key] = f.question; });
 
   var COLOR_COUNT = 8;
+  // 거래처 탭 색 (2026-10-18) — 업체마다 탭에 색을 줘서 한눈에 갈린다. -1 = 기본(색 없음)
+  var TAB_COLORS = 8;
+  function tabColorOf(client) {
+    var n = parseInt(client && client.tabColor, 10);
+    return (n >= 0 && n < TAB_COLORS) ? n : -1;
+  }
 
   // 사진(명함·단가표 등) — 저장 전 자동 축소 기준
   // 단가표 숫자가 읽히려면 해상도가 중요하므로 품질보다 픽셀을 먼저 지킨다.
@@ -1221,6 +1227,8 @@
     FIELD_MAP: FIELD_MAP,
     DEFAULT_QUESTIONS: DEFAULT_QUESTIONS,
     COLOR_COUNT: COLOR_COUNT,
+    TAB_COLORS: TAB_COLORS,
+    tabColorOf: tabColorOf,
     PHOTO_MAX_BYTES: PHOTO_MAX_BYTES,
     PHOTO_MAX_DIM: PHOTO_MAX_DIM,
     PHOTO_MIN_DIM: PHOTO_MIN_DIM,
