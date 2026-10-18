@@ -260,6 +260,14 @@
     }
 
     QuoteRequests.render = render;
+    // 발행된 견적서 목록 — 현장 화면의 [📄 견적서 연결] 이 같은 자료를 쓴다 (받아 둔 게 있으면 그대로)
+    QuoteRequests.발행목록 = function () {
+      if (받은) return Promise.resolve(받은.published || []);
+      return 받기().then(function () {
+        if (오류 && !받은) throw new Error(오류);
+        return (받은 && 받은.published) || [];
+      });
+    };
   }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = QuoteRequests;

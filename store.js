@@ -87,6 +87,7 @@
     s.review = { answers: {}, tags: [] };  // 현장 후기 (질문별 답 + 태그)
     s.adminId = '';       // 연결된 현장업무(관리자 앱 현장) rec id — adminlink.js 가 적는다. 빈 값 = 연결 안 됨
     s.adminSynced = null; // 마지막으로 현장업무에 맞춘 값 { name, date, staff }
+    s.quoteCode = '';     // 이 현장에 이어 붙인 견적서 코드 (2026-10-18) — 내역 보기·품목 자동 체크에 쓴다
     return s;
   }
   function cleanStaff(arr) {
@@ -113,6 +114,7 @@
     if (s.days[0].date !== String(s.date || '')) s.days = Share.shiftDays(s.days, s.date || '');
     s.filmStage = Share.filmStageOf(s);
     s.needStaff = Share.needStaffOf(s);
+    s.quoteCode = String(s.quoteCode == null ? '' : s.quoteCode).trim();   // 이어 붙인 견적서 코드
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     s.services = normalizeServices(s.services);

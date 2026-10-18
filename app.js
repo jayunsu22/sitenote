@@ -1509,6 +1509,13 @@
     var sub = document.createElement('div'); sub.className = 'sh-sub';
     sub.innerHTML = '<span class="sh-when">📅 ' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
       (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '');
+    // 견적서 버튼 (2026-10-18) — 현장업무 왼쪽. 이어 붙인 견적서의 내역을 보고 인원을 가늠한다
+    var qb = document.createElement('button'); qb.type = 'button';
+    qb.className = 'sh-quote' + (s.quoteCode ? ' on' : '');
+    qb.textContent = s.quoteCode ? '📄 견적서 ✓' : '📄 견적서 연결';
+    qb.title = s.quoteCode ? '견적 내역 보기 · /q/' + s.quoteCode : '발행한 견적서를 이 현장에 이어 붙입니다';
+    qb.onclick = function () { openQuoteSheet(s.id); };
+    sub.appendChild(qb);
     // 현장업무(관리자 앱) 연결 버튼 — 연결 전엔 '연결', 후엔 맞춤 상태와 함께 시트를 연다
     var ab = document.createElement('button'); ab.type = 'button';
     ab.className = 'sh-admin' + (s.adminId ? ' on' : '');
@@ -1535,6 +1542,149 @@
     });
   }
   Store.onChange(function () { if (!$('viewSite').hidden) paintSiteStatus(); });
+
+  /* ---------- 견적서 연결 (2026-10-18) ----------
+     현장에 발행된 견적서 한 장을 이어 붙인다. 내역(구역별 품목·금액)을 그 자리에서 보고
+     인원을 몇 명 넣을지 가늠하고, 현장업무를 연결할 때 그 견적대로 시공품목을 자동으로 켠다.
+     계산·통신은 quote_link.js */
+  var quoteDeps = { fetchFn: function (u, o) { return window.fetch(u, o); } };
+  var 견적캐시 = {};   // 견적코드 → 받아 둔 견적서 (화면용, 저장하지 않음)
+
+  function 원화(n) { return Math.round(n || 0).toLocaleString('ko-KR') + '원'; }
+
+  function openQuoteSheet(siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    if (!s.quoteCode) { openQuotePicker(siteId); return; }
+    var code = s.quoteCode;
+    var btn = function (k, label) { return '<button type="button" data-k="' + k + '">' + label + '</button>'; };
+    var 그리기 = function (내용) {
+      openModal('📄 견적서 · /q/' + code,
+        내용 + '<div class="sheet-list">' +
+          btn('items', '🛠 현장업무에 시공품목 자동 선택<small>' + (s.adminId ? '견적서에 있는 품목을 현장업무에서 켭니다' : '먼저 현장업무를 연결해야 합니다') + '</small>') +
+          btn('open', '🔗 견적서 열기<small>발행된 견적서를 새 창으로</small>') +
+          btn('change', '🔁 다른 견적서로 바꾸기') +
+          btn('unlink', '✕ 견적서 연결 해제') +
+        '</div>', [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+      $('modalBody').querySelectorAll('button[data-k]').forEach(function (b) {
+        b.onclick = function () {
+          var k = b.dataset.k;
+          if (k === 'open') { window.open(QuoteLink.보기주소(code), '_blank'); return; }
+          if (k === 'change') { openQuotePicker(siteId); return; }
+          if (k === 'items') { applyQuoteItems(siteId); return; }
+          if (k === 'unlink') {
+            modalConfirm('견적서 연결 해제', '이 현장에서 견적서 연결만 끊습니다. 견적서 자체는 그대로 있습니다.', '연결 해제', true).then(function (ok) {
+              if (!ok) { openQuoteSheet(siteId); return; }
+              Store.updateSite(siteId, { quoteCode: '' });
+              closeModal(); paintSiteStatus(); toast('견적서 연결을 끊었습니다');
+            });
+          }
+        };
+      });
+    };
+    그리기('<p class="hint">견적 내역을 불러오는 중…</p>');
+    var 이미 = 견적캐시[code];
+    var p = 이미 ? Promise.resolve(이미) : QuoteLink.견적받기(code, quoteDeps).then(function (q) { 견적캐시[code] = q; return q; });
+    p.then(function (q) {
+      var sum = QuoteLink.요약(q);
+      var html = '<div class="qv-head"><b>' + esc(sum.현장명 || '(이름 없음)') + '</b>' +
+        '<span>' + esc([sum.평형, sum.줄수 ? '품목 ' + sum.줄수 + '개' : '', sum.총액 ? 원화(sum.총액) : ''].filter(Boolean).join(' · ')) + '</span></div>';
+      QuoteLink.구역별(q.라인들).forEach(function (z) {
+        html += '<div class="qv-zone"><span>' + esc(z.구역) + '</span><em>' + esc(원화(z.합)) + '</em></div>';
+        z.줄.forEach(function (x) {
+          html += '<div class="qv-line"><span>' + esc(x.품목명) + (x.수량 ? ' <i>' + esc(x.수량 + (x.단위 || '')) + '</i>' : '') +
+            '</span><em>' + esc(원화(x.금액)) + '</em></div>';
+        });
+      });
+      그리기('<div class="qv-box">' + html + '</div>');
+    }, function (e) {
+      그리기('<p class="hint admin-err">⚠ 견적 내역을 못 받았습니다 (' + esc(e.message) + ')</p>');
+    });
+  }
+
+  // 이 현장에 이어 붙일 견적서 고르기 — 거래처에 이어 둔 견적서·발행 목록에서 고르거나 코드를 직접 넣는다
+  function openQuotePicker(siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    openModal('견적서 연결', '<p class="hint">불러오는 중…</p>', [{ label: '닫기', onClick: closeModal }]);
+    QuoteRequests.발행목록(quoteDeps).then(function (list) {
+      var c = Store.getClient(s.clientId) || {};
+      var 이은코드 = Array.isArray(c.quoteCodes) ? c.quoteCodes : [];
+      var 쓴코드 = ((Store.state && Store.state.sites) || []).reduce(function (m, x) {
+        if (x.quoteCode && x.id !== siteId) m[x.quoteCode] = Share.titleLine(x);
+        return m;
+      }, {});
+      // 이 거래처 것(또는 거래처에 이어 둔 것)을 위로, 나머지는 발행 최신순
+      var rank = function (p) { return (p.현장관리_거래처ID === s.clientId || 이은코드.indexOf(p.견적코드) >= 0) ? 0 : 1; };
+      var ranked = (list || []).filter(function (p) { return p && p.견적코드; })
+        .sort(function (a, b) { return (rank(a) - rank(b)) || String(b.발행일시 || '').localeCompare(String(a.발행일시 || '')); })
+        .slice(0, 50);
+      var html = '<div class="qreq-linkrow"><input type="text" id="qlCode" placeholder="견적코드 또는 /q/… 주소" autocomplete="off">' +
+        '<button type="button" class="btn-sm primary" id="qlGo">연결</button></div><p class="hint admin-err" id="qlMsg" hidden></p>';
+      html += ranked.length
+        ? '<div class="sheet-list">' + ranked.map(function (p, k) {
+            var 남 = 쓴코드[p.견적코드];
+            return '<button type="button" data-k="' + k + '">' + esc(p.현장명 || '(이름 없음)') +
+              (rank(p) === 0 ? ' <em class="sim">이 거래처</em>' : '') +
+              '<small>' + esc([p.발행일시 ? Share.shortDate(String(p.발행일시).slice(0, 10)) : '', p.총액 ? 원화(p.총액) : '', '/q/' + p.견적코드,
+                남 ? '이미 ' + 남 + ' 에 연결됨' : ''].filter(Boolean).join(' · ')) + '</small></button>';
+          }).join('') + '</div>'
+        : '<p class="hint">발행된 견적서를 못 받았습니다. 위 칸에 견적코드를 넣어 연결하세요.</p>';
+      $('modalBody').innerHTML = html;
+      var 붙이기 = function (code) {
+        var c2 = QuoteLink.코드뽑기(code);
+        if (!c2) { $('qlMsg').textContent = '견적코드를 알아보지 못했어요'; $('qlMsg').hidden = false; return; }
+        Store.updateSite(siteId, { quoteCode: c2 });
+        paintSiteStatus();
+        toast('견적서를 이 현장에 이어 붙였습니다');
+        openQuoteSheet(siteId);
+      };
+      $('qlGo').onclick = function () { 붙이기($('qlCode').value); };
+      $('qlCode').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); 붙이기($('qlCode').value); }
+      });
+      $('modalBody').querySelectorAll('button[data-k]').forEach(function (b) {
+        b.onclick = function () { 붙이기(ranked[+b.dataset.k].견적코드); };
+      });
+    }, function (e) {
+      $('modalBody').innerHTML = '<p class="hint admin-err">⚠ 목록을 못 받았습니다 (' + esc(e.message) + ')</p>' +
+        '<div class="qreq-linkrow"><input type="text" id="qlCode" placeholder="견적코드 또는 /q/… 주소" autocomplete="off">' +
+        '<button type="button" class="btn-sm primary" id="qlGo">연결</button></div>';
+      $('qlGo').onclick = function () {
+        var c2 = QuoteLink.코드뽑기($('qlCode').value);
+        if (!c2) { toast('견적코드를 알아보지 못했어요'); return; }
+        Store.updateSite(siteId, { quoteCode: c2 }); paintSiteStatus(); openQuoteSheet(siteId);
+      };
+    });
+  }
+
+  /* 견적서대로 현장업무의 시공품목을 켠다.
+     현장업무를 새로 연결한 직후에도 자동으로 불린다 (조용히: 결과만 토스트) */
+  function applyQuoteItems(siteId, 조용히) {
+    var s = Store.getSite(siteId); if (!s) return Promise.resolve(null);
+    if (!s.quoteCode || !s.adminId) {
+      if (!조용히) toast(s.adminId ? '먼저 견적서를 연결하세요' : '먼저 현장업무를 연결하세요');
+      return Promise.resolve(null);
+    }
+    if (!조용히) openModal('시공품목 맞추는 중…', '<p class="hint">견적서를 보고 현장업무 품목을 켜는 중입니다…</p>', []);
+    return QuoteLink.품목맞추기(s.adminId, s.quoteCode, quoteDeps).then(function (r) {
+      var 말 = r.켠것.length ? '시공품목 ' + r.켠것.length + '개를 켰습니다' : '새로 켤 품목이 없습니다';
+      if (r.이미.length) 말 += ' · 이미 ' + r.이미.length + '개';
+      if (r.실패.length) 말 += ' · 실패 ' + r.실패.length + '개';
+      if (조용히) { toast('견적서대로 ' + 말); return r; }
+      var html = '<p class="hint">' + esc(말) + '</p>';
+      if (r.켠것.length) html += '<div class="qv-box">' + r.켠것.map(function (n) { return '<div class="qv-line"><span>☑ ' + esc(n) + '</span></div>'; }).join('') + '</div>';
+      if (r.짝없음.length) {
+        html += '<p class="hint admin-err">⚠ 현장업무에 짝이 없는 품목입니다 — 관리자 앱에서 직접 골라주세요<br>' +
+          esc(r.짝없음.map(function (x) { return x.구역 + ' ' + x.견적품목; }).join(', ')) + '</p>';
+      }
+      openModal('시공품목 자동 선택', html, [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+      return r;
+    }, function (e) {
+      if (조용히) toast('시공품목 자동 선택 실패 (' + e.message + ')');
+      else openModal('시공품목 자동 선택', '<p class="hint admin-err">⚠ 실패했습니다 (' + esc(e.message) + ')</p>',
+        [{ label: '닫기', cls: 'primary', onClick: closeModal }]);
+      return null;
+    });
+  }
 
   // ---------- 현장업무 연결 (관리자 앱 현장과 이어 붙이기 · 이름/날짜/인원 자동 맞춤) ----------
   // 설계: docs/superpowers/specs/2026-10-05-현장연결-design.md · 로직은 adminlink.js
@@ -1635,6 +1785,7 @@
     openModal('현장업무 만들기', '<p class="hint">만드는 중…</p>', []);
     AdminLink.createProject(siteId, adminDeps).then(function () {
       closeModal(); adminRepaint(); toast('현장업무를 만들고 연결했습니다');
+      applyQuoteItems(siteId, true);   // 견적서를 이어 뒀으면 그 견적대로 시공품목까지 켠다
     }, function (e) {
       adminSheetError(siteId, '만들지 못했습니다: ' + e.message + ' — 관리자 앱에 이미 생겼는지 확인한 뒤 다시 시도하세요.');
     });
@@ -1657,6 +1808,7 @@
           var p = ranked[+b.dataset.k];
           AdminLink.linkExisting(siteId, p.id, adminDeps);
           closeModal(); adminRepaint(); toast('연결했습니다 — 날짜·인원을 맞춥니다');
+          applyQuoteItems(siteId, true);   // 견적서를 이어 뒀으면 그 견적대로 시공품목까지 켠다
         };
       });
     }, function (e) {
