@@ -63,6 +63,15 @@ textarea { resize: vertical; }
 .tab.active { background: #4fa3b8; color: #fff; }
 .tab.dragging { opacity: 0.5; }
 .tab-add { width: 48px; padding: 0; font-size: 22px; color: var(--primary); border-right: none; border-left: 1px solid #cbd5e1; }
+/* 거래처 한눈에 보기 (2026-10-18) — [▾] 를 누르면 탭 아래로 전부 펼친다 */
+.tab-more { width: 42px; padding: 0; font-size: 16px; color: #334155; border-right: none; border-left: 1px solid #cbd5e1; }
+.tabs-all { position: sticky; top: calc(52px + var(--tab-h)); z-index: 18; padding: 10px 12px 12px;
+  background: #f1f5f9; border-bottom: 2px solid #94a3b8; box-shadow: 0 6px 12px rgba(15,23,42,0.08); }
+.tabs-all-head { margin-bottom: 8px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.tabs-all-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab-chip { padding: 9px 13px; border: 1.5px solid #cbd5e1; border-radius: 999px; background: #fff;
+  font-size: 14px; font-weight: 700; color: #334155; line-height: 1.2; }
+.tab-chip.on { background: #4fa3b8; border-color: #4fa3b8; color: #fff; }
 
 /* ---------- 메인 본문 ---------- */
 .main-body { flex: 1; padding: 12px 12px 96px; }

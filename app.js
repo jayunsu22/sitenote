@@ -129,7 +129,35 @@
     });
     var active = wrap.querySelector('.tab.active');
     if (active && active.scrollIntoView) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    renderTabsAll();
   }
+  /* 거래처 한눈에 보기 (2026-10-18)
+     탭이 옆으로 길어지면 가려진 업체를 찾느라 밀어야 한다. [▾] 를 누르면 전부 펼쳐
+     한 번에 고른다. 고르면 다시 접힌다. 길게 누르면 탭과 같은 메뉴(이름·순서·삭제) */
+  var tabsAllOpen = false;
+  function renderTabsAll() {
+    var box = $('tabsAll');
+    var clients = Store.clients();
+    $('btnAllTabs').textContent = tabsAllOpen ? '▴' : '▾';
+    $('btnAllTabs').hidden = clients.length < 2;   // 한 곳뿐이면 펼칠 것도 없다
+    box.hidden = !tabsAllOpen || clients.length < 2;
+    if (box.hidden) return;
+    box.innerHTML = '';
+    var head = document.createElement('div'); head.className = 'tabs-all-head';
+    head.textContent = '거래처 ' + clients.length + '곳 — 눌러서 바로 가기';
+    box.appendChild(head);
+    var grid = document.createElement('div'); grid.className = 'tabs-all-grid';
+    clients.forEach(function (c) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'tab-chip' + (c.id === currentClientId ? ' on' : '');
+      b.textContent = c.name;
+      b.onclick = function () { tabsAllOpen = false; selectClient(c.id); };
+      attachLongPress(b, function () { clientMenu(c.id); });
+      grid.appendChild(b);
+    });
+    box.appendChild(grid);
+  }
+  $('btnAllTabs').onclick = function () { tabsAllOpen = !tabsAllOpen; renderTabsAll(); };
   // 길게 누르기(500ms) — 탭 순서/이름/삭제 메뉴
   function attachLongPress(el, fn) {
     var t = null, moved = false;
