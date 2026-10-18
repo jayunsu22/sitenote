@@ -68,5 +68,39 @@ test('답장전수', () => {
   assert.strictEqual(Q.답장전수(null), 0);
 });
 
+console.log('기존 견적서 연결 (2026-10-18)');
+test('코드뽑기: 코드 그대로 / /q/주소 / 전체 주소, 못 알아보면 빈 문자열', () => {
+  assert.strictEqual(Q.코드뽑기('AB12CD34'), 'AB12CD34');
+  assert.strictEqual(Q.코드뽑기(' /q/AB12CD34 '), 'AB12CD34');
+  assert.strictEqual(Q.코드뽑기('https://songil.netlify.app/q/AB12CD34?x=1'), 'AB12CD34');
+  assert.strictEqual(Q.코드뽑기('견적서 보내요'), '');
+  assert.strictEqual(Q.코드뽑기(''), '');
+});
+test('코드목록: 빈 값·중복은 버리고 순서는 지킨다', () => {
+  assert.deepStrictEqual(Q.코드목록(['A1', '/q/A1', '', 'B2', null, 'B2']), ['A1', 'B2']);
+  assert.deepStrictEqual(Q.코드목록(null), []);
+});
+test('연결한 견적서는 다른 거래처 것이어도 발행 줄로 나오고 연결 표시가 붙는다', () => {
+  const 발행 = [
+    { 견적코드: 'P1', 현장명: '내 것', 발행일시: '2026-10-18T01:00:00Z', 총액: 100, 현장관리_거래처ID: 'c1' },
+    { 견적코드: 'P2', 현장명: '예전에 딴 데서', 발행일시: '2026-10-17T01:00:00Z', 총액: 200, 현장관리_거래처ID: '' },
+  ];
+  const r = Q.요청내역([], 발행, 'c1', ['P2']);
+  assert.deepStrictEqual(r.map(x => x.견적코드), ['P1', 'P2']);
+  assert.strictEqual(r[0].연결, false, '원래 이 거래처 것은 연결 표시 없음');
+  assert.strictEqual(r[1].연결, true);
+  assert.strictEqual(r[1].금액, 200);
+});
+test('발행목록에 없는 연결 코드도 코드만으로 한 줄 남는다 (중복은 한 번)', () => {
+  const r = Q.요청내역([], [], 'c1', ['ZZ9', '/q/ZZ9']);
+  assert.strictEqual(r.length, 1);
+  assert.deepStrictEqual([r[0].상태, r[0].견적코드, r[0].연결], ['발행', 'ZZ9', true]);
+});
+test('저장함에서 이미 보여준 견적코드를 연결해도 줄이 두 번 생기지 않는다', () => {
+  const r = Q.요청내역([담긴({ 건수: 2, 현장코드: 'AB12CD34' })], [], 'c1', ['AB12CD34']);
+  assert.strictEqual(r.length, 1);
+  assert.strictEqual(r[0].견적코드, 'AB12CD34');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

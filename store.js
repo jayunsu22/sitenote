@@ -164,6 +164,10 @@
     var c = Object.assign({ contacts: [], filmPrice: '', laborPrice: '', quoteNote: '', siteNote: '', order: 0, updatedAt: 0 }, raw);
     c.notes = normalizeNotes(c.notes);
     c.tabColor = Share.tabColorOf(c);   // 탭 색 (-1 = 기본)
+    // 손으로 이어 붙인 견적서 코드들 (2026-10-18) — 견적요청 내역에 '발행' 줄로 함께 나온다
+    c.quoteCodes = Array.isArray(c.quoteCodes)
+      ? c.quoteCodes.map(function (v) { return String(v == null ? '' : v).trim(); }).filter(function (v, i, arr) { return v && arr.indexOf(v) === i; })
+      : [];
     return c;
   }
   // 거래처 메모 내역 (2026-10-14) — 날짜별로 쌓이는 기록, 최신이 맨 앞. 할 일을 끝낼 때 결과가 여기로 온다
