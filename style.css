@@ -273,6 +273,12 @@ textarea { resize: vertical; }
 .chip { border: 1px solid rgba(0,0,0,0.18); border-radius: 999px; padding: 5px 11px; background: rgba(255,255,255,0.8);
   font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .chip.add { color: var(--primary); border-style: dashed; background: transparent; padding: 5px 12px; }
+/* 이름 칩: 탭=전화 / [−]로 빼기 모드 (2026-10-18) */
+.chip.call { text-decoration: none; }
+.chip.nophone { color: #6b7280; background: #f3f4f6; }
+.chip.del { background: #fee2e2; border-color: var(--danger); color: #991b1b; }
+.chip.del-toggle { color: var(--danger); border-style: dashed; border-color: #fca5a5; background: transparent; padding: 5px 12px; }
+.chip.del-toggle.on { background: var(--danger); border-style: solid; border-color: var(--danger); color: #fff; }
 .chip.dup { background: #fee2e2; border-color: var(--danger); color: #991b1b; }
 .chip.pick { background: #fff; border-color: #cbd5e1; padding: 8px 14px; font-size: 14px; }
 .chip.pick.on { background: #dbeafe; border-color: var(--primary); color: #1e3a8a; }

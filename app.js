@@ -1305,6 +1305,7 @@
 
   function renderSite() {
     var s = Store.getSite(currentSiteId); if (!s) { go(''); return; }
+    staffDelDay = -1;   // 현장을 새로 열면 '빼기 모드'는 풀고 시작한다
     /* 체크박스 초기값: 전부 꺼짐 (2026-09-26).
        탭으로 나뉜 뒤로는 안 보이는 탭의 칸까지 켜져 있어서, 두어 개만 고른 줄 알고
        복사하면 전부 따라 나왔다. 이제 고른 것만 나간다 — 늘 쓰는 묶음은 [전체 선택] 한 번 */
@@ -1638,16 +1639,39 @@
     return b;
   }
   // 이름 칩 목록. opts.dup: {정규화이름: true} 이면 빨간 겹침 표시, opts.onRemove(name), opts.onAdd()
+  /* 이름 칩 (2026-10-18 바뀜)
+     그냥 탭하면 그 사람에게 전화가 걸린다 (설정 › 팀원의 연락처). 번호가 없으면 알림만.
+     빼기는 [−] 를 눌러 '빼기 모드'로 들어간 뒤, 이름에 생긴 ✕ 를 눌러야 지워진다
+     — 전화하려다 사람이 빠지는 일이 없게 두 단계로 나눴다.
+     opts: dup{정규화이름:true} 겹침 표시, del 빼기 모드, onRemove(name), onAdd(), onDelToggle() */
   function renderChips(container, names, opts) {
     container.innerHTML = '';
     var dup = (opts && opts.dup) || {};
+    var del = !!(opts && opts.del);
     (names || []).forEach(function (n) {
-      var c = document.createElement('button'); c.type = 'button';
       var isDup = !!dup[String(n).replace(/\s+/g, '')];
-      c.className = 'chip' + (isDup ? ' dup' : '');
-      c.textContent = n + (isDup ? ' ⚠' : '');
-      c.title = isDup ? '같은 날 다른 현장에도 들어가 있음 — 탭하면 뺌' : '탭하면 뺌';
-      c.onclick = function (e) { e.stopPropagation(); opts && opts.onRemove && opts.onRemove(n); };
+      var phone = Share.personOf(state.settings.people, n).phone;
+      var c;
+      if (del) {                                   // 빼기 모드 — 탭하면 뺀다
+        c = document.createElement('button'); c.type = 'button';
+        c.className = 'chip del' + (isDup ? ' dup' : '');
+        c.textContent = n + ' ✕';
+        c.title = '탭하면 이 날에서 뺍니다';
+        c.onclick = function (e) { e.stopPropagation(); opts && opts.onRemove && opts.onRemove(n); };
+      } else if (phone) {                          // 전화 걸기
+        c = document.createElement('a');
+        c.className = 'chip call' + (isDup ? ' dup' : '');
+        c.href = telHref(phone);
+        c.textContent = n + (isDup ? ' ⚠' : '');
+        c.title = (isDup ? '같은 날 다른 현장에도 들어가 있음 · ' : '') + phone + ' 로 전화';
+        c.onclick = function (e) { e.stopPropagation(); };
+      } else {                                     // 번호가 없는 사람
+        c = document.createElement('button'); c.type = 'button';
+        c.className = 'chip nophone' + (isDup ? ' dup' : '');
+        c.textContent = n + (isDup ? ' ⚠' : '');
+        c.title = '연락처 없음 — 설정 › 팀원에서 번호를 넣으세요';
+        c.onclick = function (e) { e.stopPropagation(); toast(n + ' 연락처가 없습니다 — 설정 › 팀원에서 번호를 넣으세요'); };
+      }
       container.appendChild(c);
     });
     if (opts && opts.onAdd) {
@@ -1655,6 +1679,13 @@
       add.title = '인원 추가';
       add.onclick = function (e) { e.stopPropagation(); opts.onAdd(); };
       container.appendChild(add);
+    }
+    if (opts && opts.onDelToggle && (names || []).length) {
+      var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'chip del-toggle' + (del ? ' on' : '');
+      rm.textContent = del ? '완료' : '−';
+      rm.title = del ? '빼기 끝내기' : '인원 빼기 — 누르면 이름에 ✕ 가 생깁니다';
+      rm.onclick = function (e) { e.stopPropagation(); opts.onDelToggle(); };
+      container.appendChild(rm);
     }
   }
   function dayLabel(i, date) {
@@ -1719,6 +1750,8 @@
     row.appendChild(lb); row.appendChild(step);
     return row;
   }
+  // 지금 '빼기 모드'인 날짜 줄 (-1 = 없음). 한 번에 한 줄만, 화면을 다시 그리면 풀린다
+  var staffDelDay = -1;
   // 현장 상세: 일차별 인원 구역. 날짜 자체는 시공날짜 칸(달력)에서 고른다 — 여기서는 인원만
   // 맨 위에 총 필요 인원을 정해두면 날마다 배치/필요(3/3)가 옆에 뜨고, 모자란 날은 빨갛게 나온다
   function renderDaysSection(box, siteId) {
@@ -1742,8 +1775,10 @@
       head.appendChild(lb); head.appendChild(staffCountBadge(s, i, false));
       var chips = document.createElement('div'); chips.className = 'chips';
       renderChips(chips, d.staff, {
+        del: staffDelDay === i,
         onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
-        onAdd: function () { openStaffPicker(siteId, i, rerender); }
+        onAdd: function () { staffDelDay = -1; openStaffPicker(siteId, i, rerender); },
+        onDelToggle: function () { staffDelDay = (staffDelDay === i ? -1 : i); rerender(); }
       });
       row.appendChild(head); row.appendChild(chips);
       box.appendChild(row);
