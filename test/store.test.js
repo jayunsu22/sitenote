@@ -583,7 +583,7 @@ function reset() {
     Store.setSettings({ team: ['김기사'], backupKey: 'k', lastTab: 'c1', lastView: 'schedule' });
     const op = Store.state.syncQueue[Store.state.syncQueue.length - 1];
     assert.strictEqual(op.type, 'settings');
-    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'stockLow', 'taskRules', 'team', 'holds', 'taskPresets', 'income'].sort());
+    assert.deepStrictEqual(Object.keys(op.data).sort(), ['people', 'questions', 'reviewQuestions', 'reviewTags', 'serviceTools', 'supplyDefaults', 'stockLow', 'filmVendors', 'taskRules', 'team', 'holds', 'taskPresets', 'income'].sort());
     assert.deepStrictEqual(op.data.team, ['김기사']);
   });
 

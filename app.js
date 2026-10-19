@@ -3090,6 +3090,86 @@
     acts.appendChild(add);
     acts.appendChild(cp);
     ctl.appendChild(acts);
+    renderFilmVendors(ctl, films);
+  }
+  /* 필름 주문처 (2026-10-19) — 설정에 넣어 둔 주문처·담당자.
+     담당자 [전화] 를 누르면 ☑ 체크한 필름명(없으면 전체)이 먼저 복사되고 전화 화면으로 넘어간다.
+     통화하면서 카톡·문자에 붙여넣기만 하면 된다. */
+  var filmVendorPick = '';   // 지금 고른 주문처 id (화면용, 저장하지 않음)
+  function renderFilmVendors(ctl, films) {
+    var vendors = Share.filmVendors(state.settings);
+    var box = document.createElement('div'); box.className = 'fv-box';
+    var head = document.createElement('div'); head.className = 'fv-head';
+    head.innerHTML = '<span>🏭 필름 주문처</span>';
+    box.appendChild(head);
+    if (!vendors.length) {
+      var hint = document.createElement('p'); hint.className = 'sec-empty';
+      hint.textContent = '주문처를 넣어두면 여기서 바로 전화할 수 있습니다.';
+      var go2 = document.createElement('button'); go2.type = 'button'; go2.className = 'btn-sm fv-setup'; go2.textContent = '설정에서 넣기';
+      go2.onclick = function () { go('#settings'); setTimeout(function () { pickSettingsTab('prep', true); }, 0); };
+      box.appendChild(hint); box.appendChild(go2);
+      ctl.appendChild(box);
+      return;
+    }
+    // 필름명에 이름이 들어 있는 주문처를 먼저 고른다 (한솔 콘크리트화이트 → 한솔)
+    var auto = Share.vendorForSite({ films: films }, vendors);
+    var cur = vendors.filter(function (v) { return v.id === filmVendorPick; })[0] || auto || vendors[0];
+    var tabs = document.createElement('div'); tabs.className = 'fv-tabs';
+    vendors.forEach(function (v) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'fv-tab' + (v.id === cur.id ? ' on' : '');
+      b.textContent = v.name + (auto && v.id === auto.id ? ' ✓' : '');
+      if (auto && v.id === auto.id) b.title = '이 현장 필름에 ' + v.name + ' 이(가) 있어 먼저 골랐습니다';
+      b.onclick = function () { filmVendorPick = v.id; renderFilmVendors2(box, films); };
+      tabs.appendChild(b);
+    });
+    box.appendChild(tabs);
+    var list = document.createElement('div'); list.className = 'fv-list';
+    box.appendChild(list);
+    fillVendorPeople(list, cur, films);
+    ctl.appendChild(box);
+  }
+  // 주문처만 바꿔 다시 그린다 (칩 + 담당자 줄)
+  function renderFilmVendors2(box, films) {
+    var vendors = Share.filmVendors(state.settings);
+    var cur = vendors.filter(function (v) { return v.id === filmVendorPick; })[0] || vendors[0];
+    if (!cur) return;
+    box.querySelectorAll('.fv-tab').forEach(function (b, i) { b.classList.toggle('on', vendors[i] && vendors[i].id === cur.id); });
+    fillVendorPeople(box.querySelector('.fv-list'), cur, films);
+  }
+  function fillVendorPeople(list, vendor, films) {
+    list.innerHTML = '';
+    if (!vendor.people.length) {
+      list.appendChild(el2('p', 'sec-empty', vendor.name + ' 담당자가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요.'));
+      return;
+    }
+    vendor.people.forEach(function (p, i) {
+      var row = document.createElement('div'); row.className = 'fv-person';
+      var nm = document.createElement('div'); nm.className = 'fv-nm';
+      nm.innerHTML = '<b>' + esc(p.name || '담당자 ' + (i + 1)) + '</b><em>' + esc(p.phone || '번호 없음') + '</em>';
+      row.appendChild(nm);
+      var call = document.createElement(p.phone ? 'a' : 'button');
+      call.className = 'fv-call' + (p.phone ? '' : ' off');
+      call.textContent = '📞 전화';
+      if (p.phone) {
+        call.href = telHref(p.phone);
+        // 누르는 순간 필름명을 먼저 복사한다 — 통화하며 바로 붙여넣기
+        call.onclick = function () { copyFilmNames(films, p.name || vendor.name); };
+      } else {
+        call.type = 'button';
+        call.onclick = function () { toast('번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
+      }
+      row.appendChild(call);
+      list.appendChild(row);
+    });
+  }
+  // ☑ 체크한 줄만, 없으면 전체 필름명을 복사한다 (필름명 복사 버튼과 같은 규칙)
+  function copyFilmNames(films, who) {
+    var text = Share.filmOrderText({ films: films });
+    if (!text) { toast('적힌 필름 번호가 없습니다'); return false; }
+    var picked = films.filter(function (r) { return r.ready && String(r.code || '').trim(); }).length;
+    copyText(text, (picked ? '체크한 ' + picked + '줄' : '전체 필름명') + ' 복사됨 — ' + (who ? who + '에게 ' : '') + '통화하며 붙여넣기 하세요');
+    return true;
   }
   // 주소 복사 + 카카오맵 검색 열기 (폰에 카카오맵 앱이 있으면 앱으로 넘어감)
   // 붙여넣은 주소 열기 (공유 문구와 같은 방식으로 https:// 를 보정 - Share.linkUrl)
@@ -3494,6 +3574,71 @@
     });
   }
   function el2(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  /* 필름 거래처 설정 (2026-10-19) — 거래처 카드마다 담당자(이름+번호) 여러 명.
+     적는 대로 저장되고, 현장 › 필름 칸의 주문처 블록이 이 값을 쓴다 */
+  function vendorsNow() { return Share.filmVendors(state.settings); }
+  function saveVendors(list) { Store.setSettings({ filmVendors: list }); }
+  function renderFilmVendorList() {
+    var box = $('filmVendorList'); box.innerHTML = '';
+    var vendors = vendorsNow();
+    if (!vendors.length) {
+      box.appendChild(el2('div', 'sec-empty', '아직 없음 — 아래에 한솔·레놀릿처럼 주문처를 넣으세요.'));
+      return;
+    }
+    vendors.forEach(function (v, vi) {
+      var card = el2('div', 'fv-card');
+      var head = el2('div', 'fv-card-head');
+      var nameIn = document.createElement('input');
+      nameIn.type = 'text'; nameIn.value = v.name; nameIn.className = 'fv-name'; nameIn.autocomplete = 'off';
+      nameIn.addEventListener('input', function () {
+        var list = vendorsNow(); list[vi].name = nameIn.value; saveVendors(list);
+      });
+      var del = el2('button', 'x', '×'); del.type = 'button'; del.title = '거래처 삭제';
+      del.onclick = function () {
+        modalConfirm('거래처 삭제', '"' + (v.name || '이 거래처') + '" 와 담당자 ' + v.people.length + '명을 지웁니다.', '삭제', true).then(function (ok) {
+          if (!ok) return;
+          var list = vendorsNow(); list.splice(vi, 1); saveVendors(list); renderFilmVendorList();
+        });
+      };
+      head.appendChild(nameIn); head.appendChild(del);
+      card.appendChild(head);
+
+      v.people.forEach(function (p, pi) {
+        var row = el2('div', 'fv-prow');
+        var n = document.createElement('input'); n.type = 'text'; n.placeholder = '담당자 ' + (pi + 1); n.value = p.name; n.autocomplete = 'off';
+        var ph = document.createElement('input'); ph.type = 'tel'; ph.placeholder = '010-…'; ph.value = p.phone; ph.className = 'fv-phone';
+        var upd = function () {
+          var list = vendorsNow(); list[vi].people[pi] = { name: n.value, phone: ph.value }; saveVendors(list);
+        };
+        n.addEventListener('input', upd); ph.addEventListener('input', upd);
+        var call = document.createElement('a'); call.className = 'fv-call' + (p.phone ? '' : ' off'); call.textContent = '📞';
+        if (p.phone) call.href = telHref(p.phone);
+        var x = el2('button', 'x', '×'); x.type = 'button'; x.title = '담당자 빼기';
+        x.onclick = function () {
+          var list = vendorsNow(); list[vi].people.splice(pi, 1); saveVendors(list); renderFilmVendorList();
+        };
+        row.appendChild(n); row.appendChild(ph); row.appendChild(call); row.appendChild(x);
+        card.appendChild(row);
+      });
+      var addP = el2('button', 'sec-add', '＋ 담당자 추가'); addP.type = 'button';
+      addP.onclick = function () {
+        var list = vendorsNow(); list[vi].people.push({ name: '', phone: '' }); saveVendors(list); renderFilmVendorList();
+        var ins = box.querySelectorAll('.fv-card')[vi].querySelectorAll('.fv-prow input');
+        if (ins.length) ins[ins.length - 2].focus();
+      };
+      card.appendChild(addP);
+      box.appendChild(card);
+    });
+  }
+  bindListAdder('filmVendorInput', 'btnAddFilmVendor', function () { return vendorsNow().map(function (v) { return v.name; }); }, function (names) {
+    // bindListAdder 는 이름 목록만 다루므로, 새로 들어온 이름만 거래처로 만든다
+    var list = vendorsNow();
+    names.forEach(function (nm) {
+      if (!list.some(function (v) { return v.name === nm; })) list.push({ id: 'v' + Date.now().toString(36), name: nm, people: [{ name: '', phone: '' }] });
+    });
+    saveVendors(list); renderFilmVendorList();
+  });
   // 새로 넣은 사람은 등급이 아직 없으니, 등급 탭을 보고 있었으면 [전체]로 돌려 바로 보이게 한다
   bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); teamTab = ''; renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
@@ -3566,6 +3711,7 @@
     if ($('appVer')) $('appVer').textContent = '버전 ' + (appVersion() || '—');
     renderSyncStatus();
     renderTeamList();
+    renderFilmVendorList();
     renderSupplyDefaultList();
     renderServiceToolList();
     TaskUI.renderTaskRules($('taskRules'));

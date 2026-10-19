@@ -345,6 +345,34 @@ textarea { resize: vertical; }
 .slist-row { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 4px; border-bottom: 1px solid var(--border); }
 .slist-row .slist-name { flex: 1; font-size: 14px; font-weight: 600; }
 .slist-row .x { width: 32px; height: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+/* 필름 주문처 — 현장 › 필름 칸 (2026-10-19) */
+.fv-box { margin: 10px 0 2px; padding: 10px; border: 1.5px solid var(--border); border-radius: 12px; background: #f8fafc; }
+.fv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; font-weight: 800; color: #334155; }
+.fv-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fv-tab { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff;
+  font-size: 13px; font-weight: 800; color: #475569; }
+.fv-tab.on { background: #eff6ff; border-color: var(--primary); color: #1e40af; }
+.fv-person { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1.5px solid var(--border);
+  border-radius: 10px; background: #fff; margin-bottom: 6px; }
+.fv-nm { flex: 1; min-width: 0; font-size: 14px; }
+.fv-nm b { display: block; font-weight: 800; }
+.fv-nm em { display: block; margin-top: 1px; font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.fv-call { flex: none; padding: 9px 13px; border: 1.5px solid #a7f3d0; border-radius: 9px; background: #ecfdf5;
+  color: #15803d; font-size: 13px; font-weight: 800; text-decoration: none; }
+.fv-call.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; }
+.fv-setup { margin: 4px 0 2px; }
+/* 설정 › 필름 거래처 카드 */
+.fv-card { margin-bottom: 10px; padding: 10px; border: 1.5px solid var(--border); border-radius: 12px; background: #fff; }
+.fv-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.fv-card-head .fv-name { flex: 1; min-width: 0; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: #fafafa; font-size: 15px; font-weight: 800; }
+.fv-card-head .x { width: 32px; height: 36px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+.fv-prow { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.fv-prow input { min-width: 0; padding: 8px 9px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; font-size: 14px; }
+.fv-prow input:first-child { flex: 1 1 38%; font-weight: 700; }
+.fv-prow .fv-phone { flex: 1 1 52%; }
+.fv-prow .fv-call { padding: 8px 10px; }
+.fv-prow .x { width: 28px; height: 34px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
 /* 내 차 재고 충분/부족 (2026-10-19) */
 .stock-toggle { flex: none; min-width: 52px; padding: 6px 10px; border: 1.5px solid #a7f3d0; border-radius: 999px;
   background: #ecfdf5; color: #15803d; font-size: 12.5px; font-weight: 800; }

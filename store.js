@@ -42,6 +42,7 @@
       people: {},                // 팀원 연락처·차량 { 이름: { phone, car } } — 이름으로 찾는다
       supplyDefaults: ['본드', '장갑'],  // 내 차 상비 부자재 (새 현장 체크리스트로도 깔린다)
       stockLow: {},                     // 그중 지금 모자란 것 { 품목명: true } — 할 일 '🚚 차 보충' (2026-10-19)
+      filmVendors: [],                  // 필름 주문처 [{id,name,people:[{name,phone}]}] (2026-10-19)
       reviewQuestions: Share.DEFAULT_REVIEW_QUESTIONS.slice(),  // 현장 후기 탭 질문 (2026-09-27)
       reviewTags: Share.DEFAULT_REVIEW_TAGS.slice(),           // 현장 후기 태그 목록
       serviceTools: DEFAULT_SERVICE_TOOLS.slice(),             // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
@@ -231,6 +232,7 @@
       state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, (parsed.settings || {}).questions || {});
       state.settings.people = normalizePeople(state.settings.people);
       if (!state.settings.stockLow || typeof state.settings.stockLow !== 'object') state.settings.stockLow = {};
+      if (!Array.isArray(state.settings.filmVendors)) state.settings.filmVendors = [];
       state.settings.reviewQuestions = stringList(state.settings.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
       state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
       state.settings.serviceTools = stringList(state.settings.serviceTools, DEFAULT_SERVICE_TOOLS);
@@ -268,7 +270,7 @@
   // 설정 중 서버로 보낼 것만 (백업키·마지막 탭은 폰에만)
   function settingsForSync() {
     return { questions: state.settings.questions, team: state.settings.team, supplyDefaults: state.settings.supplyDefaults,
-      stockLow: state.settings.stockLow,
+      stockLow: state.settings.stockLow, filmVendors: state.settings.filmVendors,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
       serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds,
       taskPresets: state.settings.taskPresets, income: state.settings.income };
@@ -719,7 +721,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -831,7 +833,8 @@
         var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab,
           lastView: state.settings.lastView, calShow: state.settings.calShow };
         var ds = data.settings || {};
-        state.settings = Object.assign(defaultSettings(), { team: ds.team, supplyDefaults: ds.supplyDefaults, stockLow: ds.stockLow }, keep);
+        state.settings = Object.assign(defaultSettings(), { team: ds.team, supplyDefaults: ds.supplyDefaults, stockLow: ds.stockLow, filmVendors: ds.filmVendors }, keep);
+        if (!Array.isArray(state.settings.filmVendors)) state.settings.filmVendors = [];
         state.settings.people = normalizePeople(ds.people);   // 예전 백업엔 없다 → 빈 표
         if (!Array.isArray(state.settings.team)) state.settings.team = [];
         if (!Array.isArray(state.settings.supplyDefaults)) state.settings.supplyDefaults = defaultSettings().supplyDefaults;

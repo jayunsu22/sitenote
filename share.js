@@ -1033,6 +1033,30 @@
     var d = dayDiff(today, iso);
     return d >= 0 && d <= n;
   }
+  /* ---------- 필름 거래처(주문처) 2026-10-19 ----------
+     필름을 주문하는 곳. 한솔·레놀릿처럼 주문처마다 담당자가 여러 명이고, 현장에서 필름명을 복사해
+     그 담당자에게 바로 전화한다. settings.filmVendors = [{ id, name, people: [{ name, phone }] }] */
+  function normalizeVendor(raw, i) {
+    var v = raw && typeof raw === 'object' ? raw : {};
+    var people = (Array.isArray(v.people) ? v.people : []).map(function (p) {
+      return { name: str(p && p.name), phone: str(p && p.phone) };
+    }).filter(function (p) { return p.name || p.phone; });
+    return { id: str(v.id) || ('v' + (i + 1) + '_' + str(v.name).replace(/\s+/g, '')), name: str(v.name), people: people };
+  }
+  function filmVendors(settings) {
+    return (((settings || {}).filmVendors) || []).map(normalizeVendor).filter(function (v) { return v.name; });
+  }
+  // 이 현장 필름명에 이름이 들어 있는 주문처 (한솔 콘크리트화이트 → 한솔). 없으면 null
+  function vendorForSite(site, vendors) {
+    var 글 = ((site && site.films) || []).map(function (r) { return str(r && r.code); }).join(' ').replace(/\s+/g, '').toLowerCase();
+    if (!글) return null;
+    var hit = (vendors || []).filter(function (v) {
+      var n = v.name.replace(/\s+/g, '').toLowerCase();
+      return n && 글.indexOf(n) !== -1;
+    });
+    return hit.length ? hit[0] : null;
+  }
+
   /* ---------- 내 차 재고 (2026-10-19) ----------
      본드·장갑 같은 상비 부자재는 현장마다 '준비'하는 게 아니라 차에 싣고 다니다가 현장에서 꺼내 쓴다(불출).
      그래서 보충은 현장이 아니라 '나'에게 붙는 할 일이다 — 현장이 3곳이어도 할 일은 하나.
@@ -1245,6 +1269,8 @@
     DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
     normalizeTaskRules: normalizeTaskRules,
     autoTasks: autoTasks,
+    filmVendors: filmVendors,
+    vendorForSite: vendorForSite,
     stockNames: stockNames,
     isStockItem: isStockItem,
     stockLowNames: stockLowNames,

@@ -1133,5 +1133,25 @@ test('tabColorOf: 0~7 만, 그 밖이면 -1(기본)', () => {
   assert.strictEqual(Share.tabColorOf(null), -1);
 });
 
+console.log('필름 거래처 (주문처)');
+test('filmVendors: 이름 없는 건 빼고, 담당자는 이름이나 번호가 있는 줄만', () => {
+  const vs = Share.filmVendors({ filmVendors: [
+    { name: '한솔', people: [{ name: '김부장', phone: '010-1' }, { name: '', phone: '' }, { name: '이과장', phone: '' }] },
+    { name: '', people: [] },
+    { name: '레놀릿' },
+  ] });
+  assert.deepStrictEqual(vs.map(v => v.name), ['한솔', '레놀릿']);
+  assert.deepStrictEqual(vs[0].people, [{ name: '김부장', phone: '010-1' }, { name: '이과장', phone: '' }]);
+  assert.deepStrictEqual(vs[1].people, [], '담당자 칸이 없어도 거래처는 남는다');
+  assert.ok(vs[0].id && vs[1].id, 'id 는 없으면 만들어 준다');
+});
+test('vendorForSite: 필름명에 거래처 이름이 들어 있으면 그 거래처 (띄어쓰기·대소문자 무시)', () => {
+  const vs = Share.filmVendors({ filmVendors: [{ name: '한솔' }, { name: '레놀릿' }] });
+  assert.strictEqual(Share.vendorForSite({ films: [{ code: '한솔 콘크리트화이트' }] }, vs).name, '한솔');
+  assert.strictEqual(Share.vendorForSite({ films: [{ code: 'ps170' }, { code: '레 놀릿 CW' }] }, vs).name, '레놀릿');
+  assert.strictEqual(Share.vendorForSite({ films: [{ code: 'ps170' }] }, vs), null);
+  assert.strictEqual(Share.vendorForSite({ films: [] }, vs), null);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
