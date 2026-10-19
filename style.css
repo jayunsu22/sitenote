@@ -359,20 +359,24 @@ textarea { resize: vertical; }
 .fv-tab { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff;
   font-size: 13px; font-weight: 800; color: #475569; }
 .fv-tab.on { background: #eff6ff; border-color: var(--primary); color: #1e40af; }
-.fv-person { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1.5px solid var(--border);
-  border-radius: 10px; background: #fff; margin-bottom: 6px; }
-.fv-nm { flex: 1; min-width: 0; font-size: 14px; }
-.fv-nm b { display: block; font-weight: 800; }
-.fv-nm em { display: block; margin-top: 1px; font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+/* 담당자 알약 (2026-10-19) — 날짜별 인원 칩과 같은 모양: 이름=전화, 💬=문자 */
+.fv-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.fv-chip { display: inline-flex; align-items: stretch; overflow: hidden;
+  border: 1.5px solid #a7f3d0; border-radius: 999px; background: #ecfdf5; }
+.fv-chip .fv-chip-nm, .fv-chip .fv-chip-sms { display: inline-flex; align-items: center; border: 0; background: transparent;
+  color: #15803d; font-size: 14px; font-weight: 800; line-height: 1.2; text-decoration: none; }
+.fv-chip .fv-chip-nm { padding: 9px 12px; }
+.fv-chip .fv-chip-sms { padding: 9px 11px; border-left: 1.5px solid #a7f3d0; background: #eff6ff; font-size: 13px; }
+.fv-chip .fv-chip-nm:active { background: #d1fae5; }
+.fv-chip .fv-chip-sms:active { background: #dbeafe; }
+.fv-chip.off { border-color: var(--border); background: #f3f4f6; }
+.fv-chip.off .fv-chip-nm, .fv-chip.off .fv-chip-sms { color: #9ca3af; background: transparent; }
+.fv-chip.off .fv-chip-sms { border-left-color: var(--border); }
+/* 설정 › 필름 거래처 담당자 줄의 📞 💬 */
 .fv-call { flex: none; padding: 9px 13px; border: 1.5px solid #a7f3d0; border-radius: 9px; background: #ecfdf5;
-  color: #15803d; font-size: 13px; font-weight: 800; text-decoration: none; }
+  color: #15803d; font-size: 14px; font-weight: 800; text-decoration: none; }
 .fv-call.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; pointer-events: none; }
 .fv-call.sms { border-color: #bfdbfe; background: #eff6ff; }
-/* 📞 전화 · 💬 문자 두 개를 세로로 (좁은 폰에서 이름이 밀리지 않게) */
-.fv-acts { flex: none; display: flex; flex-direction: column; gap: 5px; }
-.fv-sms { padding: 9px 13px; border: 1.5px solid #bfdbfe; border-radius: 9px; background: #eff6ff;
-  color: #1d4ed8; font-size: 13px; font-weight: 800; text-decoration: none; text-align: center; white-space: nowrap; }
-.fv-sms.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; }
 .fv-setup { margin: 4px 0 2px; }
 /* 설정 › 필름 거래처 카드 */
 .fv-card { margin-bottom: 10px; padding: 10px; border: 1.5px solid var(--border); border-radius: 12px; background: #fff; }

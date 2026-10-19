@@ -3164,44 +3164,45 @@
   /* 문자 보내기 주소 — 번호와 본문을 미리 채운 문자창을 연다.
      안드로이드는 sms:번호?body=…, 아이폰은 sms:번호&body=… 로 구분자가 다르다 */
   function smsHref(phone, body) { return Share.smsHref(phone, body, Share.isIosUA(navigator.userAgent)); }
+  /* 담당자는 이름 알약 하나로 (2026-10-19) — 날짜별 인원 칩과 같은 모양.
+     이름을 누르면 필름명이 복사되며 전화, 옆 💬 를 누르면 필름명이 채워진 문자창. */
   function fillVendorPeople(list, vendor, films, site) {
     list.innerHTML = '';
     if (!vendor.people.length) {
       list.appendChild(el2('p', 'sec-empty', vendor.name + ' 담당자가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요.'));
       return;
     }
+    var 본문 = Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films });
     vendor.people.forEach(function (p, i) {
-      var row = document.createElement('div'); row.className = 'fv-person';
-      var nm = document.createElement('div'); nm.className = 'fv-nm';
-      nm.innerHTML = '<b>' + esc(p.name || '담당자 ' + (i + 1)) + '</b><em>' + esc(p.phone || '번호 없음') + '</em>';
-      row.appendChild(nm);
-      var 본문 = Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films });
-      var acts = document.createElement('div'); acts.className = 'fv-acts';
-      // 📞 전화 — 누르는 순간 필름명을 먼저 복사한다 (통화하며 붙여넣기)
+      var who = p.name || ('담당자 ' + (i + 1));
+      var pill = el2('span', 'fv-chip' + (p.phone ? '' : ' off'));
+
+      // 이름 = 전화 (누르는 순간 필름명 복사 → 통화하며 붙여넣기)
       var call = document.createElement(p.phone ? 'a' : 'button');
-      call.className = 'fv-call' + (p.phone ? '' : ' off');
-      call.textContent = '📞 전화';
+      call.className = 'fv-chip-nm'; call.textContent = who;
       if (p.phone) {
         call.href = telHref(p.phone);
-        call.onclick = function () { copyFilmNames(films, p.name || vendor.name); };
+        call.title = who + ' 에게 전화 (' + p.phone + ') — 필름명이 복사됩니다';
+        call.onclick = function () { copyFilmNames(films, who); };
       } else {
-        call.type = 'button';
-        call.onclick = function () { toast('번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
+        call.type = 'button'; call.title = '번호 없음';
+        call.onclick = function () { toast(who + ' 번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
       }
-      // 💬 문자 — 번호와 필름명이 이미 채워진 문자창이 열린다 (보내기만 누르면 끝)
-      var sms = document.createElement(p.phone && 본문 ? 'a' : 'button');
-      sms.className = 'fv-sms' + (p.phone && 본문 ? '' : ' off');
-      sms.textContent = '💬 문자';
-      if (p.phone && 본문) {
+
+      // 💬 = 문자 (번호와 필름명이 이미 채워진 문자창)
+      var ok = p.phone && 본문;
+      var sms = document.createElement(ok ? 'a' : 'button');
+      sms.className = 'fv-chip-sms'; sms.textContent = '💬';
+      if (ok) {
         sms.href = smsHref(p.phone, 본문);
+        sms.title = who + ' 에게 문자 — 필름명이 채워집니다';
         sms.onclick = function () { toast('필름명이 채워진 문자창이 열립니다 — 보내기만 누르세요'); };
       } else {
-        sms.type = 'button';
-        sms.onclick = function () { toast(p.phone ? '적힌 필름 번호가 없습니다' : '번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
+        sms.type = 'button'; sms.title = p.phone ? '적힌 필름 번호가 없음' : '번호 없음';
+        sms.onclick = function () { toast(p.phone ? '적힌 필름 번호가 없습니다' : who + ' 번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
       }
-      acts.appendChild(call); acts.appendChild(sms);
-      row.appendChild(acts);
-      list.appendChild(row);
+      pill.appendChild(call); pill.appendChild(sms);
+      list.appendChild(pill);
     });
   }
   // ☑ 체크한 줄만, 없으면 전체 필름명을 복사한다 (필름명 복사 버튼과 같은 규칙)
