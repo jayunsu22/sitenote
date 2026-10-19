@@ -355,6 +355,9 @@ textarea { resize: vertical; }
 /* 필름 주문처 — 현장 › 필름 칸 (2026-10-19) */
 .fv-box { margin: 10px 0 2px; padding: 10px; border: 1.5px solid var(--border); border-radius: 12px; background: #f8fafc; }
 .fv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; font-weight: 800; color: #334155; }
+.fv-sitetog { flex: none; padding: 6px 11px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff;
+  font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.fv-sitetog.on { border-color: var(--primary); background: #eff6ff; color: #1e40af; }
 .fv-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .fv-tab { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff;
   font-size: 13px; font-weight: 800; color: #475569; }

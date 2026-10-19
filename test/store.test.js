@@ -321,9 +321,11 @@ function reset() {
     Store.setSettings({ lastView: 'schedule' });
     Store.setSettings({ lastTab: 'c1' });
     Store.setSettings({ calShow: 'region' });
+    Store.setSettings({ smsSiteName: true });     // 문자에 현장명 넣기 — 이 폰의 선택 (2026-10-19)
     Store.setSettings({ backupKey: 'k' });
     assert.strictEqual(Store.state.syncQueue.filter(o => o.type === 'settings').length, 0);
     assert.strictEqual(Store.state.settings.lastTab, 'c1', '폰에는 저장됨');
+    assert.strictEqual(Store.state.settings.smsSiteName, true, '폰에는 저장됨');
   });
   await test('팀원·부자재·질문을 바꾸면 올린다', () => {
     reset();

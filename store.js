@@ -43,6 +43,7 @@
       supplyDefaults: ['본드', '장갑'],  // 내 차 상비 부자재 (새 현장 체크리스트로도 깔린다)
       stockLow: {},                     // 그중 지금 모자란 것 { 품목명: true } — 할 일 '🚚 차 보충' (2026-10-19)
       filmVendors: [],                  // 필름 주문처 [{id,name,people:[{name,phone}]}] (2026-10-19)
+      smsSiteName: false,               // 필름 주문 문자에 [현장명] 을 넣을까 — 퀵서비스 부를 때만 켠다 (2026-10-19)
       reviewQuestions: Share.DEFAULT_REVIEW_QUESTIONS.slice(),  // 현장 후기 탭 질문 (2026-09-27)
       reviewTags: Share.DEFAULT_REVIEW_TAGS.slice(),           // 현장 후기 태그 목록
       serviceTools: DEFAULT_SERVICE_TOOLS.slice(),             // AS·추가작업 접수에서 고르는 부자재·공구 (2026-10-05)
@@ -233,6 +234,7 @@
       state.settings.people = normalizePeople(state.settings.people);
       if (!state.settings.stockLow || typeof state.settings.stockLow !== 'object') state.settings.stockLow = {};
       if (!Array.isArray(state.settings.filmVendors)) state.settings.filmVendors = [];
+      state.settings.smsSiteName = !!state.settings.smsSiteName;
       state.settings.reviewQuestions = stringList(state.settings.reviewQuestions, Share.DEFAULT_REVIEW_QUESTIONS);
       state.settings.reviewTags = stringList(state.settings.reviewTags, Share.DEFAULT_REVIEW_TAGS);
       state.settings.serviceTools = stringList(state.settings.serviceTools, DEFAULT_SERVICE_TOOLS);
@@ -831,7 +833,7 @@
       })
       .then(function (data) {
         var keep = { backupKey: state.settings.backupKey, lastTab: state.settings.lastTab,
-          lastView: state.settings.lastView, calShow: state.settings.calShow };
+          lastView: state.settings.lastView, calShow: state.settings.calShow, smsSiteName: state.settings.smsSiteName };
         var ds = data.settings || {};
         state.settings = Object.assign(defaultSettings(), { team: ds.team, supplyDefaults: ds.supplyDefaults, stockLow: ds.stockLow, filmVendors: ds.filmVendors }, keep);
         if (!Array.isArray(state.settings.filmVendors)) state.settings.filmVendors = [];

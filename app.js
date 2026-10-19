@@ -3125,6 +3125,23 @@
     var box = document.createElement('div'); box.className = 'fv-box';
     var head = document.createElement('div'); head.className = 'fv-head';
     head.innerHTML = '<span>🏭 필름 주문처</span>';
+    /* 문자 첫 줄에 [현장명] 을 넣을지 — 평소엔 필름명만, 퀵서비스를 부를 때만 켠다 (2026-10-19).
+       한 번 고르면 다음 현장에서도 그대로다 (이 폰에만 기억하고 복원해도 안 바뀐다). */
+    var tog = document.createElement('button'); tog.type = 'button'; tog.className = 'fv-sitetog';
+    var paintTog = function () {
+      var on = !!state.settings.smsSiteName;
+      tog.classList.toggle('on', on);
+      tog.textContent = (on ? '☑' : '☐') + ' 현장명';
+      tog.title = on ? '문자 첫 줄에 [현장명] 이 들어갑니다 (퀵서비스용)' : '문자에 필름명만 들어갑니다';
+    };
+    tog.onclick = function () {
+      var on = !state.settings.smsSiteName;
+      Store.setSettings({ smsSiteName: on });
+      paintTog(); renderFilmVendors2(box, films, site);
+      toast(on ? '문자에 [현장명] 을 넣습니다' : '문자에 필름명만 넣습니다');
+    };
+    paintTog();
+    head.appendChild(tog);
     box.appendChild(head);
     if (!vendors.length) {
       var hint = document.createElement('p'); hint.className = 'sec-empty';
@@ -3172,7 +3189,9 @@
       list.appendChild(el2('p', 'sec-empty', vendor.name + ' 담당자가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요.'));
       return;
     }
-    var 본문 = Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films });
+    var 본문 = state.settings.smsSiteName
+      ? Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films })
+      : Share.filmOrderText({ films: films });
     vendor.people.forEach(function (p, i) {
       var who = p.name || ('담당자 ' + (i + 1));
       var pill = el2('span', 'fv-chip' + (p.phone ? '' : ' off'));
