@@ -360,6 +360,11 @@ textarea { resize: vertical; }
 .fv-call { flex: none; padding: 9px 13px; border: 1.5px solid #a7f3d0; border-radius: 9px; background: #ecfdf5;
   color: #15803d; font-size: 13px; font-weight: 800; text-decoration: none; }
 .fv-call.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; }
+/* 📞 전화 · 💬 문자 두 개를 세로로 (좁은 폰에서 이름이 밀리지 않게) */
+.fv-acts { flex: none; display: flex; flex-direction: column; gap: 5px; }
+.fv-sms { padding: 9px 13px; border: 1.5px solid #bfdbfe; border-radius: 9px; background: #eff6ff;
+  color: #1d4ed8; font-size: 13px; font-weight: 800; text-decoration: none; text-align: center; white-space: nowrap; }
+.fv-sms.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; }
 .fv-setup { margin: 4px 0 2px; }
 /* 설정 › 필름 거래처 카드 */
 .fv-card { margin-bottom: 10px; padding: 10px; border: 1.5px solid var(--border); border-radius: 12px; background: #fff; }

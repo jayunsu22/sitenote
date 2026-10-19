@@ -204,6 +204,15 @@
     return parseInt(m[2], 10) + '/' + parseInt(m[3], 10);
   }
 
+  /* 필름 주문 문자 본문 (2026-10-19) — 받는 사람이 어느 현장인지 바로 알게 제목 한 줄을 붙인다.
+     필름명은 filmOrderText 와 같은 규칙(☑ 체크한 줄이 있으면 그것만, 같은 번호는 한 번) */
+  function filmOrderMessage(site) {
+    var 필름 = filmOrderText(site);
+    if (!필름) return '';
+    var 이름 = titleLine(site);
+    return (이름 && 이름 !== '(이름없음)' ? '[' + 이름 + ']\n' : '') + 필름;
+  }
+
   // FIELDS 순서대로, 선택된 키만 남김
   function orderedKeys(keys) {
     var set = {};
@@ -1314,6 +1323,7 @@
     titleLine: titleLine,
     navAddress: navAddress,
     filmOrderText: filmOrderText,
+    filmOrderMessage: filmOrderMessage,
     newFilmRow: newFilmRow,
     shortDate: shortDate,
     buildQuestion: buildQuestion,

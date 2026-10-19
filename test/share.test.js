@@ -129,6 +129,23 @@ test('☑ 된 줄이 있으면 그 줄들만, 없으면 전부', () => {
   assert.strictEqual(Share.filmOrderText(s), 'hp604\npx449\npx454-2');
 });
 
+console.log('filmOrderMessage');
+test('문자 본문: 첫 줄은 [현장명], 그 아래 필름명', () => {
+  assert.strictEqual(Share.filmOrderMessage(full()), '[' + Share.titleLine(full()) + ']\nPS035\n중백색');
+});
+test('필름이 없으면 본문도 없다 (문자 버튼 비활성)', () => {
+  assert.strictEqual(Share.filmOrderMessage(blank()), '');
+});
+test('현장명이 없으면 필름명만', () => {
+  const s = blank(); s.films = [{ place: '현관', code: 'ps101' }];
+  assert.strictEqual(Share.filmOrderMessage(s), 'ps101');
+});
+test('☑ 된 줄만 문자 본문에 들어간다', () => {
+  const s = blank(); s.name = '행복아파트 101동 202호';
+  s.films = [{ place: 'a', code: 'hp604', ready: false }, { place: 'b', code: 'px449', ready: true }];
+  assert.strictEqual(Share.filmOrderMessage(s), '[행복아파트 101동 202호]\npx449');
+});
+
 console.log('buildQuestion');
 test('빈 항목만 질문으로, 순서는 FIELDS 순', () => {
   const s = full(); s.gate = ''; s.toilet = ''; s.cargoEv.v = '미확인';
