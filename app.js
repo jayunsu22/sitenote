@@ -2581,10 +2581,10 @@
   // 현장 상세: 부자재 체크리스트
   function renderSuppliesSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
-    box.innerHTML = '<h3 class="sec-title">부자재</h3>';
+    box.innerHTML = '<h3 class="sec-title">부자재 <span class="sec-hint">— 현장에 내려놓으면 체크 (상비품은 설정 › 내 차 재고)</span></h3>';
     var rerender = function () { renderSuppliesSection(box, siteId); };
     if (!s.supplies.length) {
-      var empty = document.createElement('div'); empty.className = 'sec-empty'; empty.textContent = '항목이 없습니다. 설정에서 기본 항목을 정해두면 새 현장에 자동으로 깔립니다.';
+      var empty = document.createElement('div'); empty.className = 'sec-empty'; empty.textContent = '항목이 없습니다. 설정 › 내 차 재고에 넣어두면 새 현장에 자동으로 깔립니다.';
       box.appendChild(empty);
     }
     s.supplies.forEach(function (r, i) {
@@ -3461,9 +3461,39 @@
     });
     pickSettingsTab(settingsTab, false);
   }
+  /* 내 차 재고 (2026-10-19) — 줄마다 [충분|부족]. 부족한 게 있으면 할 일에 '🚚 차 보충' 한 줄로 뜬다.
+     목록 자체는 예전처럼 새 현장 체크리스트로도 깔린다 */
   function renderSupplyDefaultList() {
-    renderStringList($('supplyDefaultList'), state.settings.supplyDefaults || [], function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
+    var box = $('supplyDefaultList'); box.innerHTML = '';
+    var items = state.settings.supplyDefaults || [];
+    if (!items.length) {
+      box.appendChild(el2('div', 'sec-empty', '아직 없음'));
+      return;
+    }
+    items.forEach(function (name, i) {
+      var low = Share.stockLowNames(state.settings).indexOf(name) !== -1;
+      var row = document.createElement('div'); row.className = 'slist-row';
+      var t = document.createElement('div'); t.className = 'slist-name'; t.textContent = name;
+      var tg = document.createElement('button'); tg.type = 'button';
+      tg.className = 'stock-toggle' + (low ? ' low' : '');
+      tg.textContent = low ? '부족' : '충분';
+      tg.title = low ? '채웠으면 눌러서 충분으로' : '떨어졌으면 눌러서 부족으로';
+      tg.onclick = function () {
+        Store.setSettings({ stockLow: Share.setStockLow(state.settings, name, !low) });
+        renderSupplyDefaultList();
+        toast(!low ? name + ' — 부족으로 표시했습니다 (할 일에 차 보충이 뜹니다)' : name + ' — 충분으로 바꿨습니다');
+      };
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
+      x.onclick = function () {
+        var next = items.slice(); next.splice(i, 1);
+        Store.setSettings({ supplyDefaults: next, stockLow: Share.setStockLow(state.settings, name, false) });
+        renderSupplyDefaultList();
+      };
+      row.appendChild(t); row.appendChild(tg); row.appendChild(x);
+      box.appendChild(row);
+    });
   }
+  function el2(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   // 새로 넣은 사람은 등급이 아직 없으니, 등급 탭을 보고 있었으면 [전체]로 돌려 바로 보이게 한다
   bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); teamTab = ''; renderTeamList(); });
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });

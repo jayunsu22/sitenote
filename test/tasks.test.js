@@ -67,18 +67,58 @@ test('인원 모집: 다 채웠거나 필요 인원을 안 정했으면 안 뜬�
   assert.deepStrictEqual(Share.autoTasks([현장({ filmStage: 2, needStaff: 0, days: [{ date: '2026-10-17', staff: [] }] })], 오늘, 규칙), []);
 });
 
-test('부자재 준비: 시공 전날 미체크가 있으면 뜨고, 2일 전이면 안 뜬다', () => {
+test('현장 자재: 시공 전날 미체크가 있으면 뜨고, 2일 전이면 안 뜬다 (차 상비품은 빼고)', () => {
   const 내일 = '2026-10-15';
   const s = 현장({ filmStage: 2, date: 내일, days: [{ date: 내일, staff: ['김'] }], supplies: [{ name: '본드', ready: false }] });
   const l = Share.autoTasks([s], 오늘, 규칙);
   assert.deepStrictEqual(kinds(l), ['supply']);
-  assert.strictEqual(l[0].title, '부자재 준비: 우륵 704');
+  assert.strictEqual(l[0].title, '현장 자재 챙기기: 우륵 704 (본드)');
   const s2 = 현장({ filmStage: 2, date: '2026-10-16', days: [{ date: '2026-10-16', staff: ['김'] }], supplies: [{ name: '본드', ready: false }] });
   assert.deepStrictEqual(Share.autoTasks([s2], 오늘, 규칙), []);
 });
-test('부자재 준비: 다 체크했으면 안 뜬다', () => {
+test('현장 자재: 다 체크했으면 안 뜬다', () => {
   const s = 현장({ filmStage: 2, date: '2026-10-15', days: [{ date: '2026-10-15', staff: ['김'] }] });
   assert.deepStrictEqual(Share.autoTasks([s], 오늘, 규칙), []);
+});
+
+console.log('내 차 재고 (2026-10-19) — 상비품은 현장이 아니라 나에게 붙는다');
+const 차설정 = { supplyDefaults: ['본드', '장갑'], stockLow: {} };
+test('상비품(본드)만 미체크면 현장 할 일은 안 뜬다 — 차에 싣고 다니는 것이라서', () => {
+  const 내일 = '2026-10-15';
+  const s = 현장({ filmStage: 2, date: 내일, days: [{ date: 내일, staff: ['김'] }], supplies: [{ name: '본드', ready: false }] });
+  assert.deepStrictEqual(Share.autoTasks([s], 오늘, 규칙, {}, 차설정), []);
+});
+test('그 현장에만 필요한 자재는 현장 할 일로 뜬다 (상비품은 빠진다)', () => {
+  const 내일 = '2026-10-15';
+  const s = 현장({ filmStage: 2, date: 내일, days: [{ date: 내일, staff: ['김'] }],
+    supplies: [{ name: '본드', ready: false }, { name: '특수칼날', ready: false }] });
+  const l = Share.autoTasks([s], 오늘, 규칙, {}, 차설정);
+  assert.deepStrictEqual(kinds(l), ['supply']);
+  assert.strictEqual(l[0].title, '현장 자재 챙기기: 우륵 704 (특수칼날)');
+});
+test('차 보충: 부족 표시한 상비품이 있으면 현장 수와 상관없이 하루에 하나', () => {
+  const 설정 = { supplyDefaults: ['본드', '장갑'], stockLow: { '본드': true, '장갑': true } };
+  const 내일 = '2026-10-15';
+  const a = 현장({ id: 'a', filmStage: 2, date: 내일, days: [{ date: 내일, staff: ['김'] }], supplies: [{ name: '본드', ready: false }] });
+  const b = 현장({ id: 'b', filmStage: 2, date: 내일, days: [{ date: 내일, staff: ['김'] }], supplies: [{ name: '본드', ready: false }] });
+  const l = Share.autoTasks([a, b], 오늘, 규칙, {}, 설정);
+  assert.deepStrictEqual(kinds(l), ['stock']);
+  assert.strictEqual(l[0].title, '차 보충: 본드·장갑');
+  assert.deepStrictEqual(l[0].stockLow, ['본드', '장갑']);
+  assert.strictEqual(l[0].link, null, '현장에 안 붙는 내 할 일');
+});
+test('차 보충: 다 채웠으면 안 뜨고, 목록에서 뺀 이름은 무시한다', () => {
+  assert.deepStrictEqual(Share.autoTasks([], 오늘, 규칙, {}, 차설정), []);
+  const 유령 = { supplyDefaults: ['본드'], stockLow: { '없어진품목': true } };
+  assert.deepStrictEqual(Share.autoTasks([], 오늘, 규칙, {}, 유령), []);
+});
+test('setStockLow: 켜고 끄기, 원본은 안 바뀐다', () => {
+  const 설정 = { supplyDefaults: ['본드'], stockLow: {} };
+  const on = Share.setStockLow(설정, '본드', true);
+  assert.deepStrictEqual(on, { '본드': true });
+  assert.deepStrictEqual(설정.stockLow, {});
+  assert.deepStrictEqual(Share.setStockLow({ supplyDefaults: ['본드'], stockLow: on }, '본드', false), {});
+  assert.deepStrictEqual(Share.stockLowNames({ supplyDefaults: ['본드'], stockLow: on }), ['본드']);
 });
 
 function asSite(svc) {

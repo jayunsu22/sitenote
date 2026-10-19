@@ -1033,7 +1033,35 @@
     var d = dayDiff(today, iso);
     return d >= 0 && d <= n;
   }
-  function autoTasks(sites, today, rules, holds) {
+  /* ---------- 내 차 재고 (2026-10-19) ----------
+     본드·장갑 같은 상비 부자재는 현장마다 '준비'하는 게 아니라 차에 싣고 다니다가 현장에서 꺼내 쓴다(불출).
+     그래서 보충은 현장이 아니라 '나'에게 붙는 할 일이다 — 현장이 3곳이어도 할 일은 하나.
+     목록은 설정의 부자재 기본 항목(settings.supplyDefaults = 차 상비품)을 그대로 쓰고,
+     모자란 것만 settings.stockLow = { 품목명: true } 로 표시해 둔다. */
+  function stockNames(settings) {
+    var out = [], 본 = {};
+    (((settings || {}).supplyDefaults) || []).forEach(function (n) {
+      var v = str(n);
+      if (v && !본[v]) { 본[v] = true; out.push(v); }
+    });
+    return out;
+  }
+  function isStockItem(settings, name) { return stockNames(settings).indexOf(str(name)) !== -1; }
+  // 지금 모자란 상비품 이름들 (목록에서 빠진 이름은 무시)
+  function stockLowNames(settings) {
+    var low = ((settings || {}).stockLow) || {};
+    return stockNames(settings).filter(function (n) { return !!low[n]; });
+  }
+  // 부족 표시를 켜고 끈 새 표를 돌려준다 (원본은 안 바뀐다)
+  function setStockLow(settings, name, low) {
+    var out = Object.assign({}, ((settings || {}).stockLow) || {});
+    var n = str(name);
+    if (!n) return out;
+    if (low) out[n] = true; else delete out[n];
+    return out;
+  }
+
+  function autoTasks(sites, today, rules, holds, settings) {
     var r = normalizeTaskRules(rules);
     var out = [];
     var make = function (kind, id, title, link) {
@@ -1047,8 +1075,14 @@
       if (within(today, first, r.filmDays) && filmStageOf(s) < 2) make('film', 'auto:film:' + s.id, '필름 주문: ' + name, siteLink);
       var st = staffStatus(s);
       if (within(today, first, r.staffDays) && st.short > 0) make('staff', 'auto:staff:' + s.id, '인원 모집: ' + name + ' (' + st.short + '명 부족)', siteLink);
-      var sup = (s.supplies || []).some(function (x) { return x && str(x.name) && !x.ready; });
-      if (within(today, first, r.supplyDays) && sup) make('supply', 'auto:supply:' + s.id, '부자재 준비: ' + name, siteLink);
+      /* 현장 자재: 차에 늘 싣고 다니는 상비품(설정의 부자재 기본 항목)은 뺀다 —
+         그건 아래 '차 보충' 할 일 하나로 본다. 그 현장에만 챙겨야 하는 것만 현장 할 일로 */
+      var 특수 = (s.supplies || []).filter(function (x) {
+        return x && str(x.name) && !x.ready && !isStockItem(settings, x.name);
+      }).map(function (x) { return str(x.name); });
+      if (within(today, first, r.supplyDays) && 특수.length) {
+        make('supply', 'auto:supply:' + s.id, '현장 자재 챙기기: ' + name + ' (' + 특수.join('·') + ')', siteLink);
+      }
       servicesOf(s).forEach(function (v) {
         if (v.done || !within(today, str(v.date), r.supplyDays)) return;
         var ready = v.toolsReady || [];
@@ -1058,6 +1092,12 @@
           { type: 'service', id: v.id, siteId: s.id, label: name + ' ' + serviceLabel(v) });
       });
     });
+    // 차 보충 — 상비품 중 '부족' 으로 표시해 둔 게 있으면 하루에 하나 (현장과 무관한 내 할 일)
+    var 모자란 = stockLowNames(settings);
+    if (모자란.length) {
+      out.push({ id: 'auto:stock', auto: true, kind: 'stock', date: today, time: '', link: null, done: false,
+        title: '차 보충: ' + 모자란.join('·'), stockLow: 모자란 });
+    }
     // 대기 인원이 남은 날 — 현장 배정을 잊지 않게 (인원 모집과 같은 기준 일수)
     Object.keys(holds || {}).sort().forEach(function (iso) {
       if (!within(today, iso, r.staffDays)) return;
@@ -1205,6 +1245,10 @@
     DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
     normalizeTaskRules: normalizeTaskRules,
     autoTasks: autoTasks,
+    stockNames: stockNames,
+    isStockItem: isStockItem,
+    stockLowNames: stockLowNames,
+    setStockLow: setStockLow,
     taskTimeKey: taskTimeKey,
     taskGroups: taskGroups,
     normalizeHolds: normalizeHolds,

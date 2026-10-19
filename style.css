@@ -345,6 +345,10 @@ textarea { resize: vertical; }
 .slist-row { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 4px; border-bottom: 1px solid var(--border); }
 .slist-row .slist-name { flex: 1; font-size: 14px; font-weight: 600; }
 .slist-row .x { width: 32px; height: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+/* 내 차 재고 충분/부족 (2026-10-19) */
+.stock-toggle { flex: none; min-width: 52px; padding: 6px 10px; border: 1.5px solid #a7f3d0; border-radius: 999px;
+  background: #ecfdf5; color: #15803d; font-size: 12.5px; font-weight: 800; }
+.stock-toggle.low { border-color: var(--danger); background: #fee2e2; color: #991b1b; }
 /* 팀원: 이름 줄 아래에 연락처·차량번호 */
 .team-row { padding: 6px 0 8px 4px; border-bottom: 1px solid var(--border); }
 .team-top { display: flex; align-items: center; gap: 8px; }

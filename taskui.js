@@ -46,7 +46,7 @@
     return Share.titleLine(r.site);
   }
   function iconOf(t) {
-    if (t.auto) return { film: '🎞', staff: '👥', supply: '🧰', hold: '⏳' }[t.kind] || '📝';
+    if (t.auto) return { film: '🎞', staff: '👥', supply: '🧰', hold: '⏳', stock: '🚚' }[t.kind] || '📝';
     if (!t.link) return '📝';
     if (t.link.type === 'client') return t.title.indexOf('통화') !== -1 ? '📞' : '🏢';
     if (t.link.type === 'service') return '🔧';
@@ -56,7 +56,7 @@
   // ---------- 일정 화면 ----------
   function allTasks() {
     var rules = Store.state.settings.taskRules;
-    return Store.tasks().concat(Share.autoTasks(Store.state.sites, today(), rules, Store.state.settings.holds));
+    return Store.tasks().concat(Share.autoTasks(Store.state.sites, today(), rules, Store.state.settings.holds, Store.state.settings));
   }
   // 일정 화면에서 쓸 묶음 한 번에 계산 (자동 할 일 포함)
   function scheduleGroups() { return Share.taskGroups(allTasks(), today()); }
@@ -447,6 +447,23 @@
       if (t.auto) body.appendChild(el('p', 'sheet-hint', '앱이 현장 상태를 보고 만든 할 일이에요. 아래에서 처리하면 저절로 사라져요.'));
       renderContacts(body, t);
 
+      // 차 보충 — 현장이 아니라 내 차에 채울 것들. 여기서 바로 '채웠음' 으로 끌 수 있다
+      if (t.kind === 'stock') {
+        var ss = section(body, '🚚 차에 채울 것');
+        (t.stockLow || []).forEach(function (n) {
+          var row = el('div', 'task-film');
+          row.appendChild(el('span', '', n));
+          var done = btn('btn-sm', '채웠음', function () {
+            Store.setSettings({ stockLow: Share.setStockLow(Store.state.settings, n, false) });
+            $('taskSheet').hidden = true;
+            d.toast(n + ' 채움으로 바꿨습니다');
+            d.refresh();
+          });
+          row.appendChild(done);
+          ss.appendChild(row);
+        });
+        ss.appendChild(el('p', 'sheet-hint', '본드·장갑처럼 차에 싣고 다니는 상비품이에요. 설정 › 현장준비 › 내 차 재고에서도 바꿀 수 있어요.'));
+      }
       if (t.kind === 'hold') {
         var hs = section(body, '⏳ ' + Share.dayLabel(t.holdDate) + ' 대기 인원');
         Share.heldOpen(Store.state.settings.holds, Store.state.sites, t.holdDate).forEach(function (n) {
