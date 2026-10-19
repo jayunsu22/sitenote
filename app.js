@@ -3645,6 +3645,10 @@
   /* 필름 거래처 설정 (2026-10-19) — 거래처 카드마다 담당자(이름+번호) 여러 명.
      적는 대로 저장되고, 현장 › 필름 칸의 주문처 블록이 이 값을 쓴다 */
   function vendorsNow() { return Share.filmVendors(state.settings); }
+  /* [＋ 담당자 추가] 는 빈 칸을 하나 띄워줄 뿐, 저장은 이름이나 번호를 적는 순간에 한다.
+     빈 줄은 저장해도 걸러지므로(이름·번호가 둘 다 비면 담당자가 아니다) 눌러도 아무 일이 없는 것처럼 보였다.
+     그래서 '아직 안 적은 줄'은 화면에만 두고 기억한다 (2026-10-19) */
+  var fvDraftIdx = -1;
   function saveVendors(list) { Store.setSettings({ filmVendors: list }); }
   function renderFilmVendorList() {
     var box = $('filmVendorList'); box.innerHTML = '';
@@ -3671,12 +3675,18 @@
       head.appendChild(nameIn); head.appendChild(del);
       card.appendChild(head);
 
-      v.people.forEach(function (p, pi) {
+      var people = v.people.slice();
+      if (fvDraftIdx === vi) people.push({ name: '', phone: '' });   // 아직 안 적은 빈 줄
+      people.forEach(function (p, pi) {
         var row = el2('div', 'fv-prow');
         var n = document.createElement('input'); n.type = 'text'; n.placeholder = '담당자 ' + (pi + 1); n.value = p.name; n.autocomplete = 'off';
         var ph = document.createElement('input'); ph.type = 'tel'; ph.placeholder = '010-…'; ph.value = p.phone; ph.className = 'fv-phone';
         var upd = function () {
-          var list = vendorsNow(); list[vi].people[pi] = { name: n.value, phone: ph.value }; saveVendors(list);
+          var list = vendorsNow(), tgt = list[vi].people;
+          while (tgt.length < pi) tgt.push({ name: '', phone: '' });
+          tgt[pi] = { name: n.value, phone: ph.value };
+          if (n.value.trim() || ph.value.trim()) fvDraftIdx = -1;   // 적었으니 이제 진짜 담당자
+          saveVendors(list);
         };
         n.addEventListener('input', upd); ph.addEventListener('input', upd);
         var call = document.createElement('a'); call.className = 'fv-call' + (p.phone ? '' : ' off'); call.textContent = '📞';
@@ -3686,6 +3696,7 @@
         if (p.phone) sms.href = smsHref(p.phone);
         var x = el2('button', 'x', '×'); x.type = 'button'; x.title = '담당자 빼기';
         x.onclick = function () {
+          if (pi >= v.people.length) { fvDraftIdx = -1; renderFilmVendorList(); return; }   // 빈 줄은 그냥 치운다
           var list = vendorsNow(); list[vi].people.splice(pi, 1); saveVendors(list); renderFilmVendorList();
         };
         row.appendChild(n); row.appendChild(ph); row.appendChild(call); row.appendChild(sms); row.appendChild(x);
@@ -3693,9 +3704,10 @@
       });
       var addP = el2('button', 'sec-add', '＋ 담당자 추가'); addP.type = 'button';
       addP.onclick = function () {
-        var list = vendorsNow(); list[vi].people.push({ name: '', phone: '' }); saveVendors(list); renderFilmVendorList();
-        var ins = box.querySelectorAll('.fv-card')[vi].querySelectorAll('.fv-prow input');
-        if (ins.length) ins[ins.length - 2].focus();
+        fvDraftIdx = vi; renderFilmVendorList();
+        var card2 = $('filmVendorList').querySelectorAll('.fv-card')[vi];
+        var ins = card2 ? card2.querySelectorAll('.fv-prow input') : [];
+        if (ins.length >= 2) ins[ins.length - 2].focus();   // 새 줄의 이름 칸에 커서
       };
       card.appendChild(addP);
       box.appendChild(card);
@@ -3705,7 +3717,7 @@
     // bindListAdder 는 이름 목록만 다루므로, 새로 들어온 이름만 거래처로 만든다
     var list = vendorsNow();
     names.forEach(function (nm) {
-      if (!list.some(function (v) { return v.name === nm; })) list.push({ id: 'v' + Date.now().toString(36), name: nm, people: [{ name: '', phone: '' }] });
+      if (!list.some(function (v) { return v.name === nm; })) { list.push({ id: 'v' + Date.now().toString(36), name: nm, people: [] }); fvDraftIdx = list.length - 1; }
     });
     saveVendors(list); renderFilmVendorList();
   });
