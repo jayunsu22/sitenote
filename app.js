@@ -264,14 +264,16 @@
       row.innerHTML = '<input type="text" class="name" placeholder="이름" value="' + esc(ct.name) + '">' +
         '<input type="tel" class="phone" placeholder="전화번호" value="' + esc(ct.phone) + '">' +
         '<button class="cp" title="이름·연락처 복사">📋</button>' +
-        '<a class="tel' + (tel ? '' : ' disabled') + '" href="tel:' + esc(tel) + '" title="전화걸기">📞</a>' +
+        '<a class="tel' + (tel ? '' : ' disabled') + '" href="' + esc(Share.telHref(tel)) + '" title="전화걸기">📞</a>' +
+        '<a class="sms' + (tel ? '' : ' disabled') + '" href="' + esc(smsHref(tel)) + '" title="문자 보내기">💬</a>' +
         '<button class="x" title="삭제">×</button>';
       var save = function () {
         var contacts = c.contacts.slice();
         contacts[i] = { name: row.querySelector('.name').value, phone: row.querySelector('.phone').value };
         Store.updateClient(c.id, { contacts: contacts });
         var t = (contacts[i].phone || '').replace(/[^0-9+]/g, '');
-        var a = row.querySelector('a.tel'); a.href = 'tel:' + t; a.classList.toggle('disabled', !t);
+        var a = row.querySelector('a.tel'); a.href = Share.telHref(t); a.classList.toggle('disabled', !t);
+        var m = row.querySelector('a.sms'); m.href = smsHref(t); m.classList.toggle('disabled', !t);
       };
       row.querySelector('.name').addEventListener('input', save);
       row.querySelector('.phone').addEventListener('input', save);
@@ -1226,12 +1228,19 @@
         a.title = n + ' — 탭하면 이 날에서 뺍니다';
         a.onclick = function (e) { e.stopPropagation(); Store.removeStaff(id, first, n); renderSchedule(); };
       } else if (phone) {
-        a = document.createElement('a');
+        /* 이름=전화 · 💬=문자 (2026-10-19). 알약 하나를 둘로 나눠서 줄이 더 길어지지 않게 한다 */
+        a = document.createElement('span');
         a.className = 'sch-name call' + (isDup ? ' dup' : '');
-        a.href = telHref(phone);
-        a.textContent = n + (isDup ? ' ⚠' : '');
-        a.title = (isDup ? n + ' — 같은 날 다른 현장에도 들어가 있음 · ' : '') + phone + ' 로 전화';
-        a.onclick = function (e) { e.stopPropagation(); };
+        var nm = document.createElement('a');
+        nm.className = 'sch-nm'; nm.href = telHref(phone);
+        nm.textContent = n + (isDup ? ' ⚠' : '');
+        nm.title = (isDup ? n + ' — 같은 날 다른 현장에도 들어가 있음 · ' : '') + phone + ' 로 전화';
+        nm.onclick = function (e) { e.stopPropagation(); };
+        var sm = document.createElement('a');
+        sm.className = 'sch-sms'; sm.href = smsHref(phone);
+        sm.textContent = '💬'; sm.title = n + ' 에게 문자 (' + phone + ')';
+        sm.onclick = function (e) { e.stopPropagation(); };
+        a.appendChild(nm); a.appendChild(sm);
       } else {
         a = document.createElement('button'); a.type = 'button';
         a.className = 'sch-name nophone' + (isDup ? ' dup' : '');
@@ -1889,13 +1898,19 @@
         c.textContent = n + ' ✕';
         c.title = '탭하면 이 날에서 뺍니다';
         c.onclick = function (e) { e.stopPropagation(); opts && opts.onRemove && opts.onRemove(n); };
-      } else if (phone) {                          // 전화 걸기
-        c = document.createElement('a');
+      } else if (phone) {                          // 이름=전화 걸기 · 💬=문자 (2026-10-19)
+        c = document.createElement('span');
         c.className = 'chip call' + (isDup ? ' dup' : '');
-        c.href = telHref(phone);
-        c.textContent = n + (isDup ? ' ⚠' : '');
-        c.title = (isDup ? '같은 날 다른 현장에도 들어가 있음 · ' : '') + phone + ' 로 전화';
-        c.onclick = function (e) { e.stopPropagation(); };
+        var cnm = document.createElement('a');
+        cnm.className = 'chip-nm'; cnm.href = telHref(phone);
+        cnm.textContent = n + (isDup ? ' ⚠' : '');
+        cnm.title = (isDup ? '같은 날 다른 현장에도 들어가 있음 · ' : '') + phone + ' 로 전화';
+        cnm.onclick = function (e) { e.stopPropagation(); };
+        var csm = document.createElement('a');
+        csm.className = 'chip-sms'; csm.href = smsHref(phone);
+        csm.textContent = '💬'; csm.title = n + ' 에게 문자 (' + phone + ')';
+        csm.onclick = function (e) { e.stopPropagation(); };
+        c.appendChild(cnm); c.appendChild(csm);
       } else {                                     // 번호가 없는 사람
         c = document.createElement('button'); c.type = 'button';
         c.className = 'chip nophone' + (isDup ? ' dup' : '');
@@ -2449,7 +2464,10 @@
       if (name) {
         var p = Share.personOf(people, name);
         var tel = p.phone.replace(/[^0-9+]/g, '');
-        info.innerHTML = (p.phone ? '<a class="svc-staff-tel" href="tel:' + esc(tel) + '">📞 ' + esc(p.phone) + '</a>' : '<span class="svc-staff-miss">연락처 없음</span>') +
+        info.innerHTML = (p.phone
+            ? '<a class="svc-staff-tel" href="' + esc(Share.telHref(tel)) + '">📞 ' + esc(p.phone) + '</a>' +
+              '<a class="svc-staff-sms" href="' + esc(smsHref(tel)) + '" title="' + esc(name) + ' 에게 문자">💬 문자</a>'
+            : '<span class="svc-staff-miss">연락처 없음</span>') +
           (p.car ? '<span>🚗 ' + esc(p.car) + '</span>' : '<span class="svc-staff-miss">차량 없음</span>');
       }
       row.appendChild(info);
@@ -2530,8 +2548,10 @@
   // 고객 연락처 → 📞 전화 버튼 (번호가 없으면 흐리게, 눌러도 아무 일 없음)
   function syncSvcCall() {
     var t = $('svcPhone').value.replace(/[^0-9+]/g, '');
-    $('svcCall').href = t ? 'tel:' + t : '#';
+    $('svcCall').href = t ? Share.telHref(t) : '#';
     $('svcCall').classList.toggle('disabled', !t);
+    $('svcSms').href = t ? smsHref(t) : '#';
+    $('svcSms').classList.toggle('disabled', !t);
   }
   $('svcPhone').addEventListener('input', function () { svcSave({ phone: $('svcPhone').value }); syncSvcCall(); });
   $('svcCustomer').addEventListener('input', function () { svcSave({ customer: $('svcCustomer').value }); });
@@ -3015,14 +3035,18 @@
       mk('role', '역할 (현장소장)', 'owner-role');
       var ph = mk('phone', '010-0000-0000', 'owner-phone', 'tel');
       var call = document.createElement('a'); call.className = 'owner-call'; call.textContent = '📞'; call.title = '전화 걸기';
+      var sms = document.createElement('a'); sms.className = 'owner-sms'; sms.textContent = '💬'; sms.title = '문자 보내기';
       var syncCall = function () {
-        var t = ph.value.replace(/[^0-9+]/g, '');
-        call.href = t ? 'tel:' + t : '#';
+        var t = Share.phoneDigits(ph.value);
+        call.href = t ? Share.telHref(t) : '#';
+        sms.href = t ? smsHref(t) : '#';
         call.classList.toggle('disabled', !t);
+        sms.classList.toggle('disabled', !t);
       };
       call.onclick = function (e) { if (call.classList.contains('disabled')) e.preventDefault(); };
+      sms.onclick = function (e) { if (sms.classList.contains('disabled')) e.preventDefault(); };
       syncCall();
-      line.appendChild(call);
+      line.appendChild(call); line.appendChild(sms);
       var del = document.createElement('button'); del.type = 'button'; del.className = 'owner-del'; del.textContent = '✕'; del.title = '빼기';
       del.onclick = function () {
         var who = (r.name || r.phone || '').trim();
@@ -3139,11 +3163,7 @@
   }
   /* 문자 보내기 주소 — 번호와 본문을 미리 채운 문자창을 연다.
      안드로이드는 sms:번호?body=…, 아이폰은 sms:번호&body=… 로 구분자가 다르다 */
-  function smsHref(phone, body) {
-    var num = String(phone || '').replace(/[^0-9+]/g, '');
-    var ios = /iP(hone|ad|od)/.test(navigator.userAgent || '');
-    return 'sms:' + num + (body ? (ios ? '&' : '?') + 'body=' + encodeURIComponent(body) : '');
-  }
+  function smsHref(phone, body) { return Share.smsHref(phone, body, Share.isIosUA(navigator.userAgent)); }
   function fillVendorPeople(list, vendor, films, site) {
     list.innerHTML = '';
     if (!vendor.people.length) {
@@ -3353,16 +3373,22 @@
       edit.title = '기사 정보 고치기';
       edit.onclick = function (e) { e.stopPropagation(); openPersonSheet(name); };
 
-      // 전화 — 번호가 있으면 바로 걸기, 없으면 비활성(수정에서 번호를 넣어야 켜진다)
-      var call;
+      // 전화·문자 — 번호가 있으면 바로, 없으면 비활성(수정에서 번호를 넣어야 켜진다)
+      var call, sms;
       if (p.phone) {
         call = document.createElement('a'); call.className = 'team-btn call';
         call.href = telHref(p.phone); call.textContent = '전화'; call.title = p.phone + ' 로 전화';
         call.onclick = function (e) { e.stopPropagation(); };
+        sms = document.createElement('a'); sms.className = 'team-btn sms';
+        sms.href = smsHref(p.phone); sms.textContent = '문자'; sms.title = p.phone + ' 로 문자';
+        sms.onclick = function (e) { e.stopPropagation(); };
       } else {
         call = document.createElement('button'); call.type = 'button'; call.className = 'team-btn call'; call.textContent = '전화';
         call.disabled = true; call.title = '연락처 없음 — [수정]에서 번호를 넣으세요';
         call.onclick = function (e) { e.stopPropagation(); };
+        sms = document.createElement('button'); sms.type = 'button'; sms.className = 'team-btn sms'; sms.textContent = '문자';
+        sms.disabled = true; sms.title = '연락처 없음 — [수정]에서 번호를 넣으세요';
+        sms.onclick = function (e) { e.stopPropagation(); };
       }
 
       // 일정 — 이 사람을 여러 날짜에 한 번에 잡는다 (날짜마다 인원 창을 여는 대신)
@@ -3385,7 +3411,7 @@
             toast(name + ' 님을 명단에서 지웠습니다');
           });
       };
-      row.appendChild(main); row.appendChild(edit); row.appendChild(call); row.appendChild(cal); row.appendChild(x);
+      row.appendChild(main); row.appendChild(edit); row.appendChild(call); row.appendChild(sms); row.appendChild(cal); row.appendChild(x);
       box.appendChild(row);
     });
   }
@@ -3399,7 +3425,24 @@
     { key: 'home', label: '사는곳', ph: '예: 부천 중동' },
     { key: 'memo', label: '메모', ph: '', area: true }
   ];
-  function telHref(v) { return 'tel:' + String(v || '').replace(/[^0-9+]/g, ''); }
+  function telHref(v) { return Share.telHref(v); }
+  /* 📞 전화 / 💬 문자 (2026-10-19) — 번호가 보이는 자리는 어디든 둘을 같이 단다.
+     번호가 없으면 흐리게 두고 눌러도 아무 일이 없게 한다 (빈 문자창이 열리면 더 헷갈린다).
+     kind: 'tel' | 'sms' · body: 문자에 미리 채울 본문 (없으면 빈 문자창) */
+  function contactLink(kind, phone, cls, text, who, body) {
+    var num = Share.phoneDigits(phone);
+    var sms = kind === 'sms';
+    var a = document.createElement('a');
+    a.className = cls + (num ? '' : ' disabled');
+    a.textContent = text;
+    a.href = (num ? (sms ? smsHref(phone, body) : telHref(phone)) : '#');
+    a.title = num
+      ? (who ? who + ' — ' : '') + (sms ? '문자 보내기' : '전화 걸기') + ' (' + phone + ')'
+      : '연락처 없음';
+    a.setAttribute('aria-label', a.title);
+    a.onclick = function (e) { e.stopPropagation(); if (!num) e.preventDefault(); };
+    return a;
+  }
   // 페이(일당) 고르기 — 8~30 만원, 숫자만 (Share.payOf 가 예전에 적어둔 '일 28만 식대포함' 도 28 로 읽는다)
   function payOptions(cur) {
     var v = Share.payOf(cur);
@@ -3476,7 +3519,9 @@
         : f.area
         ? '<textarea data-pf="' + f.key + '" rows="3" placeholder="' + esc(f.ph) + '">' + esc(p[f.key]) + '</textarea>'
         : '<input type="text" data-pf="' + f.key + '"' + (f.mode ? ' inputmode="' + f.mode + '"' : '') + ' autocomplete="off" placeholder="' + esc(f.ph) + '" value="' + esc(p[f.key]) + '">';
-      if (f.call) ctl = '<div class="pf-row">' + ctl + '<a class="pf-call" id="pfCall" href="' + esc(telHref(p.phone)) + '"' + (p.phone ? '' : ' hidden') + '>📞 전화</a></div>';
+      if (f.call) ctl = '<div class="pf-row">' + ctl +
+        '<a class="pf-call" id="pfCall" href="' + esc(telHref(p.phone)) + '"' + (p.phone ? '' : ' hidden') + '>📞 전화</a>' +
+        '<a class="pf-call sms" id="pfSms" href="' + esc(smsHref(p.phone)) + '"' + (p.phone ? '' : ' hidden') + '>💬 문자</a></div>';
       return '<label class="pf-label">' + f.label + '</label>' + ctl;
     };
     var grades = [''].concat(Share.PERSON_GRADES);
@@ -3532,6 +3577,7 @@
         Store.setSettings({ people: Share.mergePerson(state.settings.people, name, patch) });
         if (el.dataset.pf === 'phone') {   // 전화 걸기 버튼도 지금 적은 번호를 따라간다
           var c = $('pfCall'); c.href = telHref(el.value); c.hidden = !el.value.trim();
+          var m = $('pfSms'); m.href = smsHref(el.value); m.hidden = c.hidden;
         }
         renderTeamList();   // 뒤에 깔린 목록의 요약 줄도 바로 따라가게
       });
@@ -3635,11 +3681,14 @@
         n.addEventListener('input', upd); ph.addEventListener('input', upd);
         var call = document.createElement('a'); call.className = 'fv-call' + (p.phone ? '' : ' off'); call.textContent = '📞';
         if (p.phone) call.href = telHref(p.phone);
+        var sms = document.createElement('a'); sms.className = 'fv-call sms' + (p.phone ? '' : ' off'); sms.textContent = '💬';
+        sms.title = '문자 보내기';
+        if (p.phone) sms.href = smsHref(p.phone);
         var x = el2('button', 'x', '×'); x.type = 'button'; x.title = '담당자 빼기';
         x.onclick = function () {
           var list = vendorsNow(); list[vi].people.splice(pi, 1); saveVendors(list); renderFilmVendorList();
         };
-        row.appendChild(n); row.appendChild(ph); row.appendChild(call); row.appendChild(x);
+        row.appendChild(n); row.appendChild(ph); row.appendChild(call); row.appendChild(sms); row.appendChild(x);
         card.appendChild(row);
       });
       var addP = el2('button', 'sec-add', '＋ 담당자 추가'); addP.type = 'button';

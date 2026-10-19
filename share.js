@@ -213,6 +213,22 @@
     return (이름 && 이름 !== '(이름없음)' ? '[' + 이름 + ']\n' : '') + 필름;
   }
 
+  /* 전화·문자 주소 (2026-10-19) — 번호가 붙는 자리는 어디든 📞 와 💬 를 같이 단다.
+     번호에서 숫자와 +(국가번호) 만 남긴다. 번호가 없으면 빈 문자열 — 부르는 쪽에서 버튼을 흐리게 한다.
+     문자 본문의 구분자는 폰마다 다르다: 아이폰 sms:번호&body=… / 안드로이드 sms:번호?body=… */
+  function phoneDigits(phone) { return str(phone).replace(/[^0-9+]/g, ''); }
+  function telHref(phone) {
+    var num = phoneDigits(phone);
+    return num ? 'tel:' + num : '';
+  }
+  function smsHref(phone, body, ios) {
+    var num = phoneDigits(phone);
+    if (!num) return '';
+    var 본문 = str(body);
+    return 'sms:' + num + (본문 ? (ios ? '&' : '?') + 'body=' + encodeURIComponent(본문) : '');
+  }
+  function isIosUA(ua) { return /iP(hone|ad|od)/.test(str(ua)); }
+
   // FIELDS 순서대로, 선택된 키만 남김
   function orderedKeys(keys) {
     var set = {};
@@ -1324,6 +1340,10 @@
     navAddress: navAddress,
     filmOrderText: filmOrderText,
     filmOrderMessage: filmOrderMessage,
+    phoneDigits: phoneDigits,
+    telHref: telHref,
+    smsHref: smsHref,
+    isIosUA: isIosUA,
     newFilmRow: newFilmRow,
     shortDate: shortDate,
     buildQuestion: buildQuestion,

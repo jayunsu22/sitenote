@@ -146,6 +146,33 @@ test('☑ 된 줄만 문자 본문에 들어간다', () => {
   assert.strictEqual(Share.filmOrderMessage(s), '[행복아파트 101동 202호]\npx449');
 });
 
+console.log('telHref / smsHref');
+test('전화 주소 — 숫자와 + 만 남긴다', () => {
+  assert.strictEqual(Share.telHref('010-1234-5678'), 'tel:01012345678');
+  assert.strictEqual(Share.telHref(' +82 10 1234 5678 '), 'tel:+821012345678');
+});
+test('번호가 없으면 빈 문자열 (버튼을 흐리게 하라는 뜻)', () => {
+  assert.strictEqual(Share.telHref(''), '');
+  assert.strictEqual(Share.telHref('연락처없음'), '');
+  assert.strictEqual(Share.smsHref('', '안녕'), '');
+});
+test('문자 주소 — 본문이 없으면 번호만', () => {
+  assert.strictEqual(Share.smsHref('010-1234-5678'), 'sms:01012345678');
+});
+test('문자 본문 구분자: 안드로이드 ? / 아이폰 &', () => {
+  assert.strictEqual(Share.smsHref('010-1234-5678', '가 나', false), 'sms:01012345678?body=%EA%B0%80%20%EB%82%98');
+  assert.strictEqual(Share.smsHref('010-1234-5678', '가 나', true), 'sms:01012345678&body=%EA%B0%80%20%EB%82%98');
+});
+test('줄바꿈도 그대로 실려 간다', () => {
+  assert.strictEqual(Share.smsHref('01011112222', 'a\nb'), 'sms:01011112222?body=a%0Ab');
+});
+test('isIosUA', () => {
+  assert.strictEqual(Share.isIosUA('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)'), true);
+  assert.strictEqual(Share.isIosUA('Mozilla/5.0 (iPad; CPU OS 17_0)'), true);
+  assert.strictEqual(Share.isIosUA('Mozilla/5.0 (Linux; Android 14)'), false);
+  assert.strictEqual(Share.isIosUA(''), false);
+});
+
 console.log('buildQuestion');
 test('빈 항목만 질문으로, 순서는 FIELDS 순', () => {
   const s = full(); s.gate = ''; s.toilet = ''; s.cargoEv.v = '미확인';

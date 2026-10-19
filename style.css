@@ -128,6 +128,9 @@ textarea { resize: vertical; }
 .contact-row a.tel { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
   border-radius: 8px; background: var(--success); color: #fff; text-decoration: none; font-size: 18px; }
 .contact-row a.tel.disabled { background: #cbd5e1; pointer-events: none; }
+.contact-row a.sms { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex: none;
+  border-radius: 9px; background: #dbeafe; color: #1d4ed8; text-decoration: none; font-size: 16px; }
+.contact-row a.sms.disabled { background: #e5e7eb; color: #9ca3af; pointer-events: none; }
 /* 이름·연락처 복사 - 전화 버튼과 같은 크기, 색만 다르게 해서 헷갈리지 않게 */
 .contact-row .cp { flex: none; width: 38px; height: 38px; border: 1.5px solid var(--border);
   border-radius: 8px; background: #fff; font-size: 16px; line-height: 1; padding: 0; }
@@ -311,7 +314,11 @@ textarea { resize: vertical; }
   font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .chip.add { color: var(--primary); border-style: dashed; background: transparent; padding: 5px 12px; }
 /* 이름 칩: 탭=전화 / [−]로 빼기 모드 (2026-10-18) */
-.chip.call { text-decoration: none; }
+.chip.call { padding: 0; display: inline-flex; align-items: stretch; overflow: hidden; }
+.chip.call .chip-nm, .chip.call .chip-sms { display: inline-flex; align-items: center; color: inherit; text-decoration: none; }
+.chip.call .chip-nm { padding: 5px 9px; }
+.chip.call .chip-sms { padding: 5px 7px; border-left: 1px solid rgba(0,0,0,0.14); background: rgba(0,0,0,0.035); font-size: 12px; }
+.chip.call .chip-sms:active { background: rgba(0,0,0,0.1); }
 .chip.nophone { color: #6b7280; background: #f3f4f6; }
 .chip.del { background: #fee2e2; border-color: var(--danger); color: #991b1b; }
 .chip.del-toggle { color: var(--danger); border-style: dashed; border-color: #fca5a5; background: transparent; padding: 5px 12px; }
@@ -359,7 +366,8 @@ textarea { resize: vertical; }
 .fv-nm em { display: block; margin-top: 1px; font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--muted); }
 .fv-call { flex: none; padding: 9px 13px; border: 1.5px solid #a7f3d0; border-radius: 9px; background: #ecfdf5;
   color: #15803d; font-size: 13px; font-weight: 800; text-decoration: none; }
-.fv-call.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; }
+.fv-call.off { border-color: var(--border); background: #f3f4f6; color: #9ca3af; pointer-events: none; }
+.fv-call.sms { border-color: #bfdbfe; background: #eff6ff; }
 /* 📞 전화 · 💬 문자 두 개를 세로로 (좁은 폰에서 이름이 밀리지 않게) */
 .fv-acts { flex: none; display: flex; flex-direction: column; gap: 5px; }
 .fv-sms { padding: 9px 13px; border: 1.5px solid #bfdbfe; border-radius: 9px; background: #eff6ff;
@@ -542,7 +550,11 @@ textarea { resize: vertical; }
 .sch-name.dup { background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1.5px var(--danger); }
 .sch-name.add { background: transparent; border: 1.5px dashed #cbd5e1; color: var(--muted); font-size: 14px; padding: 5px 12px; }
 /* 이름 탭=전화 / [−] 빼기 모드 (2026-10-18) — 현장 상세의 이름 칩과 같은 규칙 */
-.sch-name.call { text-decoration: none; display: inline-flex; align-items: center; }
+.sch-name.call { text-decoration: none; display: inline-flex; align-items: stretch; padding: 0; overflow: hidden; }
+.sch-name.call .sch-nm, .sch-name.call .sch-sms { display: inline-flex; align-items: center; color: inherit; text-decoration: none; }
+.sch-name.call .sch-nm { padding: 6px 10px; }
+.sch-name.call .sch-sms { padding: 6px 8px; border-left: 1px solid rgba(0,0,0,0.14); background: rgba(0,0,0,0.05); font-size: 12px; }
+.sch-name.call .sch-sms:active { background: rgba(0,0,0,0.12); }
 .sch-name.nophone { background: #f3f4f6; color: #6b7280; }
 .sch-name.del { background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1.5px var(--danger); }
 .sch-name.del-toggle { background: transparent; border: 1.5px dashed #fca5a5; color: var(--danger); font-size: 14px; padding: 5px 12px; }
@@ -649,14 +661,20 @@ textarea { resize: vertical; }
 .svc-staff-row select { flex: 0 0 132px; padding: 8px 6px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-weight: 700; background: #fff; }
 .svc-staff-info { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; font-weight: 700; }
 .svc-staff-tel { color: var(--success); text-decoration: none; }
+.svc-staff-sms { color: var(--primary); text-decoration: none; }
 .svc-staff-miss { color: var(--muted); font-weight: 600; }
 .svc-staff-row .x { flex: none; width: 30px; height: 36px; border: none; background: transparent; color: var(--muted); font-size: 18px; padding: 0; }
 .svc-more { margin-top: 2px; }
 /* 고객명 칸은 좁게 - 번호칸이 더 길어야 한다 */
+.svc-phonerow { flex-wrap: wrap; }
 .svc-phonerow input.svc-customer { flex: 0 0 88px; }
+/* 전화 옆에 문자가 붙으면서 번호 칸이 좁아졌다 — 번호는 한 줄을 통째로 쓰고 버튼은 그 아래 (2026-10-19) */
+.svc-phonerow input[type="tel"] { flex: 1 1 100%; }
+.svc-phonerow .svc-call { flex: 1 1 0; }
 /* 고객 연락처 옆 전화 버튼 - 업자 담당자 줄의 📞 와 같은 초록 */
 .svc-call { display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; border-radius: 10px;
   background: var(--success); color: #fff; text-decoration: none; font-size: 15px; font-weight: 800; white-space: nowrap; }
+.svc-call.sms { background: var(--primary); }
 .svc-call.disabled { background: #cbd5e1; pointer-events: none; }
 .contact-btns.svc-copy { padding: 0; }
 .svc-done { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 15px; font-weight: 800; }
@@ -840,15 +858,16 @@ textarea { resize: vertical; }
 /* ---------- 설정 탭 · 기사 정보 (2026-10-05) ---------- */
 .tab-gray { --c: #4b5563; --t: #f3f4f6; }   /* 회색 — 백업 */
 .site-tabs:has(.tab-gray.on) { --tabc: #4b5563; }
-.team-tap { display: flex; align-items: center; gap: 6px; }
+.team-tap { display: flex; align-items: center; gap: 4px; }
 .team-main { flex: 1; min-width: 0; padding: 2px 0; cursor: pointer; }
 .team-main .slist-name { font-size: 15px; font-weight: 800; }
 /* 한 줄 버튼 (2026-10-16): 이름 · 수정 · 전화 · 일정 · ×. 아이콘 없이 글자만 */
-.team-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 46px; padding: 7px 9px;
-  border: 1.5px solid; border-radius: 8px; font-size: 13px; font-weight: 800; line-height: 1.2; white-space: nowrap; text-decoration: none; }
+.team-btn { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; padding: 7px 6px;
+  border: 1.5px solid; border-radius: 8px; font-size: 12.5px; font-weight: 800; line-height: 1.2; white-space: nowrap; text-decoration: none; }
 .team-btn.edit { color: #1e40af; background: #eff6ff; border-color: #93c5fd; }
 .team-btn.call { color: #15803d; background: #ecfdf3; border-color: #a7f3d0; }
-.team-btn.call:disabled { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
+.team-btn.call:disabled, .team-btn.sms:disabled { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
+.team-btn.sms { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
 .team-btn.cal { color: #9a3412; background: #fff7ed; border-color: #fb923c; }
 .team-row .x { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 1.5px solid var(--border); border-radius: 8px;
   background: #fff; color: #6b7280; font-size: 18px; }
@@ -868,6 +887,7 @@ textarea { resize: vertical; }
 .pf-row input { flex: 1; min-width: 0; }
 .pf-row .btn-sm, .pf-call { flex: none; white-space: nowrap; }
 .pf-call { display: inline-flex; align-items: center; padding: 0 12px; border-radius: 8px; background: #ecfdf3; color: #15803d; font-size: 14px; font-weight: 800; text-decoration: none; border: 1.5px solid #a7f3d0; }
+.pf-call.sms { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
 .pf-call[hidden] { display: none; }
 /* 기사 사진 한 장 (2026-10-16) — 없으면 점선 칸, 있으면 그림 + [바꾸기][사진 삭제] */
 .pf-photo { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
@@ -976,7 +996,7 @@ textarea { resize: vertical; }
 
 /* 발주처 담당자 (2026-10-14) */
 .owner-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
-.owner-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px 32px; grid-template-areas: "name role call del" "phone phone call del"; gap: 6px; align-items: center;
+.owner-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 38px 38px 30px; grid-template-areas: "name role call sms del" "phone phone call sms del"; gap: 5px; align-items: center;
   padding: 8px; border: 1.5px solid var(--border); border-radius: 10px; background: #fafafa; }
 .owner-row input { min-width: 0; padding: 8px 9px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; }
 .owner-name { grid-area: name; font-weight: 700; }
@@ -984,6 +1004,8 @@ textarea { resize: vertical; }
 .owner-phone { grid-area: phone; }
 .owner-call { grid-area: call; display: flex; align-items: center; justify-content: center; align-self: stretch; border-radius: 8px; background: #dcfce7; text-decoration: none; font-size: 18px; }
 .owner-call.disabled { background: #f3f4f6; opacity: .5; }
+.owner-sms { grid-area: sms; display: flex; align-items: center; justify-content: center; align-self: stretch; border-radius: 8px; background: #dbeafe; text-decoration: none; font-size: 17px; }
+.owner-sms.disabled { background: #f3f4f6; opacity: .5; }
 .owner-del { grid-area: del; align-self: stretch; border: 0; border-radius: 8px; background: transparent; color: #9ca3af; font-size: 16px; }
 .svc-owners { margin: 0 0 8px; }
 
@@ -1019,18 +1041,21 @@ textarea { resize: vertical; }
 .task-person { border-color: #86efac !important; background: #f0fdf4 !important; }
 .task-tel { flex: none; align-self: center; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
   border-radius: 50%; background: #dcfce7; font-size: 18px; text-decoration: none; }
+.task-tel.sms { background: #dbeafe; }
 .task-person-call { display: block; margin: 0 0 12px; padding: 12px; border-radius: 10px; background: #16a34a; color: #fff;
   font-size: 15px; font-weight: 800; text-align: center; text-decoration: none; }
 
 /* 할 일 창: 관련된 사람 연락처 목록 · 삭제하기 (2026-10-14) */
-.task-contact { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px;
+.task-contact { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin-bottom: 6px;
   border: 1.5px solid var(--border); border-radius: 10px; background: #fff; color: var(--text); text-decoration: none; }
 .task-contact:active { background: #f0fdf4; }
 .task-contact.mine { border-color: #86efac; background: #f0fdf4; }
+.task-contact-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
 .task-contact-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-contact-txt b { font-size: 15px; font-weight: 800; }
 .task-contact-txt span { font-size: 12.5px; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-contact-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #dcfce7; font-size: 18px; }
+.task-contact-ic { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #dcfce7; font-size: 18px; text-decoration: none; }
+.task-contact-ic.sms { background: #dbeafe; }
 .task-del { display: block; width: 100%; margin-top: 14px; padding: 12px; border-color: #fecaca; background: #fff5f5; color: var(--danger); font-size: 14px; }
 
 /* 할 일 줄: 현장 옆 업체명 · 시공 첫날 (2026-10-14) */

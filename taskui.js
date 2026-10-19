@@ -105,15 +105,24 @@
     row.appendChild(main);
     var tel = personTel(t);
     if (tel) {
+      var who = t.link.person.name || t.link.person.phone;
       var call = el('a', 'task-tel', '📞');
-      call.href = 'tel:' + tel;
-      call.title = (t.link.person.name || t.link.person.phone) + ' 에게 전화';
+      call.href = Share.telHref(tel);
+      call.title = who + ' 에게 전화';
       call.setAttribute('aria-label', call.title);
       call.onclick = function (e) { e.stopPropagation(); };
       row.appendChild(call);
+      var sms = el('a', 'task-tel sms', '💬');       // 전화 옆에는 늘 문자도 (2026-10-19)
+      sms.href = smsHref(tel);
+      sms.title = who + ' 에게 문자';
+      sms.setAttribute('aria-label', sms.title);
+      sms.onclick = function (e) { e.stopPropagation(); };
+      row.appendChild(sms);
     }
     return row;
   }
+  // 문자창 주소 — 폰마다 본문 구분자가 다르다 (Share.smsHref 가 가려준다)
+  function smsHref(phone, body) { return Share.smsHref(phone, body, Share.isIosUA(navigator.userAgent)); }
   function personTel(t) {
     var p = t && t.link && t.link.person;
     return p && p.phone ? String(p.phone).replace(/[^\d+]/g, '') : '';
@@ -565,16 +574,23 @@
   function renderContacts(body, t) {
     var list = contactsFor(t);
     if (!list.length) return;
-    var s = section(body, '📞 연락처 — 눌러서 전화');
+    var s = section(body, '📞 연락처 — 눌러서 전화·문자');
     list.forEach(function (x) {
-      var a = el('a', 'task-contact' + (x.mine ? ' mine' : ''));
-      a.href = 'tel:' + x.tel;
+      var wrap = el('div', 'task-contact' + (x.mine ? ' mine' : ''));
+      var a = el('a', 'task-contact-main');
+      a.href = Share.telHref(x.tel);
+      a.title = (x.name || x.phone) + ' 에게 전화';
       var txt = el('span', 'task-contact-txt');
       txt.appendChild(el('b', '', x.name || x.phone));
       txt.appendChild(el('span', '', x.tag + ' · ' + x.phone));
       a.appendChild(txt);
       a.appendChild(el('span', 'task-contact-ic', '📞'));
-      s.appendChild(a);
+      wrap.appendChild(a);
+      var m = el('a', 'task-contact-ic sms', '💬');   // 전화 옆에는 늘 문자도 (2026-10-19)
+      m.href = smsHref(x.tel);
+      m.title = (x.name || x.phone) + ' 에게 문자';
+      wrap.appendChild(m);
+      s.appendChild(wrap);
     });
   }
   function renderClientPart(body, t, c) {
