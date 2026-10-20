@@ -7,6 +7,8 @@
    [＋ 견적요청 작성하기] 는 방문견적을 ?req=1&client=<거래처ID> 로 연다.
    [🔗 기존견적서 연결하기] 는 이 앱을 거치지 않고 발행한 견적서를 거래처에 이어 붙인다 —
    견적코드(또는 /q/코드 주소)를 거래처 기록에만 적어 두므로 방문견적 쪽은 건드리지 않는다.
+   줄 오른쪽 ✕ 는 그 줄을 이 목록에서만 숨긴다(2026-10-20, 거래처.hiddenQuotes). 다시 발행하며 쌓인
+   옛 견적서를 치우려는 것이라 서버 기록과 견적서 링크는 그대로 둔다 - 고객에게 보낸 링크가 죽으면 안 된다.
    순수 계산(요청내역·답장전수)은 node 테스트: test/quote_requests.test.js */
 (function (root) {
   'use strict';
@@ -37,7 +39,8 @@
 
   // 연결: 손으로 이어 붙인 견적코드 목록 (거래처.quoteCodes). 발행목록에 그 코드가 있으면 내용까지,
   // 아직 못 받았거나 지워졌으면 코드만 한 줄로 남긴다 — 눌러서 견적서를 열 수 있어야 하기 때문
-  function 요청내역(박스항목, 발행, 거래처ID, 연결) {
+  // 숨김: 이 목록에서 숨긴 줄의 키(견적코드 또는 'box:<저장함 id>') 목록
+  function 요청내역(박스항목, 발행, 거래처ID, 연결, 숨김) {
     var 발행맵 = {};
     (발행 || []).forEach(function (p) { if (p && p.견적코드) 발행맵[p.견적코드] = p; });
     var 연결맵 = {};
@@ -57,6 +60,7 @@
         날짜: (p && p.발행일시) || 요.접수일시 || it.저장일시 || '',
         금액: 상태 === '답장 전' ? 0 : (p ? p.총액 : it.총액) || 0,
         견적코드: 코드,
+        키: 코드 || 'box:' + it.id,
       });
     });
     (발행 || []).forEach(function (p) {
@@ -65,14 +69,17 @@
       if (!내것 && !이은것) return;
       쓴코드[p.견적코드] = true;
       out.push({ 상태: '발행', 이름: p.현장명 || '', 요약: '', 날짜: p.발행일시 || '', 금액: p.총액 || 0,
-                 견적코드: p.견적코드, 연결: 이은것 && !내것 });
+                 견적코드: p.견적코드, 키: p.견적코드, 연결: 이은것 && !내것 });
     });
     // 발행목록에 없는 연결 코드 (아직 못 받았거나 방문견적에서 지운 건) — 코드만이라도 남긴다
     코드목록(연결).forEach(function (c) {
       if (쓴코드[c]) return;
       쓴코드[c] = true;
-      out.push({ 상태: '발행', 이름: '(연결한 견적서)', 요약: '', 날짜: '', 금액: 0, 견적코드: c, 연결: true });
+      out.push({ 상태: '발행', 이름: '(연결한 견적서)', 요약: '', 날짜: '', 금액: 0, 견적코드: c, 키: c, 연결: true });
     });
+    var 숨긴 = {};
+    (숨김 || []).forEach(function (k) { 숨긴[String(k)] = true; });
+    out = out.filter(function (x) { return !숨긴[x.키]; });
     out.sort(function (a, b) {
       return (순위[a.상태] - 순위[b.상태]) || String(b.날짜).localeCompare(String(a.날짜));
     });
@@ -117,6 +124,20 @@
     }
     function 연결쓰기(clientId, 코드들) {
       if (root.Store && root.Store.updateClient) root.Store.updateClient(clientId, { quoteCodes: 코드목록(코드들) });
+    }
+    function 숨김읽기(clientId) {
+      var c = root.Store && root.Store.getClient && root.Store.getClient(clientId);
+      return (c && Array.isArray(c.hiddenQuotes)) ? c.hiddenQuotes.slice() : [];
+    }
+    // ✕ : 이 목록에서만 숨긴다. 손으로 이어 붙인 견적서도 연결은 그대로 둔다 - [되돌리기] 로 그대로 돌아와야 한다
+    function 숨기기(clientId, x) {
+      var 이름 = x.이름 || '(이름 없음)';
+      if (!confirm('‘' + 이름 + '’' + (x.견적코드 ? ' (/q/' + x.견적코드 + ')' : '') + ' 을(를) 견적요청 내역에서 지울까요?\n\n' +
+        '이 목록에서만 사라집니다. 고객에게 보낸 견적서 링크는 그대로 열립니다.')) return false;
+      var h = 숨김읽기(clientId);
+      if (h.indexOf(x.키) < 0) h.push(x.키);
+      if (root.Store && root.Store.updateClient) root.Store.updateClient(clientId, { hiddenQuotes: h });
+      return true;
     }
     function 연결토글(clientId, code) {
       var cur = 연결읽기(clientId);
@@ -200,7 +221,8 @@
       wrap.hidden = false;
       wrap.className = 'fixed-wrap qreq-wrap' + (열림 ? ' open' : '');
       var 이은코드 = 연결읽기(clientId);
-      var 목록 = 요청내역((받은 && 받은.items) || [], (받은 && 받은.published) || [], clientId, 이은코드);
+      var 숨긴키 = 숨김읽기(clientId);
+      var 목록 = 요청내역((받은 && 받은.items) || [], (받은 && 받은.published) || [], clientId, 이은코드, 숨긴키);
       var n = 답장전수(목록);
 
       var tg = el('button', 'fixed-toggle');
@@ -240,6 +262,8 @@
       }
       if (받은 && !목록.length) body.appendChild(el('p', 'sheet-hint', '아직 없어요. 카톡으로 견적요청이 오면 위 버튼으로 받아 적으세요.'));
       목록.forEach(function (x) {
+        // 줄(누르면 견적서) + 오른쪽 ✕(지우기). 버튼 안에 버튼을 못 넣어서 둘을 나란히 감싼다
+        var item = el('div', 'qreq-item');
         var row = el('button', 'qreq-row');
         var cls = x.상태 === '답장 전' ? 'red' : x.상태 === '작성 중' ? 'amber' : 'green';
         row.appendChild(el('span', 'qreq-st ' + cls, x.상태));
@@ -254,8 +278,23 @@
           // 발행한 건 견적서, 아직이면 방문견적(저장함에서 이어서)
           window.open(x.견적코드 ? VIEW + x.견적코드 : QUOTE_APP, '_blank');
         };
-        body.appendChild(row);
+        item.appendChild(row);
+        var del = el('button', 'qreq-del', '✕');
+        del.setAttribute('aria-label', '견적 지우기');
+        del.onclick = function () { if (숨기기(clientId, x)) render(wrap, clientId); };
+        item.appendChild(del);
+        body.appendChild(item);
       });
+      // 잘못 지웠을 때 되돌리는 길
+      if (숨긴키.length) {
+        var undo = el('button', 'qreq-undo', '숨긴 견적 ' + 숨긴키.length + '건 되돌리기');
+        undo.onclick = function () {
+          if (!confirm('숨긴 견적 ' + 숨긴키.length + '건을 다시 보이게 할까요?')) return;
+          if (root.Store && root.Store.updateClient) root.Store.updateClient(clientId, { hiddenQuotes: [] });
+          render(wrap, clientId);
+        };
+        body.appendChild(undo);
+      }
       wrap.appendChild(body);
     }
 
