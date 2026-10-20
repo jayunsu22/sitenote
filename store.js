@@ -173,6 +173,10 @@
     c.quoteCodes = Array.isArray(c.quoteCodes)
       ? c.quoteCodes.map(function (v) { return String(v == null ? '' : v).trim(); }).filter(function (v, i, arr) { return v && arr.indexOf(v) === i; })
       : [];
+    // 견적요청 내역에서 ✕ 로 숨긴 줄 (2026-10-20) — 견적코드 또는 'box:<저장함 id>'. 견적서 링크는 그대로 열린다
+    c.hiddenQuotes = Array.isArray(c.hiddenQuotes)
+      ? c.hiddenQuotes.map(function (v) { return String(v == null ? '' : v).trim(); }).filter(function (v, i, arr) { return v && arr.indexOf(v) === i; })
+      : [];
     return c;
   }
   // 거래처 메모 내역 (2026-10-14) — 날짜별로 쌓이는 기록, 최신이 맨 앞. 할 일을 끝낼 때 결과가 여기로 온다

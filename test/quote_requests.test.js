@@ -102,5 +102,15 @@ test('저장함에서 이미 보여준 견적코드를 연결해도 줄이 두 �
   assert.strictEqual(r[0].견적코드, 'AB12CD34');
 });
 
+test('숨김: ✕ 로 숨긴 줄(견적코드·저장함 id)은 빠진다, 키가 붙는다', () => {
+  const 박스 = [담긴({ id: 7 }), 담긴({ id: 8, 건수: 2, 현장코드: 'AAA' })];
+  const 발행 = [{ 견적코드: 'BBB', 현장관리_거래처ID: 'c1', 현장명: '다시 발행', 발행일시: '2026-10-20T00:00:00Z', 총액: 1 }];
+  const 다 = Q.요청내역(박스, 발행, 'c1', ['CCC']);
+  assert.deepStrictEqual(다.map(x => x.키).sort(), ['AAA', 'BBB', 'CCC', 'box:7']);
+  const r = Q.요청내역(박스, 발행, 'c1', ['CCC'], ['box:7', 'BBB', 'CCC']);
+  assert.deepStrictEqual(r.map(x => x.키), ['AAA']);
+  assert.strictEqual(Q.요청내역(박스, 발행, 'c1', [], undefined).length, 3);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
