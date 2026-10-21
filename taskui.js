@@ -612,11 +612,19 @@
     var stage = Share.filmStageOf(site);
     var fs = section(body, '🎞 필름 — ' + Share.FILM_STAGES[stage]);
     if (films.length) {
-      films.forEach(function (x) { fs.appendChild(el('div', 'task-film', [x.place, x.code].filter(Boolean).join(' · '))); });
+      films.forEach(function (x) {
+        var fl = el('div', 'task-film', [x.place, x.code].filter(Boolean).join(' · '));
+        if (Share.isIsoDate(x.orderedAt)) fl.appendChild(el('span', 'task-ord', '✓ 주문 ' + Share.shortDate(x.orderedAt)));
+        fs.appendChild(fl);
+        Share.filmOverlaps(Store.state.sites, site, x.code).forEach(function (o) {
+          fs.appendChild(el('div', 'film-warn', '⚠ ' + Share.titleLine(o.site) + ' · ' + Share.dayLabel(o.date) + ' 에도 있음 · ' + (o.orderedAt ? '그쪽은 주문 ' + Share.shortDate(o.orderedAt) : '그쪽 미주문')));
+        });
+      });
     } else fs.appendChild(el('p', 'sheet-hint', '아직 필름 번호가 없어요. 현장 화면에서 적어 주세요.'));
     var fa = el('div', 'task-actions');
     if (films.length) fa.appendChild(btn('btn-sm', '📋 번호 복사', function () { d.copyText(Share.filmOrderText(site), '필름 번호 복사 — 대리점에 붙여넣기'); }));
-    if (stage < 2) fa.appendChild(btn('btn-sm primary', '주문함 → 필름 주문', function () {
+    var oc = Share.filmOrderCount(site);
+    if (stage < 2 || oc.ordered < oc.total) fa.appendChild(btn('btn-sm primary', oc.total ? '안 시킨 줄 모두 주문함' : '주문함 → 필름 주문', function () {
       Store.markFilmOrdered(site.id);
       if (!t.auto && !t.done && /필름|주문/.test(t.title)) Store.completeTask(t.id, '');
       d.toast('필름 단계를 "필름 주문"으로 바꿨어요');
@@ -752,7 +760,41 @@
     wrap.appendChild(el('p', 'sheet-hint', '0 이면 당일에만 떠요. 조건이 풀리면(주문함·인원 채움·체크) 저절로 사라져요.'));
   }
 
+  /* ---------- 필름 모아보기 (2026-10-22) ----------
+     오늘부터 2주 안에 시작하는 현장의 필름을 번호별로. 두 곳 이상 쓰는 번호(겹침)가 위, 빨간색.
+     줄을 누르면 그 현장으로. 맨 아래 '미주문만 번호 복사' 로 대리점에 한 번에 */
+  var FILM_BOARD_DAYS = 14;
+  function openFilmBoard() {
+    var board = Share.filmBoard(Store.state.sites, today(), FILM_BOARD_DAYS);
+    var end = Share.addDays(today(), FILM_BOARD_DAYS - 1);
+    openSheet('🎞 필름 모아보기', function (body) {
+      body.appendChild(el('div', 'task-meta', Share.dayLabel(today()) + ' ~ ' + Share.dayLabel(end) + ' 시작 현장 · 번호 ' + board.length + '개'));
+      if (!board.length) { body.appendChild(el('p', 'sheet-hint', '2주 안에 시작하는 현장에 적힌 필름 번호가 없어요.')); return; }
+      board.forEach(function (g) {
+        var dup = g.uses.length > 1;
+        var box = el('div', 'fb-grp' + (dup ? ' dup' : ''));
+        box.appendChild(el('div', 'fb-code', g.code + (dup ? ' · ' + g.uses.length + '곳' : '')));
+        g.uses.forEach(function (u) {
+          var r = btn('fb-use');
+          r.appendChild(el('span', 'fb-site', Share.titleLine(u.site) + ' · ' + Share.dayLabel(u.date)));
+          r.appendChild(el('span', 'fb-st' + (u.orderedAt ? ' ok' : ''), u.orderedAt ? '✓ ' + Share.shortDate(u.orderedAt) : '미주문'));
+          r.onclick = function () { $('taskSheet').hidden = true; d.go('#site/' + u.site.id); };
+          box.appendChild(r);
+        });
+        body.appendChild(box);
+      });
+      var text = Share.filmBoardText(board);
+      var foot = el('div', 'task-foot');
+      foot.appendChild(btn('btn-sm primary task-ok', text ? '📋 미주문만 번호 복사' : '모두 주문했어요', function () {
+        if (!text) return;
+        d.copyText(text, '미주문 필름 번호 복사 — 대리점에 붙여넣기');
+      }));
+      body.appendChild(foot);
+    });
+  }
+
   root.TaskUI = {
+    openFilmBoard: openFilmBoard,
     init: init,
     scheduleGroups: scheduleGroups,
     openTaskDays: openTaskDays,

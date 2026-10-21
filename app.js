@@ -561,7 +561,7 @@
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calShow = 'count';   // 달력 칸에 건수 / 시공지역 / 인원 중 뭘 볼까 (설정에 기억해 둔다)
-  var CAL_SHOWS = ['count', 'region', 'staff', 'income'];
+  var CAL_SHOWS = ['count', 'region', 'staff', 'film', 'income'];
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
@@ -595,6 +595,7 @@
     // 폰에 기억해 둔 보기 방식을 그린다 (다른 기기에서 바꾼 게 restore 로 들어와도 맞춘다)
     calShow = CAL_SHOWS.indexOf(state.settings.calShow) !== -1 ? state.settings.calShow : 'count';
     taskDays = TaskUI.openTaskDays();
+    filmDays = calShow === 'film' ? Share.dateFilms(state.sites) : {};
     holdDays = {};
     Object.keys(state.settings.holds || {}).forEach(function (iso) {
       var open = Share.heldOpen(state.settings.holds, state.sites, iso);
@@ -607,6 +608,7 @@
   /* ---------- 위쪽 달력 ---------- */
   // 한 칸: 날짜 + 건수 배지. 건수가 0이면 점선 동그라미(= 넣을 수 있는 날).
   // 지난 날은 점선을 안 그린다 — 지나간 날에 새로 배정할 일은 없다.
+  var filmDays = {};   // 필름 보기: 시공 첫날 칸의 필름 번호 { iso: [{ code, dup }] } (2026-10-22)
   var holdDays = {};   // 대기 인원이 남은 날 { iso: [이름] } — 인원 보기에 주황 '대기' (2026-10-14)
   var taskDays = {};   // 안 끝난 할 일이 있는 날 { iso: 건수 } — 달력 칸에 주황 점 (2026-10-14)
   function calCell(iso, opts) {
@@ -660,6 +662,15 @@
         mark.appendChild(l1); mark.appendChild(l2);
       }
       else mark.className = 'schcal-blank';
+    }
+    else if (calShow === 'film' && (filmDays[iso] || []).length) {
+      // 필름 보기: 그날 시작하는 현장의 필름 번호. 앞뒤 7일 안 다른 현장에도 있으면 빨간 ⚠
+      mark.className = 'schcal-nm' + (past ? ' past' : '');
+      filmDays[iso].forEach(function (f) {
+        var l = document.createElement('span');
+        l.className = 'schcal-nml film' + (f.dup ? ' dup' : ''); l.textContent = f.code + (f.dup ? '⚠' : '');
+        mark.appendChild(l);
+      });
     }
     else if (calShow === 'staff' && (n || held.length)) {
       mark.className = 'schcal-nm' + (past ? ' past' : '');
@@ -841,7 +852,7 @@
   /* 건수 · 지역 · 인원 — 셋을 나란히 두고 보고 있는 것에 불을 켠다.
      돌려 가며 누르는 버튼 하나로는 지금 뭘 보고 있는지, 뭘 더 볼 수 있는지 모른다.
      어느 쪽을 보고 있었는지는 폰에 기억해 둔다 */
-  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤', income: '수익 💰' };
+  var CAL_SHOW_LABEL = { count: '건수 🔢', region: '지역 📍', staff: '인원 👤', film: '필름 🎞', income: '수익 💰' };
   function calShowRow() {
     var row = document.createElement('div'); row.className = 'schcal-segs';
     CAL_SHOWS.forEach(function (k) {
@@ -863,6 +874,11 @@
     box.appendChild(calShowRow());
     var row = document.createElement('div'); row.className = 'schcal-foot';
     row.appendChild(calToggleBtn());
+    // 필름 모아보기 (2026-10-22) — 앞으로 2주 쓸 필름을 번호별로, 겹친 번호 먼저
+    var fb = document.createElement('button'); fb.type = 'button'; fb.className = 'schcal-toggle';
+    fb.textContent = '🎞 필름 모아보기';
+    fb.onclick = function () { TaskUI.openFilmBoard(); };
+    row.appendChild(fb);
     box.appendChild(row);
     return box;
   }
@@ -3068,13 +3084,30 @@
   }
   function renderFilms(ctl, s, save) {
     ctl.innerHTML = '';
-    var films = (s.films || []).map(function (r) { return Object.assign({ place: '', code: '', ready: false }, r); });
-    if (!films.length) films.push({ place: '', code: '', ready: false });
+    var films = (s.films || []).map(function (r) { return Object.assign({ place: '', code: '', ready: false, orderedAt: '' }, r); });
+    if (!films.length) films.push({ place: '', code: '', ready: false, orderedAt: '' });
     films.forEach(function (r, i) {
       var line = document.createElement('div'); line.className = 'film-row';
       line.innerHTML = '<input type="text" class="place" placeholder="시공위치 (현관문 뒷면)" value="' + esc(r.place) + '">' +
         '<input type="text" class="code" placeholder="필름번호 (PS035)" value="' + esc(r.code) + '">' +
+        '<button type="button" class="film-ord" title="이 줄 주문했음 표시"></button>' +
         '<button type="button" class="x" title="줄 삭제">×</button>';
+      // 줄마다 주문 (2026-10-22) — 누르면 오늘 날짜가 찍히고, 다시 누르면 취소. 같은 필름 두 번 시키기 막기
+      var ord = line.querySelector('.film-ord');
+      var paintOrd = function () {
+        var on = Share.isIsoDate(films[i].orderedAt);
+        ord.classList.toggle('on', on);
+        ord.textContent = on ? '✓' + Share.shortDate(films[i].orderedAt) : '주문';
+      };
+      paintOrd();
+      ord.onclick = function () {
+        if (!String(films[i].code || '').trim()) { toast('필름 번호를 먼저 적어 주세요'); return; }
+        if (!Store.getSite(s.id).films[i]) save({ films: films.slice() });
+        var u = Store.setFilmOrdered(s.id, i, !Share.isIsoDate(films[i].orderedAt));
+        films[i].orderedAt = (u && u.films[i] && u.films[i].orderedAt) || '';
+        paintOrd();
+        if (u && Share.filmStageOf(u) >= 2 && $('stageSec')) renderStageSection($('stageSec'), s.id);
+      };
       // 준비됨 ☑ — 줄 맨 앞. 아직 저장 안 된 빈 첫 줄이면 먼저 저장하고 토글한다
       line.insertBefore(checkBtn(r.ready, function () {
         if (!Store.getSite(s.id).films[i]) save({ films: films.slice() });
@@ -3083,15 +3116,29 @@
         return films[i].ready;
       }), line.firstChild);
       var upd = function () {
-        films[i] = { place: line.querySelector('.place').value, code: line.querySelector('.code').value, ready: !!films[i].ready };
+        films[i] = Object.assign({}, films[i], { place: line.querySelector('.place').value, code: line.querySelector('.code').value, ready: !!films[i].ready });
         save({ films: films.slice() });
       };
       line.querySelector('.place').addEventListener('input', upd);
       line.querySelector('.code').addEventListener('input', upd);
+      // 번호를 다 적고 나가면 겹침 경고를 다시 그린다 (적는 중에 다시 그리면 커서가 날아간다)
+      line.querySelector('.code').addEventListener('change', function () { paintWarn(); });
       line.querySelector('.x').onclick = function () {
         films.splice(i, 1); save({ films: films.slice() }); renderFilms(ctl, Store.getSite(s.id), save);
       };
       ctl.appendChild(line);
+      // 같은 번호가 앞뒤 7일 안 다른 현장에도 있으면 줄 바로 아래에 경고
+      var warn = document.createElement('div'); warn.className = 'film-warn';
+      var paintWarn = function () {
+        var cur = Store.getSite(s.id) || s;
+        var ov = Share.filmOverlaps(state.sites, cur, films[i].code);
+        warn.hidden = !ov.length;
+        warn.textContent = ov.map(function (x) {
+          return '⚠ ' + Share.titleLine(x.site) + ' · ' + Share.dayLabel(x.date) + ' 에도 있음 · ' + (x.orderedAt ? '그쪽은 주문 ' + Share.shortDate(x.orderedAt) : '그쪽 미주문');
+        }).join('\n');
+      };
+      paintWarn();
+      ctl.appendChild(warn);
     });
     // 줄 추가 | 필름명 복사. 복사는 필름 번호만 한 줄에 하나씩 - 대리점 주문용이라
     // 시공위치는 빼고 준다. 방금 친 값(films 배열)을 그대로 읽는다.

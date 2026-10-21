@@ -873,6 +873,37 @@ function reset() {
     assert.strictEqual(Store.getTask(t2.id).link.person, undefined);
   });
 
+  console.log('필름 줄마다 주문 (2026-10-22)');
+  await test('setFilmOrdered: 오늘 날짜로 찍고 끄면 빈칸, 번호 있는 줄이 다 주문되면 단계가 주문(2)', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.updateSite(s.id, { films: [{ place: '거실', code: 'LW-1', ready: false }, { place: '방', code: 'PW-2', ready: false }, { place: '', code: '', ready: false }] });
+    Store.setFilmOrdered(s.id, 0, true);
+    assert.strictEqual(Store.getSite(s.id).films[0].orderedAt, Share.todayIso());
+    assert.strictEqual(Store.getSite(s.id).filmStage, 0, '한 줄만 주문 — 단계 그대로');
+    Store.setFilmOrdered(s.id, 1, true);
+    assert.strictEqual(Store.getSite(s.id).filmStage, 2, '다 주문 — 주문 단계');
+    Store.setFilmOrdered(s.id, 1, false);
+    assert.strictEqual(Store.getSite(s.id).films[1].orderedAt, '');
+    assert.strictEqual(Store.getSite(s.id).filmStage, 2, '취소해도 단계는 내려가지 않는다');
+  });
+  await test('markFilmOrdered: 안 시킨 번호 줄을 모두 오늘로, 이미 찍힌 날짜는 그대로', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.updateSite(s.id, { films: [{ place: '', code: 'A', ready: false, orderedAt: '2026-10-01' }, { place: '', code: 'B', ready: false }, { place: '', code: '', ready: false }] });
+    Store.markFilmOrdered(s.id);
+    const f = Store.getSite(s.id).films;
+    assert.deepStrictEqual(f.map(r => r.orderedAt), ['2026-10-01', Share.todayIso(), '']);
+    assert.strictEqual(Store.getSite(s.id).filmStage, 2);
+  });
+  await test('옛 필름 줄: orderedAt 없거나 이상하면 빈칸', () => {
+    reset();
+    mem['sitenote.v1'] = JSON.stringify({ clients: [{ id: 'c1', name: 'A', order: 0 }],
+      sites: [{ id: 's1', clientId: 'c1', name: 'x', films: [{ place: '', code: 'A' }, { place: '', code: 'B', orderedAt: 'x' }, { place: '', code: 'C', orderedAt: '2026-10-02' }] }] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite('s1').films.map(r => r.orderedAt), ['', '', '2026-10-02']);
+  });
+
   console.log('할 일 (2026-10-14)');
   await test('addTask: 제목 필수, 기본값, 큐 type=task', () => {
     reset();
