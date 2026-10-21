@@ -1399,6 +1399,42 @@
     });
     return out.sort(function (a, b) { return a.orderedAt < b.orderedAt ? 1 : -1; });
   }
+  /* 필름 전체 보기 (2026-10-22) — 사용자: '필름칸에 넣어진 모든 필름넘버를 알려주고 주문/수령 단계를 표시'.
+     시공 첫날이 today-back ~ today+ahead 인 현장의 번호 있는 줄 전부를 시공 날짜별 → 현장별로.
+     줄 단계: 현장 단계 수령(3) → '수령', 줄에 주문 날짜가 있거나 현장 단계 주문(2) → '주문', 아니면 '미주문'.
+     dup = 이 범위 안에서 이 번호가 들어간 현장 수 (2 이상이면 겹침) */
+  function filmStatus(site, row) {
+    var st = filmStageOf(site);
+    if (st >= 3) return '수령';
+    if (st === 2 || isIsoDate(row && row.orderedAt)) return '주문';
+    return '미주문';
+  }
+  function filmSchedule(sites, today, back, ahead) {
+    var from = addDays(today, -(back || 0)), to = addDays(today, ahead || 14);
+    var list = (sites || []).filter(function (s) { return s && isIsoDate(s.date) && s.date >= from && s.date <= to; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.createdAt || 0) - (b.createdAt || 0)); });
+    var sitesByKey = {};
+    list.forEach(function (s) { (s.films || []).forEach(function (r) { var k = filmKey(r && r.code); if (k) (sitesByKey[k] = sitesByKey[k] || {})[s.id] = 1; }); });
+    var days = [], byDate = {};
+    list.forEach(function (s) {
+      var rows = (s.films || []).filter(function (r) { return r && filmKey(r.code); }).map(function (r) {
+        var k = filmKey(r.code), n = Object.keys(sitesByKey[k]).length;
+        return { code: str(r.code), key: k, place: str(r.place), status: filmStatus(s, r),
+          orderedAt: isIsoDate(r.orderedAt) ? r.orderedAt : '', dup: n > 1 ? n : 0 };
+      });
+      if (!rows.length) return;
+      if (!byDate[s.date]) { byDate[s.date] = { date: s.date, sites: [] }; days.push(byDate[s.date]); }
+      byDate[s.date].sites.push({ site: s, stage: filmStageOf(s), rows: rows });
+    });
+    return days;
+  }
+  function filmScheduleText(days) {
+    var seen = {}, out = [];
+    (days || []).forEach(function (d) { d.sites.forEach(function (x) { x.rows.forEach(function (r) {
+      if (r.status === '미주문' && !seen[r.key]) { seen[r.key] = 1; out.push(r.code); }
+    }); }); });
+    return out.join('\n');
+  }
   function filmOrderCount(site) {
     var rows = ((site && site.films) || []).filter(function (r) { return r && filmKey(r.code); });
     return { ordered: rows.filter(function (r) { return isIsoDate(r.orderedAt); }).length, total: rows.length };
@@ -1411,6 +1447,9 @@
     filmBoardText: filmBoardText,
     dateFilms: dateFilms,
     filmOrderCount: filmOrderCount,
+    filmSchedule: filmSchedule,
+    filmScheduleText: filmScheduleText,
+    filmStatus: filmStatus,
     filmOrderLog: filmOrderLog,
     filmOrderedBefore: filmOrderedBefore,
     DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
