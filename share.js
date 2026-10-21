@@ -1356,6 +1356,49 @@
     });
     return out;
   }
+  /* 날짜별 주문 내역 (2026-10-22) — 사용자: '날짜별로 주문한 내역이 나와야 겹치는 걸 확인할 수 있다'.
+     today 기준 days 일 전부터 주문한 줄을 주문한 날짜별로(최근 먼저). 같은 날·같은 현장·같은 번호는 한 줄(시공위치는 모아 적음).
+     dup = 그 기간에 이 번호를 주문한 현장 수 (2 이상이면 겹침) */
+  function filmOrderLog(sites, today, days) {
+    var from = addDays(today, -((days || 30) - 1));
+    var byDate = {}, sitesByKey = {};
+    (sites || []).forEach(function (s) {
+      ((s && s.films) || []).forEach(function (r) {
+        var k = filmKey(r && r.code), o = r && r.orderedAt;
+        if (!k || !isIsoDate(o) || o < from || o > today) return;
+        (sitesByKey[k] = sitesByKey[k] || {})[s.id] = 1;
+        var day = byDate[o] = byDate[o] || {};
+        var id = s.id + '|' + k;
+        if (!day[id]) day[id] = { code: str(r.code), key: k, site: s, siteDate: str(s.date), places: [] };
+        if (str(r.place) && day[id].places.indexOf(str(r.place)) === -1) day[id].places.push(str(r.place));
+      });
+    });
+    return Object.keys(byDate).sort().reverse().map(function (date) {
+      var items = Object.keys(byDate[date]).map(function (id) {
+        var it = byDate[date][id];
+        var n = Object.keys(sitesByKey[it.key]).length;
+        return { code: it.code, key: it.key, site: it.site, siteDate: it.siteDate, places: it.places.join(', '), dup: n > 1 ? n : 0 };
+      });
+      return { date: date, items: items };
+    });
+  }
+  // 이 번호를 최근 days 일 안에 다른 현장에서 주문한 기록 → [{ site, orderedAt }] (최근 먼저)
+  function filmOrderedBefore(sites, site, code, today, days) {
+    var k = filmKey(code);
+    if (!k) return [];
+    var from = addDays(today, -((days || 30) - 1));
+    var out = [];
+    (sites || []).forEach(function (s) {
+      if (!s || (site && s.id === site.id)) return;
+      var best = '';
+      ((s.films) || []).forEach(function (r) {
+        var o = r && r.orderedAt;
+        if (filmKey(r && r.code) === k && isIsoDate(o) && o >= from && o <= today && o > best) best = o;
+      });
+      if (best) out.push({ site: s, orderedAt: best });
+    });
+    return out.sort(function (a, b) { return a.orderedAt < b.orderedAt ? 1 : -1; });
+  }
   function filmOrderCount(site) {
     var rows = ((site && site.films) || []).filter(function (r) { return r && filmKey(r.code); });
     return { ordered: rows.filter(function (r) { return isIsoDate(r.orderedAt); }).length, total: rows.length };
@@ -1368,6 +1411,8 @@
     filmBoardText: filmBoardText,
     dateFilms: dateFilms,
     filmOrderCount: filmOrderCount,
+    filmOrderLog: filmOrderLog,
+    filmOrderedBefore: filmOrderedBefore,
     DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
     normalizeTaskRules: normalizeTaskRules,
     autoTasks: autoTasks,
