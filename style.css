@@ -1169,3 +1169,13 @@ textarea { resize: vertical; }
 .fb-site { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb-st { flex: none; font-size: 12.5px; font-weight: 800; color: #b45309; }
 .fb-st.ok { color: #15803d; }
+
+/* 필름 주문 내역 (날짜별) (2026-10-22) */
+.fb-num { font-weight: 800; margin-right: 2px; }
+.fb-use.dup { background: #fef2f2; }
+.fb-use.dup .fb-num { color: #b91c1c; }
+.fb-st.warn { color: #b91c1c; white-space: normal; text-align: right; max-width: 45%; }
+.fb-use .fb-site { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
+.fb-sub { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.fb-use { align-items: flex-start; }
+.fb-st.warn { font-size: 12px; }

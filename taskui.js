@@ -761,28 +761,54 @@
   }
 
   /* ---------- 필름 모아보기 (2026-10-22) ----------
-     오늘부터 2주 안에 시작하는 현장의 필름을 번호별로. 두 곳 이상 쓰는 번호(겹침)가 위, 빨간색.
+     위: 주문 내역 — 최근 30일 주문을 '주문한 날짜별로'(최근 먼저). 같은 번호를 다른 현장에서도 주문했으면 빨간 ⚠.
+     아래: 아직 안 시킨 필름 — 2주 안에 시작하는 현장. 최근 30일 안 다른 현장에서 주문한 번호면 바로 알려 준다.
      줄을 누르면 그 현장으로. 맨 아래 '미주문만 번호 복사' 로 대리점에 한 번에 */
-  var FILM_BOARD_DAYS = 14;
+  var FILM_BOARD_DAYS = 14, FILM_LOG_DAYS = 30;
   function openFilmBoard() {
-    var board = Share.filmBoard(Store.state.sites, today(), FILM_BOARD_DAYS);
-    var end = Share.addDays(today(), FILM_BOARD_DAYS - 1);
-    openSheet('🎞 필름 모아보기', function (body) {
-      body.appendChild(el('div', 'task-meta', Share.dayLabel(today()) + ' ~ ' + Share.dayLabel(end) + ' 시작 현장 · 번호 ' + board.length + '개'));
-      if (!board.length) { body.appendChild(el('p', 'sheet-hint', '2주 안에 시작하는 현장에 적힌 필름 번호가 없어요.')); return; }
-      board.forEach(function (g) {
-        var dup = g.uses.length > 1;
-        var box = el('div', 'fb-grp' + (dup ? ' dup' : ''));
-        box.appendChild(el('div', 'fb-code', g.code + (dup ? ' · ' + g.uses.length + '곳' : '')));
-        g.uses.forEach(function (u) {
-          var r = btn('fb-use');
-          r.appendChild(el('span', 'fb-site', Share.titleLine(u.site) + ' · ' + Share.dayLabel(u.date)));
-          r.appendChild(el('span', 'fb-st' + (u.orderedAt ? ' ok' : ''), u.orderedAt ? '✓ ' + Share.shortDate(u.orderedAt) : '미주문'));
-          r.onclick = function () { $('taskSheet').hidden = true; d.go('#site/' + u.site.id); };
+    var sites = Store.state.sites;
+    var log = Share.filmOrderLog(sites, today(), FILM_LOG_DAYS);
+    var board = Share.filmBoard(sites, today(), FILM_BOARD_DAYS);
+    var goSite = function (site) { return function () { $('taskSheet').hidden = true; d.go('#site/' + site.id); }; };
+    openSheet('🎞 필름 주문 내역', function (body) {
+      var s1 = section(body, '주문한 날짜별 (최근 ' + FILM_LOG_DAYS + '일)');
+      if (!log.length) s1.appendChild(el('p', 'sheet-hint', '최근 ' + FILM_LOG_DAYS + '일 동안 주문 표시한 필름이 없어요. 현장 필름 칸의 [주문] 을 누르면 여기에 쌓여요.'));
+      log.forEach(function (day) {
+        var box = el('div', 'fb-grp');
+        box.appendChild(el('div', 'fb-code', Share.dayLabel(day.date) + (day.date === today() ? ' 오늘' : '') + ' 주문 · ' + day.items.length + '건'));
+        day.items.forEach(function (it) {
+          var r = btn('fb-use' + (it.dup ? ' dup' : ''));
+          var left = el('span', 'fb-site');
+          left.appendChild(el('b', 'fb-num', it.code));
+          left.appendChild(el('span', 'fb-sub', Share.titleLine(it.site) + (it.places ? ' · ' + it.places : '')));
+          r.appendChild(left);
+          r.appendChild(el('span', 'fb-st' + (it.dup ? ' warn' : ' ok'),
+            it.dup ? '⚠ ' + it.dup + '곳 주문' : (Share.isIsoDate(it.siteDate) ? '시공 ' + Share.shortDate(it.siteDate) : '')));
+          r.onclick = goSite(it.site);
           box.appendChild(r);
         });
-        body.appendChild(box);
+        s1.appendChild(box);
       });
+
+      var pending = [];
+      board.forEach(function (g) { g.uses.forEach(function (u) { if (!u.orderedAt) pending.push({ code: g.code, site: u.site, date: u.date }); }); });
+      var s2 = section(body, '아직 안 시킨 필름 (' + FILM_BOARD_DAYS + '일 안 시공)');
+      if (!pending.length) s2.appendChild(el('p', 'sheet-hint', '2주 안에 시작하는 현장의 필름은 모두 주문했어요.'));
+      var box2 = el('div', 'fb-grp');
+      pending.forEach(function (p) {
+        var before = Share.filmOrderedBefore(sites, p.site, p.code, today(), FILM_LOG_DAYS);
+        var r = btn('fb-use' + (before.length ? ' dup' : ''));
+        var left = el('span', 'fb-site');
+        left.appendChild(el('b', 'fb-num', p.code));
+        left.appendChild(el('span', 'fb-sub', Share.titleLine(p.site) + ' · 시공 ' + Share.shortDate(p.date)));
+        r.appendChild(left);
+        r.appendChild(el('span', 'fb-st' + (before.length ? ' warn' : ''),
+          before.length ? '⚠ ' + Share.shortDate(before[0].orderedAt) + ' ' + Share.titleLine(before[0].site) + '에 주문함' : '미주문'));
+        r.onclick = goSite(p.site);
+        box2.appendChild(r);
+      });
+      if (pending.length) s2.appendChild(box2);
+
       var text = Share.filmBoardText(board);
       var foot = el('div', 'task-foot');
       foot.appendChild(btn('btn-sm primary task-ok', text ? '📋 미주문만 번호 복사' : '모두 주문했어요', function () {

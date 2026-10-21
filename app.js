@@ -561,7 +561,8 @@
   var showLater = false;  // '이후 일정 N건' 펼침 여부
   var showPast = false;   // '지난 일정 N건' 펼침 여부 (최근 날짜가 위)
   var calShow = 'count';   // 달력 칸에 건수 / 시공지역 / 인원 중 뭘 볼까 (설정에 기억해 둔다)
-  var CAL_SHOWS = ['count', 'region', 'staff', 'film', 'income'];
+  // 필름 보기는 뺐다(2026-10-22) — 달력 칸에 번호가 몰리면 구분이 안 된다. 대신 '필름 모아보기' 의 날짜별 주문 내역
+  var CAL_SHOWS = ['count', 'region', 'staff', 'income'];
   var calMode = 'week';   // 'week' | 'month'
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서

@@ -62,5 +62,23 @@ test('filmOrderCount: 번호 있는 줄 중 주문한 줄 수', () => {
   assert.deepStrictEqual(Share.filmOrderCount(현장('a', '2026-10-24', [줄('A', '2026-10-21'), 줄('B'), 줄('')])), { ordered: 1, total: 2 });
 });
 
+// ---- 날짜별 주문 내역 (2026-10-22 사용자 요청: 달력 대신 주문한 날짜별로) ----
+test('filmOrderLog: 최근 30일 주문을 주문한 날짜별로(최근 먼저), 같은 현장 같은 번호는 한 줄, 다른 현장에 또 주문하면 dup', () => {
+  const a = 현장('우륵', '2026-10-24', [줄('PW-881', '2026-10-21', '방문'), 줄('PW-881', '2026-10-21', '방2'), 줄('LW-123', '2026-10-20')]);
+  const b = 현장('영종', '2026-10-25', [줄('pw881', '2026-10-22'), 줄('HP-604')]);
+  const old = 현장('옛날', '2026-09-01', [줄('PW-881', '2026-09-10')]);
+  const log = Share.filmOrderLog([a, b, old], 오늘, 30);
+  assert.deepStrictEqual(log.map(d => d.date), ['2026-10-22', '2026-10-21', '2026-10-20']);
+  assert.deepStrictEqual(log[1].items.map(i => [i.code, i.site.id, i.places, i.dup]), [['PW-881', '우륵', '방문, 방2', 2]]);
+  assert.deepStrictEqual(log[0].items.map(i => [i.code, i.site.id, i.dup]), [['pw881', '영종', 2]]);
+  assert.deepStrictEqual(log[2].items.map(i => [i.code, i.dup]), [['LW-123', 0]]);
+});
+test('filmOrderedBefore: 이 번호를 최근 30일 안 다른 현장에서 주문한 기록', () => {
+  const a = 현장('우륵', '2026-10-24', [줄('PW-881', '2026-10-21')]);
+  const b = 현장('영종', '2026-10-25', [줄('pw 881')]);
+  assert.deepStrictEqual(Share.filmOrderedBefore([a, b], b, 'pw 881', 오늘, 30).map(x => [x.site.id, x.orderedAt]), [['우륵', '2026-10-21']]);
+  assert.deepStrictEqual(Share.filmOrderedBefore([a, b], a, 'PW-881', 오늘, 30), []);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
