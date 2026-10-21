@@ -1152,3 +1152,20 @@ textarea { resize: vertical; }
 .qreq-sum { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qreq-m { font-size: 12px; color: var(--muted); }
 .qreq-err { color: #b91c1c; }
+
+/* 필름 겹침 · 줄마다 주문 · 모아보기 (2026-10-22) */
+.film-ord { flex: none; min-width: 52px; padding: 0 6px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; font-size: 12.5px; font-weight: 800; }
+.film-ord.on { border-color: #86efac; background: #dcfce7; color: #166534; }
+.film-warn { margin: -2px 0 8px; padding: 5px 8px; border-radius: 8px; background: #fef2f2; color: #b91c1c; font-size: 12.5px; font-weight: 700; white-space: pre-line; }
+.film-warn[hidden] { display: none; }
+.schcal-nml.film { font-size: 10px; letter-spacing: -0.3px; }
+.schcal-nml.film.dup { color: #dc2626; font-weight: 800; }
+.task-ord { margin-left: 8px; padding: 1px 6px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 800; }
+.fb-grp { margin-bottom: 10px; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+.fb-grp.dup { border-color: #fca5a5; }
+.fb-code { padding: 7px 10px; background: #f8fafc; font-size: 15px; font-weight: 800; }
+.fb-grp.dup .fb-code { background: #fef2f2; color: #b91c1c; }
+.fb-use { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-top: 1px solid var(--border); background: #fff; text-align: left; color: var(--text); font-size: 13.5px; }
+.fb-site { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-st { flex: none; font-size: 12.5px; font-weight: 800; color: #b45309; }
+.fb-st.ok { color: #15803d; }

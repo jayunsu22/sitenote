@@ -110,7 +110,10 @@
       if (f.type === 'films' && !Array.isArray(s[f.key])) s[f.key] = [];
     });
     s.owners = normalizeOwners(s.owners);
-    s.films = s.films.map(function (r) { return Object.assign({ place: '', code: '', ready: false }, r || {}, { ready: !!(r && r.ready) }); });
+    s.films = s.films.map(function (r) {
+      return Object.assign({ place: '', code: '', ready: false }, r || {}, { ready: !!(r && r.ready),
+        orderedAt: (r && Share.isIsoDate(r.orderedAt)) ? r.orderedAt : '' });   // 줄마다 주문한 날 (2026-10-22)
+    });
     if (!Array.isArray(s.days) || !s.days.length) s.days = [{ date: String(s.date || ''), staff: [] }];
     s.days = s.days.map(function (d) { return { date: String((d && d.date) || ''), staff: cleanStaff(d && d.staff) }; });
     // 1일차는 시작날짜 칸과 같아야 한다 (복원 등으로 어긋났으면 시작날짜 기준으로 밀기)
@@ -519,9 +522,27 @@
     return updateSite(siteId, { filmStage: Share.filmStageOf({ filmStage: k }) });
   }
   // 할 일 창의 '주문함' — 주문 전이면 '필름 주문'(2)으로 올린다. 이미 수령했으면 그대로
+  // 안 시킨 번호 줄을 모두 오늘 주문으로 찍고 단계를 '필름 주문' 으로 (이미 찍힌 날짜는 그대로)
   function markFilmOrdered(siteId) {
     var s = getSite(siteId); if (!s) return null;
-    return setFilmStage(siteId, Math.max(Share.filmStageOf(s), 2));
+    var today = Share.todayIso();
+    var films = (s.films || []).map(function (r) {
+      var n = Object.assign({}, r);
+      if (!Share.isIsoDate(n.orderedAt)) n.orderedAt = String(n.code || '').trim() ? today : '';
+      return n;
+    });
+    return updateSite(siteId, { films: films, filmStage: Math.max(Share.filmStageOf(s), 2) });
+  }
+  // 필름 줄 하나 주문 표시 켜고 끄기 (2026-10-22). 번호 있는 줄이 모두 주문되면 단계도 '필름 주문'
+  function setFilmOrdered(siteId, i, on) {
+    var s = getSite(siteId); if (!s || !s.films[i]) return null;
+    var films = s.films.map(function (r) { return Object.assign({}, r); });
+    films[i].orderedAt = on ? Share.todayIso() : '';
+    var coded = films.filter(function (r) { return String(r.code || '').trim(); });
+    var all = coded.length && coded.every(function (r) { return Share.isIsoDate(r.orderedAt); });
+    var patch = { films: films };
+    if (all) patch.filmStage = Math.max(Share.filmStageOf(s), 2);
+    return updateSite(siteId, patch);
   }
   // AS 챙길 것 체크 (2026-10-14)
   function setServiceToolReady(siteId, svcId, name, ready) {
@@ -899,7 +920,7 @@
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
     addService: addService, updateService: updateService, removeService: removeService, setServiceToolReady: setServiceToolReady,
     tasks: tasks, getTask: getTask, addTask: addTask, updateTask: updateTask, deleteTask: deleteTask,
-    completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered,
+    completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered, setFilmOrdered: setFilmOrdered,
     setHold: setHold, toggleHold: toggleHold, addIncome: addIncome, updateIncome: updateIncome, deleteIncome: deleteIncome,
     addClientNote: addClientNote, updateClientNote: updateClientNote, deleteClientNote: deleteClientNote,
     setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,

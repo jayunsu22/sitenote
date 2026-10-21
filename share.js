@@ -1290,7 +1290,84 @@
     return g;
   }
 
+  /* ---------- 필름 겹침 (2026-10-22) ----------
+     필름 번호가 비슷해서 가까운 날짜 현장끼리 같은 필름을 두 번 시키는 일이 잦다.
+     번호는 공백·하이픈·대소문자를 빼고 비교한다(PW-881 = pw 881). 필름 줄마다 orderedAt('YYYY-MM-DD' | '') 로 주문을 남긴다.
+     현장의 '필름 시점' 은 시공 첫날(site.date) — 필름은 첫날 전에 와 있어야 한다 */
+  var FILM_NEAR_DAYS = 7;     // 앞뒤 이만큼 안이면 '겹침'
+  function filmKey(code) { return str(code).replace(/[\s\-_.]/g, '').toUpperCase(); }
+  // 한 현장 안에서 번호별로 한 번 — 같은 번호 줄이 여럿이면 모두 주문돼야 '주문'(가장 늦은 날짜)
+  function siteFilmKeys(site) {
+    var out = [], byKey = {};
+    ((site && site.films) || []).forEach(function (r) {
+      var k = filmKey(r && r.code);
+      if (!k) return;
+      var o = isIsoDate(r.orderedAt) ? r.orderedAt : '';
+      if (!byKey[k]) { byKey[k] = { key: k, code: str(r.code), orderedAt: o, all: !!o }; out.push(byKey[k]); return; }
+      var e = byKey[k];
+      e.all = e.all && !!o;
+      if (o && o > e.orderedAt) e.orderedAt = o;
+    });
+    return out.map(function (e) { return { key: e.key, code: e.code, orderedAt: e.all ? e.orderedAt : '' }; });
+  }
+  function near(a, b) { return isIsoDate(a) && isIsoDate(b) && Math.abs(dayDiff(a, b)) <= FILM_NEAR_DAYS; }
+  // 이 현장의 이 번호가 가까운 날 다른 현장에도 있나 → [{ site, date, orderedAt }]
+  function filmOverlaps(sites, site, code) {
+    var k = filmKey(code);
+    if (!k || !site || !isIsoDate(site.date)) return [];
+    var out = [];
+    (sites || []).forEach(function (s) {
+      if (!s || s.id === site.id || !near(site.date, s.date)) return;
+      siteFilmKeys(s).forEach(function (e) { if (e.key === k) out.push({ site: s, date: s.date, orderedAt: e.orderedAt }); });
+    });
+    return out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  }
+  // 모아보기: today 부터 days 일 안에 시작하는 현장의 필름을 번호별로. 두 곳 이상 쓰는 번호 먼저, 그다음 이른 날짜
+  function filmBoard(sites, today, days) {
+    var end = addDays(today, (days || 14) - 1);
+    var groups = {}, order = [];
+    (sites || []).filter(function (s) { return s && isIsoDate(s.date) && s.date >= today && s.date <= end; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.createdAt || 0) - (b.createdAt || 0)); })
+      .forEach(function (s) {
+        siteFilmKeys(s).forEach(function (e) {
+          if (!groups[e.key]) { groups[e.key] = { key: e.key, code: e.code, uses: [] }; order.push(groups[e.key]); }
+          groups[e.key].uses.push({ site: s, date: s.date, orderedAt: e.orderedAt });
+        });
+      });
+    var idx = function (g) { return order.indexOf(g); };
+    return order.slice().sort(function (a, b) {
+      var da = a.uses.length > 1 ? 0 : 1, db = b.uses.length > 1 ? 0 : 1;
+      return (da - db) || (idx(a) - idx(b));
+    });
+  }
+  // 모아보기에서 아직 안 시킨 번호만 (번호마다 한 줄)
+  function filmBoardText(board) {
+    return (board || []).filter(function (g) { return g.uses.some(function (u) { return !u.orderedAt; }); })
+      .map(function (g) { return g.code; }).join('\n');
+  }
+  // 달력 '필름' 보기: 시공 첫날 칸에 그 현장 필름 번호. 앞뒤 7일 안 다른 현장에도 있으면 dup
+  function dateFilms(sites) {
+    var out = {};
+    (sites || []).forEach(function (s) {
+      if (!s || !isIsoDate(s.date)) return;
+      siteFilmKeys(s).forEach(function (e) {
+        (out[s.date] = out[s.date] || []).push({ code: e.code, dup: filmOverlaps(sites, s, e.code).length > 0 });
+      });
+    });
+    return out;
+  }
+  function filmOrderCount(site) {
+    var rows = ((site && site.films) || []).filter(function (r) { return r && filmKey(r.code); });
+    return { ordered: rows.filter(function (r) { return isIsoDate(r.orderedAt); }).length, total: rows.length };
+  }
+
   var Share = {
+    filmKey: filmKey,
+    filmOverlaps: filmOverlaps,
+    filmBoard: filmBoard,
+    filmBoardText: filmBoardText,
+    dateFilms: dateFilms,
+    filmOrderCount: filmOrderCount,
     DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
     normalizeTaskRules: normalizeTaskRules,
     autoTasks: autoTasks,
