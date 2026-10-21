@@ -9,6 +9,8 @@
    견적코드(또는 /q/코드 주소)를 거래처 기록에만 적어 두므로 방문견적 쪽은 건드리지 않는다.
    줄 오른쪽 ✕ 는 그 줄을 이 목록에서만 숨긴다(2026-10-20, 거래처.hiddenQuotes). 다시 발행하며 쌓인
    옛 견적서를 치우려는 것이라 서버 기록과 견적서 링크는 그대로 둔다 - 고객에게 보낸 링크가 죽으면 안 된다.
+   줄 아래 [이 견적 보기] [이 견적 수정하기] (2026-10-21). 수정은 방문견적을 ?edit=<키>&client=<거래처ID> 로 연다.
+   고쳐서 다시 발행하면 방문견적이 앞 견적코드를 이전견적코드로 남기고, 이 목록은 그 앞 견적서를 뺀다.
    순수 계산(요청내역·답장전수)은 node 테스트: test/quote_requests.test.js */
 (function (root) {
   'use strict';
@@ -46,6 +48,12 @@
     var 연결맵 = {};
     코드목록(연결).forEach(function (c) { 연결맵[c] = true; });
     var 쓴코드 = {};
+    // 고쳐서 다시 발행해 밀려난 견적코드 (방문견적이 저장함 항목에 이전견적코드로 남긴다)
+    var 밀려난 = {};
+    (박스항목 || []).forEach(function (it) {
+      var 앞 = it && (it.이전견적코드 || (it.상태 && it.상태.이전견적코드));
+      if (Array.isArray(앞)) 앞.forEach(function (c) { if (c && c !== it.현장코드) 밀려난[c] = true; });
+    });
     var out = [];
     (박스항목 || []).forEach(function (it) {
       if (!it) return;
@@ -64,7 +72,7 @@
       });
     });
     (발행 || []).forEach(function (p) {
-      if (!p || !p.견적코드 || 쓴코드[p.견적코드]) return;
+      if (!p || !p.견적코드 || 쓴코드[p.견적코드] || 밀려난[p.견적코드]) return;
       var 내것 = p.현장관리_거래처ID === 거래처ID, 이은것 = !!연결맵[p.견적코드];
       if (!내것 && !이은것) return;
       쓴코드[p.견적코드] = true;
@@ -73,7 +81,7 @@
     });
     // 발행목록에 없는 연결 코드 (아직 못 받았거나 방문견적에서 지운 건) — 코드만이라도 남긴다
     코드목록(연결).forEach(function (c) {
-      if (쓴코드[c]) return;
+      if (쓴코드[c] || 밀려난[c]) return;
       쓴코드[c] = true;
       out.push({ 상태: '발행', 이름: '(연결한 견적서)', 요약: '', 날짜: '', 금액: 0, 견적코드: c, 키: c, 연결: true });
     });
@@ -283,6 +291,19 @@
         del.setAttribute('aria-label', '견적 지우기');
         del.onclick = function () { if (숨기기(clientId, x)) render(wrap, clientId); };
         item.appendChild(del);
+        // 줄 아래 버튼 (2026-10-21) - 줄을 눌러도 열리지만 그걸 잘 모른다
+        var acts = el('div', 'qreq-acts');
+        if (x.견적코드) {
+          var see = el('button', 'qreq-act', '📄 이 견적 보기');
+          see.onclick = function () { window.open(VIEW + x.견적코드, '_blank'); };
+          acts.appendChild(see);
+        }
+        var edit = el('button', 'qreq-act primary', x.상태 === '발행' ? '✏️ 이 견적 수정하기' : '✏️ 이어서 작성하기');
+        edit.onclick = function () {
+          window.open(QUOTE_APP + '?edit=' + encodeURIComponent(x.키) + '&client=' + encodeURIComponent(clientId), '_blank');
+        };
+        acts.appendChild(edit);
+        item.appendChild(acts);
         body.appendChild(item);
       });
       // 잘못 지웠을 때 되돌리는 길

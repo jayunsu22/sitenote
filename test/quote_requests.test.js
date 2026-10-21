@@ -112,5 +112,16 @@ test('숨김: ✕ 로 숨긴 줄(견적코드·저장함 id)은 빠진다, 키�
   assert.strictEqual(Q.요청내역(박스, 발행, 'c1', [], undefined).length, 3);
 });
 
+test('고쳐서 다시 발행해 밀려난 견적코드는 목록에서 뺀다 (2026-10-21)', () => {
+  const box = [{ id: 1, 이름: '새것', 현장코드: 'NEW', 이전견적코드: ['OLD'], 요청: { 거래처ID: 'c1', 원문: 'a' } }];
+  const pub = [{ 견적코드: 'OLD', 현장관리_거래처ID: 'c1', 현장명: '옛것' }, { 견적코드: 'NEW', 현장관리_거래처ID: 'c1' }];
+  const r = Q.요청내역(box, pub, 'c1', ['OLD']);
+  assert.deepStrictEqual(r.map((x) => x.견적코드), ['NEW']);
+  // 상태 안에만 있어도 본다
+  const box2 = [{ id: 2, 현장코드: 'N2', 상태: { 이전견적코드: ['O2'] } }];
+  const r2 = Q.요청내역(box2, [{ 견적코드: 'O2', 현장관리_거래처ID: 'c1' }, { 견적코드: 'N2', 현장관리_거래처ID: 'c1' }], 'c1');
+  assert.deepStrictEqual(r2.map((x) => x.견적코드), ['N2']);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
