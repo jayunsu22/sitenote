@@ -761,57 +761,52 @@
   }
 
   /* ---------- 필름 모아보기 (2026-10-22) ----------
-     위: 주문 내역 — 최근 30일 주문을 '주문한 날짜별로'(최근 먼저). 같은 번호를 다른 현장에서도 주문했으면 빨간 ⚠.
-     아래: 아직 안 시킨 필름 — 2주 안에 시작하는 현장. 최근 30일 안 다른 현장에서 주문한 번호면 바로 알려 준다.
+     필름 칸에 적힌 번호 전부 — 시공 첫날이 일주일 전 ~ 2주 뒤인 현장을 시공 날짜별 → 현장별로.
+     줄마다 단계(미주문 / 주문 / 수령). 같은 번호가 다른 현장에도 있으면 빨간 ⚠ N곳.
      줄을 누르면 그 현장으로. 맨 아래 '미주문만 번호 복사' 로 대리점에 한 번에 */
-  var FILM_BOARD_DAYS = 14, FILM_LOG_DAYS = 30;
+  var FILM_BACK_DAYS = 7, FILM_AHEAD_DAYS = 14;
+  var FILM_STATUS_CLS = { '미주문': 'no', '주문': 'ord', '수령': 'got' };
   function openFilmBoard() {
-    var sites = Store.state.sites;
-    var log = Share.filmOrderLog(sites, today(), FILM_LOG_DAYS);
-    var board = Share.filmBoard(sites, today(), FILM_BOARD_DAYS);
-    var goSite = function (site) { return function () { $('taskSheet').hidden = true; d.go('#site/' + site.id); }; };
-    openSheet('🎞 필름 주문 내역', function (body) {
-      var s1 = section(body, '주문한 날짜별 (최근 ' + FILM_LOG_DAYS + '일)');
-      if (!log.length) s1.appendChild(el('p', 'sheet-hint', '최근 ' + FILM_LOG_DAYS + '일 동안 주문 표시한 필름이 없어요. 현장 필름 칸의 [주문] 을 누르면 여기에 쌓여요.'));
-      log.forEach(function (day) {
-        var box = el('div', 'fb-grp');
-        box.appendChild(el('div', 'fb-code', Share.dayLabel(day.date) + (day.date === today() ? ' 오늘' : '') + ' 주문 · ' + day.items.length + '건'));
-        day.items.forEach(function (it) {
-          var r = btn('fb-use' + (it.dup ? ' dup' : ''));
-          var left = el('span', 'fb-site');
-          left.appendChild(el('b', 'fb-num', it.code));
-          left.appendChild(el('span', 'fb-sub', Share.titleLine(it.site) + (it.places ? ' · ' + it.places : '')));
-          r.appendChild(left);
-          r.appendChild(el('span', 'fb-st' + (it.dup ? ' warn' : ' ok'),
-            it.dup ? '⚠ ' + it.dup + '곳 주문' : (Share.isIsoDate(it.siteDate) ? '시공 ' + Share.shortDate(it.siteDate) : '')));
-          r.onclick = goSite(it.site);
-          box.appendChild(r);
+    var days = Share.filmSchedule(Store.state.sites, today(), FILM_BACK_DAYS, FILM_AHEAD_DAYS);
+    var nSites = 0, keys = {};
+    days.forEach(function (dd) { nSites += dd.sites.length; dd.sites.forEach(function (x) { x.rows.forEach(function (r) { keys[r.key] = 1; }); }); });
+    openSheet('🎞 필름 전체 보기', function (body) {
+      body.appendChild(el('div', 'task-meta', '시공 ' + Share.dayLabel(Share.addDays(today(), -FILM_BACK_DAYS)) + ' ~ ' +
+        Share.dayLabel(Share.addDays(today(), FILM_AHEAD_DAYS)) + ' · 현장 ' + nSites + '곳 · 번호 ' + Object.keys(keys).length + '개'));
+      var legend = el('div', 'fb-legend');
+      ['미주문', '주문', '수령'].forEach(function (k) { legend.appendChild(el('span', 'fb-pill ' + FILM_STATUS_CLS[k], k)); });
+      legend.appendChild(el('span', 'fb-legend-dup', '빨간 번호 = 다른 현장에도 있음'));
+      body.appendChild(legend);
+      if (!days.length) { body.appendChild(el('p', 'sheet-hint', '이 기간 시공 현장의 필름 칸에 적힌 번호가 없어요.')); return; }
+      days.forEach(function (dd) {
+        var past = dd.date < today();
+        body.appendChild(el('div', 'fb-day' + (past ? ' past' : ''), Share.dayLabel(dd.date) + ' 시공' + (dd.date === today() ? ' · 오늘' : past ? ' · 지남' : '')));
+        dd.sites.forEach(function (x) {
+          var box = el('div', 'fb-grp');
+          var head = btn('fb-code fb-sitehead');
+          head.appendChild(el('span', 'fb-sitename', Share.titleLine(x.site)));
+          head.appendChild(el('span', 'fb-stage', Share.FILM_STAGES[x.stage]));
+          head.onclick = function () { $('taskSheet').hidden = true; d.go('#site/' + x.site.id); };
+          box.appendChild(head);
+          x.rows.forEach(function (r) {
+            var row = btn('fb-use' + (r.dup ? ' dup' : ''));
+            var left = el('span', 'fb-site');
+            var num = el('b', 'fb-num', r.code);
+            left.appendChild(num);
+            var sub = [r.place, r.dup ? '⚠ ' + r.dup + '곳에 같은 번호' : ''].filter(Boolean).join(' · ');
+            if (sub) left.appendChild(el('span', 'fb-sub' + (r.dup ? ' warn' : ''), sub));
+            row.appendChild(left);
+            row.appendChild(el('span', 'fb-pill ' + FILM_STATUS_CLS[r.status],
+              r.status + (r.status !== '미주문' && r.orderedAt ? ' ' + Share.shortDate(r.orderedAt) : '')));
+            row.onclick = function () { $('taskSheet').hidden = true; d.go('#site/' + x.site.id); };
+            box.appendChild(row);
+          });
+          body.appendChild(box);
         });
-        s1.appendChild(box);
       });
-
-      var pending = [];
-      board.forEach(function (g) { g.uses.forEach(function (u) { if (!u.orderedAt) pending.push({ code: g.code, site: u.site, date: u.date }); }); });
-      var s2 = section(body, '아직 안 시킨 필름 (' + FILM_BOARD_DAYS + '일 안 시공)');
-      if (!pending.length) s2.appendChild(el('p', 'sheet-hint', '2주 안에 시작하는 현장의 필름은 모두 주문했어요.'));
-      var box2 = el('div', 'fb-grp');
-      pending.forEach(function (p) {
-        var before = Share.filmOrderedBefore(sites, p.site, p.code, today(), FILM_LOG_DAYS);
-        var r = btn('fb-use' + (before.length ? ' dup' : ''));
-        var left = el('span', 'fb-site');
-        left.appendChild(el('b', 'fb-num', p.code));
-        left.appendChild(el('span', 'fb-sub', Share.titleLine(p.site) + ' · 시공 ' + Share.shortDate(p.date)));
-        r.appendChild(left);
-        r.appendChild(el('span', 'fb-st' + (before.length ? ' warn' : ''),
-          before.length ? '⚠ ' + Share.shortDate(before[0].orderedAt) + ' ' + Share.titleLine(before[0].site) + '에 주문함' : '미주문'));
-        r.onclick = goSite(p.site);
-        box2.appendChild(r);
-      });
-      if (pending.length) s2.appendChild(box2);
-
-      var text = Share.filmBoardText(board);
+      var text = Share.filmScheduleText(days);
       var foot = el('div', 'task-foot');
-      foot.appendChild(btn('btn-sm primary task-ok', text ? '📋 미주문만 번호 복사' : '모두 주문했어요', function () {
+      foot.appendChild(btn('btn-sm primary task-ok', text ? '📋 미주문만 번호 복사' : '미주문 번호가 없어요', function () {
         if (!text) return;
         d.copyText(text, '미주문 필름 번호 복사 — 대리점에 붙여넣기');
       }));

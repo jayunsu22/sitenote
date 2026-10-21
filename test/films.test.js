@@ -80,5 +80,25 @@ test('filmOrderedBefore: 이 번호를 최근 30일 안 다른 현장에서 주�
   assert.deepStrictEqual(Share.filmOrderedBefore([a, b], a, 'PW-881', 오늘, 30), []);
 });
 
+// ---- 필름 전체 보기 (2026-10-22 사용자: '필름칸에 넣어진 모든 필름넘버 + 주문/수령 단계') ----
+test('filmSchedule: 시공 첫날이 7일 전~14일 뒤인 현장의 모든 번호, 날짜별·현장별, 단계(미주문/주문/수령), 겹침 수', () => {
+  const a = 현장('우륵', '2026-10-16', [줄('PW-881', '2026-10-14', '방문'), 줄('LW-123', '', '거실'), 줄('', '', '빈줄')], { filmStage: 3 });
+  const b = 현장('영종', '2026-10-25', [줄('pw881', '', '현관'), 줄('HP-604', '2026-10-21', '창틀')], { filmStage: 1 });
+  const c = 현장('주문단계', '2026-10-25', [줄('XX-1')], { filmStage: 2 });
+  const old = 현장('옛날', '2026-10-10', [줄('PW-881')]);
+  const far = 현장('먼', '2026-11-10', [줄('LW-123')]);
+  const g = Share.filmSchedule([a, b, c, old, far], 오늘, 7, 14);
+  assert.deepStrictEqual(g.map(d => [d.date, d.sites.map(x => x.site.id)]), [['2026-10-16', ['우륵']], ['2026-10-25', ['영종', '주문단계']]]);
+  assert.deepStrictEqual(g[0].sites[0].rows.map(r => [r.code, r.place, r.status, r.orderedAt, r.dup]),
+    [['PW-881', '방문', '수령', '2026-10-14', 2], ['LW-123', '거실', '수령', '', 0]]);
+  assert.deepStrictEqual(g[1].sites[0].rows.map(r => [r.code, r.status, r.orderedAt, r.dup]),
+    [['pw881', '미주문', '', 2], ['HP-604', '주문', '2026-10-21', 0]]);
+  assert.deepStrictEqual(g[1].sites[1].rows.map(r => r.status), ['주문'], '현장 단계가 주문이면 줄도 주문');
+});
+test('filmScheduleText: 미주문 번호만 (중복 없이)', () => {
+  const b = 현장('영종', '2026-10-25', [줄('pw881'), 줄('HP-604', '2026-10-21'), 줄('PW-881')], { filmStage: 1 });
+  assert.strictEqual(Share.filmScheduleText(Share.filmSchedule([b], 오늘, 7, 14)), 'pw881');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
