@@ -1197,7 +1197,7 @@ test('vendorForSite: 필름명에 거래처 이름이 들어 있으면 그 거�
   assert.strictEqual(Share.vendorForSite({ films: [] }, vs), null);
 });
 
-test('기사접속 링크: 현장업무 연결된 현장만, 관리자 앱과 같은 주소, 체크하면 공유 문구 제목 바로 아래 (2026-10-22)', () => {
+test('기사접속 링크: 현장업무 연결된 현장만, 관리자 앱과 같은 주소, 체크하면 공유 문구 맨 끝에 빈 줄 두 개 띄워서 (2026-10-22)', () => {
   const site = { name: '학익동 동아풍림apt 103동 1702호', adminId: 'recABC123', pwLobby: '1702열쇠 8458종' };
   const url = Share.workerLink(site);
   const n = Buffer.from('학익동 동아풍림apt 103동 1702호', 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -1206,7 +1206,7 @@ test('기사접속 링크: 현장업무 연결된 현장만, 관리자 앱과 �
   assert.strictEqual(Share.isEmpty(site, Share.WORKER_KEY), false);
   assert.strictEqual(Share.isEmpty({ name: 'x' }, Share.WORKER_KEY), true);
   const t = Share.buildShare(site, ['pwLobby', 'workerLink']);
-  assert.strictEqual(t, '[학익동 동아풍림apt 103동 1702호]\n\n🔗 기사접속: ' + url + '\n\n공동현관비번: 1702열쇠 8458종');
+  assert.strictEqual(t, '[학익동 동아풍림apt 103동 1702호]\n\n공동현관비번: 1702열쇠 8458종\n\n\n🔗 기사접속: ' + url);
   assert.ok(Share.buildShare(site, ['pwLobby']).indexOf('기사접속') < 0, '체크 안 하면 안 나간다');
 });
 

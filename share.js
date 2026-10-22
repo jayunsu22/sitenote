@@ -327,11 +327,10 @@
       if (short) lines.push(short);
     }
 
-    // 기사접속 링크는 제목 바로 아래 - 기사님이 제일 먼저 누르는 줄이다
-    if ((keys || []).indexOf(WORKER_KEY) >= 0 && workerLink(site)) lines.push('🔗 기사접속: ' + workerLink(site));
-
     lines = lines.concat(infoLines(site, has));
-    return lines.join(ITEM_GAP);
+    // 기사접속 링크는 맨 끝에, 위로 빈 줄 두 개 띄워 따로 보이게 (2026-10-22 사장님)
+    var wl = (keys || []).indexOf(WORKER_KEY) >= 0 ? workerLink(site) : '';
+    return lines.join(ITEM_GAP) + (wl ? '\n\n\n🔗 기사접속: ' + wl : '');
   }
 
   // ---------- 일정 (날짜별 인원·준비 상태) ----------
