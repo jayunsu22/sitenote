@@ -924,6 +924,11 @@ textarea { resize: vertical; }
 .site-fields .frow-name .flabel { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nav-copy { flex: none; min-height: 34px; padding: 0 12px; border: 1.5px solid var(--primary, #2563eb); border-radius: 17px; background: #eff6ff; color: var(--primary-dark, #1d4ed8); font-size: 13px; font-weight: 800; }
 .nav-copy:active { background: #dbeafe; }
+/* 현장명 줄: 기사접속링크 체크 + 주소 복사 (2026-10-22) */
+.name-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.wl-pick { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 10px; border: 1.5px solid #16a34a; border-radius: 17px; background: #f0fdf4; color: #15803d; font-size: 13px; font-weight: 800; cursor: pointer; }
+.wl-pick input { width: 18px; height: 18px; min-height: 0; margin: 0; flex: none; accent-color: #16a34a; }
+.wl-pick.off { border-color: #cbd5e1; background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
 
 /* ---------- 할 일 (2026-10-14) ---------- */
 .schcal-cell { position: relative; }
