@@ -2935,7 +2935,26 @@
         if (!addr) { toast('현장명을 먼저 적어주세요'); return; }
         copyText(addr, '복사됨: ' + addr + ' — 내비에 붙여넣기 하세요');
       };
-      label.appendChild(navBtn);
+      // 기사접속 링크도 팀원 공유에 같이 싣는 체크 (2026-10-22). 현장업무에 연결 안 된 현장은 못 고른다
+      var wl = document.createElement('label');
+      var 연결 = !!Share.workerLink(Store.getSite(s.id) || s);
+      wl.className = 'wl-pick' + (연결 ? '' : ' off');
+      wl.title = 연결 ? '팀원에게 공유 복사에 기사접속 링크를 같이 넣습니다' : '현장업무에 연결해야 고를 수 있습니다';
+      var wcb = document.createElement('input'); wcb.type = 'checkbox'; wcb.className = 'fcheck';
+      wcb.dataset.key = Share.WORKER_KEY;
+      wcb.disabled = !연결;
+      wcb.checked = 연결 && !!checked[Share.WORKER_KEY];
+      wcb.onchange = function () {
+        if (!Share.workerLink(Store.getSite(s.id) || s)) { wcb.checked = false; toast('먼저 현장업무를 연결하세요'); return; }
+        checked[Share.WORKER_KEY] = wcb.checked; paintCopyPick();
+      };
+      wl.appendChild(wcb);
+      wl.appendChild(document.createTextNode('🔗 기사접속링크'));
+      // 흐린 칸을 누르면 왜 못 고르는지 알려 준다 (비활성 체크박스는 눌러도 아무 일이 없어서)
+      if (!연결) wl.onclick = function () { toast('현장업무에 연결된 현장만 기사접속 링크를 넣을 수 있습니다 (위의 🛠 현장업무 연결)'); };
+      var tools = document.createElement('span'); tools.className = 'name-tools';
+      tools.appendChild(wl); tools.appendChild(navBtn);
+      label.appendChild(tools);
     }
     var ctl = document.createElement('div'); ctl.className = 'fctl';
     row.appendChild(cb); row.appendChild(label); row.appendChild(ctl);
@@ -3254,9 +3273,10 @@
   function setAllChecked(on) {
     // 발주처 담당자는 '전체 선택' 에 안 들어간다 — 고객 번호는 그 칸을 직접 체크했을 때만 기사님께 나간다 (2026-10-14)
     Share.FIELDS.forEach(function (f) { checked[f.key] = on && f.key !== 'name' && f.key !== 'owners'; });
+    checked[Share.WORKER_KEY] = on;   // 연결 안 된 현장이면 비어 있는 칸처럼 빠진다
     document.querySelectorAll('#siteFields .fcheck').forEach(function (cb) {
       var k = cb.dataset.key;
-      cb.checked = !!checked[k];
+      cb.checked = !!checked[k] && !cb.disabled;
     });
     paintCopyPick();
   }

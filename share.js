@@ -130,6 +130,7 @@
 
   // 비어있음 판정: 텍스트는 공백 제거 후 빈 문자열, 선택형은 '미확인', films는 코드가 있는 줄이 하나도 없음
   function isEmpty(site, key) {
+    if (key === WORKER_KEY) return !workerLink(site);
     var f = FIELD_MAP[key];
     if (!f || !site) return true;
     var v = site[key];
@@ -137,6 +138,24 @@
     if (f.type === 'films') return !Array.isArray(v) || !v.some(function (r) { return r && str(r.code) !== ''; });
     if (f.type === 'contacts') return !ownerRows(v).length;
     return str(v) === '';
+  }
+
+  /* 기사접속 링크 (2026-10-22) — 현장업무(관리자 앱)에 연결된 현장이면 기사님이 여는 작업 화면 주소.
+     관리자 앱의 [기사접속 링크복사] 와 같은 주소다 (songil /w/<현장업무 id>?n=<현장명 base64url>).
+     팀원 공유 문구에 비번과 같이 실어 보낸다 — 따로 복사해 두 번 붙여넣던 걸 한 번에.
+     FIELDS 칸이 아니라 현장명 줄의 체크로 고른다. 연결 안 된 현장은 '' */
+  var WORKER_KEY = 'workerLink';
+  var WORKER_APP_URL = 'https://songil.netlify.app/w/';
+  function base64Url(text) {
+    var bin = unescape(encodeURIComponent(String(text || '')));
+    var b64 = typeof btoa === 'function' ? btoa(bin) : Buffer.from(bin, 'binary').toString('base64');
+    return b64.split('+').join('-').split('/').join('_').split('=').join('');
+  }
+  function workerLink(site) {
+    var id = str(site && site.adminId);
+    if (!id) return '';
+    var t = titleLine(site);
+    return WORKER_APP_URL + encodeURIComponent(id) + (t && t !== '(이름없음)' ? '?n=' + base64Url(t) : '');
   }
 
   // 제목 줄: 현장명 동호수 평형 (빈 것 생략)
@@ -307,6 +326,9 @@
       var short = staffShortLine(site);   // 필요 인원을 못 채운 날이 있으면 바로 아래에 경고 줄
       if (short) lines.push(short);
     }
+
+    // 기사접속 링크는 제목 바로 아래 - 기사님이 제일 먼저 누르는 줄이다
+    if ((keys || []).indexOf(WORKER_KEY) >= 0 && workerLink(site)) lines.push('🔗 기사접속: ' + workerLink(site));
 
     lines = lines.concat(infoLines(site, has));
     return lines.join(ITEM_GAP);
@@ -1291,6 +1313,8 @@
   }
 
   var Share = {
+    WORKER_KEY: WORKER_KEY,
+    workerLink: workerLink,
     DEFAULT_TASK_RULES: DEFAULT_TASK_RULES,
     normalizeTaskRules: normalizeTaskRules,
     autoTasks: autoTasks,
