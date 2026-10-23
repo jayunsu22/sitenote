@@ -147,12 +147,13 @@
   // 날짜 하나의 할 일 묶음 — 머리줄 + 열린 할 일 + '완료 N건' 접기
   var openDone = {};   // 펼친 완료 묶음 { iso: true }
   function renderTaskDay(iso, grp) {
-    var box = el('div', 'task-day');
+    // 노란 포스트잇 (2026-10-24 시안 A) — 현장 카드들 사이에서 지나치지 않게. 다 끝낸 날은 차분하게(all-done)
+    var box = el('div', 'task-day' + (grp.open.length ? '' : ' all-done'));
     box.setAttribute('data-run-has', iso);
     var head = el('div', 'task-day-head');
-    head.appendChild(el('b', '', Share.dayLabel(iso) + (iso === today() ? ' 오늘' : '')));
-    head.appendChild(el('span', '', grp.open.length ? '할 일 ' + grp.open.length + (grp.done.length ? ' · 완료 ' + grp.done.length : '')
-      : '다 끝냄 ✓'));
+    head.appendChild(el('b', '', '📌 ' + Share.dayLabel(iso) + (iso === today() ? ' 오늘' : '') + ' 할 일'));
+    if (grp.open.length) head.appendChild(el('span', 'task-day-n', String(grp.open.length)));
+    head.appendChild(el('span', 'task-day-sub', grp.open.length ? (grp.done.length ? '완료 ' + grp.done.length : '') : '다 끝냄 ✓'));
     var add = btn('task-day-add', '＋', function () { openTaskSheet({ date: iso }); });
     add.setAttribute('aria-label', Share.dayLabel(iso) + ' 할 일 넣기');
     head.appendChild(add);
