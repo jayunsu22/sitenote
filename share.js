@@ -1186,12 +1186,100 @@
       .replace(/\s*\d+\s*$/, '').trim();
     return k.length > 1 ? k : str(n).replace(/\s*\d+\s*$/, '').trim();   // '현관문' 이 '문' 이 되면 안 된다
   }
+  /* ---------- 작업시간 (2026-10-24 사장님) ----------
+     팀원이 성장하는지 보려고 밑작업 시간을 잰다. 기사가 따로 누르는 건 없다:
+       시작 = 그날 그 현장에서 공지 확인 보고를 누른 시각 (starts[현장ID] = ['YYYY-MM-DD HH:MM', …], 한국시간)
+       끝   = 품목마다 완료 보고를 누른 시각 (밑작업완료시각/시공완료시각, ISO)
+     한 현장·하루 안에서 완료를 시각 순으로 늘어놓고 앞 완료(첫 품목은 시작)부터의 간격을 그 품목 시간으로 본다.
+     12~1시 점심은 뺀다. 몇 분 안에 연달아 완료한 품목(다 해두고 한꺼번에 누름)은 그 구간을 개수대로 나눈다.
+     샤시·문+틀만 보여주지만, 다른 품목의 완료도 구간을 나누는 데는 쓴다 (그 시간이 샤시에 섞이지 않게) */
+  var KST = 9 * 3600000, BATCH_MS = 3 * 60000, MAX_MIN = 8 * 60;
+  function kstDay(ms) { return new Date(ms + KST).toISOString().slice(0, 10); }
+  function kstMs(day, hm) {   // 'YYYY-MM-DD', 'HH:MM' (한국시간) → ms
+    var d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day), h = /^(\d{1,2}):(\d{2})$/.exec(hm);
+    return d && h ? Date.UTC(+d[1], +d[2] - 1, +d[3], +h[1], +h[2]) - KST : NaN;
+  }
+  function lunchOverlap(a, b) {   // a~b 구간이 그날 12~13시와 겹치는 ms
+    var day = kstDay(a), s = kstMs(day, '12:00'), e = kstMs(day, '13:00');
+    return Math.max(0, Math.min(b, e) - Math.max(a, s));
+  }
+  // → { '<tasks 순번>|밑작업': 분, '<순번>|시공': 분 } (못 잰 것은 넣지 않는다)
+  function workDurations(tasks, starts) {
+    var groups = {};
+    (tasks || []).forEach(function (t, i) {
+      if (!t || t.뒷정리) return;
+      ['밑작업', '시공'].forEach(function (stage) {
+        if (!t[stage]) return;
+        var at = Date.parse(str(t[stage + '완료시각']));
+        if (!isFinite(at)) return;
+        var g = str(t.현장ID) + '|' + kstDay(at);
+        (groups[g] = groups[g] || []).push({ key: i + '|' + stage, at: at, 현장ID: str(t.현장ID) });
+      });
+    });
+    var out = {};
+    Object.keys(groups).forEach(function (g) {
+      var ev = groups[g].sort(function (a, b) { return a.at - b.at; });
+      var day = kstDay(ev[0].at);
+      var st = ((starts || {})[ev[0].현장ID] || []).map(function (l) { return str(l); })
+        .filter(function (l) { return l.slice(0, 10) === day; })
+        .map(function (l) { return kstMs(day, l.slice(11, 16)); })
+        .filter(function (ms) { return isFinite(ms) && ms <= ev[0].at; }).sort(function (a, b) { return a - b; })[0];
+      var prev = isFinite(st) ? st : null;
+      for (var i = 0; i < ev.length;) {
+        var j = i;
+        while (j + 1 < ev.length && ev[j + 1].at - ev[j].at <= BATCH_MS) j++;
+        var last = ev[j].at;
+        if (prev !== null) {
+          var min = (last - prev - lunchOverlap(prev, last)) / 60000 / (j - i + 1);
+          if (min > 0 && min <= MAX_MIN) for (var k = i; k <= j; k++) out[ev[k].key] = Math.round(min);
+        }
+        prev = last;
+        i = j + 1;
+      }
+    });
+    return out;
+  }
+  // 시간을 볼 품목 묶음: 샤시는 종류·면별 1m당, 문+틀은 1개당 (사장님: 가장 많은 두 품목만)
+  function timedKind(kind) { return kind === '샤시' ? 'm' : kind === '문+틀' ? 'ea' : ''; }
+  function timeTrend(values) {   // 오래된 순 숫자 → { avg, first, last } (넷 이상이면 앞뒤 3번씩, 적으면 반씩)
+    var v = (values || []).filter(function (x) { return x > 0; });
+    if (!v.length) return null;
+    var avg = function (a) { return Math.round(a.reduce(function (s, x) { return s + x; }, 0) / a.length); };
+    var out = { avg: avg(v), n: v.length };
+    if (v.length >= 4) {
+      var k = Math.min(3, Math.floor(v.length / 2));
+      out.first = avg(v.slice(0, k)); out.last = avg(v.slice(-k)); out.k = k;
+    }
+    return out;
+  }
+  /* 시간 묶음 → [{ label, unit: 'm'|'ea', rows(최근 순, 값 있는 것 먼저 아님), trend, spark(오래된 순 값) }] */
+  function timeGroups(kind) {
+    var unit = timedKind(kind.name);
+    if (!unit) return [];
+    var groups = {}, order = [];
+    kind.rows.forEach(function (r) {
+      if (!r.밑작업) return;
+      var label = unit === 'ea' ? '1개당' : (r.샤시종류 ? r.샤시종류 + ' ' + (r.시공면 || '면 모름') : '종류 모름');
+      if (!groups[label]) { groups[label] = { label: label, unit: unit, rows: [] }; order.push(label); }
+      var per = null;
+      if (r.밑분 > 0) per = unit === 'ea' ? r.밑분 : (r.길이m > 0 ? Math.round(r.밑분 / r.길이m) : null);
+      groups[label].rows.push(Object.assign({}, r, { per: per }));
+    });
+    return order.map(function (l) {
+      var g = groups[l];
+      var chrono = g.rows.filter(function (r) { return r.per > 0; }).slice().sort(function (a, b) { return a.밑완료at - b.밑완료at; });   // 실제 완료한 순
+      g.spark = chrono.map(function (r) { return r.per; });
+      g.trend = timeTrend(g.spark);
+      return g;
+    }).sort(function (a, b) { return (a.label === '종류 모름') - (b.label === '종류 모름') || b.rows.length - a.rows.length; });
+  }
   /* sites = 이 앱의 현장 목록, name = 기사 이름. 이 앱 현장에 현장업무가 이어져 있으면(adminId) 날짜는
      그 기사가 실제로 일한 첫날(인원 칸), 아니면 현장업무의 시공일자. 현장업무 기록이 없는 이 앱 현장도 현장별에 남긴다.
      돌려줌: { kinds: [{ name, 밑, 밑완료, 시, 시완료, rows: [{ 현장ID, 현장명, date, 품목, 밑작업, 밑작업완료, 시공, 시공완료 }] }],
                sites: [{ key, siteId, 현장명, date, items: [...같은 줄], cleanup, noAdmin }] } — 둘 다 최근 순 */
-  function workerExperience(tasks, sites, name) {
+  function workerExperience(tasks, sites, name, starts) {
     var me = normName(name);
+    var dur = workDurations(tasks, starts);
     var byAdmin = {}, byName = {}, workDate = {}, matched = {};
     (sites || []).forEach(function (s) {
       if (!s) return;
@@ -1211,12 +1299,15 @@
       }
       return siteMap[key];
     };
-    (tasks || []).forEach(function (t) {
+    (tasks || []).forEach(function (t, ti) {
       if (!t) return;
       var s = siteOf(t);
       if (t.뒷정리) { s.cleanup++; return; }
       var row = { 현장ID: t.현장ID || '', siteId: s.siteId, 현장명: s.현장명, date: s.date, 품목: str(t.품목),
-        밑작업: !!t.밑작업, 밑작업완료: !!t.밑작업완료, 시공: !!t.시공, 시공완료: !!t.시공완료 };
+        밑작업: !!t.밑작업, 밑작업완료: !!t.밑작업완료, 시공: !!t.시공, 시공완료: !!t.시공완료,
+        // 작업시간 (2026-10-24): 분, 그리고 샤시면 종류·면·길이 (관리자앱에서 사장님이 고름)
+        밑분: dur[ti + '|밑작업'] || null, 시분: dur[ti + '|시공'] || null, 밑완료at: Date.parse(str(t.밑작업완료시각)) || 0,
+        샤시종류: str(t.샤시종류), 시공면: str(t.시공면), 길이m: Number(t.길이m) > 0 ? Number(t.길이m) : null };
       s.items.push(row);
       var k = itemKind(t.품목);
       var e = kinds[k] || (kinds[k] = { name: k, 밑: 0, 밑완료: 0, 시: 0, 시완료: 0, rows: [] });
@@ -1231,7 +1322,7 @@
       siteMap['local:' + s.id] = { key: 'local:' + s.id, siteId: s.id, 현장명: titleLine(s), date: workDate[s.id], items: [], cleanup: 0, noAdmin: true };
     });
     var byDate = function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : str(a.현장명).localeCompare(str(b.현장명)) || str(a.품목).localeCompare(str(b.품목)); };
-    var kindList = Object.keys(kinds).map(function (k) { kinds[k].rows.sort(byDate); return kinds[k]; })
+    var kindList = Object.keys(kinds).map(function (k) { kinds[k].rows.sort(byDate); kinds[k].times = timeGroups(kinds[k]); return kinds[k]; })
       .sort(function (a, b) { return (b.밑 + b.시) - (a.밑 + a.시) || a.name.localeCompare(b.name); });
     var siteList = Object.keys(siteMap).map(function (k) { return siteMap[k]; }).filter(function (s) { return s.items.length || s.noAdmin; }).sort(byDate);
     return { kinds: kindList, sites: siteList };
@@ -1784,7 +1875,7 @@
     buildRecruitText: buildRecruitText,
     personHistory: personHistory,
     itemKind: itemKind,
-    workerExperience: workerExperience,
+    workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,

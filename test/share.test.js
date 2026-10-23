@@ -1286,5 +1286,38 @@ test('인원 고르기: 초성·글자 검색, 가나다 묶음, 자주 6명, �
   assert.deepStrictEqual(Share.busyElsewhere(sites, '2026-10-27', 'b'), ['윤인재', '김정헌', '서영호']);
 });
 
+test('작업시간: 공지 확인 → 완료 간격, 점심 12~1시 뺌, 연달아 완료는 나눔, 시작 기록 없으면 첫 품목은 못 잼 (2026-10-24)', () => {
+  const T = (h, m, d = '2026-10-23') => new Date(Date.parse(d + 'T00:00:00Z') + ((h - 9) * 60 + m) * 60000).toISOString();
+  const tasks = [
+    { 현장ID: 'A', 품목: '방2샤시', 밑작업: true, 밑작업완료시각: T(10, 5) },
+    { 현장ID: 'A', 품목: '방3샤시', 밑작업: true, 밑작업완료시각: T(11, 20) },
+    { 현장ID: 'A', 품목: '안방문+틀', 밑작업: true, 밑작업완료시각: T(13, 40) },
+    { 현장ID: 'A', 품목: '방1문+틀', 밑작업: true, 밑작업완료시각: T(15, 0) },
+    { 현장ID: 'A', 품목: '방2문+틀', 밑작업: true, 밑작업완료시각: T(15, 2) },
+    { 현장ID: 'A', 품목: '현장정리', 뒷정리: true, 시공: true, 시공완료시각: T(15, 30) },
+    { 현장ID: 'A', 품목: '방4샤시', 밑작업: true, 밑작업완료시각: T(9, 30, '2026-10-24') },
+  ];
+  assert.deepStrictEqual(Share.workDurations(tasks, { A: ['2026-10-23 08:52', '2026-10-24 09:00'] }),
+    { '0|밑작업': 73, '1|밑작업': 75, '2|밑작업': 80, '3|밑작업': 41, '4|밑작업': 41, '6|밑작업': 30 });
+  assert.deepStrictEqual(Share.workDurations(tasks, {}), { '1|밑작업': 75, '2|밑작업': 80, '3|밑작업': 41, '4|밑작업': 41 });
+});
+test('작업시간 묶음: 샤시는 종류·면별 1m당, 문+틀은 1개당, 추세는 첫 3번 → 최근 3번', () => {
+  assert.deepStrictEqual(Share.timeTrend([40, 38, 36, 30, 28, 26]), { avg: 33, n: 6, first: 38, last: 28, k: 3 });
+  assert.deepStrictEqual(Share.timeTrend([20, 30]), { avg: 25, n: 2 });
+  assert.strictEqual(Share.timeTrend([]), null);
+  const T = (d, h, m) => new Date(Date.parse(d + 'T00:00:00Z') + ((h - 9) * 60 + m) * 60000).toISOString();
+  const tasks = [
+    { 현장ID: 'A', 현장명: '소사역', 시공일자: '2026-10-23', 품목: '방2샤시', 밑작업: true, 밑작업완료: true, 밑작업완료시각: T('2026-10-23', 10, 0), 샤시종류: '이중창', 시공면: '앞뒤', 길이m: 2.5 },
+    { 현장ID: 'A', 현장명: '소사역', 시공일자: '2026-10-23', 품목: '방3샤시', 밑작업: true, 밑작업완료: true, 밑작업완료시각: T('2026-10-23', 11, 0) },
+    { 현장ID: 'A', 현장명: '소사역', 시공일자: '2026-10-23', 품목: '안방문+틀', 밑작업: true, 밑작업완료: true, 밑작업완료시각: T('2026-10-23', 11, 50) },
+  ];
+  const ex = Share.workerExperience(tasks, [], '윤인재', { A: ['2026-10-23 09:00'] });
+  const sash = ex.kinds.find(k => k.name === '샤시');
+  assert.deepStrictEqual(sash.times.map(g => [g.label, g.unit, g.rows.map(r => r.per)]), [['이중창 앞뒤', 'm', [24]], ['종류 모름', 'm', [null]]]);
+  const door = ex.kinds.find(k => k.name === '문+틀');
+  assert.deepStrictEqual(door.times.map(g => [g.label, g.rows.map(r => r.per)]), [['1개당', [50]]]);
+  assert.deepStrictEqual(ex.kinds.find(k => k.name === '샤시').rows.find(r => r.품목 === '방3샤시').밑분, 60);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

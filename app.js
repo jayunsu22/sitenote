@@ -3707,7 +3707,7 @@
     var box = $('phBody'); if (!box) return;
     $('modalBody').querySelectorAll('.ph-tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === historyTab); });
     var c = workerWorkCache[name] || {};
-    var ex = Share.workerExperience(c.data ? c.data.tasks : [], state.sites, name);
+    var ex = Share.workerExperience(c.data ? c.data.tasks : [], state.sites, name, c.data ? c.data.시작 : null);
     var note = c.loading ? '<p class="ph-hint">현장업무 기록을 불러오는 중…</p>'
       : c.error ? '<p class="ph-hint">⚠ ' + esc(c.error) + ' <button type="button" class="link-btn" id="phRetry">다시</button></p>' : '';
     var stage = function (r) {
@@ -3717,17 +3717,45 @@
     var H = [note];
     if (historyTab === 'kind') {
       if (!c.loading && !c.error && !ex.kinds.length) H.push('<p class="ph-hint">현장업무에 맡은 품목이 아직 없습니다.</p>');
+      var krow = function (r, timed) {
+        var sub = [r.품목];
+        if (timed && r.길이m && timed === 'm') sub.push(r.길이m + 'm');
+        if (timed && r.밑분) sub.push(r.밑분 + '분');
+        var right = !timed ? stage(r)
+          : r.per ? '<span class="ph-per">' + r.per + '분' + (timed === 'm' ? '<small>/1m</small>' : '') + '</span>'
+          : '<span class="ph-per none">' + (r.밑분 && timed === 'm' ? '길이 없음' : r.밑작업완료 ? '시간 기록 전' : '미완료') + '</span>';
+        return '<div class="ph-krow"><span class="d">' + esc(r.date ? Share.dayLabel(r.date) : '') + '</span><span class="m"><b' +
+          (r.siteId ? ' class="go" data-site="' + esc(r.siteId) + '"' : '') + '>' + esc(r.현장명) + '</b><small>' + esc(sub.join(' · ')) + '</small></span>' +
+          '<span class="s">' + right + '</span></div>';
+      };
+      // 작업시간 묶음 (2026-10-24): 샤시는 종류·면별 1m당, 문+틀은 1개당 — 첫 3번 → 최근 3번, 막대는 오래된 순
+      var timeBox = function (g) {
+        var tr = g.trend, head = '';
+        if (tr && tr.first) {
+          var pct = Math.round((tr.first - tr.last) / tr.first * 100);
+          head = '첫 ' + tr.k + '번 평균 <b>' + tr.first + '분</b> → 최근 ' + tr.k + '번 <b>' + tr.last + '분</b> ' +
+            (pct > 0 ? '<em class="up">▼ ' + pct + '% 빨라짐</em>' : pct < 0 ? '<em class="down">▲ ' + (-pct) + '% 느려짐</em>' : '<em>그대로</em>');
+        } else if (tr) head = '평균 <b>' + tr.avg + '분</b> <small>· 아직 비교할 만큼 안 쌓임 (' + tr.n + '번)</small>';
+        else head = '<small>시간 기록이 아직 없습니다 — 공지 확인·완료 보고부터 쌓입니다</small>';
+        var max = Math.max.apply(null, g.spark.concat([1]));
+        var spark = g.spark.length > 1 ? '<div class="ph-spark">' + g.spark.map(function (v, i) {
+          return '<i' + (i === g.spark.length - 1 ? ' class="last"' : '') + ' style="height:' + Math.max(12, Math.round(v / max * 100)) + '%" title="' + v + '분"></i>';
+        }).join('') + '</div>' : '';
+        return '<div class="ph-tgrp"><div class="ph-tgh"><b>' + esc(g.label) + '</b><small>· ' + g.rows.length + '곳' +
+          (g.label === '종류 모름' ? ' · 관리자앱에서 종류를 고르면 나뉩니다' : g.unit === 'm' ? ' · 1m당' : '') + '</small></div>' +
+          '<div class="ph-trend">' + head + '</div>' + spark + g.rows.map(function (r) { return krow(r, g.unit); }).join('') + '</div>';
+      };
       ex.kinds.forEach(function (k, i) {
+        var timed = k.times && k.times.length;
+        var rest = timed ? k.rows.filter(function (r) { return !r.밑작업; }) : k.rows;   // 시공만 맡은 줄은 아래에 그대로
         H.push('<details class="ph-kind"><summary><b>' + esc(k.name) + '</b>' +
+          (timed ? '<span class="ph-clock" title="작업시간 기록 품목">⏱</span>' : '') +
           '<span class="ph-st' + (k.밑 ? '' : ' none') + '">밑 ' + k.밑 + (k.밑 ? ' <small>(' + k.밑완료 + ')</small>' : '') + '</span>' +
           '<span class="ph-st si' + (k.시 ? '' : ' none') + '">시공 ' + (k.시 ? k.시 + ' <small>(' + k.시완료 + ')</small>' : '아직') + '</span></summary>' +
-          k.rows.map(function (r) {
-            return '<div class="ph-krow"><span class="d">' + esc(r.date ? Share.dayLabel(r.date) : '') + '</span><span class="m"><b' +
-              (r.siteId ? ' class="go" data-site="' + esc(r.siteId) + '"' : '') + '>' + esc(r.현장명) + '</b><small>' + esc(r.품목) + '</small></span>' +
-              '<span class="s">' + stage(r) + '</span></div>';
-          }).join('') + '</details>');
+          (timed ? k.times.map(timeBox).join('') : '') +
+          rest.map(function (r) { return krow(r, ''); }).join('') + '</details>');
       });
-      if (ex.kinds.length) H.push('<p class="ph-hint">괄호 = 완료 처리한 수 · 품목을 누르면 현장별로 펼쳐집니다</p>');
+      if (ex.kinds.length) H.push('<p class="ph-hint">괄호 = 완료 처리한 수 · 품목을 누르면 현장별로 펼쳐집니다 · ⏱ 샤시·문+틀은 밑작업 시간(공지 확인 → 완료 보고, 12~1시 점심 뺌)</p>');
     } else {
       if (!ex.sites.length) H.push('<p class="ph-hint">아직 들어간 현장이 없습니다.</p>');
       ex.sites.forEach(function (s) {

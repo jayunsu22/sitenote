@@ -1306,3 +1306,20 @@ textarea { resize: vertical; }
 .chip.pick.busy2 small { font-size: 10px; font-weight: 700; }
 .chip.pick mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
 .pick-add { width: 100%; margin-top: 6px; padding: 11px; border: 2px dashed #93c5fd; border-radius: 10px; background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 14px; }
+/* 작업시간 (2026-10-24) — 작업내역 › 품목별 경험 안 샤시·문+틀 묶음 */
+.ph-clock { font-size: 13px; margin-left: 4px; }
+.ph-tgrp { margin: 8px 0 6px; padding: 8px 10px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.ph-tgh { display: flex; align-items: baseline; gap: 6px; font-size: 14.5px; }
+.ph-tgh b { white-space: nowrap; }
+.ph-tgh small { color: #64748b; font-weight: 700; font-size: 12px; }
+.ph-trend { margin-top: 4px; font-size: 13px; color: #334155; line-height: 1.7; }
+.ph-trend em { font-style: normal; font-weight: 800; padding: 1px 8px; border-radius: 99px; background: #f1f5f9; white-space: nowrap; }
+.ph-trend em.up { background: #dcfce7; color: #15803d; }
+.ph-trend em.down { background: #fee2e2; color: #b91c1c; }
+.ph-trend small { color: #94a3b8; }
+.ph-spark { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin: 6px 0 4px; }
+.ph-spark i { flex: 1; background: #a5b4fc; border-radius: 3px 3px 0 0; }
+.ph-spark i.last { background: #4f46e5; }
+.ph-per { font-weight: 900; color: #4338ca; white-space: nowrap; }
+.ph-per small { font-weight: 700; color: #94a3b8; font-size: 11px; }
+.ph-per.none { color: #cbd5e1; font-weight: 700; font-size: 12px; }
