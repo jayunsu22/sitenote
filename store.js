@@ -217,7 +217,8 @@
       doneAt: Number(raw.doneAt) || 0,
       result: String(raw.result || ''),
       createdAt: Number(raw.createdAt) || 0,
-      updatedAt: Number(raw.updatedAt) || 0
+      updatedAt: Number(raw.updatedAt) || 0,
+      order: Math.max(0, Math.floor(Number(raw.order) || 0))   // 그날 안 순서 (0 = 안 정함, 2026-10-24)
     };
   }
   function normalizeTasks(raw) { return (Array.isArray(raw) ? raw : []).map(normalizeTask).filter(Boolean); }
@@ -350,6 +351,14 @@
     if (!n.title) n.title = t.title;   // 제목을 지우면 예전 제목 유지
     Object.assign(t, n);
     return saveTask(t);
+  }
+  // 그날 할 일 순서 한꺼번에 (순서 빠르게 정하기) — ids 순서대로 1, 2, 3 …
+  function setTaskOrder(ids) {
+    (ids || []).forEach(function (id, i) {
+      var t = getTask(id); if (!t || t.order === i + 1) return;
+      t.order = i + 1; t.updatedAt = Date.now();
+      saveTask(t);
+    });
   }
   function deleteTask(id) {
     state.tasks = state.tasks.filter(function (t) { return t.id !== id; });
@@ -943,7 +952,7 @@
     renameReviewQuestion: renameReviewQuestion, moveReviewQuestion: moveReviewQuestion,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,
     addService: addService, updateService: updateService, removeService: removeService, setServiceToolReady: setServiceToolReady,
-    tasks: tasks, getTask: getTask, addTask: addTask, updateTask: updateTask, deleteTask: deleteTask,
+    tasks: tasks, getTask: getTask, addTask: addTask, setTaskOrder: setTaskOrder, updateTask: updateTask, deleteTask: deleteTask,
     completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered, setFilmOrdered: setFilmOrdered,
     setHold: setHold, toggleHold: toggleHold, addIncome: addIncome, updateIncome: updateIncome, deleteIncome: deleteIncome,
     addClientNote: addClientNote, updateClientNote: updateClientNote, deleteClientNote: deleteClientNote,

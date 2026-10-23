@@ -1645,7 +1645,13 @@
     if (v === '오후') return '3';
     return '4';
   }
-  function byTime(a, b) { return taskTimeKey(a).localeCompare(taskTimeKey(b)) || (a.createdAt || 0) - (b.createdAt || 0); }
+  // 순서를 정한 할 일(order 1, 2, …)이 먼저, 나머지는 시간 순 (2026-10-24 순서 빠르게 정하기)
+  function byTime(a, b) {
+    var oa = Number(a.order) || 0, ob = Number(b.order) || 0;
+    if (oa && ob && oa !== ob) return oa - ob;
+    if (!oa !== !ob) return oa ? -1 : 1;
+    return taskTimeKey(a).localeCompare(taskTimeKey(b)) || (a.createdAt || 0) - (b.createdAt || 0);
+  }
   // 일정 화면용 묶기. overdue = 날짜가 지났는데 안 끝남(위 빨간 상자), undated = 날짜 없고 안 끝남,
   // byDate = 날짜마다 { open, done }. 지난 날짜의 안 끝난 할 일은 overdue 로만 간다
   function taskGroups(tasks, today) {

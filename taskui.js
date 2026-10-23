@@ -154,6 +154,14 @@
     head.appendChild(el('b', '', '📌 ' + Share.dayLabel(iso) + (iso === today() ? ' 오늘' : '') + ' 할 일'));
     if (grp.open.length) head.appendChild(el('span', 'task-day-n', String(grp.open.length)));
     head.appendChild(el('span', 'task-day-sub', grp.open.length ? (grp.done.length ? '완료 ' + grp.done.length : '') : '다 끝냄 ✓'));
+    // 🔢 순서 빠르게 정하기 (2026-10-24) — 직접 넣은 할 일이 둘 이상일 때
+    var mine = grp.open.filter(function (t) { return !t.auto; });
+    if (mine.length > 1) {
+      var ord = btn('task-day-order', '🔢', function () { openOrderSheet(iso, mine); });
+      ord.setAttribute('aria-label', Share.dayLabel(iso) + ' 할 일 순서 정하기');
+      ord.title = '순서 정하기';
+      head.appendChild(ord);
+    }
     var add = btn('task-day-add', '＋', function () { openTaskSheet({ date: iso }); });
     add.setAttribute('aria-label', Share.dayLabel(iso) + ' 할 일 넣기');
     head.appendChild(add);
@@ -167,6 +175,43 @@
       if (openDone[iso]) grp.done.forEach(function (t) { box.appendChild(renderTaskRow(t)); });
     }
     return box;
+  }
+  /* 순서 빠르게 정하기 (2026-10-24 사장님, 관리자앱 업무배정표와 같은 방식) — 원하는 순서대로 탭하면 1, 2, 3 …
+     다시 탭하면 번호가 빠진다. 저장하면 안 누른 것은 누른 것 뒤에 지금 순서대로 붙는다 */
+  function openOrderSheet(iso, list) {
+    var picked = [];
+    openSheet('🔢 순서 빠르게 정하기', function (body) {
+      body.appendChild(el('p', 'sheet-hint', '원하는 순서대로 아래 할 일을 차례로 탭하세요. 번호가 매겨집니다. 다 되면 저장을 누르세요.'));
+      var wrap = el('div', 'order-list');
+      body.appendChild(wrap);
+      var foot = el('div', 'order-foot');
+      var count = el('span', 'order-count');
+      var paint = function () {
+        wrap.innerHTML = '';
+        list.forEach(function (tk) {
+          var n = picked.indexOf(tk.id) + 1;
+          var row = btn('order-row' + (n ? ' on' : ''), '', function () {
+            var i = picked.indexOf(tk.id);
+            if (i >= 0) picked.splice(i, 1); else picked.push(tk.id);
+            paint();
+          });
+          row.appendChild(el('span', 'order-num', n ? String(n) : ''));
+          row.appendChild(el('span', 'order-title', (tk.time ? tk.time + ' ' : '') + tk.title));
+          wrap.appendChild(row);
+        });
+        count.textContent = picked.length + ' / ' + list.length + '개 지정됨';
+      };
+      foot.appendChild(count);
+      foot.appendChild(btn('btn-sm order-reset', '초기화', function () { picked = []; paint(); }));
+      foot.appendChild(btn('btn-sm btn-green order-save', '💾 저장', function () {
+        var rest = list.map(function (tk) { return tk.id; }).filter(function (id) { return picked.indexOf(id) < 0; });
+        Store.setTaskOrder(picked.concat(rest));
+        closeSheet();
+        d.toast(Share.dayLabel(iso) + ' 할 일 순서를 저장했습니다');
+      }));
+      body.appendChild(foot);
+      paint();
+    });
   }
   // 맨 위 상자: 밀린 할 일(빨강), 날짜 없는 할 일(회색, 접힘)
   var showUndated = false;

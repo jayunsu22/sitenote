@@ -228,5 +228,11 @@ test('siliconeLate: 2일 전부터 빨간불, 지나도 계속, 다 챙기면 �
   assert.ok(Share.buildShare(현장({ silicone: { who: 'me', colors: ['투명'] } }), []).includes('🧴 실리콘: 사장님이 쏨 (투명)'));
 });
 
+test('할 일 순서: 정한 순서(order)가 먼저, 안 정한 것은 그 뒤에 시간 순 (2026-10-24)', () => {
+  const T = (id, o) => Object.assign({ id, title: id, date: 오늘, time: '', done: false, createdAt: 1 }, o);
+  const g = Share.taskGroups([T('a', { time: '오전' }), T('b', { order: 2 }), T('c', { order: 1, time: '오후' }), T('d', {})], 오늘);
+  assert.deepStrictEqual(g.byDate[오늘].open.map(t => t.id), ['c', 'b', 'a', 'd']);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

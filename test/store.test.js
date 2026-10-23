@@ -700,6 +700,16 @@ function reset() {
     assert.deepStrictEqual(Store.getSite(s.id).supplies.map(x => x.name), ['장갑', '칼날']);
   });
 
+  await test('setTaskOrder: 준 순서대로 1, 2, 3 · 다시 읽어도 유지, 이상한 값은 0', () => {
+    reset();
+    const a = Store.addTask({ title: 'A', date: '2026-10-24' }), b = Store.addTask({ title: 'B', date: '2026-10-24' }), c = Store.addTask({ title: 'C', date: '2026-10-24' });
+    Store.setTaskOrder([c.id, a.id, b.id]);
+    Store.load();
+    assert.deepStrictEqual([a, b, c].map(x => Store.getTask(x.id).order), [2, 3, 1]);
+    Store.updateTask(a.id, { order: -5 });
+    assert.strictEqual(Store.getTask(a.id).order, 0);
+  });
+
   await test('숨긴 현장(hide): 새 현장은 false, 켜고 다시 읽어도 유지, 이상한 값은 true/false 로', () => {
     reset();
     const c = Store.addClient('A'); const s = Store.addSite(c.id);
