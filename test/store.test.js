@@ -700,6 +700,16 @@ function reset() {
     assert.deepStrictEqual(Store.getSite(s.id).supplies.map(x => x.name), ['장갑', '칼날']);
   });
 
+  await test('숨긴 현장(hide): 새 현장은 false, 켜고 다시 읽어도 유지, 이상한 값은 true/false 로', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    Store.load();
+    assert.strictEqual(Store.getSite(s.id).hide, false);
+    Store.updateSite(s.id, { hide: 1 });
+    Store.load();
+    assert.strictEqual(Store.getSite(s.id).hide, true);
+  });
+
   await test('setSilicone: 내가 쏠 때만 색마다 부자재 줄, 색을 빼면 줄도 빠짐 (체크는 지킨다), 다른 사람이면 줄 없음', () => {
     reset();
     const c = Store.addClient('A'); const s = Store.addSite(c.id);

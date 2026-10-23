@@ -506,18 +506,28 @@
       $('btnAddSite').hidden = true; return;
     }
     $('btnAddSite').hidden = false;
-    var sites = Store.sitesOf(currentClientId);
+    var all = Store.sitesOf(currentClientId);
+    var sites = all.filter(function (s) { return !s.hide; });
+    var hid = all.filter(function (s) { return s.hide; });
     empty.hidden = sites.length > 0;
-    if (!sites.length) empty.innerHTML = '아래 <b>＋ 현장</b> 버튼으로 첫 현장을 추가하세요.';
-    sites.forEach(function (s) {
+    if (!sites.length) empty.innerHTML = hid.length ? '보이는 현장이 없습니다 — 아래 숨긴 현장을 펼쳐 보세요.' : '아래 <b>＋ 현장</b> 버튼으로 첫 현장을 추가하세요.';
+    var list = sites.concat(showHidden ? hid : []);
+    list.forEach(function (s) {
       var card = document.createElement('div');
-      card.className = 'card color-' + (s.color || 0);
+      card.className = 'card color-' + (s.color || 0) + (s.hide ? ' is-hidden' : '');
       card.innerHTML = '<h3 class="card-title">' + esc(Share.titleLine(s)) + '</h3>' +
         cardSummary(s).map(function (l) { return '<div class="card-line">' + esc(l) + '</div>'; }).join('');
       card.onclick = function () { go('#site/' + s.id); };
       wrap.appendChild(card);
     });
+    if (hid.length) {   // 숨긴 현장은 맨 아래 접어 둔다
+      var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'hidden-toggle';
+      tg.textContent = (showHidden ? '▲ 숨긴 현장 접기' : '🙈 숨긴 현장 ' + hid.length + '곳 보기');
+      tg.onclick = function () { showHidden = !showHidden; renderCards(); };
+      if (showHidden) wrap.insertBefore(tg, wrap.children[sites.length] || null); else wrap.appendChild(tg);
+    }
   }
+  var showHidden = false;
   $('btnAddSite').onclick = function () {
     if (!currentClientId) return;
     var s = Store.addSite(currentClientId);
@@ -1431,6 +1441,7 @@
     $('colorPicker').hidden = true;
     renderColorPicker(s);
     var wrap = $('siteFields'); wrap.innerHTML = '';
+    paintHideState(s);
     // 탭으로 나눈 현장 화면 (2026-09-24 B안). 칸이 한 줄로 길게 이어져 한눈에 안 들어와서
     // 위에 요약(날짜·D-day·상태 알약)을 두고, 구역을 탭 다섯 개로 나눈다.
     // 탭은 보이기만 바꾼다 — 모든 칸은 늘 화면(DOM)에 있어서 질문/공유 복사·체크박스는 예전 그대로다
@@ -2999,13 +3010,35 @@
     }
   }
   $('btnColor').onclick = function () { $('colorPicker').hidden = !$('colorPicker').hidden; };
-  $('btnDeleteSite').onclick = function () {
+  /* 🗑 삭제 → 🙈 숨김 (2026-10-24 사장님). 실수로 지울 일이 없게 위에서는 숨기기만 한다.
+     숨긴 현장은 메인 목록 맨 아래 '숨긴 현장 N곳' 을 펼쳐 열고, 그 화면에서 다시 보이기·완전 삭제 */
+  function paintHideState(s) {
+    var b = $('btnHideSite');
+    b.textContent = s && s.hide ? '👁' : '🙈';
+    b.title = s && s.hide ? '다시 보이기 — 목록에 다시 나옵니다' : '숨기기 — 목록에서만 안 보이게';
+    var old = $('hiddenBanner'); if (old) old.remove();
+    if (!s || !s.hide) return;
+    var bn = document.createElement('div'); bn.id = 'hiddenBanner'; bn.className = 'hidden-banner';
+    bn.appendChild(el2('span', '', '🙈 숨긴 현장 — 목록에 안 나옵니다'));
+    var show = el2('button', 'btn-sm', '다시 보이기'); show.type = 'button';
+    show.onclick = function () { $('btnHideSite').onclick(); };
+    var del = el2('button', 'btn-sm danger', '완전 삭제'); del.type = 'button';
+    del.onclick = function () {
+      modalConfirm('현장 삭제', '"' + Share.titleLine(s) + '" 현장을 완전히 지웁니다. 되돌릴 수 없습니다.', '삭제', true).then(function (ok) {
+        if (!ok) return;
+        Store.deleteSite(s.id); toast('삭제됨'); back();
+      });
+    };
+    bn.appendChild(show); bn.appendChild(del);
+    $('siteFields').insertBefore(bn, $('siteFields').firstChild);
+  }
+  $('btnHideSite').onclick = function () {
     var s = Store.getSite(currentSiteId); if (!s) return;
-    modalConfirm('현장 삭제', '"' + Share.titleLine(s) + '" 현장을 삭제합니다.', '삭제', true).then(function (ok) {
-      if (!ok) return;
-      Store.deleteSite(s.id); toast('삭제됨'); back();
-    });
+    var u = Store.updateSite(s.id, { hide: !s.hide });
+    if (u.hide) { toast('숨겼습니다 — 목록 맨 아래 \'숨긴 현장\' 에서 다시 열 수 있습니다'); back(); }
+    else { toast('다시 목록에 보입니다'); paintHideState(u); }
   };
+  $('btnSiteSettings').onclick = function () { go('#settings'); };
 
   function refreshRowState(row, s, key) {
     row.classList.toggle('is-empty', Share.isEmpty(s, key));

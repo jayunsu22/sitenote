@@ -126,6 +126,7 @@
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     s.silicone = Share.siliconeOf(s);
+    s.hide = !!s.hide;   // 숨긴 현장 (2026-10-24) — 메인 목록에서만 뺀다. 일정·기록은 그대로
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
     return s;

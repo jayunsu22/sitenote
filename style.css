@@ -1287,3 +1287,9 @@ textarea { resize: vertical; }
 /* 필름 거래처 ⭐ 주거래처 (2026-10-24) — 맨 앞 거래처 */
 .fv-star { flex: none; height: 36px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; color: #94a3b8; font-size: 16px; font-weight: 800; }
 .fv-star.on { border-color: #facc15; background: #fef9c3; color: #854d0e; font-size: 13px; }
+/* 숨긴 현장 (2026-10-24) — 메인 목록 맨 아래에 접어 두고, 현장 화면 위에 띠 */
+.hidden-toggle { display: block; width: 100%; margin: 6px 0; padding: 12px; border: 1.5px dashed var(--border); border-radius: 12px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 800; }
+.card.is-hidden { opacity: .55; }
+.hidden-banner { display: flex; align-items: center; gap: 8px; margin: 10px 12px 0; padding: 10px 12px; border-radius: 12px; background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #334155; font-size: 13.5px; font-weight: 800; }
+.hidden-banner span { flex: 1; }
+.btn-sm.danger { color: #dc2626; border-color: #fca5a5; }
