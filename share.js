@@ -328,6 +328,8 @@
     }
 
     lines = lines.concat(infoLines(site, has));
+    var sil = siliconeShareLine(site);
+    if (sil) lines.push(sil);
     // 기사접속 링크는 맨 끝에, 위로 빈 줄 두 개 띄워 따로 보이게 (2026-10-22 사장님)
     var wl = (keys || []).indexOf(WORKER_KEY) >= 0 ? workerLink(site) : '';
     return lines.join(ITEM_GAP) + (wl ? '\n\n\n🔗 기사접속: ' + wl : '');
@@ -745,6 +747,44 @@
   function filmOrderLate(site, today) {
     var d = site && site.date;
     return isIsoDate(d) && filmStageOf(site) < 2 && dayDiff(today || todayIso(), d) <= FILM_ORDER_DAYS;
+  }
+  /* 실리콘 (2026-10-24 사장님) — 현장 하나에 한 번: 없음 / 내가 쏨 / 다른 사람.
+     다른 사람이 쏘면 내 일이 아니라 그걸로 끝. 내가 쏠 때만 고른 색(여러 개)이 부자재에
+     '실리콘 백색' 줄로 들어가고, 실리콘은 당일 보충이 안 돼 필름처럼 시공 2일 전부터 빨간불 */
+  var SILICONE_COLORS = ['백색', '투명', '회색', '아이보리', '블랙'];
+  var SILICONE_DAYS = 2;
+  function siliconeOf(site) {
+    var v = (site && site.silicone) || {};
+    var who = v.who === 'me' || v.who === 'other' ? v.who : '';
+    var colors = [];
+    (Array.isArray(v.colors) ? v.colors : []).forEach(function (c) {
+      var x = str(c);
+      if (x && colors.indexOf(x) === -1) colors.push(x);
+    });
+    return { who: who, colors: colors };
+  }
+  function siliconeName(color) { return '실리콘 ' + str(color); }
+  // 내가 쏘는데 아직 부자재 체크가 안 된 색들
+  function siliconeLeft(site) {
+    var sc = siliconeOf(site);
+    if (sc.who !== 'me') return [];
+    var sup = (site && site.supplies) || [];
+    return sc.colors.filter(function (c) {
+      return !sup.some(function (r) { return r && r.ready && str(r.name) === siliconeName(c); });
+    });
+  }
+  function isSiliconeSupply(site, name) {
+    var sc = siliconeOf(site);
+    return sc.who === 'me' && sc.colors.some(function (c) { return siliconeName(c) === str(name); });
+  }
+  // 첫날 2일 전부터(지나도 계속) 못 챙긴 색이 있으면 빨간불
+  function siliconeLate(site, today) {
+    var d = site && site.date;
+    return isIsoDate(d) && siliconeLeft(site).length > 0 && dayDiff(today || todayIso(), d) <= SILICONE_DAYS;
+  }
+  function siliconeShareLine(site) {
+    var sc = siliconeOf(site);
+    return sc.who === 'me' && sc.colors.length ? '🧴 실리콘: 사장님이 쏨 (' + sc.colors.join(' · ') + ')' : '';
   }
   // 준비 카운트: 필름은 번호가 빈 줄 제외
   function readyCount(site) {
@@ -1291,8 +1331,13 @@
       /* 현장 자재: 차에 늘 싣고 다니는 상비품(설정의 부자재 기본 항목)은 뺀다 —
          그건 아래 '차 보충' 할 일 하나로 본다. 그 현장에만 챙겨야 하는 것만 현장 할 일로 */
       var 특수 = (s.supplies || []).filter(function (x) {
-        return x && str(x.name) && !x.ready && !isStockItem(settings, x.name);
+        return x && str(x.name) && !x.ready && !isStockItem(settings, x.name) && !isSiliconeSupply(s, x.name);
       }).map(function (x) { return str(x.name); });
+      // 실리콘은 보충에 시간이 걸려 따로, 2일 전부터 (부자재 기준 일수와 무관)
+      var 실 = siliconeLeft(s);
+      if (within(today, first, SILICONE_DAYS) && 실.length) {
+        make('silicone', 'auto:silicone:' + s.id, '실리콘 준비: ' + name + ' (' + 실.join('·') + ')', siteLink);
+      }
       if (within(today, first, r.supplyDays) && 특수.length) {
         make('supply', 'auto:supply:' + s.id, '현장 자재 챙기기: ' + name + ' (' + 특수.join('·') + ')', siteLink);
       }
@@ -1712,6 +1757,8 @@
     isUrgent: isUrgent,
     filmStageOf: filmStageOf,
     filmOrderLate: filmOrderLate,
+    SILICONE_COLORS: SILICONE_COLORS, SILICONE_DAYS: SILICONE_DAYS, siliconeOf: siliconeOf, siliconeName: siliconeName,
+    siliconeLeft: siliconeLeft, siliconeLate: siliconeLate, siliconeShareLine: siliconeShareLine,
     dayDiff: dayDiff,
     datesLine: datesLine,
     workSummary: workSummary,

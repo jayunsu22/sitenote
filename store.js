@@ -125,6 +125,7 @@
     s.quoteCode = String(s.quoteCode == null ? '' : s.quoteCode).trim();   // 이어 붙인 견적서 코드
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
+    s.silicone = Share.siliconeOf(s);
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
     return s;
@@ -574,6 +575,19 @@
     if (!v || s.supplies.some(function (r) { return r.name === v; })) return s;
     return updateSite(siteId, { supplies: s.supplies.concat([{ name: v, ready: false }]) });
   }
+  /* 실리콘 (2026-10-24) — who: '' | 'me' | 'other', colors: ['백색', …].
+     내가 쏠 때만 고른 색마다 부자재 '실리콘 <색>' 줄을 만들고, 빠진 색의 줄은 지운다 (체크 상태는 지킨다) */
+  function setSilicone(siteId, who, colors) {
+    var s = getSite(siteId); if (!s) return null;
+    var before = Share.siliconeOf(s);
+    var next = Share.siliconeOf({ silicone: { who: who, colors: colors } });
+    var want = next.who === 'me' ? next.colors.map(Share.siliconeName) : [];
+    var old = before.colors.map(Share.siliconeName);
+    var sup = s.supplies.filter(function (r) { return old.indexOf(r.name) === -1 || want.indexOf(r.name) !== -1; })
+      .map(function (r) { return Object.assign({}, r); });
+    want.forEach(function (n) { if (!sup.some(function (r) { return r.name === n; })) sup.push({ name: n, ready: false }); });
+    return updateSite(siteId, { silicone: next, supplies: sup });
+  }
   function removeSupply(siteId, i) {
     var s = getSite(siteId); if (!s || !s.supplies[i]) return null;
     var sup = s.supplies.slice(); sup.splice(i, 1);
@@ -932,7 +946,7 @@
     completeTask: completeTask, uncompleteTask: uncompleteTask, markFilmOrdered: markFilmOrdered, setFilmOrdered: setFilmOrdered,
     setHold: setHold, toggleHold: toggleHold, addIncome: addIncome, updateIncome: updateIncome, deleteIncome: deleteIncome,
     addClientNote: addClientNote, updateClientNote: updateClientNote, deleteClientNote: deleteClientNote,
-    setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, removeSupply: removeSupply,
+    setNeedStaff: setNeedStaff, setFilmStage: setFilmStage, toggleFilm: toggleFilm, toggleSupply: toggleSupply, addSupply: addSupply, setSilicone: setSilicone, removeSupply: removeSupply,
     getPhoto: getPhoto, photosOf: photosOf, addPhoto: addPhoto, updatePhoto: updatePhoto, deletePhoto: deletePhoto,
     photoData: photoData,
     setSettings: setSettings, renameStaff: renameStaff,

@@ -204,5 +204,29 @@ test('모집 문구: 날짜·동네·부족 인원, 현장명은 안 나간다',
   assert.ok(!t.includes('우륵') && !t.includes('606'), t);
 });
 
+test('실리콘: 내가 쏘고 못 챙긴 색이 있으면 시공 2일 전부터 할 일 (부자재 할 일엔 안 겹침)', () => {
+  const 실 = (o) => 현장(Object.assign({ filmStage: 2, silicone: { who: 'me', colors: ['백색', '회색'] },
+    supplies: [{ name: '본드', ready: true }, { name: '실리콘 백색', ready: true }, { name: '실리콘 회색', ready: false }] }, o));
+  assert.deepStrictEqual(Share.autoTasks([실()], 오늘, 규칙), [], '3일 전엔 아직');
+  const l = Share.autoTasks([실()], '2026-10-15', 규칙);
+  assert.deepStrictEqual(kinds(l), ['silicone']);
+  assert.strictEqual(l[0].title, '실리콘 준비: 우륵 704 (회색)');
+  assert.deepStrictEqual(kinds(Share.autoTasks([실()], '2026-10-16', 규칙)), ['silicone'], '전날엔 부자재 할 일과 안 겹침');
+  assert.deepStrictEqual(Share.autoTasks([실({ silicone: { who: 'other', colors: ['회색'] } })], '2026-10-16', 규칙).filter(t => t.kind === 'silicone'), []);
+  const 다 = 실({ supplies: [{ name: '실리콘 백색', ready: true }, { name: '실리콘 회색', ready: true }] });
+  assert.deepStrictEqual(Share.autoTasks([다], '2026-10-15', 규칙), []);
+});
+test('siliconeLate: 2일 전부터 빨간불, 지나도 계속, 다 챙기면 꺼짐 / 공유 한 줄', () => {
+  const s = 현장({ silicone: { who: 'me', colors: ['백색'] }, supplies: [{ name: '실리콘 백색', ready: false }] });
+  assert.strictEqual(Share.siliconeLate(s, '2026-10-14'), false);
+  assert.strictEqual(Share.siliconeLate(s, '2026-10-15'), true);
+  assert.strictEqual(Share.siliconeLate(s, '2026-10-18'), true);
+  assert.strictEqual(Share.siliconeLate(Object.assign({}, s, { supplies: [{ name: '실리콘 백색', ready: true }] }), '2026-10-16'), false);
+  assert.strictEqual(Share.siliconeLate(Object.assign({}, s, { silicone: { who: 'other', colors: ['백색'] } }), '2026-10-16'), false);
+  assert.strictEqual(Share.siliconeShareLine(현장({ silicone: { who: 'me', colors: ['백색', '회색'] } })), '🧴 실리콘: 사장님이 쏨 (백색 · 회색)');
+  assert.strictEqual(Share.siliconeShareLine(현장({ silicone: { who: 'other', colors: ['백색'] } })), '');
+  assert.ok(Share.buildShare(현장({ silicone: { who: 'me', colors: ['투명'] } }), []).includes('🧴 실리콘: 사장님이 쏨 (투명)'));
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

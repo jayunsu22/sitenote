@@ -46,7 +46,7 @@
     return Share.titleLine(r.site);
   }
   function iconOf(t) {
-    if (t.auto) return { film: '🎞', staff: '👥', supply: '🧰', hold: '⏳', stock: '🚚' }[t.kind] || '📝';
+    if (t.auto) return { film: '🎞', staff: '👥', supply: '🧰', silicone: '🧴', hold: '⏳', stock: '🚚' }[t.kind] || '📝';
     if (!t.link) return '📝';
     if (t.link.type === 'client') return t.title.indexOf('통화') !== -1 ? '📞' : '🏢';
     if (t.link.type === 'service') return '🔧';

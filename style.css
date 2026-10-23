@@ -1267,3 +1267,20 @@ textarea { resize: vertical; }
 .ph-srow { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 6px 2px 6px 70px; border-top: 1px solid #eef2f7; font-size: 13px; color: #334155; }
 .ph-srow .s { flex-direction: row; }
 .ph-site .ph-hint { padding-left: 70px; margin: 2px 0 6px; }
+/* 실리콘 (2026-10-24) — 현장 하나에 한 번: 없음 / 내가 쏨 / 다른 사람 */
+.sil-sec { padding-bottom: 10px; }
+.sil-sec.me { box-shadow: inset 3px 0 0 #f97316; }
+.sil-who { display: flex; gap: 6px; padding: 4px 12px 0; }
+.sil-opt { flex: 1; padding: 9px 4px; border: 2px solid var(--border); border-radius: 10px; background: #fff; font-size: 14px; font-weight: 800; color: #475569; }
+.sil-sec.me .sil-opt.on { border-color: #f97316; background: #ffedd5; color: #9a3412; }
+.sil-sec.other .sil-opt.on { border-color: #64748b; background: #f1f5f9; color: #334155; }
+.sil-sec:not(.me):not(.other) .sil-opt.on { border-color: #94a3b8; background: #f8fafc; color: #334155; }
+.sil-lab { padding: 10px 12px 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.sil-colors { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px; }
+.sil-color { padding: 7px 12px; border: 2px solid var(--border); border-radius: 999px; background: #fff; font-size: 13.5px; font-weight: 800; color: #334155; }
+.sil-color.on { border-color: #f97316; background: #ffedd5; color: #9a3412; }
+.sil-color.add { border-style: dashed; color: var(--muted); }
+.sil-off { margin: 8px 12px 0; padding: 8px 10px; border-radius: 8px; background: #f1f5f9; color: #64748b; font-size: 13px; font-weight: 700; }
+.sil-sec .film-late-msg { margin: 8px 12px 0; }
+.sec-row.sil-row .sec-name { color: #9a3412; font-weight: 700; }
+.sil-tag { flex: none; font-size: 11px; font-weight: 800; background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 999px; }

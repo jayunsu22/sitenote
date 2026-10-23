@@ -700,6 +700,26 @@ function reset() {
     assert.deepStrictEqual(Store.getSite(s.id).supplies.map(x => x.name), ['장갑', '칼날']);
   });
 
+  await test('setSilicone: 내가 쏠 때만 색마다 부자재 줄, 색을 빼면 줄도 빠짐 (체크는 지킨다), 다른 사람이면 줄 없음', () => {
+    reset();
+    const c = Store.addClient('A'); const s = Store.addSite(c.id);
+    const names = () => Store.getSite(s.id).supplies.map(x => x.name);
+    Store.setSilicone(s.id, 'me', ['백색', '회색', '백색', ' ']);
+    assert.deepStrictEqual(Store.getSite(s.id).silicone, { who: 'me', colors: ['백색', '회색'] });
+    assert.deepStrictEqual(names(), ['본드', '장갑', '실리콘 백색', '실리콘 회색']);
+    Store.toggleSupply(s.id, 2);
+    Store.setSilicone(s.id, 'me', ['백색']);
+    assert.deepStrictEqual(names(), ['본드', '장갑', '실리콘 백색']);
+    assert.strictEqual(Store.getSite(s.id).supplies[2].ready, true, '남은 색은 체크 유지');
+    Store.setSilicone(s.id, 'other', ['백색']);
+    assert.deepStrictEqual(names(), ['본드', '장갑']);
+    assert.strictEqual(Store.getSite(s.id).silicone.who, 'other');
+    Store.setSilicone(s.id, 'weird', []);
+    assert.deepStrictEqual(Store.getSite(s.id).silicone, { who: '', colors: [] });
+    Store.load();
+    assert.deepStrictEqual(Store.getSite(s.id).silicone, { who: '', colors: [] }, '다시 읽어도 모양 유지');
+  });
+
   await test('setNeedStaff: 0(미정)부터 99까지, 잘못된 값은 0, 새 현장·구버전 현장은 0', () => {
     reset();
     const c = Store.addClient('A'); const s = Store.addSite(c.id);

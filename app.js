@@ -1322,6 +1322,10 @@
         late.textContent = '⚠ 필름 주문! ' + (dd > 0 ? '시공 ' + dd + '일 전' : dd === 0 ? '오늘 시공' : '시공 시작했는데') + ' — 아직 주문 안 됨';
         body.appendChild(late);
       }
+      if (Share.siliconeLate(s)) {
+        var sl = document.createElement('div'); sl.className = 'film-late-msg'; sl.textContent = siliconeLateText(s);
+        body.appendChild(sl);
+      }
     }
 
     card.appendChild(body);
@@ -1461,6 +1465,7 @@
       }
     });
     sec('film', '', renderSuppliesSection);     // 필름 바로 아래 부자재 (2026-10-05 한 탭으로 묶음)
+    sec('film', 'silSec', renderSiliconeSection);   // 부자재 바로 아래 실리콘 (2026-10-24)
     sec('etc', 'svcSec', renderServiceSection);
     sec('review', 'reviewSec', renderReviewSection);
     pickSiteTab(siteTab, false);
@@ -2635,11 +2640,23 @@
     }
     s.supplies.forEach(function (r, i) {
       var row = document.createElement('div'); row.className = 'sec-row';
-      row.appendChild(checkBtn(r.ready, function () { var u = Store.toggleSupply(siteId, i); return u && u.supplies[i] && u.supplies[i].ready; }));
       var name = document.createElement('div'); name.className = 'sec-name'; name.textContent = r.name;
-      var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
-      x.onclick = function () { Store.removeSupply(siteId, i); rerender(); };
-      row.appendChild(name); row.appendChild(x);
+      var auto = Share.siliconeOf(s).who === 'me' && Share.siliconeOf(s).colors.some(function (c) { return Share.siliconeName(c) === r.name; });
+      row.appendChild(checkBtn(r.ready, function () {
+        var u = Store.toggleSupply(siteId, i);
+        var sil = box.nextElementSibling;   // 실리콘 줄을 체크하면 실리콘 칸의 빨간 줄도 다시 그린다
+        if (auto && sil && sil.id === 'silSec') renderSiliconeSection(sil, siteId);
+        return u && u.supplies[i] && u.supplies[i].ready;
+      }));
+      row.appendChild(name);
+      if (auto) {   // 실리콘 칸에서 만든 줄 — 지우려면 실리콘 칸에서 색을 끈다
+        name.textContent = '🧴 ' + r.name; row.classList.add('sil-row');
+        var tag = document.createElement('span'); tag.className = 'sil-tag'; tag.textContent = '실리콘 칸'; row.appendChild(tag);
+      } else {
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
+        x.onclick = function () { Store.removeSupply(siteId, i); rerender(); };
+        row.appendChild(x);
+      }
       box.appendChild(row);
     });
     // 설정의 기본 항목 중 이 현장에 없는 것 — 탭 한 번으로 넣는다.
@@ -2664,6 +2681,64 @@
       });
     };
     box.appendChild(add);
+  }
+  // 현장 상세: 실리콘 — 없음 / 내가 쏨 / 다른 사람. 내가 쏠 때만 색(여러 개)을 고르고 부자재로 넘어간다
+  function siliconeLateText(s) {
+    var dd = Share.dayDiff(Share.todayIso(), s.date);
+    return '⚠ 실리콘 준비! ' + (dd > 0 ? '시공 ' + dd + '일 전' : dd === 0 ? '오늘 시공' : '시공 시작했는데') +
+      ' — ' + Share.siliconeLeft(s).join('·') + ' 아직 안 챙김';
+  }
+  function renderSiliconeSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    var sc = Share.siliconeOf(s);
+    var rerender = function () { renderSiliconeSection(box, siteId); var sup = box.previousElementSibling; if (sup) renderSuppliesSection(sup, siteId); paintSiteStatus(); };
+    box.className = 'sec sil-sec' + (sc.who === 'me' ? ' me' : sc.who === 'other' ? ' other' : '');
+    box.innerHTML = '<h3 class="sec-title">🧴 실리콘 <span class="sec-hint">— 내가 쏘면 2일 전부터 준비 알림</span></h3>';
+    var who = document.createElement('div'); who.className = 'sil-who';
+    [['', '없음'], ['me', '🙋 내가 쏨'], ['other', '👷 다른 사람']].forEach(function (o) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
+      b.className = 'sil-opt' + (sc.who === o[0] ? ' on' : '');
+      b.onclick = function () { Store.setSilicone(siteId, o[0], sc.colors); rerender(); };
+      who.appendChild(b);
+    });
+    box.appendChild(who);
+    if (sc.who === 'other') {
+      var off = document.createElement('div'); off.className = 'sil-off'; off.textContent = '내 일 아님 — 부자재·할 일 없음';
+      box.appendChild(off);
+      return;
+    }
+    if (sc.who !== 'me') return;
+    var lab = document.createElement('div'); lab.className = 'sil-lab'; lab.textContent = '색상 (여러 개 고를 수 있음)';
+    box.appendChild(lab);
+    var cs = document.createElement('div'); cs.className = 'sil-colors';
+    var all = Share.SILICONE_COLORS.concat(sc.colors.filter(function (c) { return Share.SILICONE_COLORS.indexOf(c) === -1; }));
+    all.forEach(function (c) {
+      var on = sc.colors.indexOf(c) !== -1;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sil-color' + (on ? ' on' : '');
+      b.textContent = (on ? '✓ ' : '') + c;
+      b.onclick = function () {
+        Store.setSilicone(siteId, 'me', on ? sc.colors.filter(function (x) { return x !== c; }) : sc.colors.concat([c]));
+        rerender();
+      };
+      cs.appendChild(b);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'sil-color add'; add.textContent = '＋ 직접';
+    add.onclick = function () {
+      modalPrompt('실리콘 색상', '', '예: 베이지').then(function (v) {
+        v = String(v == null ? '' : v).replace(/^실리콘\s*/, '').trim();
+        if (!v) return;
+        Store.setSilicone(siteId, 'me', sc.colors.concat([v])); rerender();
+      });
+    };
+    cs.appendChild(add);
+    box.appendChild(cs);
+    if (!sc.colors.length) {
+      var hint = document.createElement('div'); hint.className = 'sil-off'; hint.textContent = '색을 고르면 위 부자재에 자동으로 들어갑니다';
+      box.appendChild(hint);
+    } else if (Share.siliconeLate(s)) {
+      var late = document.createElement('div'); late.className = 'film-late-msg'; late.textContent = siliconeLateText(s);
+      box.appendChild(late);
+    }
   }
   // 인원 선택창(바텀시트): 설정의 팀원 명단은 칩으로(들어간 사람은 강조), 명단에 없는 사람은 아래 칸에 직접 입력
   var staffPicker = { siteId: '', dayIndex: 0, onDone: null, hold: '' };
