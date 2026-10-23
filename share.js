@@ -1517,7 +1517,13 @@
       e.all = e.all && !!o;
       if (o && o > e.orderedAt) e.orderedAt = o;
     });
-    return out.map(function (e) { return { key: e.key, code: e.code, orderedAt: e.all ? e.orderedAt : '' }; });
+    /* 상태는 필름 전체 보기(filmStatus)와 같은 규칙 — 단계 띠에서 '주문'·'수령' 을 누르면 줄마다 주문을
+       안 찍어도 주문한 것이다 (2026-10-24: 다 시켰는데 '그쪽 미주문' 이 뜨던 문제) */
+    var st = filmStageOf(site);
+    return out.map(function (e) {
+      var at = e.all ? e.orderedAt : '';
+      return { key: e.key, code: e.code, orderedAt: at, status: st >= 3 ? '수령' : (st === 2 || at) ? '주문' : '미주문' };
+    });
   }
   function near(a, b) { return isIsoDate(a) && isIsoDate(b) && Math.abs(dayDiff(a, b)) <= FILM_NEAR_DAYS; }
   // 이 현장의 이 번호가 가까운 날 다른 현장에도 있나 → [{ site, date, orderedAt }]
@@ -1527,9 +1533,14 @@
     var out = [];
     (sites || []).forEach(function (s) {
       if (!s || s.id === site.id || !near(site.date, s.date)) return;
-      siteFilmKeys(s).forEach(function (e) { if (e.key === k) out.push({ site: s, date: s.date, orderedAt: e.orderedAt }); });
+      siteFilmKeys(s).forEach(function (e) { if (e.key === k) out.push({ site: s, date: s.date, orderedAt: e.orderedAt, status: e.status }); });
     });
     return out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  }
+  // 겹침 경고 한 줄: '⚠ 학익동 … · 10/22(목) 에도 있음 · 그쪽은 주문 10/20'
+  function filmOverlapText(x) {
+    var tail = x.status === '수령' ? '그쪽은 수령' : x.status === '주문' ? '그쪽은 주문' + (x.orderedAt ? ' ' + shortDate(x.orderedAt) : '') : '그쪽 미주문';
+    return '⚠ ' + titleLine(x.site) + ' · ' + dayLabel(x.date) + ' 에도 있음 · ' + tail;
   }
   /* 현장 화면·할 일 창용 겹침 (2026-10-24 사장님) — 이미 끝난 현장은 빼고 앞으로 남은 일정만.
      그쪽 마지막 작업일이 오늘 전이면 지나간 일정 (오늘 작업 중이면 아직 남은 것) */
@@ -1549,7 +1560,7 @@
       .forEach(function (s) {
         siteFilmKeys(s).forEach(function (e) {
           if (!groups[e.key]) { groups[e.key] = { key: e.key, code: e.code, uses: [] }; order.push(groups[e.key]); }
-          groups[e.key].uses.push({ site: s, date: s.date, orderedAt: e.orderedAt });
+          groups[e.key].uses.push({ site: s, date: s.date, orderedAt: e.orderedAt, status: e.status });
         });
       });
     var idx = function (g) { return order.indexOf(g); };
@@ -1560,7 +1571,7 @@
   }
   // 모아보기에서 아직 안 시킨 번호만 (번호마다 한 줄)
   function filmBoardText(board) {
-    return (board || []).filter(function (g) { return g.uses.some(function (u) { return !u.orderedAt; }); })
+    return (board || []).filter(function (g) { return g.uses.some(function (u) { return u.status === '미주문'; }); })
       .map(function (g) { return g.code; }).join('\n');
   }
   // 달력 '필름' 보기: 시공 첫날 칸에 그 현장 필름 번호. 앞뒤 7일 안 다른 현장에도 있으면 dup
@@ -1660,7 +1671,7 @@
 
   var Share = {
     filmKey: filmKey,
-    filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead,
+    filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead, filmOverlapText: filmOverlapText,
     filmBoard: filmBoard,
     filmBoardText: filmBoardText,
     dateFilms: dateFilms,

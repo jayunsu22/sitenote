@@ -3274,9 +3274,7 @@
         var first = films.findIndex(function (f) { return Share.filmKey(f && f.code) === k; }) === i;
         var ov = first ? Share.filmOverlapsAhead(state.sites, cur, films[i].code) : [];
         warn.hidden = !ov.length;
-        warn.textContent = ov.map(function (x) {
-          return '⚠ ' + Share.titleLine(x.site) + ' · ' + Share.dayLabel(x.date) + ' 에도 있음 · ' + (x.orderedAt ? '그쪽은 주문 ' + Share.shortDate(x.orderedAt) : '그쪽 미주문');
-        }).join('\n');
+        warn.textContent = ov.map(Share.filmOverlapText).join('\n');
       };
       paintWarn(); warnPainters.push(paintWarn);
       ctl.appendChild(warn);

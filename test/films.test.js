@@ -110,5 +110,15 @@ test('filmOverlapsAhead: 마지막 작업일이 오늘 전인 현장은 뺀다 (
   assert.deepStrictEqual(Share.filmOverlapsAhead([me, 지난, 오늘끝, 앞], me, 'PS010', '2026-10-24').map(x => x.site.id), ['c']);
 });
 
+test('겹침 상태: 줄마다 주문을 안 찍어도 단계 띠가 주문(2)·수령(3)이면 주문으로 본다 (2026-10-24)', () => {
+  const me = { id: 'm', date: '2026-10-24', days: [{ date: '2026-10-24', staff: [] }], films: [{ code: 'PS010' }] };
+  const S = (id, filmStage, orderedAt) => ({ id, date: '2026-10-25', days: [{ date: '2026-10-25', staff: [] }], filmStage, films: [{ code: 'ps010', orderedAt }] });
+  const txt = (o) => Share.filmOverlapText(Share.filmOverlaps([me, o], me, 'PS010')[0]);
+  assert.ok(txt(S('a', 1, '')).endsWith('그쪽 미주문'));
+  assert.ok(txt(S('b', 2, '')).endsWith('그쪽은 주문'));
+  assert.ok(txt(S('c', 3, '')).endsWith('그쪽은 수령'));
+  assert.ok(txt(S('d', 1, '2026-10-20')).endsWith('그쪽은 주문 10/20'));
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

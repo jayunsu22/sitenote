@@ -622,7 +622,7 @@
         if (warned[k]) return;
         warned[k] = true;
         Share.filmOverlapsAhead(Store.state.sites, site, x.code).forEach(function (o) {
-          fs.appendChild(el('div', 'film-warn', '⚠ ' + Share.titleLine(o.site) + ' · ' + Share.dayLabel(o.date) + ' 에도 있음 · ' + (o.orderedAt ? '그쪽은 주문 ' + Share.shortDate(o.orderedAt) : '그쪽 미주문')));
+          fs.appendChild(el('div', 'film-warn', Share.filmOverlapText(o)));
         });
       });
     } else fs.appendChild(el('p', 'sheet-hint', '아직 필름 번호가 없어요. 현장 화면에서 적어 주세요.'));
