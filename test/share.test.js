@@ -1210,5 +1210,27 @@ test('기사접속 링크: 현장업무 연결된 현장만, 관리자 앱과 �
   assert.ok(Share.buildShare(site, ['pwLobby']).indexOf('기사접속') < 0, '체크 안 하면 안 나간다');
 });
 
+test('personHistory: 첫 작업부터 N일차(같은 날 두 현장은 하루), 경과일, 혼자·함께, 이후 AS, 예정 (2026-10-23)', () => {
+  const sites = [
+    { id: 'a', name: '학익동', days: [{ date: '2026-10-20', staff: ['윤인재', '김정헌'] }, { date: '2026-10-21', staff: ['윤 인재'] }], services: [{ kind: 'AS', date: '2026-10-25', staff: ['김정헌'] }] },
+    { id: 'b', name: '소사', days: [{ date: '2026-10-21', staff: ['윤인재', '안광윤'] }, { date: '2026-10-24', staff: ['윤인재'] }], services: [{ kind: 'AS', date: '2026-10-22', staff: ['윤인재'] }] },
+    { id: 'c', name: '남의 현장', days: [{ date: '2026-10-21', staff: ['김정헌'] }] },
+  ];
+  const h = Share.personHistory(sites, '윤인재', '2026-10-23');
+  assert.strictEqual(h.first, '2026-10-20');
+  assert.strictEqual(h.workDays, 3, '20·21·22 — 21일은 두 현장이어도 하루');
+  assert.strictEqual(h.elapsed, 4);
+  assert.strictEqual(h.sites, 2);
+  assert.strictEqual(h.asSites, 2, '두 현장 모두 시공 뒤 AS 가 잡혀 있다');
+  assert.deepStrictEqual(h.past.map(e => [e.date, e.site.id, e.kind, e.workDayNo]),
+    [['2026-10-22', 'b', 'AS', 3], ['2026-10-21', 'a', '시공', 2], ['2026-10-21', 'b', '시공', 2], ['2026-10-20', 'a', '시공', 1]]);
+  assert.deepStrictEqual(h.past[1].with, [], '혼자 맡은 날');
+  assert.deepStrictEqual(h.upcoming.map(e => e.date), ['2026-10-24']);
+  assert.deepStrictEqual(h.partners.map(p => p.name + p.days), ['김정헌1', '안광윤1']);
+  assert.strictEqual(h.weeks.length, 8);
+  assert.strictEqual(h.weeks[7].count, 3);
+  assert.strictEqual(Share.personHistory(sites, '없는사람', '2026-10-23').workDays, 0);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

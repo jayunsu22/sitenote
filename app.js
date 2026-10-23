@@ -3454,6 +3454,17 @@
         t.appendChild(pay);
       }
       main.appendChild(t);
+      // 이름 아래 '📒 18일차 ›' — 누르면 작업내역 (2026-10-23)
+      var h = Share.personHistory(state.sites, name, Share.todayIso());
+      if (h.workDays || h.upcoming.length) {
+        var sub = document.createElement('button'); sub.type = 'button'; sub.className = 'team-hist';
+        sub.textContent = h.workDays
+          ? '📒 ' + h.workDays + '일차 ›'
+          : '📒 첫 작업 ' + Share.shortDate(h.upcoming[0].date) + ' ›';
+        sub.title = h.first ? '첫 작업 ' + Share.dayLabel(h.first) + ' · 눌러서 작업내역 보기' : '눌러서 작업내역 보기';
+        sub.onclick = function (e) { e.stopPropagation(); openPersonHistory(name); };
+        main.appendChild(sub);
+      }
       main.onclick = function () { openPersonSheet(name); };   // 이름을 눌러도 기사 정보가 열린다
 
       // 수정 — 기사 정보 창(이름·등급·전화·차량·경력·페이·사는곳·메모)
@@ -3503,6 +3514,64 @@
       box.appendChild(row);
     });
   }
+  /* 팀원 작업내역 창 (2026-10-23) — 첫 작업부터 언제 어느 현장에서 누구와 일했는지.
+     새로 들어온 기사가 꾸준히 나오고, 혼자 맡는 날이 늘고, 맡은 현장에 AS 가 덜 나는지 보려고.
+     계산은 Share.personHistory. 줄을 누르면 그 현장으로 간다 */
+  function openPersonHistory(name) {
+    var today = Share.todayIso();
+    var h = Share.personHistory(state.sites, name, today);
+    var cname = function (s) { var c = s.clientId && Store.getClient(s.clientId); return c ? c.name : ''; };
+    var H = [];
+    H.push('<div class="ph-top"><div class="ph-big">' + (h.workDays || 0) + '<small>일차</small></div><div class="ph-sub">' +
+      (h.first ? '첫 작업 <b>' + esc(Share.dayLabel(h.first)) + '</b> · 오늘까지 ' + h.elapsed + '일째' : '아직 일한 날이 없습니다') +
+      '<br>' + (h.workedToday ? '오늘 출근 · ' : (h.last ? '마지막 작업 ' + esc(Share.dayLabel(h.last)) + ' · ' : '')) +
+      '현장 ' + h.sites + '곳 · 이번 달 ' + h.thisMonth + '일</div></div>');
+    // 최근 8주 막대 — 꾸준히 나오는지
+    var max = Math.max.apply(null, h.weeks.map(function (w) { return w.count; }).concat([1]));
+    H.push('<div class="ph-sec">최근 8주 일한 날</div><div class="ph-weeks">' + h.weeks.map(function (w) {
+      return '<div class="ph-wk"><span class="ph-n">' + (w.count || '') + '</span><span class="ph-bar" style="height:' + Math.round(w.count / max * 46 + (w.count ? 4 : 0)) +
+        'px"></span><span class="ph-wl">' + esc(Share.shortDate(w.start)) + '</span></div>';
+    }).join('') + '</div>');
+    // 혼자 맡은 날 / AS 난 현장 — 실력 신호
+    var solo = h.past.filter(function (e) { return e.kind === '시공' && !e.with.length; }).length;
+    H.push('<div class="ph-stats"><span>혼자 맡은 날 <b>' + solo + '</b></span><span>AS 출동 <b>' +
+      h.past.filter(function (e) { return e.kind === 'AS'; }).length + '</b></span><span class="' + (h.asSites ? 'bad' : '') + '">시공 후 AS 난 현장 <b>' + h.asSites + '</b></span></div>');
+    if (h.partners.length) {
+      H.push('<div class="ph-sec">함께 일한 사람</div><div class="ph-partners">' + h.partners.slice(0, 8).map(function (p) {
+        return '<span>' + esc(p.name) + ' <b>' + p.days + '일</b></span>';
+      }).join('') + '</div>');
+    }
+    var row = function (e, upcoming) {
+      var tags = [];
+      if (e.kind !== '시공') tags.push('<em class="t-' + (e.kind === 'AS' ? 'as' : 'add') + '">' + e.kind + ' 출동</em>');
+      if (e.asAfter) tags.push('<em class="t-bad">이후 AS ' + e.asAfter + '건</em>');
+      if (e.kind === '시공' && !e.with.length) tags.push('<em class="t-solo">혼자</em>');
+      var meta = [cname(e.site), e.dayCount > 1 ? e.dayNo + '/' + e.dayCount + '일차' : '', e.with.length ? e.with.join('·') + '와' : '', e.request]
+        .filter(Boolean).join(' · ');
+      return '<button type="button" class="ph-row" data-site="' + esc(e.site.id) + '">' +
+        '<span class="ph-no' + (upcoming ? ' up' : '') + '">' + (upcoming ? '예정' : e.workDayNo) + '</span>' +
+        '<span class="ph-main"><span class="ph-d">' + esc(Share.dayLabel(e.date)) + ' ' + tags.join('') + '</span>' +
+        '<b>' + esc(Share.titleLine(e.site)) + '</b><small>' + esc(meta) + '</small></span></button>';
+    };
+    if (h.upcoming.length) H.push('<div class="ph-sec">잡혀 있는 일정</div>' + h.upcoming.map(function (e) { return row(e, true); }).join(''));
+    var 월 = '';
+    H.push('<div class="ph-sec">작업 내역 <small>최근 순 · 숫자 = 그날이 몇 일차</small></div>');
+    if (!h.past.length) H.push('<p class="hint">아직 일한 날이 없습니다. 현장 날짜에 인원으로 넣으면 여기 쌓입니다.</p>');
+    h.past.forEach(function (e) {
+      var m = e.date.slice(0, 7);
+      if (m !== 월) {
+        월 = m;
+        var n = []; h.past.forEach(function (x) { if (x.date.slice(0, 7) === m && n.indexOf(x.date) === -1) n.push(x.date); });
+        H.push('<div class="ph-month">' + (+m.slice(0, 4)) + '년 ' + (+m.slice(5, 7)) + '월 <small>' + n.length + '일</small></div>');
+      }
+      H.push(row(e, false));
+    });
+    openModal(name + ' 작업내역', '<div class="ph">' + H.join('') + '</div>', [{ label: '닫기', onClick: closeModal }]);
+    $('modalBody').querySelectorAll('.ph-row').forEach(function (b) {
+      b.onclick = function () { closeModal(); go('#site/' + b.dataset.site); };
+    });
+  }
+
   // 기사 정보 창 — 이름 바꾸기, 등급(A·B·C·F), 전화·차량·경력·페이·사는곳·메모(모두 글자). 적는 대로 저장.
   // 등급·경력·페이·사는곳·메모는 카톡 복사 문구에 나가지 않는다
   var PERSON_FIELDS = [

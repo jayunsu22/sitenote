@@ -998,6 +998,64 @@
   // 현장이 끝나면 정해둔 질문에 답하고 태그를 달아 두었다가, 태그·질문별로 모아 보며 다음 현장을 고친다.
   // site.review = { answers: { 질문문구: 답 }, tags: [태그] }. 답은 질문 문구로 찾는다 —
   // 설정에서 질문을 지우거나 바꿔도 적어 둔 답은 그대로 남는다.
+  /* ---------- 팀원 작업내역 (2026-10-23) ----------
+     설정 › 팀원 명단에서 한 사람이 언제 어느 현장에서 일했는지 첫 작업부터 모아 본다 — 새로 들어온 기사의
+     성장을 확인하려고. 자료는 현장의 날짜별 인원(days[].staff)과 AS·추가작업 출동(services[].staff).
+     N일차 = 오늘까지 일한 날의 수(같은 날 두 현장이어도 하루). 경과 = 첫 작업부터 오늘까지 달력 날 수.
+     AS 발생 = 이 사람이 시공한 현장에 그날 뒤로 AS 가 잡힌 것 (본인 AS 출동이 아니라 품질 신호) */
+  function personHistory(sites, name, today) {
+    var me = normName(name);
+    today = isIsoDate(today) ? today : todayIso();
+    var ent = [];
+    var others = function (staff) { return (staff || []).map(str).filter(function (n) { return n && normName(n) !== me; }); };
+    var mine = function (staff) { return (staff || []).some(function (n) { return normName(n) === me; }); };
+    (sites || []).forEach(function (s) {
+      if (!s) return;
+      var days = (s.days || []).filter(function (d) { return d && isIsoDate(d.date); });
+      days.forEach(function (d, i) {
+        if (!mine(d.staff)) return;
+        ent.push({ date: d.date, site: s, kind: '시공', with: others(d.staff), dayNo: i + 1, dayCount: days.length });
+      });
+      (s.services || []).forEach(function (v) {
+        if (!v || !isIsoDate(v.date) || !mine(v.staff)) return;
+        ent.push({ date: v.date, site: s, kind: v.kind === '추가' ? '추가' : 'AS', with: others(v.staff), request: str(v.request) });
+      });
+    });
+    ent.forEach(function (e) {
+      e.asAfter = e.kind !== '시공' ? 0 : (e.site.services || []).filter(function (v) {
+        return v && v.kind !== '추가' && isIsoDate(v.date) && v.date > e.date;
+      }).length;
+    });
+    ent.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : str(a.site.name).localeCompare(str(b.site.name)); });
+    var past = ent.filter(function (e) { return e.date <= today; });
+    var upcoming = ent.filter(function (e) { return e.date > today; });
+    var dates = [];
+    past.forEach(function (e) { if (dates.indexOf(e.date) === -1) dates.push(e.date); });
+    past.forEach(function (e) { e.workDayNo = dates.indexOf(e.date) + 1; });
+    var first = dates[0] || '';
+    // 최근 8주 (월요일 시작) 일한 날 수
+    var dow = new Date(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10)).getDay();
+    var thisMon = addDays(today, -((dow + 6) % 7));
+    var weeks = [];
+    for (var k = 7; k >= 0; k--) {
+      var st = addDays(thisMon, -7 * k), en = addDays(st, 6);
+      weeks.push({ start: st, count: dates.filter(function (d) { return d >= st && d <= en; }).length });
+    }
+    var pc = {};
+    past.forEach(function (e) { e.with.forEach(function (n) { (pc[n] = pc[n] || {})[e.date] = true; }); });
+    var partners = Object.keys(pc).map(function (n) { return { name: n, days: Object.keys(pc[n]).length }; })
+      .sort(function (a, b) { return b.days - a.days || a.name.localeCompare(b.name); });
+    var siteIds = {}, asIds = {};
+    past.forEach(function (e) { if (e.kind === '시공') { siteIds[e.site.id] = true; if (e.asAfter) asIds[e.site.id] = true; } });
+    return {
+      first: first, last: dates[dates.length - 1] || '', workDays: dates.length, workedToday: dates.indexOf(today) !== -1,
+      elapsed: first ? dayDiff(first, today) + 1 : 0,
+      thisMonth: dates.filter(function (d) { return d.slice(0, 7) === today.slice(0, 7); }).length,
+      weeks: weeks, partners: partners, sites: Object.keys(siteIds).length, asSites: Object.keys(asIds).length,
+      past: past.slice().reverse(), upcoming: upcoming,
+    };
+  }
+
   var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
   var DEFAULT_REVIEW_TAGS = ['도배시공후', '바닥시공후'];
   var REVIEW_TAG_MAX = 5;
@@ -1493,6 +1551,7 @@
     ownerRows: ownerRows,
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
+    personHistory: personHistory,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,
