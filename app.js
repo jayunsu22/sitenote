@@ -3536,6 +3536,8 @@
     var solo = h.past.filter(function (e) { return e.kind === '시공' && !e.with.length; }).length;
     H.push('<div class="ph-stats"><span>혼자 맡은 날 <b>' + solo + '</b></span><span>AS 출동 <b>' +
       h.past.filter(function (e) { return e.kind === 'AS'; }).length + '</b></span><span class="' + (h.asSites ? 'bad' : '') + '">시공 후 AS 난 현장 <b>' + h.asSites + '</b></span></div>');
+    // 이정표 (2026-10-23) — 현장업무 기록이 오면 품목 이정표까지 다시 그린다
+    H.push('<div id="phMiles"></div>');
     // 하루 평가 흐름 (2026-10-23) — 아래 날짜마다 매긴 ★ 로 그린다
     H.push('<div id="phEvalSum"></div>');
     // 현장업무(관리자 앱) 기록: 품목별 경험 · 점검 체크 — 열 때 받아 온다
@@ -3585,6 +3587,7 @@
       b.onclick = function () { closeModal(); go('#site/' + b.dataset.site); };
     });
     paintEvalSum(name);
+    paintMiles(name);
     loadWorkerWork(name);
     body.querySelectorAll('.ph-eval').forEach(function (box) {
       var date = box.dataset.date;
@@ -3595,6 +3598,7 @@
           Store.setSettings({ evals: Share.setEval(state.settings.evals, name, date, { s: s }) });
           box.querySelectorAll('.ph-star').forEach(function (x) { x.classList.toggle('on', +x.dataset.s <= s); });
           paintEvalSum(name);
+          paintMiles(name);
         };
       });
       var inp = box.querySelector('.ph-note'), t = null;
@@ -3622,7 +3626,7 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
-      .then(function (d) { workerWorkCache[name] = d; paintWorkerWork(name, d); })
+      .then(function (d) { workerWorkCache[name] = d; paintWorkerWork(name, d); paintMiles(name); })
       .catch(function (e) {
         var b = $('phWork'); if (!b) return;
         b.innerHTML = '<div class="ph-sec">품목별 경험 · 점검 체크</div><p class="ph-hint">⚠ ' + esc(e.message || e) +
@@ -3665,6 +3669,20 @@
     }
     if (w.cleanup) H.push('<p class="ph-hint">현장세팅·마무리 같은 정리 일 ' + w.cleanup + '번은 위 숫자에서 뺐습니다.</p>');
     box.innerHTML = H.join('');
+  }
+
+  // 이정표 칸 — 지나온 순간(최근 순)과 다음 목표
+  function paintMiles(name) {
+    var box = $('phMiles'); if (!box) return;
+    var h = Share.personHistory(state.sites, name, Share.todayIso());
+    var d = workerWorkCache[name];
+    var m = Share.personMilestones(h, state.settings.evals, name, d ? Share.workerSkills(d.tasks, d.품목들, Share.todayIso()) : null);
+    if (!m.done.length && !m.next.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="ph-sec">이정표</div>' +
+      (m.next.length ? '<div class="ph-next">' + m.next.map(function (t) { return '<span>🎯 ' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="ph-miles">' + m.done.map(function (x) {
+        return '<div class="ph-mile"><span class="ic">' + x.icon + '</span><span class="tx">' + esc(x.text) + '</span><span class="dt">' + esc(Share.dayLabel(x.date)) + '</span></div>';
+      }).join('') + '</div>';
   }
 
   // 작업내역 위쪽 '하루 평가' 칸 — 매긴 날의 ★ 막대와 최근 5번 평균

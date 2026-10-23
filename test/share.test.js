@@ -1266,5 +1266,32 @@ test('workerSkills: 품목별 밑작업·시공 횟수(구역 떼고 묶음), �
   assert.strictEqual(Share.itemKind('방1베란다샤시'), '베란다샤시');
 });
 
+test('personMilestones: 첫 출근·10일차·처음 혼자·첫 AS 출동·AS 없이 연속 5현장·첫 ★5·첫 시공·품목 가짓수, 다음 목표 (2026-10-23)', () => {
+  const sites = [];
+  for (let i = 1; i <= 12; i++) {
+    const d = '2026-10-' + String(i).padStart(2, '0');
+    sites.push({ id: 's' + i, name: '현장' + i, days: [{ date: d, staff: i === 4 ? ['윤인재'] : ['윤인재', '김정헌'] }],
+      services: i === 7 ? [{ kind: 'AS', date: '2026-10-20', staff: ['윤인재'] }] : [] });
+  }
+  const h = Share.personHistory(sites, '윤인재', '2026-10-22');
+  const evals = { 윤인재: { '2026-10-09': { s: 5, n: '깔끔' } } };
+  const skills = { items: [{ name: '샤시', first밑: '2026-10-01', first시: '2026-10-11', 시: 1 }, { name: '문+틀', first밑: '2026-10-02', first시: '', 시: 0 }] };
+  const m = Share.personMilestones(h, evals, '윤인재', skills);
+  const t = m.done.map(x => x.date.slice(8) + ' ' + x.text);
+  assert.ok(t.includes('01 첫 출근'));
+  assert.ok(t.includes('10 10일차'));
+  assert.ok(t.includes('04 처음 혼자 맡은 날 · 현장4'));
+  assert.ok(t.includes('20 첫 AS 출동 · 현장7'));
+  assert.ok(t.includes('05 AS 없이 연속 5현장'), '1~5번 현장');
+  assert.ok(!t.some(x => x.includes('연속 10현장')), '7번 현장에 AS 가 나서 끊긴다');
+  assert.ok(t.includes('09 첫 ★5 평가 · 깔끔'));
+  assert.ok(t.includes('11 첫 시공 · 샤시'));
+  assert.strictEqual(m.done[0].date, '2026-10-20', '최근 순');
+  assert.ok(m.next.includes('30일차까지 17일'));
+  assert.ok(m.next.includes('지금 AS 없이 연속 5현장'), '8~12번');
+  assert.ok(m.next.includes('5가지 품목까지 3가지'));
+  assert.ok(!m.next.some(x => x.includes('첫 시공')));
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

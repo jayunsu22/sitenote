@@ -1102,6 +1102,58 @@
     return { items: items, untried: untried, checks: checks, missedTop: missedTop, cleanup: cleanup, notDone: notDone, noPhoto: noPhoto };
   }
 
+  /* 이정표 (2026-10-23) — 새 기사가 지나온 순간들. 등급(C→B…)을 올릴 때 근거로 본다.
+     h = personHistory 결과, evals = settings.evals, skills = workerSkills 결과(현장업무 기록을 못 받았으면 null).
+     돌려줌: { done: [{ date, icon, text }] (최근 순), next: ['다음 목표 …'] } */
+  var DAY_MARKS = [10, 30, 50, 100, 200, 300, 500];
+  function personMilestones(h, evals, name, skills) {
+    var done = [], next = [];
+    var add = function (date, icon, text) { if (isIsoDate(date)) done.push({ date: date, icon: icon, text: text }); };
+    var past = (h && h.past ? h.past.slice().reverse() : []);   // 오래된 순
+    if (h && h.first) add(h.first, '🎉', '첫 출근');
+    DAY_MARKS.forEach(function (n) {
+      var e = past.find(function (x) { return x.workDayNo === n; });
+      if (e) add(e.date, '📅', n + '일차');
+    });
+    var nextMark = DAY_MARKS.find(function (n) { return n > ((h && h.workDays) || 0); });
+    if (nextMark) next.push(nextMark + '일차까지 ' + (nextMark - ((h && h.workDays) || 0)) + '일');
+    var solo = past.find(function (x) { return x.kind === '시공' && !x.with.length; });
+    if (solo) add(solo.date, '💪', '처음 혼자 맡은 날 · ' + titleLine(solo.site));
+    else next.push('처음 혼자 맡기');
+    var as = past.find(function (x) { return x.kind === 'AS'; });
+    if (as) add(as.date, '🛠', '첫 AS 출동 · ' + titleLine(as.site));
+    // AS 없이 이어 간 현장 (현장마다 처음 간 날 순서). 5·10·20 현장에 닿은 날을 남긴다
+    var seen = {}, order = [];
+    past.forEach(function (x) { if (x.kind === '시공' && !seen[x.site.id]) { seen[x.site.id] = x; order.push(x); } });
+    var streak = 0;
+    order.forEach(function (x) {
+      var asAny = past.some(function (y) { return y.site.id === x.site.id && y.kind === '시공' && y.asAfter; });
+      if (asAny) { streak = 0; return; }
+      streak++;
+      if ([5, 10, 20, 50].indexOf(streak) !== -1) add(x.date, '✨', 'AS 없이 연속 ' + streak + '현장');
+    });
+    if (order.length) next.push('지금 AS 없이 연속 ' + streak + '현장');
+    var tr = evalTrend(evals, name);
+    var five = tr.list.find(function (x) { return x.s === 5; });
+    if (five) add(five.date, '⭐', '첫 ★5 평가' + (five.n ? ' · ' + five.n : ''));
+    if (skills) {
+      // 품목 가짓수 (밑작업이든 시공이든 처음 맡은 날 기준)
+      var firsts = [];
+      skills.items.forEach(function (e) {
+        var d = [e.first밑, e.first시].filter(Boolean).sort()[0];
+        if (d) firsts.push({ date: d, name: e.name });
+        if (e.first시) add(e.first시, '🔨', '첫 시공 · ' + e.name);
+      });
+      firsts.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+      [5, 10, 20, 30].forEach(function (n) { if (firsts[n - 1]) add(firsts[n - 1].date, '🧩', n + '가지 품목 경험'); });
+      if (!skills.items.some(function (e) { return e.시 > 0; })) next.push('첫 시공 맡기 (지금까지 밑작업만)');
+      var nk = [5, 10, 20, 30].find(function (n) { return n > firsts.length; });
+      if (nk) next.push(nk + '가지 품목까지 ' + (nk - firsts.length) + '가지');
+    }
+    done.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    return { done: done, next: next };
+  }
+
   /* 하루 평가 (2026-10-23) — 작업내역에서 날짜마다 ★1~5 와 한 줄 메모. 새 기사가 실력이 느는지 점수로 본다.
      settings.evals = { 이름: { 'YYYY-MM-DD': { s: 1~5 (0 = 안 매김), n: '메모' } } }. 별도 메모도 없으면 그 날은 지운다 */
   function normalizeEvals(raw) {
@@ -1642,6 +1694,7 @@
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     personHistory: personHistory,
+    personMilestones: personMilestones,
     itemKind: itemKind,
     workerSkills: workerSkills,
     normalizeEvals: normalizeEvals,

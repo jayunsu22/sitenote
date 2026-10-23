@@ -1274,3 +1274,12 @@ textarea { resize: vertical; }
 .ph-more { margin-top: 8px; font-size: 12.5px; color: #475569; }
 .ph-more summary { cursor: pointer; font-weight: 700; color: #b91c1c; }
 .ph-more div { padding: 3px 0; border-bottom: 1px solid #f1f5f9; }
+
+/* 이정표 (2026-10-23) */
+.ph-next { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.ph-next span { padding: 4px 9px; border-radius: 99px; background: #fff7ed; color: #9a3412; font-size: 12px; font-weight: 700; }
+.ph-miles { border-left: 3px solid #c7d2fe; margin-left: 10px; padding-left: 12px; }
+.ph-mile { position: relative; display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
+.ph-mile .ic { width: 22px; text-align: center; }
+.ph-mile .tx { flex: 1; min-width: 0; color: #0f172a; font-weight: 700; }
+.ph-mile .dt { flex: none; color: #94a3b8; font-size: 12px; }
