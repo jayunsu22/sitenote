@@ -739,6 +739,13 @@
     if (!isIsoDate(dateIso)) return false;
     return dayDiff(today || todayIso(), dateIso) <= URGENT_DAYS;
   }
+  /* 필름 주문 늦음 (2026-10-24 사장님) — 시공 첫날 2일 전까지 '필름 주문' 단계가 안 됐으면 빨간불.
+     첫날이 지났는데 아직이어도 계속 켠다 (그게 더 급하다) */
+  var FILM_ORDER_DAYS = 2;
+  function filmOrderLate(site, today) {
+    var d = site && site.date;
+    return isIsoDate(d) && filmStageOf(site) < 2 && dayDiff(today || todayIso(), d) <= FILM_ORDER_DAYS;
+  }
   // 준비 카운트: 필름은 번호가 빈 줄 제외
   function readyCount(site) {
     var films = ((site && site.films) || []).filter(function (r) { return r && str(r.code) !== ''; });
@@ -1704,6 +1711,8 @@
     FILM_STAGES: FILM_STAGES,
     isUrgent: isUrgent,
     filmStageOf: filmStageOf,
+    filmOrderLate: filmOrderLate,
+    dayDiff: dayDiff,
     datesLine: datesLine,
     workSummary: workSummary,
     monthGrid: monthGrid,

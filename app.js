@@ -1315,6 +1315,13 @@
       });
       filmRow.appendChild(strip);
       body.appendChild(filmRow);
+      if (Share.filmOrderLate(s)) {
+        filmRow.classList.add('late');
+        var dd = Share.dayDiff(Share.todayIso(), s.date);
+        var late = document.createElement('div'); late.className = 'film-late-msg';
+        late.textContent = '⚠ 필름 주문! ' + (dd > 0 ? '시공 ' + dd + '일 전' : dd === 0 ? '오늘 시공' : '시공 시작했는데') + ' — 아직 주문 안 됨';
+        body.appendChild(late);
+      }
     }
 
     card.appendChild(body);
@@ -1863,6 +1870,8 @@
     container.innerHTML = '';
     var k = Share.filmStageOf(site), last = Share.FILM_STAGES.length - 1;
     var urgent = Share.isUrgent((opts && opts.date) || site.date);
+    // 첫날 2일 전까지 주문을 안 넣었으면 띠 전체가 빨갛게 반짝인다 (2026-10-24)
+    container.classList.toggle('film-late', Share.filmOrderLate(site));
     Share.FILM_STAGES.forEach(function (label, i) {
       var el = document.createElement(opts && opts.onPick ? 'button' : 'span');
       if (el.tagName === 'BUTTON') el.type = 'button';

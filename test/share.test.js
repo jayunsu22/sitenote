@@ -1256,5 +1256,15 @@ test('workerExperience: 품목별(구역 떼고 묶음, 펼치면 현장별 줄)
   assert.deepStrictEqual(ex2.sites.map(s => [s.현장명, s.siteId, s.date, s.items.length]), [['학익동 1702호', 's1', '2026-10-21', 0], ['연결 안 한 현장', 's9', '2026-10-15', 1]]);
 });
 
+test('filmOrderLate: 시공 첫날 2일 전부터 주문 단계(2) 전이면 빨간불, 첫날 지나도 계속 (2026-10-24)', () => {
+  const T = '2026-10-24';
+  assert.strictEqual(Share.filmOrderLate({ date: '2026-10-27', filmStage: 1 }, T), false, '3일 전은 아직');
+  assert.strictEqual(Share.filmOrderLate({ date: '2026-10-26', filmStage: 1 }, T), true, '2일 전');
+  assert.strictEqual(Share.filmOrderLate({ date: '2026-10-26', filmStage: 0 }, T), true);
+  assert.strictEqual(Share.filmOrderLate({ date: '2026-10-26', filmStage: 2 }, T), false, '주문했으면 끔');
+  assert.strictEqual(Share.filmOrderLate({ date: '2026-10-20', filmStage: 1 }, T), true, '시작했는데 아직');
+  assert.strictEqual(Share.filmOrderLate({ date: '', filmStage: 0 }, T), false);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

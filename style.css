@@ -620,6 +620,12 @@ textarea { resize: vertical; }
 .stage.todo.blink { animation: stage-blink 1s ease-in-out infinite; }
 @keyframes stage-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .stage-strip-lg .stage.todo { animation-duration: 1.2s; }
+/* 필름 주문 늦음 (2026-10-24) — 첫날 2일 전까지 주문 단계가 안 됐으면 띠 전체를 빨갛게 반짝 (Share.filmOrderLate) */
+.stage-strip.film-late { border-radius: 9px; box-shadow: 0 0 0 3px #ef4444; animation: film-late 0.9s ease-in-out infinite; }
+.stage-strip.film-late .stage:not(.done):not(.now) { background: #dc2626; color: #fff; animation: none; }
+@keyframes film-late { 0%, 100% { box-shadow: 0 0 0 3px #ef4444, 0 0 14px rgba(239, 68, 68, .7); } 50% { box-shadow: 0 0 0 3px #fecaca, 0 0 0 rgba(239, 68, 68, 0); } }
+.film-late-msg { margin: 8px 0 2px; padding: 8px 12px; border-radius: 10px; background: #fef2f2; border: 1.5px solid #fca5a5; color: #b91c1c; font-size: 14px; font-weight: 900; animation: film-late-msg 0.9s ease-in-out infinite; }
+@keyframes film-late-msg { 0%, 100% { background: #fee2e2; } 50% { background: #fff; } }
 .btn-green { background: var(--success); color: #fff; border-color: var(--success); }
 /* ---------- 총 필요 인원 / 날짜별 배치 (2026-09-20) ---------- */
 /* 필요 인원 −/＋ 칸 (현장 상세) */
