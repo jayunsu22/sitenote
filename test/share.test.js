@@ -1232,65 +1232,28 @@ test('personHistory: 첫 작업부터 N일차(같은 날 두 현장은 하루), 
   assert.strictEqual(Share.personHistory(sites, '없는사람', '2026-10-23').workDays, 0);
 });
 
-test('하루 평가: setEval 로 별점·메모, 0점·빈 메모는 지움, 흐름은 최근 5번 vs 그 앞 5번 평균 (2026-10-23)', () => {
-  let e = {};
-  ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05'].forEach((d) => { e = Share.setEval(e, '윤인재', d, { s: 2 }); });
-  ['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10'].forEach((d) => { e = Share.setEval(e, '윤인재', d, { s: 4 }); });
-  e = Share.setEval(e, '윤인재', '2026-10-10', { n: '몰딩 깔끔' });
-  assert.deepStrictEqual(Share.evalOf(e, '윤인재', '2026-10-10'), { s: 4, n: '몰딩 깔끔' });
-  const t = Share.evalTrend(e, '윤인재');
-  assert.strictEqual(t.recent, 4); assert.strictEqual(t.prev, 2); assert.strictEqual(t.all, 3);
-  e = Share.setEval(e, '윤인재', '2026-10-01', { s: 0 });
-  assert.strictEqual(e['윤인재']['2026-10-01'], undefined, '0점에 메모도 없으면 지운다');
-  assert.deepStrictEqual(Share.normalizeEvals({ a: { 'x': { s: 3 }, '2026-10-01': { s: 9, n: '' } } }), {}, '날짜 아님·범위 밖은 버린다');
-});
-
-test('workerSkills: 품목별 밑작업·시공 횟수(구역 떼고 묶음), 안 해 본 품목, 끝낸 일의 점검 체크, 완료 처리 안 한 일·사진 없는 완료 (2026-10-23)', () => {
-  const T = (o) => Object.assign({ 현장ID: 'r1', 현장명: '학익동', 시공일자: '2026-10-20', 뒷정리: false, 밑작업: false, 시공: false, 밑작업완료: false, 시공완료: false, 밑작업점검: null, 시공점검: null, 전사진: 1, 후사진: 1 }, o);
+test('workerExperience: 품목별(구역 떼고 묶음, 펼치면 현장별 줄)·현장별(이 앱 현장 날짜·이름, 기록 없는 현장도), 뒷정리는 뺀다 (2026-10-24)', () => {
+  const T = (o) => Object.assign({ 현장ID: 'A1', 현장명: '관리자 이름', 시공일자: '2026-10-20', 뒷정리: false, 밑작업: false, 시공: false, 밑작업완료: false, 시공완료: false }, o);
   const tasks = [
-    T({ 품목: '방2샤시 2', 밑작업: true, 밑작업완료: true, 밑작업점검: { done: 4, total: 5, missed: ['틈 실리콘 확인'] } }),
-    T({ 품목: '방1샤시', 현장ID: 'r2', 밑작업: true, 밑작업완료: false }),
-    T({ 품목: '거실화장실문', 시공: true, 시공완료: true, 후사진: 0, 시공점검: { done: 3, total: 3, missed: [] } }),
-    T({ 품목: '현관문', 밑작업: true, 밑작업완료: false, 시공일자: '2026-10-30' }),
+    T({ 품목: '방2샤시 2', 밑작업: true, 밑작업완료: true }),
+    T({ 품목: '방1샤시', 밑작업: true }),
+    T({ 품목: '거실화장실문', 현장ID: 'A2', 현장명: '송도', 시공일자: '2026-10-08', 시공: true, 시공완료: true }),
     T({ 품목: '현장세팅', 뒷정리: true, 시공: true }),
   ];
-  const w = Share.workerSkills(tasks, ['방1샤시', '방1화장실문', '거실중문', '현관문'], '2026-10-23');
-  assert.deepStrictEqual(w.items.map(e => [e.name, e.밑, e.밑완료, e.시, e.sites]), [['샤시', 2, 1, 0, 2], ['현관문', 1, 0, 0, 1], ['화장실문', 0, 0, 1, 1]]);
-  assert.deepStrictEqual(w.untried, ['중문']);
-  assert.deepStrictEqual(w.checks, { 밑작업: { done: 4, total: 5 }, 시공: { done: 3, total: 3 } });
-  assert.deepStrictEqual(w.missedTop, [{ text: '틈 실리콘 확인', count: 1 }]);
-  assert.strictEqual(w.cleanup, 1);
-  assert.deepStrictEqual(w.notDone.map(x => x.품목), ['방1샤시'], '앞으로 할 일(10/30)은 안 센다');
-  assert.deepStrictEqual(w.noPhoto.map(x => x.품목), ['거실화장실문']);
-  assert.strictEqual(Share.itemKind('현관문'), '현관문');
-  assert.strictEqual(Share.itemKind('방1베란다샤시'), '베란다샤시');
-});
-
-test('personMilestones: 첫 출근·10일차·처음 혼자·첫 AS 출동·AS 없이 연속 5현장·첫 ★5·첫 시공·품목 가짓수, 다음 목표 (2026-10-23)', () => {
-  const sites = [];
-  for (let i = 1; i <= 12; i++) {
-    const d = '2026-10-' + String(i).padStart(2, '0');
-    sites.push({ id: 's' + i, name: '현장' + i, days: [{ date: d, staff: i === 4 ? ['윤인재'] : ['윤인재', '김정헌'] }],
-      services: i === 7 ? [{ kind: 'AS', date: '2026-10-20', staff: ['윤인재'] }] : [] });
-  }
-  const h = Share.personHistory(sites, '윤인재', '2026-10-22');
-  const evals = { 윤인재: { '2026-10-09': { s: 5, n: '깔끔' } } };
-  const skills = { items: [{ name: '샤시', first밑: '2026-10-01', first시: '2026-10-11', 시: 1 }, { name: '문+틀', first밑: '2026-10-02', first시: '', 시: 0 }] };
-  const m = Share.personMilestones(h, evals, '윤인재', skills);
-  const t = m.done.map(x => x.date.slice(8) + ' ' + x.text);
-  assert.ok(t.includes('01 첫 출근'));
-  assert.ok(t.includes('10 10일차'));
-  assert.ok(t.includes('04 처음 혼자 맡은 날 · 현장4'));
-  assert.ok(t.includes('20 첫 AS 출동 · 현장7'));
-  assert.ok(t.includes('05 AS 없이 연속 5현장'), '1~5번 현장');
-  assert.ok(!t.some(x => x.includes('연속 10현장')), '7번 현장에 AS 가 나서 끊긴다');
-  assert.ok(t.includes('09 첫 ★5 평가 · 깔끔'));
-  assert.ok(t.includes('11 첫 시공 · 샤시'));
-  assert.strictEqual(m.done[0].date, '2026-10-20', '최근 순');
-  assert.ok(m.next.includes('30일차까지 17일'));
-  assert.ok(m.next.includes('지금 AS 없이 연속 5현장'), '8~12번');
-  assert.ok(m.next.includes('5가지 품목까지 3가지'));
-  assert.ok(!m.next.some(x => x.includes('첫 시공')));
+  const sites = [
+    { id: 's1', name: '학익동 1702호', adminId: 'A1', days: [{ date: '2026-10-19', staff: ['김정헌'] }, { date: '2026-10-21', staff: ['윤 인재'] }] },
+    { id: 's9', name: '연결 안 한 현장', days: [{ date: '2026-10-15', staff: ['윤인재'] }] },
+    { id: 's8', name: '남의 현장', days: [{ date: '2026-10-15', staff: ['김정헌'] }] },
+  ];
+  const ex = Share.workerExperience(tasks, sites, '윤인재');
+  assert.deepStrictEqual(ex.kinds.map(k => [k.name, k.밑, k.밑완료, k.시, k.rows.length]), [['샤시', 2, 1, 0, 2], ['화장실문', 0, 0, 1, 1]]);
+  assert.deepStrictEqual(ex.kinds[0].rows.map(r => [r.현장명, r.date, r.품목]), [['학익동 1702호', '2026-10-21', '방1샤시'], ['학익동 1702호', '2026-10-21', '방2샤시 2']]);
+  assert.deepStrictEqual(ex.sites.map(s => [s.현장명, s.date, s.items.length, s.noAdmin, s.cleanup]),
+    [['학익동 1702호', '2026-10-21', 2, false, 1], ['연결 안 한 현장', '2026-10-15', 0, true, 0], ['송도', '2026-10-08', 1, false, 0]]);
+  assert.strictEqual(ex.sites[0].siteId, 's1');
+  // 현장업무를 안 이었어도 이름이 같으면 한 현장으로
+  const ex2 = Share.workerExperience([T({ 품목: '방1샤시', 현장ID: 'Z9', 현장명: '연결 안 한 현장', 밑작업: true })], sites, '윤인재');
+  assert.deepStrictEqual(ex2.sites.map(s => [s.현장명, s.siteId, s.date, s.items.length]), [['학익동 1702호', 's1', '2026-10-21', 0], ['연결 안 한 현장', 's9', '2026-10-15', 1]]);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

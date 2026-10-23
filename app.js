@@ -3454,13 +3454,12 @@
         t.appendChild(pay);
       }
       main.appendChild(t);
-      // 이름 아래 '📒 18일차 ›' — 누르면 작업내역 (2026-10-23)
-      var h = Share.personHistory(state.sites, name, Share.todayIso());
-      if (h.workDays || h.upcoming.length) {
+      // 이름 아래 '📒 18일차 ›' — 누르면 작업내역 (2026-10-23). 사장님이 [수정]에서 켠 사람만 (2026-10-24)
+      var h = (state.settings.tracked || []).indexOf(name) !== -1 ? Share.personHistory(state.sites, name, Share.todayIso()) : null;
+      if (h) {
         var sub = document.createElement('button'); sub.type = 'button'; sub.className = 'team-hist';
-        sub.textContent = h.workDays
-          ? '📒 ' + h.workDays + '일차 ›'
-          : '📒 첫 작업 ' + Share.shortDate(h.upcoming[0].date) + ' ›';
+        sub.textContent = h.workDays ? '📒 ' + h.workDays + '일차 ›'
+          : h.upcoming.length ? '📒 첫 작업 ' + Share.shortDate(h.upcoming[0].date) + ' ›' : '📒 작업내역 ›';
         sub.title = h.first ? '첫 작업 ' + Share.dayLabel(h.first) + ' · 눌러서 작업내역 보기' : '눌러서 작업내역 보기';
         sub.onclick = function (e) { e.stopPropagation(); openPersonHistory(name); };
         main.appendChild(sub);
@@ -3514,192 +3513,76 @@
       box.appendChild(row);
     });
   }
-  /* 팀원 작업내역 창 (2026-10-23) — 첫 작업부터 언제 어느 현장에서 누구와 일했는지.
-     새로 들어온 기사가 꾸준히 나오고, 혼자 맡는 날이 늘고, 맡은 현장에 AS 가 덜 나는지 보려고.
-     계산은 Share.personHistory. 줄을 누르면 그 현장으로 간다 */
-  function openPersonHistory(name) {
-    var today = Share.todayIso();
-    var h = Share.personHistory(state.sites, name, today);
-    var cname = function (s) { var c = s.clientId && Store.getClient(s.clientId); return c ? c.name : ''; };
-    var H = [];
-    H.push('<div class="ph-top"><div class="ph-big">' + (h.workDays || 0) + '<small>일차</small></div><div class="ph-sub">' +
-      (h.first ? '첫 작업 <b>' + esc(Share.dayLabel(h.first)) + '</b> · 오늘까지 ' + h.elapsed + '일째' : '아직 일한 날이 없습니다') +
-      '<br>' + (h.workedToday ? '오늘 출근 · ' : (h.last ? '마지막 작업 ' + esc(Share.dayLabel(h.last)) + ' · ' : '')) +
-      '현장 ' + h.sites + '곳 · 이번 달 ' + h.thisMonth + '일</div></div>');
-    // 최근 8주 막대 — 꾸준히 나오는지
-    var max = Math.max.apply(null, h.weeks.map(function (w) { return w.count; }).concat([1]));
-    H.push('<div class="ph-sec">최근 8주 일한 날</div><div class="ph-weeks">' + h.weeks.map(function (w) {
-      return '<div class="ph-wk"><span class="ph-n">' + (w.count || '') + '</span><span class="ph-bar" style="height:' + Math.round(w.count / max * 46 + (w.count ? 4 : 0)) +
-        'px"></span><span class="ph-wl">' + esc(Share.shortDate(w.start)) + '</span></div>';
-    }).join('') + '</div>');
-    // 혼자 맡은 날 / AS 난 현장 — 실력 신호
-    var solo = h.past.filter(function (e) { return e.kind === '시공' && !e.with.length; }).length;
-    H.push('<div class="ph-stats"><span>혼자 맡은 날 <b>' + solo + '</b></span><span>AS 출동 <b>' +
-      h.past.filter(function (e) { return e.kind === 'AS'; }).length + '</b></span><span class="' + (h.asSites ? 'bad' : '') + '">시공 후 AS 난 현장 <b>' + h.asSites + '</b></span></div>');
-    // 이정표 (2026-10-23) — 현장업무 기록이 오면 품목 이정표까지 다시 그린다
-    H.push('<div id="phMiles"></div>');
-    // 하루 평가 흐름 (2026-10-23) — 아래 날짜마다 매긴 ★ 로 그린다
-    H.push('<div id="phEvalSum"></div>');
-    // 현장업무(관리자 앱) 기록: 품목별 경험 · 점검 체크 — 열 때 받아 온다
-    H.push('<div id="phWork"></div>');
-    if (h.partners.length) {
-      H.push('<div class="ph-sec">함께 일한 사람</div><div class="ph-partners">' + h.partners.slice(0, 8).map(function (p) {
-        return '<span>' + esc(p.name) + ' <b>' + p.days + '일</b></span>';
-      }).join('') + '</div>');
-    }
-    var row = function (e, upcoming) {
-      var tags = [];
-      if (e.kind !== '시공') tags.push('<em class="t-' + (e.kind === 'AS' ? 'as' : 'add') + '">' + e.kind + ' 출동</em>');
-      if (e.asAfter) tags.push('<em class="t-bad">이후 AS ' + e.asAfter + '건</em>');
-      if (e.kind === '시공' && !e.with.length) tags.push('<em class="t-solo">혼자</em>');
-      var meta = [cname(e.site), e.dayCount > 1 ? e.dayNo + '/' + e.dayCount + '일차' : '', e.with.length ? e.with.join('·') + '와' : '', e.request]
-        .filter(Boolean).join(' · ');
-      return '<button type="button" class="ph-row" data-site="' + esc(e.site.id) + '">' +
-        '<span class="ph-no' + (upcoming ? ' up' : '') + '">' + (upcoming ? '예정' : e.workDayNo) + '</span>' +
-        '<span class="ph-main"><span class="ph-d">' + esc(Share.dayLabel(e.date)) + ' ' + tags.join('') + '</span>' +
-        '<b>' + esc(Share.titleLine(e.site)) + '</b><small>' + esc(meta) + '</small></span></button>';
-    };
-    if (h.upcoming.length) H.push('<div class="ph-sec">잡혀 있는 일정</div>' + h.upcoming.map(function (e) { return row(e, true); }).join(''));
-    var 월 = '', 평가한날 = {};
-    H.push('<div class="ph-sec">작업 내역 <small>최근 순 · 숫자 = 그날이 몇 일차 · ★ 하루 평가</small></div>');
-    if (!h.past.length) H.push('<p class="hint">아직 일한 날이 없습니다. 현장 날짜에 인원으로 넣으면 여기 쌓입니다.</p>');
-    h.past.forEach(function (e, idx) {
-      var m = e.date.slice(0, 7);
-      if (m !== 월) {
-        월 = m;
-        var n = []; h.past.forEach(function (x) { if (x.date.slice(0, 7) === m && n.indexOf(x.date) === -1) n.push(x.date); });
-        H.push('<div class="ph-month">' + (+m.slice(0, 4)) + '년 ' + (+m.slice(5, 7)) + '월 <small>' + n.length + '일</small></div>');
-      }
-      H.push(row(e, false));
-      // 그날 마지막 줄 아래에 하루 평가 (같은 날 두 현장이어도 평가는 하루에 하나)
-      var 다음 = h.past[idx + 1];
-      if (!평가한날[e.date] && (!다음 || 다음.date !== e.date)) {
-        평가한날[e.date] = true;
-        var ev = Share.evalOf(state.settings.evals, name, e.date);
-        H.push('<div class="ph-eval" data-date="' + e.date + '"><span class="ph-stars">' + [1, 2, 3, 4, 5].map(function (k) {
-          return '<button type="button" class="ph-star' + (k <= ev.s ? ' on' : '') + '" data-s="' + k + '" aria-label="' + k + '점">★</button>';
-        }).join('') + '</span><input type="text" class="ph-note" value="' + esc(ev.n) + '" placeholder="그날 한 줄 평가 (예: 몰딩 이음매 깔끔해짐)" autocomplete="off"></div>');
-      }
-    });
-    openModal(name + ' 작업내역', '<div class="ph">' + H.join('') + '</div>', [{ label: '닫기', onClick: closeModal }]);
-    var body = $('modalBody');
-    body.querySelectorAll('.ph-row').forEach(function (b) {
-      b.onclick = function () { closeModal(); go('#site/' + b.dataset.site); };
-    });
-    paintEvalSum(name);
-    paintMiles(name);
-    loadWorkerWork(name);
-    body.querySelectorAll('.ph-eval').forEach(function (box) {
-      var date = box.dataset.date;
-      box.querySelectorAll('.ph-star').forEach(function (st) {
-        st.onclick = function () {
-          var cur = Share.evalOf(state.settings.evals, name, date).s;
-          var s = +st.dataset.s === cur ? 0 : +st.dataset.s;      // 같은 별을 다시 누르면 지운다
-          Store.setSettings({ evals: Share.setEval(state.settings.evals, name, date, { s: s }) });
-          box.querySelectorAll('.ph-star').forEach(function (x) { x.classList.toggle('on', +x.dataset.s <= s); });
-          paintEvalSum(name);
-          paintMiles(name);
-        };
-      });
-      var inp = box.querySelector('.ph-note'), t = null;
-      var saveNote = function () {
-        clearTimeout(t);
-        if (inp.value.trim() === Share.evalOf(state.settings.evals, name, date).n) return;
-        Store.setSettings({ evals: Share.setEval(state.settings.evals, name, date, { n: inp.value }) });
-        paintEvalSum(name);
-      };
-      inp.oninput = function () { clearTimeout(t); t = setTimeout(saveNote, 800); };
-      inp.onblur = saveNote;
-      inp.onkeydown = function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) inp.blur(); };
-    });
-  }
-  /* 현장업무 작업 기록 (2026-10-23) — n8n worker-history (사장님 열쇠). 한 번 받으면 앱을 닫을 때까지 둔다 */
+  /* 팀원 작업내역 창 (2026-10-23, 2026-10-24 사장님: 탭 두 개만) — [품목별 경험] [현장별 경험].
+     기록은 현장업무(관리자 앱)에서 받는다: n8n worker-history (사장님 열쇠). 품목을 누르면 그 품목을 한 현장들이 펼쳐진다.
+     현장별은 이 앱에서 그 사람이 들어간 현장도 같이 (현장업무 기록이 없으면 '기록 없음'). 현장 이름을 누르면 그 현장으로 */
   var workerWorkCache = {};
+  var historyTab = 'kind';
   var WORKER_HISTORY_URL = 'https://primary-production-a6fa.up.railway.app/webhook/worker-history';
+  function openPersonHistory(name) {
+    var h = Share.personHistory(state.sites, name, Share.todayIso());
+    var head = h.workDays ? '<p class="ph-head"><b>' + h.workDays + '일차</b> · 첫 작업 ' + esc(Share.dayLabel(h.first)) + '</p>' : '';
+    openModal(name + ' 작업내역', '<div class="ph">' + head +
+      '<div class="ph-tabs"><button type="button" data-tab="kind">품목별 경험</button><button type="button" data-tab="site">현장별 경험</button></div>' +
+      '<div id="phBody"></div></div>', [{ label: '닫기', onClick: closeModal }]);
+    $('modalBody').querySelectorAll('.ph-tabs button').forEach(function (b) {
+      b.onclick = function () { historyTab = b.dataset.tab; paintHistory(name); };
+    });
+    paintHistory(name);
+    if (!workerWorkCache[name]) loadWorkerWork(name);
+  }
   function loadWorkerWork(name) {
-    var box = $('phWork'); if (!box) return;
-    if (workerWorkCache[name]) { paintWorkerWork(name, workerWorkCache[name]); return; }
-    box.innerHTML = '<div class="ph-sec">품목별 경험 · 점검 체크</div><p class="ph-hint">현장업무 기록을 불러오는 중…</p>';
+    workerWorkCache[name] = { loading: true };
     fetch(WORKER_HISTORY_URL + '?name=' + encodeURIComponent(name))
       .then(function (res) {
         if (res.status === 401 || res.status === 403) throw new Error('이 기기에 사장님 열쇠가 없어 현장업무 기록을 못 봅니다');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
-      .then(function (d) { workerWorkCache[name] = d; paintWorkerWork(name, d); paintMiles(name); })
-      .catch(function (e) {
-        var b = $('phWork'); if (!b) return;
-        b.innerHTML = '<div class="ph-sec">품목별 경험 · 점검 체크</div><p class="ph-hint">⚠ ' + esc(e.message || e) +
-          ' <button type="button" class="link-btn" id="phWorkRetry">다시</button></p>';
-        $('phWorkRetry').onclick = function () { loadWorkerWork(name); };
+      .then(function (d) { workerWorkCache[name] = { data: d }; })
+      .catch(function (e) { workerWorkCache[name] = { error: e.message || String(e) }; })
+      .then(function () { paintHistory(name); });
+  }
+  function paintHistory(name) {
+    var box = $('phBody'); if (!box) return;
+    $('modalBody').querySelectorAll('.ph-tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === historyTab); });
+    var c = workerWorkCache[name] || {};
+    var ex = Share.workerExperience(c.data ? c.data.tasks : [], state.sites, name);
+    var note = c.loading ? '<p class="ph-hint">현장업무 기록을 불러오는 중…</p>'
+      : c.error ? '<p class="ph-hint">⚠ ' + esc(c.error) + ' <button type="button" class="link-btn" id="phRetry">다시</button></p>' : '';
+    var stage = function (r) {
+      return (r.밑작업 ? '<em class="' + (r.밑작업완료 ? 'ok' : 'no') + '">밑작업 ' + (r.밑작업완료 ? '✓' : '미완료') + '</em>' : '') +
+        (r.시공 ? '<em class="si ' + (r.시공완료 ? 'ok' : 'no') + '">시공 ' + (r.시공완료 ? '✓' : '미완료') + '</em>' : '');
+    };
+    var H = [note];
+    if (historyTab === 'kind') {
+      if (!c.loading && !c.error && !ex.kinds.length) H.push('<p class="ph-hint">현장업무에 맡은 품목이 아직 없습니다.</p>');
+      ex.kinds.forEach(function (k, i) {
+        H.push('<details class="ph-kind"><summary><b>' + esc(k.name) + '</b>' +
+          '<span class="ph-st' + (k.밑 ? '' : ' none') + '">밑 ' + k.밑 + (k.밑 ? ' <small>(' + k.밑완료 + ')</small>' : '') + '</span>' +
+          '<span class="ph-st si' + (k.시 ? '' : ' none') + '">시공 ' + (k.시 ? k.시 + ' <small>(' + k.시완료 + ')</small>' : '아직') + '</span></summary>' +
+          k.rows.map(function (r) {
+            return '<div class="ph-krow"><span class="d">' + esc(r.date ? Share.dayLabel(r.date) : '') + '</span><span class="m"><b' +
+              (r.siteId ? ' class="go" data-site="' + esc(r.siteId) + '"' : '') + '>' + esc(r.현장명) + '</b><small>' + esc(r.품목) + '</small></span>' +
+              '<span class="s">' + stage(r) + '</span></div>';
+          }).join('') + '</details>');
       });
-  }
-  function paintWorkerWork(name, d) {
-    var box = $('phWork'); if (!box) return;
-    var w = Share.workerSkills(d.tasks, d.품목들, Share.todayIso());
-    var H = [];
-    H.push('<div class="ph-sec">품목별 경험 <small>현장업무 기록 · 밑작업 / 시공 (괄호 = 완료 처리)</small></div>');
-    if (!w.items.length) H.push('<p class="ph-hint">현장업무에 맡은 품목이 아직 없습니다.</p>');
-    else {
-      H.push('<div class="ph-items">' + w.items.map(function (e) {
-        return '<div class="ph-item"><b>' + esc(e.name) + '</b><span class="ph-st' + (e.밑 ? '' : ' none') + '">밑 ' + e.밑 + (e.밑 ? ' <small>(' + e.밑완료 + ')</small>' : '') + '</span>' +
-          '<span class="ph-st si' + (e.시 ? '' : ' none') + '">시공 ' + (e.시 ? e.시 + ' <small>(' + e.시완료 + ')</small>' : '아직') + '</span></div>';
-      }).join('') + '</div>');
+      if (ex.kinds.length) H.push('<p class="ph-hint">괄호 = 완료 처리한 수 · 품목을 누르면 현장별로 펼쳐집니다</p>');
+    } else {
+      if (!ex.sites.length) H.push('<p class="ph-hint">아직 들어간 현장이 없습니다.</p>');
+      ex.sites.forEach(function (s) {
+        H.push('<div class="ph-site"><div class="ph-site-h"><span class="d">' + esc(s.date ? Share.dayLabel(s.date) : '') + '</span><b' +
+          (s.siteId ? ' class="go" data-site="' + esc(s.siteId) + '"' : '') + '>' + esc(s.현장명) + '</b></div>' +
+          (s.items.length ? s.items.map(function (r) {
+            return '<div class="ph-srow"><span>' + esc(r.품목) + '</span><span class="s">' + stage(r) + '</span></div>';
+          }).join('') : '<p class="ph-hint">' + (c.data ? '현장업무에 맡은 품목 기록 없음' : '') + '</p>') + '</div>');
+      });
     }
-    if (w.untried.length) {
-      H.push('<div class="ph-sec">아직 안 해 본 품목 <small>' + w.untried.length + '가지</small></div><div class="ph-untried">' +
-        w.untried.slice(0, 14).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('') +
-        (w.untried.length > 14 ? '<span class="more">외 ' + (w.untried.length - 14) + '가지</span>' : '') + '</div>');
-    }
-    // 점검 체크 — 끝낸 일의 품질 체크를 얼마나 다 눌렀나, 완료 처리를 빼먹은 일, 사진 없이 끝낸 일
-    var 율 = function (c) { return c.total ? Math.round(c.done / c.total * 100) + '% <small>(' + c.done + '/' + c.total + ')</small>' : '<small>기록 없음</small>'; };
-    H.push('<div class="ph-sec">점검 체크 <small>끝낸 일 기준</small></div><div class="ph-stats">' +
-      '<span>밑작업 체크 <b>' + 율(w.checks.밑작업) + '</b></span><span>시공 체크 <b>' + 율(w.checks.시공) + '</b></span>' +
-      '<span class="' + (w.notDone.length ? 'bad' : '') + '">완료 처리 안 한 일 <b>' + w.notDone.length + '</b></span>' +
-      '<span class="' + (w.noPhoto.length ? 'bad' : '') + '">사진 없이 끝낸 일 <b>' + w.noPhoto.length + '</b></span></div>');
-    if (w.missedTop.length) {
-      H.push('<div class="ph-missed"><b>자주 빠뜨린 체크</b>' + w.missedTop.slice(0, 5).map(function (m) {
-        return '<div><span>' + esc(m.text) + '</span><em>' + m.count + '번</em></div>';
-      }).join('') + '</div>');
-    }
-    if (w.notDone.length) {
-      H.push('<details class="ph-more"><summary>완료 처리 안 한 일 ' + w.notDone.length + '개 보기</summary>' + w.notDone.map(function (x) {
-        return '<div>' + esc(Share.shortDate(x.시공일자)) + ' · ' + esc(x.현장명) + ' · ' + esc(x.품목) + ' ' + esc(x.단계) + '</div>';
-      }).join('') + '</details>');
-    }
-    if (w.cleanup) H.push('<p class="ph-hint">현장세팅·마무리 같은 정리 일 ' + w.cleanup + '번은 위 숫자에서 뺐습니다.</p>');
     box.innerHTML = H.join('');
-  }
-
-  // 이정표 칸 — 지나온 순간(최근 순)과 다음 목표
-  function paintMiles(name) {
-    var box = $('phMiles'); if (!box) return;
-    var h = Share.personHistory(state.sites, name, Share.todayIso());
-    var d = workerWorkCache[name];
-    var m = Share.personMilestones(h, state.settings.evals, name, d ? Share.workerSkills(d.tasks, d.품목들, Share.todayIso()) : null);
-    if (!m.done.length && !m.next.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<div class="ph-sec">이정표</div>' +
-      (m.next.length ? '<div class="ph-next">' + m.next.map(function (t) { return '<span>🎯 ' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="ph-miles">' + m.done.map(function (x) {
-        return '<div class="ph-mile"><span class="ic">' + x.icon + '</span><span class="tx">' + esc(x.text) + '</span><span class="dt">' + esc(Share.dayLabel(x.date)) + '</span></div>';
-      }).join('') + '</div>';
-  }
-
-  // 작업내역 위쪽 '하루 평가' 칸 — 매긴 날의 ★ 막대와 최근 5번 평균
-  function paintEvalSum(name) {
-    var box = $('phEvalSum'); if (!box) return;
-    var tr = Share.evalTrend(state.settings.evals, name);
-    if (!tr.list.length) {
-      box.innerHTML = '<div class="ph-sec">하루 평가</div><p class="ph-hint">아래 날짜마다 ★를 누르고 한 줄 남기면 점수 흐름이 여기 그려집니다.</p>';
-      return;
-    }
-    var 차 = tr.prevN ? Math.round((tr.recent - tr.prev) * 10) / 10 : null;
-    var 말 = '최근 ' + tr.recentN + '번 평균 <b>' + tr.recent + '</b>' + (차 == null ? '' : ' · 그 앞 ' + tr.prevN + '번 ' + tr.prev +
-      ' <b class="' + (차 > 0 ? 'up' : 차 < 0 ? 'down' : '') + '">' + (차 > 0 ? '▲' + 차 : 차 < 0 ? '▼' + (-차) : '→ 그대로') + '</b>');
-    box.innerHTML = '<div class="ph-sec">하루 평가 <small>' + tr.list.length + '일 매김 · 전체 평균 ' + tr.all + '</small></div>' +
-      '<div class="ph-evbars">' + tr.list.slice(-20).map(function (x) {
-        return '<span class="ph-evb s' + x.s + '" style="height:' + (x.s * 10 + 4) + 'px" title="' + esc(Share.dayLabel(x.date) + ' ★' + x.s + (x.n ? ' · ' + x.n : '')) + '"></span>';
-      }).join('') + '</div><p class="ph-evavg">' + 말 + '</p>';
+    if ($('phRetry')) $('phRetry').onclick = function () { loadWorkerWork(name); paintHistory(name); };
+    box.querySelectorAll('.go').forEach(function (el) {
+      el.onclick = function (e) { e.preventDefault(); e.stopPropagation(); closeModal(); go('#site/' + el.dataset.site); };
+    });
   }
 
   // 기사 정보 창 — 이름 바꾸기, 등급(A·B·C·F), 전화·차량·경력·페이·사는곳·메모(모두 글자). 적는 대로 저장.
@@ -3815,6 +3698,9 @@
     var html = '<div class="person-form">' +
       '<label class="pf-label">이름</label><div class="pf-row"><input type="text" id="pfName" autocomplete="off" value="' + esc(name) + '"><button type="button" class="btn-sm" id="pfRename">이름 바꾸기</button></div>' +
       '<p class="hint admin-err" id="pfMsg" hidden></p>' +
+      // 작업내역 보기 (2026-10-24) — 켠 사람만 명단 이름 아래에 'N일차' 가 나오고 누르면 작업내역
+      '<label class="pf-track"><input type="checkbox" id="pfTrack"' + ((state.settings.tracked || []).indexOf(name) !== -1 ? ' checked' : '') +
+        '> 📒 작업내역 보기 <small>명단에 몇 일차인지 나오고, 누르면 품목별·현장별 경험</small></label>' +
       '<label class="pf-label">등급</label><div class="pf-grades" id="pfGrades">' + grades.map(function (g) {
         return '<button type="button" class="pf-grade g-' + (g || 'none') + (p.grade === g ? ' on' : '') + '" data-g="' + g + '">' + (g || '미정') + '</button>';
       }).join('') + '</div>' +
@@ -3850,6 +3736,12 @@
     $('pfName').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); doRename(); } });
     $('pfName').addEventListener('input', function () { $('pfMsg').hidden = true; });
 
+    $('pfTrack').onchange = function () {
+      var list = (state.settings.tracked || []).filter(function (n) { return n !== name; });
+      if ($('pfTrack').checked) list.push(name);
+      Store.setSettings({ tracked: list });
+      renderTeamList();
+    };
     $('pfGrades').querySelectorAll('button').forEach(function (b) {
       b.onclick = function () {
         Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { grade: b.dataset.g }) });

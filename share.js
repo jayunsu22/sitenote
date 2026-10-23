@@ -1056,106 +1056,67 @@
     };
   }
 
-  /* 현장업무(관리자 앱) 작업 기록 정리 (2026-10-23) — n8n worker-history 가 준 tasks 로
-     품목별 경험(밑작업·시공 몇 번)과 점검 체크 결과를 낸다.
-     tasks: [{ 현장ID, 현장명, 시공일자, 품목, 뒷정리, 밑작업, 시공, 밑작업완료, 시공완료, 밑작업점검, 시공점검, 전사진, 후사진 }]
-     품목은 구역을 떼고 묶는다 ('방2샤시 2' → '샤시', '거실화장실문' → '화장실문'). 뒷정리(현장세팅·마무리)는 따로 센다 */
+  /* 현장업무(관리자 앱) 작업 기록 (2026-10-23, 2026-10-24 탭 두 개로 줄임) — n8n worker-history 가 준 tasks 로
+     품목별 경험(품목을 누르면 현장별로 펼침)과 현장별 경험을 낸다.
+     tasks: [{ 현장ID, 현장명, 시공일자, 품목, 뒷정리, 밑작업, 시공, 밑작업완료, 시공완료, 전사진, 후사진 }]
+     품목은 구역을 떼고 묶는다 ('방2샤시 2' → '샤시', '거실화장실문' → '화장실문'). 뒷정리(현장세팅·마무리)는 뺀다 */
   function itemKind(n) {
     var k = str(n).replace(/^\s*\d+층\s*/, '').replace(/^\s*(방\d+|안방|거실|주방|현관|드레스룸|다용도실|세탁실)\s*/, '')
       .replace(/\s*\d+\s*$/, '').trim();
     return k.length > 1 ? k : str(n).replace(/\s*\d+\s*$/, '').trim();   // '현관문' 이 '문' 이 되면 안 된다
   }
-  function workerSkills(tasks, masterItems, today) {
-    today = isIsoDate(today) ? today : todayIso();
-    var by = {}, order = [];
-    var checks = { 밑작업: { done: 0, total: 0 }, 시공: { done: 0, total: 0 } };
-    var missed = {}, cleanup = 0, notDone = [], noPhoto = [];
+  /* sites = 이 앱의 현장 목록, name = 기사 이름. 이 앱 현장에 현장업무가 이어져 있으면(adminId) 날짜는
+     그 기사가 실제로 일한 첫날(인원 칸), 아니면 현장업무의 시공일자. 현장업무 기록이 없는 이 앱 현장도 현장별에 남긴다.
+     돌려줌: { kinds: [{ name, 밑, 밑완료, 시, 시완료, rows: [{ 현장ID, 현장명, date, 품목, 밑작업, 밑작업완료, 시공, 시공완료 }] }],
+               sites: [{ key, siteId, 현장명, date, items: [...같은 줄], cleanup, noAdmin }] } — 둘 다 최근 순 */
+  function workerExperience(tasks, sites, name) {
+    var me = normName(name);
+    var byAdmin = {}, byName = {}, workDate = {}, matched = {};
+    (sites || []).forEach(function (s) {
+      if (!s) return;
+      var d = ((s.days || []).find(function (x) { return x && isIsoDate(x.date) && (x.staff || []).some(function (n) { return normName(n) === me; }); }) || {}).date || '';
+      workDate[s.id] = d;
+      if (s.adminId) byAdmin[s.adminId] = s;
+      else byName[normName(titleLine(s))] = s;   // 현장업무를 안 이었으면 이름이 같은 현장으로 짝짓는다
+    });
+    var kinds = {}, siteMap = {};
+    var siteOf = function (t) {
+      var key = t.현장ID || ('nm:' + t.현장명);
+      if (!siteMap[key]) {
+        var local = (t.현장ID && byAdmin[t.현장ID]) || byName[normName(t.현장명)];
+        if (local) matched[local.id] = true;
+        siteMap[key] = { key: key, siteId: local ? local.id : '', 현장명: local ? titleLine(local) : str(t.현장명),
+          date: (local && workDate[local.id]) || (isIsoDate(t.시공일자) ? t.시공일자 : ''), items: [], cleanup: 0, noAdmin: false };
+      }
+      return siteMap[key];
+    };
     (tasks || []).forEach(function (t) {
       if (!t) return;
-      if (t.뒷정리) { cleanup++; return; }
-      var k = itemKind(t.품목), d = isIsoDate(t.시공일자) ? t.시공일자 : '';
-      var e = by[k];
-      if (!e) { e = by[k] = { name: k, 밑: 0, 밑완료: 0, 시: 0, 시완료: 0, sites: {}, first밑: '', first시: '' }; order.push(k); }
-      if (t.현장ID) e.sites[t.현장ID] = true;
-      [['밑작업', '밑', '밑작업완료', '밑작업점검', '전사진'], ['시공', '시', '시공완료', '시공점검', '후사진']].forEach(function (st) {
-        if (!t[st[0]]) return;
-        e[st[1]]++;
-        if (t[st[2]]) e[st[1] + '완료']++;
-        if (d && (!e['first' + st[1]] || d < e['first' + st[1]])) e['first' + st[1]] = d;
-        var c = t[st[3]];
-        // 끝낸 일만 점검을 센다 - 하는 중인 일은 아직 안 누른 게 당연하다
-        if (c && t[st[2]]) {
-          checks[st[0]].done += c.done || 0; checks[st[0]].total += c.total || 0;
-          (c.missed || []).forEach(function (m) { missed[m] = (missed[m] || 0) + 1; });
-        }
-        if (!t[st[2]] && d && d < today) notDone.push({ 현장명: t.현장명, 품목: t.품목, 단계: st[0], 시공일자: d });
-        if (t[st[2]] && !t[st[4]]) noPhoto.push({ 현장명: t.현장명, 품목: t.품목, 단계: st[0], 시공일자: d });
-      });
+      var s = siteOf(t);
+      if (t.뒷정리) { s.cleanup++; return; }
+      var row = { 현장ID: t.현장ID || '', siteId: s.siteId, 현장명: s.현장명, date: s.date, 품목: str(t.품목),
+        밑작업: !!t.밑작업, 밑작업완료: !!t.밑작업완료, 시공: !!t.시공, 시공완료: !!t.시공완료 };
+      s.items.push(row);
+      var k = itemKind(t.품목);
+      var e = kinds[k] || (kinds[k] = { name: k, 밑: 0, 밑완료: 0, 시: 0, 시완료: 0, rows: [] });
+      if (row.밑작업) { e.밑++; if (row.밑작업완료) e.밑완료++; }
+      if (row.시공) { e.시++; if (row.시공완료) e.시완료++; }
+      e.rows.push(row);
     });
-    var items = order.map(function (k) { var e = by[k]; e.sites = Object.keys(e.sites).length; return e; })
+    // 현장업무 기록이 없는 이 앱 현장 (연결 안 했거나 그 현장에서 맡은 품목이 없다)
+    (sites || []).forEach(function (s) {
+      if (!s || !workDate[s.id]) return;
+      if (matched[s.id]) return;
+      siteMap['local:' + s.id] = { key: 'local:' + s.id, siteId: s.id, 현장명: titleLine(s), date: workDate[s.id], items: [], cleanup: 0, noAdmin: true };
+    });
+    var byDate = function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : str(a.현장명).localeCompare(str(b.현장명)) || str(a.품목).localeCompare(str(b.품목)); };
+    var kindList = Object.keys(kinds).map(function (k) { kinds[k].rows.sort(byDate); return kinds[k]; })
       .sort(function (a, b) { return (b.밑 + b.시) - (a.밑 + a.시) || a.name.localeCompare(b.name); });
-    var tried = {}; items.forEach(function (e) { tried[e.name] = true; });
-    var untried = [];
-    (masterItems || []).forEach(function (n) { var k = itemKind(n); if (k && !tried[k] && untried.indexOf(k) === -1) untried.push(k); });
-    var missedTop = Object.keys(missed).map(function (m) { return { text: m, count: missed[m] }; })
-      .sort(function (a, b) { return b.count - a.count || a.text.localeCompare(b.text); });
-    return { items: items, untried: untried, checks: checks, missedTop: missedTop, cleanup: cleanup, notDone: notDone, noPhoto: noPhoto };
+    var siteList = Object.keys(siteMap).map(function (k) { return siteMap[k]; }).filter(function (s) { return s.items.length || s.noAdmin; }).sort(byDate);
+    return { kinds: kindList, sites: siteList };
   }
 
-  /* 이정표 (2026-10-23) — 새 기사가 지나온 순간들. 등급(C→B…)을 올릴 때 근거로 본다.
-     h = personHistory 결과, evals = settings.evals, skills = workerSkills 결과(현장업무 기록을 못 받았으면 null).
-     돌려줌: { done: [{ date, icon, text }] (최근 순), next: ['다음 목표 …'] } */
-  var DAY_MARKS = [10, 30, 50, 100, 200, 300, 500];
-  function personMilestones(h, evals, name, skills) {
-    var done = [], next = [];
-    var add = function (date, icon, text) { if (isIsoDate(date)) done.push({ date: date, icon: icon, text: text }); };
-    var past = (h && h.past ? h.past.slice().reverse() : []);   // 오래된 순
-    if (h && h.first) add(h.first, '🎉', '첫 출근');
-    DAY_MARKS.forEach(function (n) {
-      var e = past.find(function (x) { return x.workDayNo === n; });
-      if (e) add(e.date, '📅', n + '일차');
-    });
-    var nextMark = DAY_MARKS.find(function (n) { return n > ((h && h.workDays) || 0); });
-    if (nextMark) next.push(nextMark + '일차까지 ' + (nextMark - ((h && h.workDays) || 0)) + '일');
-    var solo = past.find(function (x) { return x.kind === '시공' && !x.with.length; });
-    if (solo) add(solo.date, '💪', '처음 혼자 맡은 날 · ' + titleLine(solo.site));
-    else next.push('처음 혼자 맡기');
-    var as = past.find(function (x) { return x.kind === 'AS'; });
-    if (as) add(as.date, '🛠', '첫 AS 출동 · ' + titleLine(as.site));
-    // AS 없이 이어 간 현장 (현장마다 처음 간 날 순서). 5·10·20 현장에 닿은 날을 남긴다
-    var seen = {}, order = [];
-    past.forEach(function (x) { if (x.kind === '시공' && !seen[x.site.id]) { seen[x.site.id] = x; order.push(x); } });
-    var streak = 0;
-    order.forEach(function (x) {
-      var asAny = past.some(function (y) { return y.site.id === x.site.id && y.kind === '시공' && y.asAfter; });
-      if (asAny) { streak = 0; return; }
-      streak++;
-      if ([5, 10, 20, 50].indexOf(streak) !== -1) add(x.date, '✨', 'AS 없이 연속 ' + streak + '현장');
-    });
-    if (order.length) next.push('지금 AS 없이 연속 ' + streak + '현장');
-    var tr = evalTrend(evals, name);
-    var five = tr.list.find(function (x) { return x.s === 5; });
-    if (five) add(five.date, '⭐', '첫 ★5 평가' + (five.n ? ' · ' + five.n : ''));
-    if (skills) {
-      // 품목 가짓수 (밑작업이든 시공이든 처음 맡은 날 기준)
-      var firsts = [];
-      skills.items.forEach(function (e) {
-        var d = [e.first밑, e.first시].filter(Boolean).sort()[0];
-        if (d) firsts.push({ date: d, name: e.name });
-        if (e.first시) add(e.first시, '🔨', '첫 시공 · ' + e.name);
-      });
-      firsts.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-      [5, 10, 20, 30].forEach(function (n) { if (firsts[n - 1]) add(firsts[n - 1].date, '🧩', n + '가지 품목 경험'); });
-      if (!skills.items.some(function (e) { return e.시 > 0; })) next.push('첫 시공 맡기 (지금까지 밑작업만)');
-      var nk = [5, 10, 20, 30].find(function (n) { return n > firsts.length; });
-      if (nk) next.push(nk + '가지 품목까지 ' + (nk - firsts.length) + '가지');
-    }
-    done.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-    return { done: done, next: next };
-  }
-
-  /* 하루 평가 (2026-10-23) — 작업내역에서 날짜마다 ★1~5 와 한 줄 메모. 새 기사가 실력이 느는지 점수로 본다.
-     settings.evals = { 이름: { 'YYYY-MM-DD': { s: 1~5 (0 = 안 매김), n: '메모' } } }. 별도 메모도 없으면 그 날은 지운다 */
+  /* 하루 평가 저장값 (2026-10-23). 작업내역에서 평가 칸은 뺐지만(2026-10-24 사장님) 이미 매긴 값은 버리지 않고 둔다 */
   function normalizeEvals(raw) {
     var out = {};
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -1171,31 +1132,6 @@
       });
     });
     return out;
-  }
-  function evalOf(evals, name, date) {
-    var v = evals && evals[str(name)] && evals[str(name)][date];
-    return { s: (v && v.s) || 0, n: (v && v.n) || '' };
-  }
-  // 한 날을 고친 새 표 (원본은 안 바뀐다)
-  function setEval(evals, name, date, patch) {
-    var out = {};
-    Object.keys(evals || {}).forEach(function (k) { out[k] = Object.assign({}, evals[k]); });
-    var n = str(name);
-    if (!n || !isIsoDate(date)) return out;
-    var cur = evalOf(evals, n, date);
-    var next = Object.assign({}, cur, patch || {});
-    out[n] = out[n] || {};
-    out[n][date] = { s: Math.max(0, Math.min(5, Math.round(Number(next.s) || 0))), n: str(next.n) };
-    return normalizeEvals(out);
-  }
-  /* 점수 흐름: 매긴 날만 날짜순 + 최근 5번 평균 vs 그 앞 5번 평균 */
-  function evalTrend(evals, name) {
-    var days = (evals && evals[str(name)]) || {};
-    var list = Object.keys(days).sort().map(function (d) { return { date: d, s: days[d].s, n: days[d].n }; })
-      .filter(function (x) { return x.s > 0; });
-    var avg = function (a) { return a.length ? Math.round(a.reduce(function (t, x) { return t + x.s; }, 0) / a.length * 10) / 10 : 0; };
-    var recent = list.slice(-5), prev = list.slice(-10, -5);
-    return { list: list, recent: avg(recent), prev: avg(prev), recentN: recent.length, prevN: prev.length, all: avg(list) };
   }
 
   var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
@@ -1694,13 +1630,9 @@
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     personHistory: personHistory,
-    personMilestones: personMilestones,
     itemKind: itemKind,
-    workerSkills: workerSkills,
+    workerExperience: workerExperience,
     normalizeEvals: normalizeEvals,
-    evalOf: evalOf,
-    setEval: setEval,
-    evalTrend: evalTrend,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,
