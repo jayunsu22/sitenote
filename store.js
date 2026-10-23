@@ -50,7 +50,8 @@
       taskRules: Object.assign({}, Share.DEFAULT_TASK_RULES),  // 자동 할 일 기준 일수 (2026-10-14)
       holds: {},                                               // 대기 인원 — 날짜에 먼저 잡아 둔 사람 (2026-10-14)
       income: {},                                              // 하루 수익 — 사장님이 직접 적는 남은 돈 (2026-10-14)
-      taskPresets: DEFAULT_TASK_PRESETS.slice()                // 할 일 빠른 버튼 (2026-10-14)
+      taskPresets: DEFAULT_TASK_PRESETS.slice(),               // 할 일 빠른 버튼 (2026-10-14)
+      evals: {}                                                // 팀원 하루 평가 { 이름: { 날짜: {s, n} } } (2026-10-23)
     };
   }
   function stringList(arr, fallback) {
@@ -249,6 +250,7 @@
       state.settings.taskRules = Share.normalizeTaskRules(state.settings.taskRules);
       state.settings.holds = Share.normalizeHolds(state.settings.holds, Share.todayIso());
       state.settings.income = Share.normalizeIncome(state.settings.income);
+      state.settings.evals = Share.normalizeEvals(state.settings.evals);
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.tasks = normalizeTasks(parsed.tasks);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
@@ -282,7 +284,7 @@
       stockLow: state.settings.stockLow, filmVendors: state.settings.filmVendors,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
       serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds,
-      taskPresets: state.settings.taskPresets, income: state.settings.income };
+      taskPresets: state.settings.taskPresets, income: state.settings.income, evals: state.settings.evals };
   }
 
   // ---------- 거래처 ----------
@@ -748,7 +750,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income', 'evals'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
@@ -788,7 +790,9 @@
     team[at] = to;
     var people = Object.assign({}, state.settings.people);
     if (people[from]) { people[to] = people[from]; delete people[from]; }
-    setSettings({ team: team, people: people });   // 저장 + 설정 백업 예약 (위에서 올린 현장 변경도 함께 나간다)
+    var evals = Object.assign({}, state.settings.evals);   // 하루 평가도 새 이름으로 옮긴다
+    if (evals[from]) { evals[to] = evals[from]; delete evals[from]; }
+    setSettings({ team: team, people: people, evals: evals });   // 저장 + 설정 백업 예약 (위에서 올린 현장 변경도 함께 나간다)
     return { ok: true, sites: changed };
   }
 
@@ -874,6 +878,7 @@
         state.settings.taskRules = Share.normalizeTaskRules(ds.taskRules);
         state.settings.holds = Share.normalizeHolds(ds.holds, Share.todayIso());
         state.settings.income = Share.normalizeIncome(ds.income);   // 예전 백업엔 없다 → 빈 표
+        state.settings.evals = Share.normalizeEvals(ds.evals);      // 팀원 하루 평가 (2026-10-23) — 예전 백업엔 없다
         state.clients = (data.clients || []).map(normalizeClient);
         // 할 일 (2026-10-14) — 옛 서버(할일 표 없음)는 tasks 를 안 준다. 그때는 폰의 할 일을 지우지 않는다
         if (Array.isArray(data.tasks)) state.tasks = normalizeTasks(data.tasks);

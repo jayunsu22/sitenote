@@ -1232,5 +1232,18 @@ test('personHistory: 첫 작업부터 N일차(같은 날 두 현장은 하루), 
   assert.strictEqual(Share.personHistory(sites, '없는사람', '2026-10-23').workDays, 0);
 });
 
+test('하루 평가: setEval 로 별점·메모, 0점·빈 메모는 지움, 흐름은 최근 5번 vs 그 앞 5번 평균 (2026-10-23)', () => {
+  let e = {};
+  ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05'].forEach((d) => { e = Share.setEval(e, '윤인재', d, { s: 2 }); });
+  ['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10'].forEach((d) => { e = Share.setEval(e, '윤인재', d, { s: 4 }); });
+  e = Share.setEval(e, '윤인재', '2026-10-10', { n: '몰딩 깔끔' });
+  assert.deepStrictEqual(Share.evalOf(e, '윤인재', '2026-10-10'), { s: 4, n: '몰딩 깔끔' });
+  const t = Share.evalTrend(e, '윤인재');
+  assert.strictEqual(t.recent, 4); assert.strictEqual(t.prev, 2); assert.strictEqual(t.all, 3);
+  e = Share.setEval(e, '윤인재', '2026-10-01', { s: 0 });
+  assert.strictEqual(e['윤인재']['2026-10-01'], undefined, '0점에 메모도 없으면 지운다');
+  assert.deepStrictEqual(Share.normalizeEvals({ a: { 'x': { s: 3 }, '2026-10-01': { s: 9, n: '' } } }), {}, '날짜 아님·범위 밖은 버린다');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

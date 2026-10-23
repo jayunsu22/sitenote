@@ -1241,3 +1241,17 @@ textarea { resize: vertical; }
 .ph-d .t-add { background: #ecfeff; color: #0e7490; }
 .ph-d .t-bad { background: #fef2f2; color: #b91c1c; }
 .ph-d .t-solo { background: #f0fdf4; color: #15803d; }
+
+/* 하루 평가 (2026-10-23) */
+.ph-eval { display: flex; align-items: center; gap: 8px; margin: -2px 0 6px 44px; padding: 6px 8px; border-radius: 10px; background: #fffbeb; }
+.ph-stars { display: flex; flex: none; }
+.ph-star { width: 26px; height: 28px; padding: 0; border: 0; background: transparent; color: #e5e7eb; font-size: 20px; line-height: 1; cursor: pointer; }
+.ph-star.on { color: #f59e0b; }
+.ph-note { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid #fde68a; border-radius: 8px; background: #fff; font-size: 13px; }
+.ph-hint { margin: 0; font-size: 12.5px; color: #94a3b8; }
+.ph-evbars { display: flex; align-items: flex-end; gap: 3px; height: 58px; padding: 0 2px; }
+.ph-evb { flex: 1; max-width: 16px; border-radius: 4px 4px 1px 1px; background: #fcd34d; }
+.ph-evb.s1, .ph-evb.s2 { background: #fca5a5; }
+.ph-evb.s4, .ph-evb.s5 { background: #f59e0b; }
+.ph-evavg { margin: 6px 0 0; font-size: 12.5px; color: #475569; }
+.ph-evavg .up { color: #15803d; } .ph-evavg .down { color: #b91c1c; }

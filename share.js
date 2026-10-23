@@ -1056,6 +1056,50 @@
     };
   }
 
+  /* 하루 평가 (2026-10-23) — 작업내역에서 날짜마다 ★1~5 와 한 줄 메모. 새 기사가 실력이 느는지 점수로 본다.
+     settings.evals = { 이름: { 'YYYY-MM-DD': { s: 1~5 (0 = 안 매김), n: '메모' } } }. 별도 메모도 없으면 그 날은 지운다 */
+  function normalizeEvals(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    Object.keys(raw).forEach(function (name) {
+      var n = str(name), days = raw[name];
+      if (!n || !days || typeof days !== 'object') return;
+      Object.keys(days).forEach(function (d) {
+        var v = days[d] || {}, s = Math.round(Number(v.s) || 0), note = str(v.n);
+        if (!isIsoDate(d)) return;
+        if (s < 0 || s > 5) s = 0;
+        if (!s && !note) return;
+        (out[n] = out[n] || {})[d] = { s: s, n: note };
+      });
+    });
+    return out;
+  }
+  function evalOf(evals, name, date) {
+    var v = evals && evals[str(name)] && evals[str(name)][date];
+    return { s: (v && v.s) || 0, n: (v && v.n) || '' };
+  }
+  // 한 날을 고친 새 표 (원본은 안 바뀐다)
+  function setEval(evals, name, date, patch) {
+    var out = {};
+    Object.keys(evals || {}).forEach(function (k) { out[k] = Object.assign({}, evals[k]); });
+    var n = str(name);
+    if (!n || !isIsoDate(date)) return out;
+    var cur = evalOf(evals, n, date);
+    var next = Object.assign({}, cur, patch || {});
+    out[n] = out[n] || {};
+    out[n][date] = { s: Math.max(0, Math.min(5, Math.round(Number(next.s) || 0))), n: str(next.n) };
+    return normalizeEvals(out);
+  }
+  /* 점수 흐름: 매긴 날만 날짜순 + 최근 5번 평균 vs 그 앞 5번 평균 */
+  function evalTrend(evals, name) {
+    var days = (evals && evals[str(name)]) || {};
+    var list = Object.keys(days).sort().map(function (d) { return { date: d, s: days[d].s, n: days[d].n }; })
+      .filter(function (x) { return x.s > 0; });
+    var avg = function (a) { return a.length ? Math.round(a.reduce(function (t, x) { return t + x.s; }, 0) / a.length * 10) / 10 : 0; };
+    var recent = list.slice(-5), prev = list.slice(-10, -5);
+    return { list: list, recent: avg(recent), prev: avg(prev), recentN: recent.length, prevN: prev.length, all: avg(list) };
+  }
+
   var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
   var DEFAULT_REVIEW_TAGS = ['도배시공후', '바닥시공후'];
   var REVIEW_TAG_MAX = 5;
@@ -1552,6 +1596,10 @@
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     personHistory: personHistory,
+    normalizeEvals: normalizeEvals,
+    evalOf: evalOf,
+    setEval: setEval,
+    evalTrend: evalTrend,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,

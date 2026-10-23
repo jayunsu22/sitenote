@@ -3536,6 +3536,8 @@
     var solo = h.past.filter(function (e) { return e.kind === '시공' && !e.with.length; }).length;
     H.push('<div class="ph-stats"><span>혼자 맡은 날 <b>' + solo + '</b></span><span>AS 출동 <b>' +
       h.past.filter(function (e) { return e.kind === 'AS'; }).length + '</b></span><span class="' + (h.asSites ? 'bad' : '') + '">시공 후 AS 난 현장 <b>' + h.asSites + '</b></span></div>');
+    // 하루 평가 흐름 (2026-10-23) — 아래 날짜마다 매긴 ★ 로 그린다
+    H.push('<div id="phEvalSum"></div>');
     if (h.partners.length) {
       H.push('<div class="ph-sec">함께 일한 사람</div><div class="ph-partners">' + h.partners.slice(0, 8).map(function (p) {
         return '<span>' + esc(p.name) + ' <b>' + p.days + '일</b></span>';
@@ -3554,10 +3556,10 @@
         '<b>' + esc(Share.titleLine(e.site)) + '</b><small>' + esc(meta) + '</small></span></button>';
     };
     if (h.upcoming.length) H.push('<div class="ph-sec">잡혀 있는 일정</div>' + h.upcoming.map(function (e) { return row(e, true); }).join(''));
-    var 월 = '';
-    H.push('<div class="ph-sec">작업 내역 <small>최근 순 · 숫자 = 그날이 몇 일차</small></div>');
+    var 월 = '', 평가한날 = {};
+    H.push('<div class="ph-sec">작업 내역 <small>최근 순 · 숫자 = 그날이 몇 일차 · ★ 하루 평가</small></div>');
     if (!h.past.length) H.push('<p class="hint">아직 일한 날이 없습니다. 현장 날짜에 인원으로 넣으면 여기 쌓입니다.</p>');
-    h.past.forEach(function (e) {
+    h.past.forEach(function (e, idx) {
       var m = e.date.slice(0, 7);
       if (m !== 월) {
         월 = m;
@@ -3565,11 +3567,60 @@
         H.push('<div class="ph-month">' + (+m.slice(0, 4)) + '년 ' + (+m.slice(5, 7)) + '월 <small>' + n.length + '일</small></div>');
       }
       H.push(row(e, false));
+      // 그날 마지막 줄 아래에 하루 평가 (같은 날 두 현장이어도 평가는 하루에 하나)
+      var 다음 = h.past[idx + 1];
+      if (!평가한날[e.date] && (!다음 || 다음.date !== e.date)) {
+        평가한날[e.date] = true;
+        var ev = Share.evalOf(state.settings.evals, name, e.date);
+        H.push('<div class="ph-eval" data-date="' + e.date + '"><span class="ph-stars">' + [1, 2, 3, 4, 5].map(function (k) {
+          return '<button type="button" class="ph-star' + (k <= ev.s ? ' on' : '') + '" data-s="' + k + '" aria-label="' + k + '점">★</button>';
+        }).join('') + '</span><input type="text" class="ph-note" value="' + esc(ev.n) + '" placeholder="그날 한 줄 평가 (예: 몰딩 이음매 깔끔해짐)" autocomplete="off"></div>');
+      }
     });
     openModal(name + ' 작업내역', '<div class="ph">' + H.join('') + '</div>', [{ label: '닫기', onClick: closeModal }]);
-    $('modalBody').querySelectorAll('.ph-row').forEach(function (b) {
+    var body = $('modalBody');
+    body.querySelectorAll('.ph-row').forEach(function (b) {
       b.onclick = function () { closeModal(); go('#site/' + b.dataset.site); };
     });
+    paintEvalSum(name);
+    body.querySelectorAll('.ph-eval').forEach(function (box) {
+      var date = box.dataset.date;
+      box.querySelectorAll('.ph-star').forEach(function (st) {
+        st.onclick = function () {
+          var cur = Share.evalOf(state.settings.evals, name, date).s;
+          var s = +st.dataset.s === cur ? 0 : +st.dataset.s;      // 같은 별을 다시 누르면 지운다
+          Store.setSettings({ evals: Share.setEval(state.settings.evals, name, date, { s: s }) });
+          box.querySelectorAll('.ph-star').forEach(function (x) { x.classList.toggle('on', +x.dataset.s <= s); });
+          paintEvalSum(name);
+        };
+      });
+      var inp = box.querySelector('.ph-note'), t = null;
+      var saveNote = function () {
+        clearTimeout(t);
+        if (inp.value.trim() === Share.evalOf(state.settings.evals, name, date).n) return;
+        Store.setSettings({ evals: Share.setEval(state.settings.evals, name, date, { n: inp.value }) });
+        paintEvalSum(name);
+      };
+      inp.oninput = function () { clearTimeout(t); t = setTimeout(saveNote, 800); };
+      inp.onblur = saveNote;
+      inp.onkeydown = function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) inp.blur(); };
+    });
+  }
+  // 작업내역 위쪽 '하루 평가' 칸 — 매긴 날의 ★ 막대와 최근 5번 평균
+  function paintEvalSum(name) {
+    var box = $('phEvalSum'); if (!box) return;
+    var tr = Share.evalTrend(state.settings.evals, name);
+    if (!tr.list.length) {
+      box.innerHTML = '<div class="ph-sec">하루 평가</div><p class="ph-hint">아래 날짜마다 ★를 누르고 한 줄 남기면 점수 흐름이 여기 그려집니다.</p>';
+      return;
+    }
+    var 차 = tr.prevN ? Math.round((tr.recent - tr.prev) * 10) / 10 : null;
+    var 말 = '최근 ' + tr.recentN + '번 평균 <b>' + tr.recent + '</b>' + (차 == null ? '' : ' · 그 앞 ' + tr.prevN + '번 ' + tr.prev +
+      ' <b class="' + (차 > 0 ? 'up' : 차 < 0 ? 'down' : '') + '">' + (차 > 0 ? '▲' + 차 : 차 < 0 ? '▼' + (-차) : '→ 그대로') + '</b>');
+    box.innerHTML = '<div class="ph-sec">하루 평가 <small>' + tr.list.length + '일 매김 · 전체 평균 ' + tr.all + '</small></div>' +
+      '<div class="ph-evbars">' + tr.list.slice(-20).map(function (x) {
+        return '<span class="ph-evb s' + x.s + '" style="height:' + (x.s * 10 + 4) + 'px" title="' + esc(Share.dayLabel(x.date) + ' ★' + x.s + (x.n ? ' · ' + x.n : '')) + '"></span>';
+      }).join('') + '</div><p class="ph-evavg">' + 말 + '</p>';
   }
 
   // 기사 정보 창 — 이름 바꾸기, 등급(A·B·C·F), 전화·차량·경력·페이·사는곳·메모(모두 글자). 적는 대로 저장.
