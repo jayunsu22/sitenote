@@ -1531,6 +1531,15 @@
     });
     return out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
   }
+  /* 현장 화면·할 일 창용 겹침 (2026-10-24 사장님) — 이미 끝난 현장은 빼고 앞으로 남은 일정만.
+     그쪽 마지막 작업일이 오늘 전이면 지나간 일정 (오늘 작업 중이면 아직 남은 것) */
+  function filmOverlapsAhead(sites, site, code, today) {
+    var t = today || todayIso();
+    return filmOverlaps(sites, site, code).filter(function (x) {
+      var last = lastWorkDate(x.site) || str(x.date);
+      return last >= t;
+    });
+  }
   // 모아보기: today 부터 days 일 안에 시작하는 현장의 필름을 번호별로. 두 곳 이상 쓰는 번호 먼저, 그다음 이른 날짜
   function filmBoard(sites, today, days) {
     var end = addDays(today, (days || 14) - 1);
@@ -1651,7 +1660,7 @@
 
   var Share = {
     filmKey: filmKey,
-    filmOverlaps: filmOverlaps,
+    filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead,
     filmBoard: filmBoard,
     filmBoardText: filmBoardText,
     dateFilms: dateFilms,

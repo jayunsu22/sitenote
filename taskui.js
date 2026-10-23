@@ -613,11 +613,15 @@
     var stage = Share.filmStageOf(site);
     var fs = section(body, '🎞 필름 — ' + Share.FILM_STAGES[stage]);
     if (films.length) {
+      var warned = {};   // 같은 번호는 한 번만, 끝난 현장은 빼고 (2026-10-24)
       films.forEach(function (x) {
         var fl = el('div', 'task-film', [x.place, x.code].filter(Boolean).join(' · '));
         if (Share.isIsoDate(x.orderedAt)) fl.appendChild(el('span', 'task-ord', '✓ 주문 ' + Share.shortDate(x.orderedAt)));
         fs.appendChild(fl);
-        Share.filmOverlaps(Store.state.sites, site, x.code).forEach(function (o) {
+        var k = Share.filmKey(x.code);
+        if (warned[k]) return;
+        warned[k] = true;
+        Share.filmOverlapsAhead(Store.state.sites, site, x.code).forEach(function (o) {
           fs.appendChild(el('div', 'film-warn', '⚠ ' + Share.titleLine(o.site) + ' · ' + Share.dayLabel(o.date) + ' 에도 있음 · ' + (o.orderedAt ? '그쪽은 주문 ' + Share.shortDate(o.orderedAt) : '그쪽 미주문')));
         });
       });

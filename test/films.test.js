@@ -100,5 +100,15 @@ test('filmScheduleText: 미주문 번호만 (중복 없이)', () => {
   assert.strictEqual(Share.filmScheduleText(Share.filmSchedule([b], 오늘, 7, 14)), 'pw881');
 });
 
+test('filmOverlapsAhead: 마지막 작업일이 오늘 전인 현장은 뺀다 (오늘 작업 중이면 남김)', () => {
+  const me = { id: 'm', date: '2026-10-24', days: [{ date: '2026-10-24', staff: [] }], films: [{ code: 'PS010' }] };
+  const 지난 = { id: 'a', date: '2026-10-20', days: [{ date: '2026-10-20', staff: [] }], films: [{ code: 'ps010' }] };
+  const 오늘끝 = { id: 'b', date: '2026-10-22', days: [{ date: '2026-10-22', staff: [] }, { date: '2026-10-23', staff: [] }], films: [{ code: 'PS-010' }] };
+  const 앞 = { id: 'c', date: '2026-10-27', days: [{ date: '2026-10-27', staff: [] }], films: [{ code: 'PS010' }] };
+  assert.strictEqual(Share.filmOverlaps([me, 지난, 오늘끝, 앞], me, 'PS010').length, 3);
+  assert.deepStrictEqual(Share.filmOverlapsAhead([me, 지난, 오늘끝, 앞], me, 'PS010', '2026-10-23').map(x => x.site.id), ['b', 'c']);
+  assert.deepStrictEqual(Share.filmOverlapsAhead([me, 지난, 오늘끝, 앞], me, 'PS010', '2026-10-24').map(x => x.site.id), ['c']);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

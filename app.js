@@ -3223,6 +3223,7 @@
     ctl.innerHTML = '';
     var films = (s.films || []).map(function (r) { return Object.assign({ place: '', code: '', ready: false, orderedAt: '' }, r); });
     if (!films.length) films.push({ place: '', code: '', ready: false, orderedAt: '' });
+    var warnPainters = [];   // 번호를 바꾸면 줄마다 경고를 다시 그린다 (첫 줄만 보이는 규칙 때문에)
     films.forEach(function (r, i) {
       var line = document.createElement('div'); line.className = 'film-row';
       line.innerHTML = '<input type="text" class="place" placeholder="시공위치 (현관문 뒷면)" value="' + esc(r.place) + '">' +
@@ -3259,22 +3260,25 @@
       line.querySelector('.place').addEventListener('input', upd);
       line.querySelector('.code').addEventListener('input', upd);
       // 번호를 다 적고 나가면 겹침 경고를 다시 그린다 (적는 중에 다시 그리면 커서가 날아간다)
-      line.querySelector('.code').addEventListener('change', function () { paintWarn(); });
+      line.querySelector('.code').addEventListener('change', function () { warnPainters.forEach(function (f) { f(); }); });
       line.querySelector('.x').onclick = function () {
         films.splice(i, 1); save({ films: films.slice() }); renderFilms(ctl, Store.getSite(s.id), save);
       };
       ctl.appendChild(line);
-      // 같은 번호가 앞뒤 7일 안 다른 현장에도 있으면 줄 바로 아래에 경고
+      // 같은 번호가 앞뒤 7일 안 다른 현장에도 있으면 줄 바로 아래에 경고.
+      // 이미 끝난 현장은 빼고, 같은 번호가 여러 줄이면 맨 첫 줄에만 (2026-10-24 사장님)
       var warn = document.createElement('div'); warn.className = 'film-warn';
       var paintWarn = function () {
         var cur = Store.getSite(s.id) || s;
-        var ov = Share.filmOverlaps(state.sites, cur, films[i].code);
+        var k = Share.filmKey(films[i].code);
+        var first = films.findIndex(function (f) { return Share.filmKey(f && f.code) === k; }) === i;
+        var ov = first ? Share.filmOverlapsAhead(state.sites, cur, films[i].code) : [];
         warn.hidden = !ov.length;
         warn.textContent = ov.map(function (x) {
           return '⚠ ' + Share.titleLine(x.site) + ' · ' + Share.dayLabel(x.date) + ' 에도 있음 · ' + (x.orderedAt ? '그쪽은 주문 ' + Share.shortDate(x.orderedAt) : '그쪽 미주문');
         }).join('\n');
       };
-      paintWarn();
+      paintWarn(); warnPainters.push(paintWarn);
       ctl.appendChild(warn);
     });
     // 줄 추가 | 필름명 복사. 복사는 필름 번호만 한 줄에 하나씩 - 대리점 주문용이라

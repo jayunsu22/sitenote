@@ -1,6 +1,6 @@
 // sw.js — 앱 파일만 캐시 (네트워크 우선, 실패 시 캐시). n8n webhook 은 캐시하지 않음.
-var CACHE = 'sitenote-v20261024f';
-var FILES = ['./', './index.html', './schedule.html', './style.css?v=20261024f', './pin-lock.js?v=20261008a', './share.js?v=20261024c', './store.js?v=20261024c', './owner-key.js?v=20261023c', './adminlink.js?v=20261019g', './taskui.js?v=20261024d', './app.js?v=20261024e', './quote_requests.js?v=20261021a', './quote_link.js?v=20261019g', './app-switcher.js?v=20261020a', './manifest.json', './icon-192.png', './icon-512.png', './icon-schedule-192.png', './icon-schedule-512.png'];
+var CACHE = 'sitenote-v20261024g';
+var FILES = ['./', './index.html', './schedule.html', './style.css?v=20261024f', './pin-lock.js?v=20261008a', './share.js?v=20261024d', './store.js?v=20261024c', './owner-key.js?v=20261023c', './adminlink.js?v=20261019g', './taskui.js?v=20261024e', './app.js?v=20261024f', './quote_requests.js?v=20261021a', './quote_link.js?v=20261019g', './app-switcher.js?v=20261020a', './manifest.json', './icon-192.png', './icon-512.png', './icon-schedule-192.png', './icon-schedule-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
