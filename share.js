@@ -1537,10 +1537,15 @@
     });
     return out.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
   }
-  // 겹침 경고 한 줄: '⚠ 학익동 … · 10/22(목) 에도 있음 · 그쪽은 주문 10/20'
-  function filmOverlapText(x) {
-    var tail = x.status === '수령' ? '그쪽은 수령' : x.status === '주문' ? '그쪽은 주문' + (x.orderedAt ? ' ' + shortDate(x.orderedAt) : '') : '그쪽 미주문';
-    return '⚠ ' + titleLine(x.site) + ' · ' + dayLabel(x.date) + ' 에도 있음 · ' + tail;
+  /* 겹침 경고 한 줄 (2026-10-24 사장님: 간단하게) — '10/23(금) 소사역 푸르지오 현장(pk디자인)'.
+     현장명에서 동·호수는 뗀다. clientName 은 거래처 이름 (없으면 괄호 없이) */
+  function siteShortName(site) {
+    var t = titleLine(site).replace(/\s*\d+\s*동.*$/, '').trim();
+    return t || titleLine(site);
+  }
+  function filmOverlapText(x, clientName) {
+    var c = str(clientName);
+    return dayLabel(x.date) + ' ' + siteShortName(x.site) + ' 현장' + (c ? '(' + c + ')' : '');
   }
   /* 현장 화면·할 일 창용 겹침 (2026-10-24 사장님) — 이미 끝난 현장은 빼고 앞으로 남은 일정만.
      그쪽 마지막 작업일이 오늘 전이면 지나간 일정 (오늘 작업 중이면 아직 남은 것) */
@@ -1671,7 +1676,7 @@
 
   var Share = {
     filmKey: filmKey,
-    filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead, filmOverlapText: filmOverlapText,
+    filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead, filmOverlapText: filmOverlapText, siteShortName: siteShortName,
     filmBoard: filmBoard,
     filmBoardText: filmBoardText,
     dateFilms: dateFilms,

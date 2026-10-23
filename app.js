@@ -3228,24 +3228,8 @@
       var line = document.createElement('div'); line.className = 'film-row';
       line.innerHTML = '<input type="text" class="place" placeholder="시공위치 (현관문 뒷면)" value="' + esc(r.place) + '">' +
         '<input type="text" class="code" placeholder="필름번호 (PS035)" value="' + esc(r.code) + '">' +
-        '<button type="button" class="film-ord" title="이 줄 주문했음 표시"></button>' +
         '<button type="button" class="x" title="줄 삭제">×</button>';
-      // 줄마다 주문 (2026-10-22) — 누르면 오늘 날짜가 찍히고, 다시 누르면 취소. 같은 필름 두 번 시키기 막기
-      var ord = line.querySelector('.film-ord');
-      var paintOrd = function () {
-        var on = Share.isIsoDate(films[i].orderedAt);
-        ord.classList.toggle('on', on);
-        ord.textContent = on ? '✓' + Share.shortDate(films[i].orderedAt) : '주문';
-      };
-      paintOrd();
-      ord.onclick = function () {
-        if (!String(films[i].code || '').trim()) { toast('필름 번호를 먼저 적어 주세요'); return; }
-        if (!Store.getSite(s.id).films[i]) save({ films: films.slice() });
-        var u = Store.setFilmOrdered(s.id, i, !Share.isIsoDate(films[i].orderedAt));
-        films[i].orderedAt = (u && u.films[i] && u.films[i].orderedAt) || '';
-        paintOrd();
-        if (u && Share.filmStageOf(u) >= 2 && $('stageSec')) renderStageSection($('stageSec'), s.id);
-      };
+      // 줄마다 [주문] 버튼은 뺐다 (2026-10-24 사장님: 번거롭다 — 위 단계 띠의 '필름 주문' 으로 충분)
       // 준비됨 ☑ — 줄 맨 앞. 아직 저장 안 된 빈 첫 줄이면 먼저 저장하고 토글한다
       line.insertBefore(checkBtn(r.ready, function () {
         if (!Store.getSite(s.id).films[i]) save({ films: films.slice() });
@@ -3274,7 +3258,7 @@
         var first = films.findIndex(function (f) { return Share.filmKey(f && f.code) === k; }) === i;
         var ov = first ? Share.filmOverlapsAhead(state.sites, cur, films[i].code) : [];
         warn.hidden = !ov.length;
-        warn.textContent = ov.map(Share.filmOverlapText).join('\n');
+        warn.textContent = ov.map(function (x) { return Share.filmOverlapText(x, clientName(x.site)); }).join('\n');
       };
       paintWarn(); warnPainters.push(paintWarn);
       ctl.appendChild(warn);
