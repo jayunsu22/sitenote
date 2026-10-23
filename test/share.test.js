@@ -1266,5 +1266,25 @@ test('filmOrderLate: 시공 첫날 2일 전부터 주문 단계(2) 전이면 빨
   assert.strictEqual(Share.filmOrderLate({ date: '', filmStage: 0 }, T), false);
 });
 
+test('인원 고르기: 초성·글자 검색, 가나다 묶음, 자주 6명, 그날 다른 현장 (2026-10-24)', () => {
+  assert.strictEqual(Share.choseong('윤인재 A'), 'ㅇㅇㅈ A');
+  assert.deepStrictEqual(Share.nameMatch('윤인재', 'ㅇㅇㅈ'), [0, 3]);
+  assert.deepStrictEqual(Share.nameMatch('안광윤', '윤'), [2, 1]);
+  assert.strictEqual(Share.nameMatch('김동진', 'ㅇㅇ'), null);
+  assert.deepStrictEqual(Share.nameMatch('Tom', 'to'), [0, 2]);
+  assert.strictEqual(Share.nameInitial('쌍용'), 'ㅅ');
+  assert.strictEqual(Share.nameInitial('Tom'), '기타');
+  const g = Share.staffPickGroups(['서영호', '김정헌', '윤인재', '권윤범', '송세준', 'Tom', '윤인재'], { 윤인재: 12, 김정헌: 10, 서영호: 10 }, 2);
+  assert.deepStrictEqual(g.fav, [{ name: '윤인재', n: 12 }, { name: '김정헌', n: 10 }], '횟수 같으면 가나다');
+  assert.deepStrictEqual(g.groups, [{ ini: 'ㄱ', names: ['권윤범'] }, { ini: 'ㅅ', names: ['서영호', '송세준'] }, { ini: '기타', names: ['Tom'] }]);
+  const sites = [
+    { id: 'a', date: '2026-10-20', days: [{ date: '2026-10-20', staff: ['윤인재'] }, { date: '2026-10-27', staff: ['윤인재', '김정헌'] }] },
+    { id: 'b', date: '2026-08-01', days: [{ date: '2026-08-01', staff: ['윤인재'] }], services: [{ id: 'v', date: '2026-10-27', staff: ['서영호'] }] },
+  ];
+  assert.deepStrictEqual(Share.staffFrequency(sites, '2026-10-24', 30), { 윤인재: 2, 김정헌: 1, 서영호: 1 });
+  assert.deepStrictEqual(Share.busyElsewhere(sites, '2026-10-27', 'a'), ['서영호'], '자기 현장은 빼고 AS 는 넣는다');
+  assert.deepStrictEqual(Share.busyElsewhere(sites, '2026-10-27', 'b'), ['윤인재', '김정헌', '서영호']);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -2916,6 +2916,9 @@
     wrap.appendChild(hint);
     var names = (state.settings.team || []).slice();
     mine.forEach(function (n) { if (!isIn(names, n)) names.push(n); });
+    var q = staffQuery();   // 검색칸은 여기서도 거른다 (2026-10-24)
+    if (q) names = names.filter(function (n) { return Share.nameMatch(n, q); });
+    names.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
     names.forEach(function (n) {
       var assigned = isIn(busy, n);
       var on = isIn(mine, n);
@@ -2929,6 +2932,67 @@
       wrap.appendChild(c);
     });
     $('staffPeople').innerHTML = '';
+  }
+  /* 인원 칩 (2026-10-24 사장님: 사람이 많아 찾기 힘들다) — 검색어가 없으면 ⭐ 자주(최근 한 달 많이 들어간 6명)
+     + 나머지 가나다(첫 자음별), 검색어가 있으면 맞는 사람만 (맞은 글자 칠함) + 명단에 없으면 [＋ 추가].
+     busy = 그날 다른 현장에 이미 들어간 사람 — 회색 '다른 현장', 눌러서 넣을 수는 있다 */
+  function staffQuery() { return $('staffInput').value.trim(); }
+  function renderPickChips(wrap, names, picked, busy, onPick, afterHold) {
+    var q = staffQuery();
+    var freq = Share.staffFrequency(state.sites, Share.todayIso(), 30);
+    var chip = function (n, extra) {
+      var on = picked.indexOf(n) !== -1, isBusy = !on && busy.indexOf(n) !== -1;
+      var c = document.createElement('button'); c.type = 'button';
+      c.className = 'chip pick' + (on ? ' on' : '') + (isBusy ? ' busy2' : '') + (extra && extra.fav ? ' fav' : '');
+      var m = q ? Share.nameMatch(n, q) : null;
+      if (m && m[1]) {
+        c.appendChild(document.createTextNode(n.slice(0, m[0])));
+        var hl = document.createElement('mark'); hl.textContent = n.slice(m[0], m[0] + m[1]); c.appendChild(hl);
+        c.appendChild(document.createTextNode(n.slice(m[0] + m[1])));
+      } else c.appendChild(document.createTextNode(n));
+      if (on) c.appendChild(document.createTextNode(' ✓'));
+      if (isBusy) { var bs = document.createElement('small'); bs.textContent = '다른 현장'; c.appendChild(bs); }
+      else if (extra && extra.n && !q) { var ns = document.createElement('i'); ns.className = 'pick-n'; ns.textContent = extra.n; c.appendChild(ns); }
+      c.onclick = function () {
+        onPick(n, on);
+        if (q) { $('staffInput').value = ''; }
+        renderStaffPicker();
+      };
+      return c;
+    };
+    var head = function (txt, sub) {
+      var h = document.createElement('div'); h.className = 'pick-head';
+      h.textContent = txt;
+      if (sub) { var sm = document.createElement('small'); sm.textContent = sub; h.appendChild(sm); }
+      wrap.appendChild(h);
+    };
+    if (q) {
+      var hit = names.filter(function (n) { return Share.nameMatch(n, q); });
+      var favNames = Share.staffPickGroups(names, freq, 6).fav.map(function (f) { return f.name; });
+      hit.sort(function (a, b) { return (favNames.indexOf(a) === -1) - (favNames.indexOf(b) === -1) || a.localeCompare(b, 'ko'); });
+      head(hit.length ? '찾은 사람 ' + hit.length + '명' : '명단에 "' + q + '" 없음');
+      hit.forEach(function (n) { wrap.appendChild(chip(n, { fav: favNames.indexOf(n) !== -1 })); });
+      if (!hit.length && !/^[ㄱ-ㅎ]+$/.test(q.replace(/\s+/g, ''))) {   // 맞는 사람이 없을 때만 새로 추가
+        var add = document.createElement('button'); add.type = 'button'; add.className = 'pick-add';
+        add.textContent = '＋ "' + q + '" 명단에 없는 사람으로 추가';
+        add.onclick = addStaffFromInput;
+        wrap.appendChild(add);
+      }
+      return;
+    }
+    var g = Share.staffPickGroups(names, freq, 6);
+    if (g.fav.length) {
+      head('⭐ 자주', ' — 최근 한 달 많이 들어간 순');
+      g.fav.forEach(function (f) { wrap.appendChild(chip(f.name, { fav: true, n: f.n })); });
+    }
+    if (g.groups.length) {
+      if (g.fav.length || afterHold) head('전체', ' — 가나다');
+      g.groups.forEach(function (gr) {
+        var ini = document.createElement('div'); ini.className = 'pick-ini'; ini.textContent = gr.ini;
+        wrap.appendChild(ini);
+        gr.names.forEach(function (n) { wrap.appendChild(chip(n)); });
+      });
+    }
   }
   function renderStaffPicker() {
     if (staffPicker.hold) { renderHoldPicker(); return; }
@@ -2946,7 +3010,7 @@
       wrap.appendChild(hint);
     }
     // 그날 대기 인원을 맨 위에 따로 — 누르면 이 현장에 들어가고 대기에서 빠진다 (2026-10-14)
-    var waiting = Share.isIsoDate(d.date) ? Share.heldOpen(state.settings.holds, state.sites, d.date) : [];
+    var waiting = Share.isIsoDate(d.date) && !staffQuery() ? Share.heldOpen(state.settings.holds, state.sites, d.date) : [];
     if (waiting.length) {
       var wh = document.createElement('div'); wh.className = 'staff-hold-head'; wh.textContent = '⏳ 그날 대기 — 누르면 이 현장으로';
       wrap.appendChild(wh);
@@ -2959,17 +3023,10 @@
       var br = document.createElement('div'); br.className = 'staff-hold-sep'; wrap.appendChild(br);
       names = names.filter(function (n) { return waiting.indexOf(n) === -1; });
     }
-    names.forEach(function (n) {
-      var on = d.staff.indexOf(n) !== -1;
-      var c = document.createElement('button'); c.type = 'button'; c.className = 'chip pick' + (on ? ' on' : '');
-      c.textContent = n + (on ? ' ✓' : '');
-      c.onclick = function () {
-        if (on) Store.removeStaff(staffPicker.siteId, staffPicker.dayIndex, n);
-        else Store.addStaff(staffPicker.siteId, staffPicker.dayIndex, n);
-        renderStaffPicker();
-      };
-      wrap.appendChild(c);
-    });
+    renderPickChips(wrap, names, d.staff, Share.busyElsewhere(state.sites, d.date, s.id), function (n, on) {
+      if (on) Store.removeStaff(staffPicker.siteId, staffPicker.dayIndex, n);
+      else Store.addStaff(staffPicker.siteId, staffPicker.dayIndex, n);
+    }, waiting.length > 0);
     // 이 날 들어간 사람의 연락처·차량번호 — 여기서 바로 적는다 (설정 팀원 명단과 같은 곳에 저장).
     // 현장의 '연락처 보내기'(업자에게 · 관리실 차량등록) 문구에 들어간다
     var pbox = $('staffPeople'); pbox.innerHTML = '';
@@ -2993,7 +3050,7 @@
     $('staffInput').value = '';
     renderStaffPicker();
   }
-  $('staffAdd').onclick = addStaffFromInput;
+  $('staffInput').addEventListener('input', function () { renderStaffPicker(); });   // 치는 대로 걸러 보여준다
   $('staffInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addStaffFromInput(); } });
   $('staffClose').onclick = closeStaffPicker;
   $('staffSave').onclick = closeStaffPicker;

@@ -495,6 +495,80 @@
     return out;
   }
 
+  /* ---------- 인원 고르기 (2026-10-24 사장님) ----------
+     팀원이 20명이 넘어 찾기 힘들다 → ⭐ 자주(최근 한 달 많이 들어간 순) + 나머지 가나다(첫 자음별) + 이름·초성 검색 */
+  var CHO = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  // 글자마다 초성 하나 (한글 아닌 글자는 그대로) — 이름과 길이가 같아 칠할 자리를 그대로 쓴다
+  function choseong(name) {
+    return Array.prototype.map.call(str(name), function (ch) {
+      var c = ch.charCodeAt(0) - 0xAC00;
+      return c >= 0 && c < 11172 ? CHO[Math.floor(c / 588)] : ch;
+    }).join('');
+  }
+  var DOUBLE = { 'ㄲ': 'ㄱ', 'ㄸ': 'ㄷ', 'ㅃ': 'ㅂ', 'ㅆ': 'ㅅ', 'ㅉ': 'ㅈ' };
+  // 가나다 묶음 머리 (된소리는 예사소리로, 한글이 아니면 '기타')
+  function nameInitial(name) {
+    var c = choseong(str(name).trim()).charAt(0);
+    if (DOUBLE[c]) c = DOUBLE[c];
+    return CHO.indexOf(c) !== -1 ? c : '기타';
+  }
+  // 검색어가 이름 어디에 맞나 → [시작, 길이] 또는 null. 자음만 치면 초성으로, 아니면 글자 그대로 (대소문자 무시)
+  function nameMatch(name, q) {
+    var n = str(name), k = str(q).replace(/\s+/g, '');
+    if (!k) return [0, 0];
+    if (/^[ㄱ-ㅎ]+$/.test(k)) {
+      var i = choseong(n).indexOf(k);
+      return i === -1 ? null : [i, k.length];
+    }
+    var j = n.toLowerCase().indexOf(k.toLowerCase());
+    return j === -1 ? null : [j, k.length];
+  }
+  // 사람별로 오늘 앞뒤 days 일 안 일정에 들어간 날 수 (현장 일차 + AS) → { 이름: 횟수 }
+  function staffFrequency(sites, today, days) {
+    var n = days || 30, from = addDays(today, -n), to = addDays(today, n), out = {};
+    var add = function (date, names) {
+      if (!isIsoDate(date) || date < from || date > to) return;
+      names.forEach(function (x) { out[x] = (out[x] || 0) + 1; });
+    };
+    (sites || []).forEach(function (s) {
+      daysOf(s).forEach(function (d) { add(str(d.date), staffOf(d)); });
+      servicesOf(s).forEach(function (v) { add(str(v.date), staffOf(v)); });
+    });
+    return out;
+  }
+  // 그날 다른 현장(이 현장 빼고)이나 AS 에 이미 들어간 사람들
+  function busyElsewhere(sites, date, siteId) {
+    var out = [];
+    if (!isIsoDate(date)) return out;
+    (sites || []).forEach(function (s) {
+      if (!s) return;
+      var push = function (names) { names.forEach(function (x) { if (out.indexOf(x) === -1) out.push(x); }); };
+      if (s.id !== siteId) daysOf(s).forEach(function (d) { if (str(d.date) === date) push(staffOf(d)); });
+      servicesOf(s).forEach(function (v) { if (str(v.date) === date) push(staffOf(v)); });
+    });
+    return out;
+  }
+  var KO = function (a, b) { return a.localeCompare(b, 'ko'); };
+  /* 고르기 화면 나누기 → { fav: [{name, n}], groups: [{ini, names}] }. fav 는 횟수 많은 순 max 명,
+     나머지는 가나다로 첫 자음별 묶음 (fav 에 나온 사람은 빠진다) */
+  function staffPickGroups(names, freq, max) {
+    var uniq = [];
+    (names || []).forEach(function (x) { var v = str(x); if (v && uniq.indexOf(v) === -1) uniq.push(v); });
+    var fav = uniq.filter(function (x) { return (freq || {})[x] > 0; })
+      .sort(function (a, b) { return (freq[b] - freq[a]) || KO(a, b); })
+      .slice(0, max == null ? 6 : max)
+      .map(function (x) { return { name: x, n: freq[x] }; });
+    var inFav = fav.map(function (f) { return f.name; });
+    var groups = [], byIni = {};
+    uniq.filter(function (x) { return inFav.indexOf(x) === -1; }).sort(KO).forEach(function (x) {
+      var ini = nameInitial(x);
+      if (!byIni[ini]) { byIni[ini] = { ini: ini, names: [] }; groups.push(byIni[ini]); }
+      byIni[ini].names.push(x);
+    });
+    groups.sort(function (a, b) { return a.ini === '기타' ? 1 : b.ini === '기타' ? -1 : KO(a.ini, b.ini); });
+    return { fav: fav, groups: groups };
+  }
+
   /* ---------- AS·추가작업 (2026-09-24) ----------
      끝난 현장에 AS 요청이나 추가작업이 오면 새 현장을 만들지 않고 그 현장 안에 쌓는다.
      비번·주차·필름번호·업자 담당자가 이미 그 현장에 있어서 새로 적을 게 없다.
@@ -1676,6 +1750,8 @@
 
   var Share = {
     filmKey: filmKey,
+    choseong: choseong, nameInitial: nameInitial, nameMatch: nameMatch, staffFrequency: staffFrequency,
+    busyElsewhere: busyElsewhere, staffPickGroups: staffPickGroups,
     filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead, filmOverlapText: filmOverlapText, siteShortName: siteShortName,
     filmBoard: filmBoard,
     filmBoardText: filmBoardText,
