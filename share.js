@@ -1262,7 +1262,7 @@
       var label = unit === 'ea' ? '1개당' : (r.샤시종류 ? r.샤시종류 + ' ' + (r.시공면 || '면 모름') : '종류 모름');
       if (!groups[label]) { groups[label] = { label: label, unit: unit, rows: [] }; order.push(label); }
       var per = null;
-      if (r.밑분 > 0) per = unit === 'ea' ? r.밑분 : (r.길이m > 0 ? Math.round(r.밑분 / r.길이m) : null);
+      if (r.밑분 > 0 && !r.측정제외) per = unit === 'ea' ? r.밑분 : (r.길이m > 0 ? Math.round(r.밑분 / r.길이m) : null);
       groups[label].rows.push(Object.assign({}, r, { per: per }));
     });
     return order.map(function (l) {
@@ -1307,7 +1307,8 @@
         밑작업: !!t.밑작업, 밑작업완료: !!t.밑작업완료, 시공: !!t.시공, 시공완료: !!t.시공완료,
         // 작업시간 (2026-10-24): 분, 그리고 샤시면 종류·면·길이 (관리자앱에서 사장님이 고름)
         밑분: dur[ti + '|밑작업'] || null, 시분: dur[ti + '|시공'] || null, 밑완료at: Date.parse(str(t.밑작업완료시각)) || 0,
-        샤시종류: str(t.샤시종류), 시공면: str(t.시공면), 길이m: Number(t.길이m) > 0 ? Number(t.길이m) : null };
+        샤시종류: str(t.샤시종류), 시공면: str(t.시공면), 길이m: Number(t.길이m) > 0 ? Number(t.길이m) : null,
+        측정제외: !!t.측정제외 };   // 관리자앱 '측정 필요없음' — 통계에서 뺀다
       s.items.push(row);
       var k = itemKind(t.품목);
       var e = kinds[k] || (kinds[k] = { name: k, 밑: 0, 밑완료: 0, 시: 0, 시완료: 0, rows: [] });

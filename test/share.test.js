@@ -1317,6 +1317,10 @@ test('작업시간 묶음: 샤시는 종류·면별 1m당, 문+틀은 1개당, �
   const door = ex.kinds.find(k => k.name === '문+틀');
   assert.deepStrictEqual(door.times.map(g => [g.label, g.rows.map(r => r.per)]), [['1개당', [50]]]);
   assert.deepStrictEqual(ex.kinds.find(k => k.name === '샤시').rows.find(r => r.품목 === '방3샤시').밑분, 60);
+  // 측정 필요없음: 시간은 재도 통계(1m당)에서는 뺀다
+  const ex2 = Share.workerExperience(tasks.map((t, i) => i === 0 ? Object.assign({}, t, { 측정제외: true }) : t), [], '윤인재', { A: ['2026-10-23 09:00'] });
+  const g2 = ex2.kinds.find(k => k.name === '샤시').times.find(g => g.label === '이중창 앞뒤');
+  assert.deepStrictEqual([g2.rows[0].per, g2.rows[0].측정제외, g2.trend], [null, true, null]);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

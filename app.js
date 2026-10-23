@@ -3722,6 +3722,7 @@
         if (timed && r.길이m && timed === 'm') sub.push(r.길이m + 'm');
         if (timed && r.밑분) sub.push(r.밑분 + '분');
         var right = !timed ? stage(r)
+          : r.측정제외 ? '<span class="ph-per none">측정 안 함</span>'
           : r.per ? '<span class="ph-per">' + r.per + '분' + (timed === 'm' ? '<small>/1m</small>' : '') + '</span>'
           : '<span class="ph-per none">' + (r.밑분 && timed === 'm' ? '길이 없음' : r.밑작업완료 ? '시간 기록 전' : '미완료') + '</span>';
         return '<div class="ph-krow"><span class="d">' + esc(r.date ? Share.dayLabel(r.date) : '') + '</span><span class="m"><b' +
@@ -3888,7 +3889,7 @@
       '<p class="hint admin-err" id="pfMsg" hidden></p>' +
       // 작업내역 보기 (2026-10-24) — 켠 사람만 명단 이름 아래에 'N일차' 가 나오고 누르면 작업내역
       '<label class="pf-track"><input type="checkbox" id="pfTrack"' + ((state.settings.tracked || []).indexOf(name) !== -1 ? ' checked' : '') +
-        '> 📒 작업내역 보기 <small>명단에 몇 일차인지 나오고, 누르면 품목별·현장별 경험</small></label>' +
+        '> 📒 작업내역 · ⏱ 작업시간 측정 <small>켠 사람만 명단에 몇 일차인지 나오고, 누르면 품목별·현장별 경험과 샤시·문+틀 밑작업 시간 (신입이 오면 여기만 켜면 됩니다)</small></label>' +
       '<label class="pf-label">등급</label><div class="pf-grades" id="pfGrades">' + grades.map(function (g) {
         return '<button type="button" class="pf-grade g-' + (g || 'none') + (p.grade === g ? ' on' : '') + '" data-g="' + g + '">' + (g || '미정') + '</button>';
       }).join('') + '</div>' +
