@@ -1284,3 +1284,6 @@ textarea { resize: vertical; }
 .sil-sec .film-late-msg { margin: 8px 12px 0; }
 .sec-row.sil-row .sec-name { color: #9a3412; font-weight: 700; }
 .sil-tag { flex: none; font-size: 11px; font-weight: 800; background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 999px; }
+/* 필름 거래처 ⭐ 주거래처 (2026-10-24) — 맨 앞 거래처 */
+.fv-star { flex: none; height: 36px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; color: #94a3b8; font-size: 16px; font-weight: 800; }
+.fv-star.on { border-color: #facc15; background: #fef9c3; color: #854d0e; font-size: 13px; }

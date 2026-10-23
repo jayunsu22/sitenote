@@ -3935,7 +3935,15 @@
           var list = vendorsNow(); list.splice(vi, 1); saveVendors(list); renderFilmVendorList();
         });
       };
-      head.appendChild(nameIn); head.appendChild(del);
+      // ⭐ 주거래처 (2026-10-24) — 누르면 맨 앞으로. 현장 화면 칩도 이 순서라 맨 앞이 먼저 골라진다
+      var star = el2('button', 'fv-star' + (vi === 0 ? ' on' : ''), vi === 0 ? '⭐ 주거래처' : '☆');
+      star.type = 'button'; star.title = vi === 0 ? '주거래처 — 현장 화면에서 먼저 보입니다' : '주거래처로 (맨 앞으로)';
+      star.onclick = function () {
+        if (vi === 0) return;
+        fvDraftIdx = -1; var list = vendorsNow(); list.unshift(list.splice(vi, 1)[0]); saveVendors(list); renderFilmVendorList();
+        toast(v.name + ' 을(를) 주거래처로 — 맨 앞에 보입니다');
+      };
+      head.appendChild(star); head.appendChild(nameIn); head.appendChild(del);
       card.appendChild(head);
 
       var people = v.people.slice();
