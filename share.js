@@ -1056,6 +1056,52 @@
     };
   }
 
+  /* 현장업무(관리자 앱) 작업 기록 정리 (2026-10-23) — n8n worker-history 가 준 tasks 로
+     품목별 경험(밑작업·시공 몇 번)과 점검 체크 결과를 낸다.
+     tasks: [{ 현장ID, 현장명, 시공일자, 품목, 뒷정리, 밑작업, 시공, 밑작업완료, 시공완료, 밑작업점검, 시공점검, 전사진, 후사진 }]
+     품목은 구역을 떼고 묶는다 ('방2샤시 2' → '샤시', '거실화장실문' → '화장실문'). 뒷정리(현장세팅·마무리)는 따로 센다 */
+  function itemKind(n) {
+    var k = str(n).replace(/^\s*\d+층\s*/, '').replace(/^\s*(방\d+|안방|거실|주방|현관|드레스룸|다용도실|세탁실)\s*/, '')
+      .replace(/\s*\d+\s*$/, '').trim();
+    return k.length > 1 ? k : str(n).replace(/\s*\d+\s*$/, '').trim();   // '현관문' 이 '문' 이 되면 안 된다
+  }
+  function workerSkills(tasks, masterItems, today) {
+    today = isIsoDate(today) ? today : todayIso();
+    var by = {}, order = [];
+    var checks = { 밑작업: { done: 0, total: 0 }, 시공: { done: 0, total: 0 } };
+    var missed = {}, cleanup = 0, notDone = [], noPhoto = [];
+    (tasks || []).forEach(function (t) {
+      if (!t) return;
+      if (t.뒷정리) { cleanup++; return; }
+      var k = itemKind(t.품목), d = isIsoDate(t.시공일자) ? t.시공일자 : '';
+      var e = by[k];
+      if (!e) { e = by[k] = { name: k, 밑: 0, 밑완료: 0, 시: 0, 시완료: 0, sites: {}, first밑: '', first시: '' }; order.push(k); }
+      if (t.현장ID) e.sites[t.현장ID] = true;
+      [['밑작업', '밑', '밑작업완료', '밑작업점검', '전사진'], ['시공', '시', '시공완료', '시공점검', '후사진']].forEach(function (st) {
+        if (!t[st[0]]) return;
+        e[st[1]]++;
+        if (t[st[2]]) e[st[1] + '완료']++;
+        if (d && (!e['first' + st[1]] || d < e['first' + st[1]])) e['first' + st[1]] = d;
+        var c = t[st[3]];
+        // 끝낸 일만 점검을 센다 - 하는 중인 일은 아직 안 누른 게 당연하다
+        if (c && t[st[2]]) {
+          checks[st[0]].done += c.done || 0; checks[st[0]].total += c.total || 0;
+          (c.missed || []).forEach(function (m) { missed[m] = (missed[m] || 0) + 1; });
+        }
+        if (!t[st[2]] && d && d < today) notDone.push({ 현장명: t.현장명, 품목: t.품목, 단계: st[0], 시공일자: d });
+        if (t[st[2]] && !t[st[4]]) noPhoto.push({ 현장명: t.현장명, 품목: t.품목, 단계: st[0], 시공일자: d });
+      });
+    });
+    var items = order.map(function (k) { var e = by[k]; e.sites = Object.keys(e.sites).length; return e; })
+      .sort(function (a, b) { return (b.밑 + b.시) - (a.밑 + a.시) || a.name.localeCompare(b.name); });
+    var tried = {}; items.forEach(function (e) { tried[e.name] = true; });
+    var untried = [];
+    (masterItems || []).forEach(function (n) { var k = itemKind(n); if (k && !tried[k] && untried.indexOf(k) === -1) untried.push(k); });
+    var missedTop = Object.keys(missed).map(function (m) { return { text: m, count: missed[m] }; })
+      .sort(function (a, b) { return b.count - a.count || a.text.localeCompare(b.text); });
+    return { items: items, untried: untried, checks: checks, missedTop: missedTop, cleanup: cleanup, notDone: notDone, noPhoto: noPhoto };
+  }
+
   /* 하루 평가 (2026-10-23) — 작업내역에서 날짜마다 ★1~5 와 한 줄 메모. 새 기사가 실력이 느는지 점수로 본다.
      settings.evals = { 이름: { 'YYYY-MM-DD': { s: 1~5 (0 = 안 매김), n: '메모' } } }. 별도 메모도 없으면 그 날은 지운다 */
   function normalizeEvals(raw) {
@@ -1596,6 +1642,8 @@
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     personHistory: personHistory,
+    itemKind: itemKind,
+    workerSkills: workerSkills,
     normalizeEvals: normalizeEvals,
     evalOf: evalOf,
     setEval: setEval,

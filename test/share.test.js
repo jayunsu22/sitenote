@@ -1245,5 +1245,26 @@ test('하루 평가: setEval 로 별점·메모, 0점·빈 메모는 지움, 흐
   assert.deepStrictEqual(Share.normalizeEvals({ a: { 'x': { s: 3 }, '2026-10-01': { s: 9, n: '' } } }), {}, '날짜 아님·범위 밖은 버린다');
 });
 
+test('workerSkills: 품목별 밑작업·시공 횟수(구역 떼고 묶음), 안 해 본 품목, 끝낸 일의 점검 체크, 완료 처리 안 한 일·사진 없는 완료 (2026-10-23)', () => {
+  const T = (o) => Object.assign({ 현장ID: 'r1', 현장명: '학익동', 시공일자: '2026-10-20', 뒷정리: false, 밑작업: false, 시공: false, 밑작업완료: false, 시공완료: false, 밑작업점검: null, 시공점검: null, 전사진: 1, 후사진: 1 }, o);
+  const tasks = [
+    T({ 품목: '방2샤시 2', 밑작업: true, 밑작업완료: true, 밑작업점검: { done: 4, total: 5, missed: ['틈 실리콘 확인'] } }),
+    T({ 품목: '방1샤시', 현장ID: 'r2', 밑작업: true, 밑작업완료: false }),
+    T({ 품목: '거실화장실문', 시공: true, 시공완료: true, 후사진: 0, 시공점검: { done: 3, total: 3, missed: [] } }),
+    T({ 품목: '현관문', 밑작업: true, 밑작업완료: false, 시공일자: '2026-10-30' }),
+    T({ 품목: '현장세팅', 뒷정리: true, 시공: true }),
+  ];
+  const w = Share.workerSkills(tasks, ['방1샤시', '방1화장실문', '거실중문', '현관문'], '2026-10-23');
+  assert.deepStrictEqual(w.items.map(e => [e.name, e.밑, e.밑완료, e.시, e.sites]), [['샤시', 2, 1, 0, 2], ['현관문', 1, 0, 0, 1], ['화장실문', 0, 0, 1, 1]]);
+  assert.deepStrictEqual(w.untried, ['중문']);
+  assert.deepStrictEqual(w.checks, { 밑작업: { done: 4, total: 5 }, 시공: { done: 3, total: 3 } });
+  assert.deepStrictEqual(w.missedTop, [{ text: '틈 실리콘 확인', count: 1 }]);
+  assert.strictEqual(w.cleanup, 1);
+  assert.deepStrictEqual(w.notDone.map(x => x.품목), ['방1샤시'], '앞으로 할 일(10/30)은 안 센다');
+  assert.deepStrictEqual(w.noPhoto.map(x => x.품목), ['거실화장실문']);
+  assert.strictEqual(Share.itemKind('현관문'), '현관문');
+  assert.strictEqual(Share.itemKind('방1베란다샤시'), '베란다샤시');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

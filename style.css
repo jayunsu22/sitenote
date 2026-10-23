@@ -1255,3 +1255,22 @@ textarea { resize: vertical; }
 .ph-evb.s4, .ph-evb.s5 { background: #f59e0b; }
 .ph-evavg { margin: 6px 0 0; font-size: 12.5px; color: #475569; }
 .ph-evavg .up { color: #15803d; } .ph-evavg .down { color: #b91c1c; }
+
+/* 품목별 경험 · 점검 체크 (2026-10-23) */
+.ph-items { display: grid; gap: 4px; }
+.ph-item { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 10px; background: #f8fafc; font-size: 13px; }
+.ph-item b { flex: 1; min-width: 0; color: #0f172a; }
+.ph-st { flex: none; padding: 2px 8px; border-radius: 99px; background: #e0e7ff; color: #3730a3; font-weight: 800; font-size: 12px; }
+.ph-st.si { background: #dcfce7; color: #166534; }
+.ph-st.none { background: #f1f5f9; color: #94a3b8; font-weight: 700; }
+.ph-st small { font-weight: 600; opacity: .8; }
+.ph-untried { display: flex; flex-wrap: wrap; gap: 5px; }
+.ph-untried span { padding: 4px 9px; border-radius: 99px; border: 1px dashed #cbd5e1; color: #64748b; font-size: 12px; }
+.ph-untried .more { border: 0; }
+.ph-missed { margin-top: 8px; padding: 9px 11px; border-radius: 10px; background: #fef2f2; font-size: 12.5px; color: #7f1d1d; }
+.ph-missed b { display: block; margin-bottom: 4px; }
+.ph-missed div { display: flex; gap: 8px; justify-content: space-between; padding: 2px 0; }
+.ph-missed em { font-style: normal; font-weight: 800; flex: none; }
+.ph-more { margin-top: 8px; font-size: 12.5px; color: #475569; }
+.ph-more summary { cursor: pointer; font-weight: 700; color: #b91c1c; }
+.ph-more div { padding: 3px 0; border-bottom: 1px solid #f1f5f9; }

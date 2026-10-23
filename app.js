@@ -3538,6 +3538,8 @@
       h.past.filter(function (e) { return e.kind === 'AS'; }).length + '</b></span><span class="' + (h.asSites ? 'bad' : '') + '">시공 후 AS 난 현장 <b>' + h.asSites + '</b></span></div>');
     // 하루 평가 흐름 (2026-10-23) — 아래 날짜마다 매긴 ★ 로 그린다
     H.push('<div id="phEvalSum"></div>');
+    // 현장업무(관리자 앱) 기록: 품목별 경험 · 점검 체크 — 열 때 받아 온다
+    H.push('<div id="phWork"></div>');
     if (h.partners.length) {
       H.push('<div class="ph-sec">함께 일한 사람</div><div class="ph-partners">' + h.partners.slice(0, 8).map(function (p) {
         return '<span>' + esc(p.name) + ' <b>' + p.days + '일</b></span>';
@@ -3583,6 +3585,7 @@
       b.onclick = function () { closeModal(); go('#site/' + b.dataset.site); };
     });
     paintEvalSum(name);
+    loadWorkerWork(name);
     body.querySelectorAll('.ph-eval').forEach(function (box) {
       var date = box.dataset.date;
       box.querySelectorAll('.ph-star').forEach(function (st) {
@@ -3606,6 +3609,64 @@
       inp.onkeydown = function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) inp.blur(); };
     });
   }
+  /* 현장업무 작업 기록 (2026-10-23) — n8n worker-history (사장님 열쇠). 한 번 받으면 앱을 닫을 때까지 둔다 */
+  var workerWorkCache = {};
+  var WORKER_HISTORY_URL = 'https://primary-production-a6fa.up.railway.app/webhook/worker-history';
+  function loadWorkerWork(name) {
+    var box = $('phWork'); if (!box) return;
+    if (workerWorkCache[name]) { paintWorkerWork(name, workerWorkCache[name]); return; }
+    box.innerHTML = '<div class="ph-sec">품목별 경험 · 점검 체크</div><p class="ph-hint">현장업무 기록을 불러오는 중…</p>';
+    fetch(WORKER_HISTORY_URL + '?name=' + encodeURIComponent(name))
+      .then(function (res) {
+        if (res.status === 401 || res.status === 403) throw new Error('이 기기에 사장님 열쇠가 없어 현장업무 기록을 못 봅니다');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (d) { workerWorkCache[name] = d; paintWorkerWork(name, d); })
+      .catch(function (e) {
+        var b = $('phWork'); if (!b) return;
+        b.innerHTML = '<div class="ph-sec">품목별 경험 · 점검 체크</div><p class="ph-hint">⚠ ' + esc(e.message || e) +
+          ' <button type="button" class="link-btn" id="phWorkRetry">다시</button></p>';
+        $('phWorkRetry').onclick = function () { loadWorkerWork(name); };
+      });
+  }
+  function paintWorkerWork(name, d) {
+    var box = $('phWork'); if (!box) return;
+    var w = Share.workerSkills(d.tasks, d.품목들, Share.todayIso());
+    var H = [];
+    H.push('<div class="ph-sec">품목별 경험 <small>현장업무 기록 · 밑작업 / 시공 (괄호 = 완료 처리)</small></div>');
+    if (!w.items.length) H.push('<p class="ph-hint">현장업무에 맡은 품목이 아직 없습니다.</p>');
+    else {
+      H.push('<div class="ph-items">' + w.items.map(function (e) {
+        return '<div class="ph-item"><b>' + esc(e.name) + '</b><span class="ph-st' + (e.밑 ? '' : ' none') + '">밑 ' + e.밑 + (e.밑 ? ' <small>(' + e.밑완료 + ')</small>' : '') + '</span>' +
+          '<span class="ph-st si' + (e.시 ? '' : ' none') + '">시공 ' + (e.시 ? e.시 + ' <small>(' + e.시완료 + ')</small>' : '아직') + '</span></div>';
+      }).join('') + '</div>');
+    }
+    if (w.untried.length) {
+      H.push('<div class="ph-sec">아직 안 해 본 품목 <small>' + w.untried.length + '가지</small></div><div class="ph-untried">' +
+        w.untried.slice(0, 14).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('') +
+        (w.untried.length > 14 ? '<span class="more">외 ' + (w.untried.length - 14) + '가지</span>' : '') + '</div>');
+    }
+    // 점검 체크 — 끝낸 일의 품질 체크를 얼마나 다 눌렀나, 완료 처리를 빼먹은 일, 사진 없이 끝낸 일
+    var 율 = function (c) { return c.total ? Math.round(c.done / c.total * 100) + '% <small>(' + c.done + '/' + c.total + ')</small>' : '<small>기록 없음</small>'; };
+    H.push('<div class="ph-sec">점검 체크 <small>끝낸 일 기준</small></div><div class="ph-stats">' +
+      '<span>밑작업 체크 <b>' + 율(w.checks.밑작업) + '</b></span><span>시공 체크 <b>' + 율(w.checks.시공) + '</b></span>' +
+      '<span class="' + (w.notDone.length ? 'bad' : '') + '">완료 처리 안 한 일 <b>' + w.notDone.length + '</b></span>' +
+      '<span class="' + (w.noPhoto.length ? 'bad' : '') + '">사진 없이 끝낸 일 <b>' + w.noPhoto.length + '</b></span></div>');
+    if (w.missedTop.length) {
+      H.push('<div class="ph-missed"><b>자주 빠뜨린 체크</b>' + w.missedTop.slice(0, 5).map(function (m) {
+        return '<div><span>' + esc(m.text) + '</span><em>' + m.count + '번</em></div>';
+      }).join('') + '</div>');
+    }
+    if (w.notDone.length) {
+      H.push('<details class="ph-more"><summary>완료 처리 안 한 일 ' + w.notDone.length + '개 보기</summary>' + w.notDone.map(function (x) {
+        return '<div>' + esc(Share.shortDate(x.시공일자)) + ' · ' + esc(x.현장명) + ' · ' + esc(x.품목) + ' ' + esc(x.단계) + '</div>';
+      }).join('') + '</details>');
+    }
+    if (w.cleanup) H.push('<p class="ph-hint">현장세팅·마무리 같은 정리 일 ' + w.cleanup + '번은 위 숫자에서 뺐습니다.</p>');
+    box.innerHTML = H.join('');
+  }
+
   // 작업내역 위쪽 '하루 평가' 칸 — 매긴 날의 ★ 막대와 최근 5번 평균
   function paintEvalSum(name) {
     var box = $('phEvalSum'); if (!box) return;
