@@ -3719,7 +3719,7 @@
       if (!c.loading && !c.error && !ex.kinds.length) H.push('<p class="ph-hint">현장업무에 맡은 품목이 아직 없습니다.</p>');
       var krow = function (r, timed) {
         var sub = [r.품목];
-        if (timed && r.길이m && timed === 'm') sub.push(r.길이m + 'm');
+        if (timed === 'm' && (r.샤시크기 || r.길이m)) sub.push(r.샤시크기 ? r.샤시크기.replace('x', '×') : r.길이m + 'm');
         if (timed && r.밑분) sub.push(r.밑분 + '분');
         var right = !timed ? stage(r)
           : r.측정제외 ? '<span class="ph-per none">측정 안 함</span>'
