@@ -3301,14 +3301,14 @@
     var paintTog = function () {
       var on = !!state.settings.smsSiteName;
       tog.classList.toggle('on', on);
-      tog.textContent = (on ? '☑' : '☐') + ' 현장명';
-      tog.title = on ? '문자 첫 줄에 [현장명] 이 들어갑니다 (퀵서비스용)' : '문자에 필름명만 들어갑니다';
+      tog.textContent = (on ? '☑' : '☐') + ' 퀵서비스용 현장주소';
+      tog.title = on ? '문자 첫 줄에 [현장주소] 가 들어갑니다 (퀵서비스용)' : '문자에 필름명만 들어갑니다';
     };
     tog.onclick = function () {
       var on = !state.settings.smsSiteName;
       Store.setSettings({ smsSiteName: on });
       paintTog(); renderFilmVendors2(box, films, site);
-      toast(on ? '문자에 [현장명] 을 넣습니다' : '문자에 필름명만 넣습니다');
+      toast(on ? '문자에 [현장주소] 를 넣습니다 (퀵서비스용)' : '문자에 필름명만 넣습니다');
     };
     paintTog();
     head.appendChild(tog);
