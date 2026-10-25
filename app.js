@@ -1442,6 +1442,7 @@
     renderColorPicker(s);
     var wrap = $('siteFields'); wrap.innerHTML = '';
     paintHideState(s);
+    paintPhotoBtn(s);
     // 탭으로 나눈 현장 화면 (2026-09-24 B안). 칸이 한 줄로 길게 이어져 한눈에 안 들어와서
     // 위에 요약(날짜·D-day·상태 알약)을 두고, 구역을 탭 다섯 개로 나눈다.
     // 탭은 보이기만 바꾼다 — 모든 칸은 늘 화면(DOM)에 있어서 질문/공유 복사·체크박스는 예전 그대로다
@@ -3096,6 +3097,17 @@
     else { toast('다시 목록에 보입니다'); paintHideState(u); }
   };
   $('btnSiteSettings').onclick = function () { go('#settings'); };
+  /* 📸 완료사진 (2026-10-25 사장님): 현장업무(기사앱)에 연결된 현장만. 기사앱을 '사장님 · 완료사진' 보기로 연다 —
+     기사 이름 고르고 품목 찾아 들어갈 필요 없이 모든 품목이 한 화면, 📷 한 번에 촬영 */
+  function paintPhotoBtn(s) {
+    var link = s ? Share.workerLink(s) : '';
+    $('btnSitePhotos').hidden = !link;
+  }
+  $('btnSitePhotos').onclick = function () {
+    var link = Share.workerLink(Store.getSite(currentSiteId) || {});
+    if (!link) { toast('먼저 현장업무를 연결하세요'); return; }
+    window.open(link + (link.indexOf('?') >= 0 ? '&' : '?') + 'owner=1', '_blank');
+  };
 
   function refreshRowState(row, s, key) {
     row.classList.toggle('is-empty', Share.isEmpty(s, key));
