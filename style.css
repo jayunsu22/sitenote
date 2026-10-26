@@ -1372,3 +1372,18 @@ textarea { resize: vertical; }
 .st-bt .btn-sm { text-decoration: none; }
 .st-bt .btn-sm.paid { background: #dcfce7; border-color: #86efac; color: #166534; }
 .st-memo { margin: 2px 12px 12px; }
+.st-r small.st-adj { color: #b45309; font-weight: 700; }
+.st-r small.st-man { color: #334; font-weight: 700; }
+.st-r small.st-pay { color: #9ca3af; }
+.st-r small.st-pay.part { color: #b45309; font-weight: 700; }
+.st-r small.st-pay.ok { color: #15803d; font-weight: 700; }
+.st-foot { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 12px 12px; }
+.st-foot .st-memo { margin: 0; }
+.st-form { display: flex; flex-direction: column; gap: 10px; }
+.st-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--text); }
+.st-form label small { font-weight: 500; color: var(--muted); }
+.st-form input[type=text], .st-form input[type=number], .st-form input[type=date] { padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; font-family: inherit; }
+.st-form .st-ck { flex-direction: row; align-items: flex-start; gap: 8px; }
+.st-form .st-ck input { margin-top: 2px; }
+.st-form .st-ck small { display: block; }
+.st-q { margin: 0; font-size: 13px; color: var(--muted); }

@@ -1904,24 +1904,44 @@
   function extraFilmRow(r) { return { place: '추가 ' + r.name + ' ' + r.filmM + 'm', code: r.filmCode, ready: false, orderedAt: '' }; }
 
   /* ---------- 정산 내역 (2026-10-26 사장님) ----------
-     일이 띄엄띄엄 여러 날이면 중간중간 정산견적을 발행한다. 같은 견적을 고쳐서 다시 발행하기도 해서
-     (10/01·10/06 같은 금액 두 번) 그냥 다 더하면 두 배가 된다 — 나중 발행이 앞 발행의 품목을 다 담고 있으면
-     앞 것은 '고친 전 판' 으로 보고 합계에서 뺀다. 입금은 현장관리에서 사장님이 체크 (site.settlePaid = { 코드: 'YYYY-MM-DD' }) */
-  function settleRounds(list, paid) {
-    var rows = (list || []).slice().sort(function (a, b) { return str(a.발행일시).localeCompare(str(b.발행일시)); });
+     일이 띄엄띄엄 여러 날이면 중간중간 정산한다. 발행한 정산견적(list)이 바탕이지만
+     - 실제로 받기로 한 돈은 견적서 금액과 다를 수 있다 (조정·네고) → log[코드].금액 + 사유
+     - 견적서 없이 더한 정산도 있다 (말로 정한 추가분 등) → manual [{ id, 날짜, 내용, 금액, 입금일, 입금액 }]
+     - 같은 견적을 고쳐 다시 낸 것은 자동으로 '고친 전' (나중 발행이 앞 품목을 다 담음) — 사장님이 합계 넣기/빼기로 바꿀 수 있다 (log[코드].포함 true/false)
+     - 입금은 일부만 받을 수도 있다 → log[코드].입금액 · 입금일
+     log = site.settleLog { 코드: { 금액, 사유, 포함, 입금일, 입금액 } } */
+  function settleRounds(list, log, manual) {
+    log = log || {};
+    var num = function (v) { return (v === '' || v == null || isNaN(Number(v))) ? null : Math.round(Number(v)); };
+    var qs = (list || []).slice().sort(function (a, b) { return str(a.발행일시).localeCompare(str(b.발행일시)); });
     var keyOf = function (r) { return (r.품목 || []).concat((r.추가작업 || []).map(function (a) { return '+' + a.품목명; })); };
-    var out = rows.map(function (r, i) {
+    var rows = qs.map(function (r, i) {
       var mine = keyOf(r);
-      var later = rows.slice(i + 1).find(function (n) {
+      var later = qs.slice(i + 1).find(function (n) {
         var theirs = keyOf(n);
         return mine.length ? mine.every(function (k) { return theirs.indexOf(k) >= 0; }) : n.총액 === r.총액;
       });
-      return Object.assign({}, r, { 대체: later ? later.코드 : '', 입금: (paid && paid[r.코드]) || '' });
+      var L = log[r.코드] || {};
+      var 견적 = Math.round(Number(r.총액) || 0);
+      var 정산 = num(L.금액) != null ? num(L.금액) : 견적;
+      var 포함 = typeof L.포함 === 'boolean' ? L.포함 : !later;
+      var 입금액 = num(L.입금액) != null ? num(L.입금액) : (L.입금일 ? 정산 : 0);
+      return Object.assign({}, r, { key: r.코드, 날짜: str(r.발행일시).slice(0, 10), 견적금액: 견적, 정산금액: 정산, 조정: 정산 !== 견적, 사유: str(L.사유),
+        자동대체: later ? later.코드 : '', 포함: 포함, 입금일: str(L.입금일), 입금액: 입금액, 수동: false });
     });
-    var live = out.filter(function (r) { return !r.대체; });
-    var 합 = live.reduce(function (a, r) { return a + (Number(r.총액) || 0); }, 0);
-    var 받은 = live.filter(function (r) { return r.입금; }).reduce(function (a, r) { return a + (Number(r.총액) || 0); }, 0);
-    return { rows: out, 회차: live.length, 합계: 합, 받은: 받은, 남은: 합 - 받은 };
+    (manual || []).forEach(function (m) {
+      if (!m || !m.id) return;
+      var 금 = num(m.금액) || 0;
+      rows.push({ key: m.id, 코드: '', 수동: true, 날짜: str(m.날짜), 내용: str(m.내용), 견적금액: 0, 정산금액: 금, 조정: false, 사유: '',
+        자동대체: '', 포함: m.포함 !== false, 입금일: str(m.입금일), 입금액: num(m.입금액) != null ? num(m.입금액) : (m.입금일 ? 금 : 0) });
+    });
+    rows.sort(function (a, b) { return a.날짜.localeCompare(b.날짜); });
+    var live = rows.filter(function (r) { return r.포함; });
+    var 합 = live.reduce(function (a, r) { return a + r.정산금액; }, 0);
+    var 받은 = live.reduce(function (a, r) { return a + (r.입금액 || 0); }, 0);
+    var n = 0;
+    live.forEach(function (r) { r.회 = ++n; });
+    return { rows: rows, 회차: live.length, 합계: 합, 받은: 받은, 남은: 합 - 받은 };
   }
 
   var Share = {
