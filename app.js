@@ -3192,12 +3192,14 @@
   /* 📸 완료사진 (2026-10-25 사장님): 현장업무(기사앱)에 연결된 현장만. 기사앱을 '사장님 · 완료사진' 보기로 연다 —
      기사 이름 고르고 품목 찾아 들어갈 필요 없이 모든 품목이 한 화면, 📷 한 번에 촬영 */
   function paintPhotoBtn(s) {
+    // 늘 보이게 한다 (2026-10-26: 연결 안 된 현장에선 안 보여서 '사진기 버튼이 없다' 고 헷갈림) — 연결 전엔 흐리게
     var link = s ? Share.workerLink(s) : '';
-    $('btnSitePhotos').hidden = !link;
+    $('btnSitePhotos').hidden = false;
+    $('btnSitePhotos').classList.toggle('dim', !link);
   }
   $('btnSitePhotos').onclick = function () {
     var link = Share.workerLink(Store.getSite(currentSiteId) || {});
-    if (!link) { toast('먼저 현장업무를 연결하세요'); return; }
+    if (!link) { toast('📸 완료사진은 현장업무(관리자앱)에 연결된 현장만 됩니다 — 위 🛠 현장업무 버튼으로 먼저 연결하세요'); return; }
     window.open(link + (link.indexOf('?') >= 0 ? '&' : '?') + 'owner=1', '_blank');
   };
 
