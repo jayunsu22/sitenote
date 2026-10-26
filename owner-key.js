@@ -27,7 +27,9 @@
     'film-journal-create', 'film-journal-list', 'film-journal-photo-upload', 'film-journal-photo-delete',
     'film-notice-create', 'film-sample-photo-upload', 'film-sample-photo-delete', 'raw-photo-update', 'raw-photo-upload',
     // 거래처별 현장관리 › 팀원 작업내역 (2026-10-23, n8n 현장관리_기사작업내역)
-    'worker-history'
+    'worker-history',
+    // 메모·후기 › 정산 내역 (2026-10-26, n8n 현장관리_정산내역)
+    'settle-history'
   ].forEach(function (p) { OWNER_PATHS[p] = true; });
 
   function readKey() { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return ''; } }
