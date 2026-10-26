@@ -1350,3 +1350,4 @@ textarea { resize: vertical; }
 .ex-plan span { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 .ex-plan .btn-sm { align-self: flex-start; margin-top: 3px; }
 .btn-sm.primary { background: var(--primary, #2b62d9); border-color: var(--primary, #2b62d9); color: #fff; }
+.icon-btn.dim { opacity: .35; }
