@@ -2810,84 +2810,168 @@
     return parts.join(' · ');
   }
   function settleMemoText(sum) {
-    var L = ['[정산 내역] ' + sum.회차 + '회 · 합계 ' + won(sum.합계) + (sum.받은 ? ' · 받은 ' + won(sum.받은) + ' · 남은 ' + won(sum.남은) : '')];
-    sum.rows.filter(function (r) { return !r.대체; }).forEach(function (r, i) {
-      L.push((i + 1) + '회 ' + Share.dayLabel(String(r.발행일시).slice(0, 10)) + ' ' + won(r.총액) + (r.입금 ? ' (입금 ' + Share.shortDate(r.입금) + ')' : ' (미입금)'));
-      var d = settleLine(r); if (d) L.push('   ' + d);
-      if (r.추가작업 && r.추가작업.length) L.push('   추가: ' + r.추가작업.map(function (a) { return a.품목명 + (a.청구 === '무상' ? ' 무상' : ''); }).join(', '));
+    var L = ['[정산 내역] ' + sum.회차 + '회 · 합계 ' + won(sum.합계) + ' · 받은 ' + won(sum.받은) + ' · 남은 ' + won(sum.남은)];
+    sum.rows.filter(function (r) { return r.포함; }).forEach(function (r) {
+      var 입 = r.입금액 >= r.정산금액 && r.정산금액 > 0 ? ' (입금' + (r.입금일 ? ' ' + Share.shortDate(r.입금일) : '') + ')'
+        : r.입금액 ? ' (일부 입금 ' + won(r.입금액) + ')' : ' (미입금)';
+      L.push(r.회 + '회 ' + Share.dayLabel(r.날짜) + ' ' + won(r.정산금액) + 입);
+      if (r.수동) L.push('   ' + (r.내용 || '견적서 없이 정산'));
+      else {
+        if (r.조정) L.push('   견적서 ' + won(r.견적금액) + ' → ' + won(r.정산금액) + (r.사유 ? ' (' + r.사유 + ')' : ''));
+        var d = settleLine(r); if (d) L.push('   ' + d);
+        if (r.추가작업 && r.추가작업.length) L.push('   추가: ' + r.추가작업.map(function (a) { return a.품목명 + (a.청구 === '무상' ? ' 무상' : ''); }).join(', '));
+      }
     });
     return L.join('\n');
+  }
+  // 한 회차 고치기 — 정산 금액(조정)·사유·입금액·입금일·합계 넣기. 견적서 없이 더한 정산은 날짜·내용도, 지우기도
+  function openSettleEdit(siteId, r, onDone) {
+    var 새것 = !r;
+    r = r || { 수동: true, key: 'm' + Date.now().toString(36), 날짜: Share.todayIso(), 내용: '', 정산금액: '', 견적금액: 0, 사유: '', 입금액: 0, 입금일: '', 포함: true };
+    var v = function (x) { return x === 0 || x ? String(x) : ''; };
+    var html = '<div class="st-form">' +
+      (r.수동 ? '<label>날짜<input type="date" id="stDate" value="' + esc(r.날짜) + '"></label>' +
+        '<label>내용<input type="text" id="stWhat" value="' + esc(r.내용 || '') + '" placeholder="예: 현관 손잡이 추가, 2차 중간 정산"></label>'
+        : '<p class="st-q">견적서 금액 <b>' + won(r.견적금액) + '</b> · ' + esc(Share.dayLabel(r.날짜)) + ' 발행</p>') +
+      '<label>정산 금액 <small>실제로 받기로 한 돈</small><input type="number" inputmode="numeric" id="stAmt" value="' + esc(v(r.정산금액)) + '" placeholder="0"></label>' +
+      (r.수동 ? '' : '<label>조정 사유 <small>금액이 다를 때</small><input type="text" id="stWhy" value="' + esc(r.사유 || '') + '" placeholder="예: 네고 10만원, 부자재비 빼기"></label>') +
+      '<label>입금액 <small>일부만 받았으면 받은 만큼</small><input type="number" inputmode="numeric" id="stPaid" value="' + esc(r.입금액 ? String(r.입금액) : '') + '" placeholder="0 = 아직"></label>' +
+      '<label>입금일<input type="date" id="stPaidAt" value="' + esc(r.입금일 || '') + '"></label>' +
+      '<label class="st-ck"><input type="checkbox" id="stIn"' + (r.포함 ? ' checked' : '') + '> 합계에 넣기 <small>' +
+        (r.자동대체 ? '나중 견적서에 같은 품목이 다 있어서 고친 전 판으로 봤어요 — 따로 받은 돈이면 켜세요' : '빼면 기록만 남아요') + '</small></label></div>';
+    var btns = [{ label: '취소', onClick: closeModal }];
+    if (r.수동 && !새것) btns.push({ label: '지우기', cls: 'danger', onClick: function () {
+      var cur = Store.getSite(siteId);
+      Store.updateSite(siteId, { settleManual: (cur.settleManual || []).filter(function (m) { return m.id !== r.key; }) });
+      closeModal(); onDone();
+    } });
+    btns.push({ label: '저장', cls: 'primary', onClick: function () {
+      var cur = Store.getSite(siteId);
+      var amt = $('stAmt').value.replace(/[^0-9]/g, ''), paid = $('stPaid').value.replace(/[^0-9]/g, '');
+      var paidAt = $('stPaidAt').value || (paid && Number(paid) > 0 ? Share.todayIso() : '');
+      var 포함 = $('stIn').checked;
+      if (r.수동) {
+        var what = $('stWhat').value.trim();
+        if (!what && !amt) { toast('내용이나 금액을 적어 주세요'); return; }
+        var row = { id: r.key, 날짜: $('stDate').value || Share.todayIso(), 내용: what, 금액: amt ? Number(amt) : 0, 입금액: paid ? Number(paid) : 0, 입금일: paid && Number(paid) > 0 ? paidAt : '', 포함: 포함 };
+        var list = (cur.settleManual || []).filter(function (m) { return m.id !== r.key; }).concat([row]);
+        Store.updateSite(siteId, { settleManual: list });
+      } else {
+        var log = Object.assign({}, cur.settleLog || {});
+        var e = {};
+        if (amt !== '' && Number(amt) !== r.견적금액) e.금액 = Number(amt);
+        var why = $('stWhy').value.trim(); if (why) e.사유 = why;
+        if (paid && Number(paid) > 0) { e.입금액 = Number(paid); e.입금일 = paidAt; }
+        if (포함 !== !r.자동대체) e.포함 = 포함;
+        log[r.key] = e;
+        Store.updateSite(siteId, { settleLog: log });
+      }
+      closeModal(); onDone();
+    } });
+    openModal(새것 ? '＋ 정산 직접 추가' : (r.수동 ? '정산 고치기' : '정산·입금 고치기'), html, btns);
   }
   function renderSettleSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
     var adminId = String(s.adminId || '').trim();
-    box.innerHTML = ''; box.hidden = !adminId;
-    if (!adminId) return;
+    box.innerHTML = ''; box.hidden = false;
     box.classList.add('settle-sec');
-    box.appendChild(el2('h3', 'sec-title', '💰 정산 내역 — 발행한 정산견적'));
+    box.appendChild(el2('h3', 'sec-title', '💰 정산 내역 — 회차마다 날짜·금액·입금'));
     var rerender = function () { var b = $('settleSec'); if (b) renderSettleSection(b, siteId); };
-    var c = settleCache[adminId];
-    if (!c || (!c.loading && Date.now() - c.at > 60000)) {
-      settleCache[adminId] = { loading: true, at: Date.now() };
-      fetch(SETTLE_HISTORY_URL + encodeURIComponent(adminId))
-        .then(function (res) {
-          if (res.status === 401 || res.status === 403) throw new Error('이 기기에 사장님 열쇠가 없어 정산 내역을 못 봅니다');
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.json();
-        })
-        .then(function (d) { settleCache[adminId] = { at: Date.now(), list: (d && d.정산) || [] }; })
-        .catch(function (e) { settleCache[adminId] = { at: Date.now(), err: e.message || String(e) }; })
-        .then(rerender);
+    var c = { list: [] };
+    if (adminId) {
       c = settleCache[adminId];
+      if (!c || (!c.loading && Date.now() - c.at > 60000)) {
+        settleCache[adminId] = { loading: true, at: Date.now() };
+        fetch(SETTLE_HISTORY_URL + encodeURIComponent(adminId))
+          .then(function (res) {
+            if (res.status === 401 || res.status === 403) throw new Error('이 기기에 사장님 열쇠가 없어 발행한 정산견적을 못 불러옵니다');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+          })
+          .then(function (d) { settleCache[adminId] = { at: Date.now(), list: (d && d.정산) || [] }; })
+          .catch(function (e) { settleCache[adminId] = { at: Date.now(), err: e.message || String(e), list: [] }; })
+          .then(rerender);
+        c = settleCache[adminId];
+      }
+      if (c.loading) { box.appendChild(el2('div', 'sec-empty', '불러오는 중…')); return; }
+      if (c.err) box.appendChild(el2('div', 'sec-empty', c.err));
     }
-    if (c.loading) { box.appendChild(el2('div', 'sec-empty', '불러오는 중…')); return; }
-    if (c.err) { box.appendChild(el2('div', 'sec-empty', c.err)); return; }
-    if (!c.list.length) { box.appendChild(el2('div', 'sec-empty', '아직 발행한 정산견적이 없습니다. 정산견적을 발행하면 날짜·금액·내역이 여기 쌓여요.')); return; }
-    var sum = Share.settleRounds(c.list, s.settlePaid);
-    var top = el2('div', 'st-sum');
-    top.appendChild(el2('b', '', sum.회차 + '회 정산 · 합계 ' + won(sum.합계)));
-    top.appendChild(el2('span', sum.남은 ? 'due' : 'ok', sum.남은 ? '받은 ' + won(sum.받은) + ' · 남은 ' + won(sum.남은) : '✓ 다 받았어요'));
-    box.appendChild(top);
-    var n = 0;
+    var sum = Share.settleRounds(c.list || [], s.settleLog, s.settleManual);
+    if (!sum.rows.length) {
+      box.appendChild(el2('div', 'sec-empty', adminId ? '아직 발행한 정산견적이 없습니다. 정산견적을 발행하면 여기 쌓이고, 견적서 없이 받은 돈은 아래 ＋ 로 적으세요.'
+        : '현장업무에 연결하면 발행한 정산견적이 여기 쌓여요. 견적서 없이 받은 돈은 아래 ＋ 로 적으세요.'));
+    } else {
+      var top = el2('div', 'st-sum');
+      top.appendChild(el2('b', '', sum.회차 + '회 정산 · 합계 ' + won(sum.합계)));
+      top.appendChild(el2('span', sum.남은 > 0 ? 'due' : 'ok', sum.남은 > 0 ? '받은 ' + won(sum.받은) + ' · 남은 ' + won(sum.남은) : sum.남은 < 0 ? '받은 ' + won(sum.받은) + ' · ' + won(-sum.남은) + ' 더 받음' : '✓ 다 받았어요'));
+      box.appendChild(top);
+    }
     sum.rows.forEach(function (r) {
-      var row = el2('div', 'st-r' + (r.대체 ? ' old' : '') + (r.입금 ? ' paid' : ''));
+      var 다받음 = r.정산금액 > 0 && r.입금액 >= r.정산금액;
+      var row = el2('div', 'st-r' + (r.포함 ? '' : ' old') + (다받음 ? ' paid' : ''));
       var head = el2('div', 'st-h');
-      var date = Share.dayLabel(String(r.발행일시).slice(0, 10));
-      head.appendChild(el2('span', 'st-no', r.대체 ? '고친 전' : (++n) + '회'));
-      head.appendChild(el2('span', 'st-d', date));
-      head.appendChild(el2('b', 'st-amt', won(r.총액)));
+      head.appendChild(el2('span', 'st-no', r.포함 ? r.회 + '회' : (r.자동대체 ? '고친 전' : '뺌')));
+      head.appendChild(el2('span', 'st-d', Share.dayLabel(r.날짜)));
+      head.appendChild(el2('b', 'st-amt', won(r.정산금액)));
       row.appendChild(head);
-      if (r.대체) {
-        var rep = sum.rows.find(function (x) { return x.코드 === r.대체; });
-        row.appendChild(el2('small', '', (rep ? Share.dayLabel(String(rep.발행일시).slice(0, 10)) : '') + ' 에 고쳐서 다시 발행 — 합계에서 뺐어요'));
-      } else {
-        var d = settleLine(r); if (d) row.appendChild(el2('small', '', d));
-        if (r.추가작업 && r.추가작업.length) row.appendChild(el2('small', 'st-add', '➕ ' + r.추가작업.map(function (a) { return a.품목명 + (a.청구 === '무상' ? ' (무상)' : a.청구 === '업체청구' ? ' (업체 청구)' : ''); }).join(', ')));
-        var bt = el2('div', 'st-bt');
-        var a = el2('a', 'btn-sm', '📄 견적서'); a.href = 'https://songil.netlify.app/s/' + encodeURIComponent(r.코드); a.target = '_blank'; a.rel = 'noopener';
-        var pay = el2('button', 'btn-sm' + (r.입금 ? ' paid' : ''), r.입금 ? '💰 입금 ' + Share.shortDate(r.입금) + ' ✓' : '💰 입금 확인'); pay.type = 'button';
+      if (r.수동) row.appendChild(el2('small', 'st-man', '✍️ ' + (r.내용 || '견적서 없이 정산')));
+      else {
+        if (r.조정) row.appendChild(el2('small', 'st-adj', '견적서 ' + won(r.견적금액) + ' → 정산 ' + won(r.정산금액) + (r.사유 ? ' · ' + r.사유 : '')));
+        if (!r.포함 && r.자동대체) {
+          var rep = sum.rows.find(function (x) { return x.key === r.자동대체; });
+          row.appendChild(el2('small', '', (rep ? Share.dayLabel(rep.날짜) + ' ' : '') + '견적서에 같은 품목이 다 있어 고친 전 판으로 봤어요 (✏️ 에서 합계에 넣기)'));
+        } else {
+          var d = settleLine(r); if (d) row.appendChild(el2('small', '', d));
+          if (r.추가작업 && r.추가작업.length) row.appendChild(el2('small', 'st-add', '➕ ' + r.추가작업.map(function (a) { return a.품목명 + (a.청구 === '무상' ? ' (무상)' : a.청구 === '업체청구' ? ' (업체 청구)' : ''); }).join(', ')));
+        }
+      }
+      if (r.포함) row.appendChild(el2('small', 'st-pay' + (다받음 ? ' ok' : r.입금액 ? ' part' : ''),
+        다받음 ? '💰 입금 ' + won(r.입금액) + (r.입금일 ? ' · ' + Share.shortDate(r.입금일) : '') + ' ✓'
+          : r.입금액 ? '💰 일부 입금 ' + won(r.입금액) + (r.입금일 ? ' · ' + Share.shortDate(r.입금일) : '') + ' · 남은 ' + won(r.정산금액 - r.입금액) : '미입금'));
+      var bt = el2('div', 'st-bt');
+      if (!r.수동) { var a = el2('a', 'btn-sm', '📄 견적서'); a.href = 'https://songil.netlify.app/s/' + encodeURIComponent(r.코드); a.target = '_blank'; a.rel = 'noopener'; bt.appendChild(a); }
+      var ed = el2('button', 'btn-sm', '✏️ 금액·입금'); ed.type = 'button';
+      ed.onclick = function () { openSettleEdit(siteId, r, rerender); };
+      bt.appendChild(ed);
+      if (r.포함 && !다받음) {
+        var pay = el2('button', 'btn-sm', '💰 남은 돈 입금'); pay.type = 'button';
         pay.onclick = function () {
-          var cur = Store.getSite(siteId), m = Object.assign({}, cur.settlePaid || {});
-          if (m[r.코드]) delete m[r.코드]; else m[r.코드] = Share.todayIso();
-          Store.updateSite(siteId, { settlePaid: m });
+          var cur = Store.getSite(siteId);
+          if (r.수동) {
+            Store.updateSite(siteId, { settleManual: (cur.settleManual || []).map(function (m) { return m.id === r.key ? Object.assign({}, m, { 입금액: r.정산금액, 입금일: Share.todayIso() }) : m; }) });
+          } else {
+            var log = Object.assign({}, cur.settleLog || {});
+            log[r.key] = Object.assign({}, log[r.key], { 입금액: r.정산금액, 입금일: Share.todayIso() });
+            Store.updateSite(siteId, { settleLog: log });
+          }
+          toast('💰 ' + won(r.정산금액 - (r.입금액 || 0)) + ' 입금으로 적었어요');
           rerender();
         };
-        bt.appendChild(a); bt.appendChild(pay); row.appendChild(bt);
+        bt.appendChild(pay);
       }
+      row.appendChild(bt);
       box.appendChild(row);
     });
-    var cp = el2('button', 'btn-sm st-memo', '📝 정산 내역을 아래 메모에 붙이기'); cp.type = 'button';
-    cp.onclick = function () {
-      var cur = Store.getSite(siteId);
-      var text = settleMemoText(Share.settleRounds(c.list, cur.settlePaid));
-      var memo = String(cur.memo || '');
-      // 예전에 붙인 정산 내역 덩어리는 새 것으로 바꾼다 (계속 쌓이지 않게)
-      memo = memo.replace(/\[정산 내역\][\s\S]*?(?=\n\n|$)/, '').replace(/^\n+/, '');
-      Store.updateSite(siteId, { memo: text + (memo ? '\n\n' + memo : '') });
-      toast('📝 메모 맨 위에 정산 내역을 붙였어요');
-      renderSite(); pickSiteTab('review', false);
-    };
-    box.appendChild(cp);
+    var foot = el2('div', 'st-foot');
+    var add = el2('button', 'btn-sm', '＋ 정산 직접 추가'); add.type = 'button';
+    add.title = '견적서 없이 받기로 한 돈 — 말로 정한 추가분, 중간 정산 등';
+    add.onclick = function () { openSettleEdit(siteId, null, rerender); };
+    foot.appendChild(add);
+    if (sum.rows.length) {
+      var cp = el2('button', 'btn-sm st-memo', '📝 메모에 붙이기'); cp.type = 'button';
+      cp.onclick = function () {
+        var cur = Store.getSite(siteId);
+        var text = settleMemoText(Share.settleRounds(c.list || [], cur.settleLog, cur.settleManual));
+        var memo = String(cur.memo || '');
+        // 예전에 붙인 정산 내역 덩어리는 새 것으로 바꾼다 (계속 쌓이지 않게)
+        memo = memo.replace(/\[정산 내역\][\s\S]*?(?=\n\n|$)/, '').replace(/^\n+/, '');
+        Store.updateSite(siteId, { memo: text + (memo ? '\n\n' + memo : '') });
+        toast('📝 메모 맨 위에 정산 내역을 붙였어요');
+        renderSite(); pickSiteTab('review', false);
+      };
+      foot.appendChild(cp);
+    }
+    box.appendChild(foot);
   }
 
   function renderSiliconeSection(box, siteId) {

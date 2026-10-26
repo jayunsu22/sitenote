@@ -128,8 +128,14 @@
     s.silicone = Share.siliconeOf(s);
     // 추가작업을 일정·필름에 이미 넣었는지 { 작업목록ID: { staff, film } } (2026-10-26) — 두 번 넣지 않게
     s.extraDone = (s.extraDone && typeof s.extraDone === 'object' && !Array.isArray(s.extraDone)) ? s.extraDone : {};
-    // 정산견적 입금 체크 { 견적코드: 'YYYY-MM-DD' } (2026-10-26)
-    s.settlePaid = (s.settlePaid && typeof s.settlePaid === 'object' && !Array.isArray(s.settlePaid)) ? s.settlePaid : {};
+    // 정산 내역 (2026-10-26): 발행 견적마다 조정 금액·사유·합계 넣기·입금 { 코드: {...} }, 견적 없이 더한 정산 [..]
+    var isObj = function (o) { return o && typeof o === 'object' && !Array.isArray(o); };
+    s.settleLog = isObj(s.settleLog) ? s.settleLog : {};
+    if (isObj(s.settlePaid)) {   // 첫 판(입금 날짜만 적던 것)을 옮긴다
+      Object.keys(s.settlePaid).forEach(function (k) { if (!s.settleLog[k]) s.settleLog[k] = { 입금일: s.settlePaid[k] }; });
+      delete s.settlePaid;
+    }
+    s.settleManual = Array.isArray(s.settleManual) ? s.settleManual.filter(isObj) : [];
     s.hide = !!s.hide;   // 숨긴 현장 (2026-10-24) — 메인 목록에서만 뺀다. 일정·기록은 그대로
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
