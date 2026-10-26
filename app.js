@@ -1473,9 +1473,11 @@
       panes[pane].appendChild(fieldRow(s, f));
       if (f.key === 'date') {                                                // 시공날짜 바로 아래 날짜별 인원
         sec('staff', 'daysSec', renderDaysSection);
+        sec('staff', 'extraSec', renderExtraSection);   // 추가작업 → 인원 (2026-10-26)
         sec('staff', '', renderContactSection);
       }
     });
+    sec('film', 'extraFilmSec', renderExtraSection);   // 추가작업 → 필름 (같은 내용, 필름 탭에서도)
     sec('film', '', renderSuppliesSection);     // 필름 바로 아래 부자재 (2026-10-05 한 탭으로 묶음)
     sec('film', 'silSec', renderSiliconeSection);   // 부자재 바로 아래 실리콘 (2026-10-24)
     sec('etc', 'svcSec', renderServiceSection);
@@ -2700,6 +2702,96 @@
     return '⚠ 실리콘 준비! ' + (dd > 0 ? '시공 ' + dd + '일 전' : dd === 0 ? '오늘 시공' : '시공 시작했는데') +
       ' — ' + Share.siliconeLeft(s).join('·') + ' 아직 안 챙김';
   }
+  /* ---------- ➕ 추가작업 → 인원·필름 (2026-10-26 사장님) ----------
+     기사앱 사장님 보기에서 적은 재시공·AS·추가요청을 받아 와서, 늘어난 시간만큼 필요 인원을 늘리고
+     필름 줄을 더한다. 계산은 Share.extraPlan. 현장업무(관리자앱)에 연결된 현장만 — 기사앱 조회는 열쇠 없이 된다 */
+  var EXTRA_URL = 'https://primary-production-a6fa.up.railway.app/webhook/film-quality-get-v2?code=';
+  var extraCache = {};   // adminId → { at, tasks, items } | { at, err }
+  function extraData(adminId, cb) {
+    var c = extraCache[adminId];
+    if (c && Date.now() - c.at < 60000) return c;
+    if (c && c.loading) return null;
+    extraCache[adminId] = { at: 0, loading: true };
+    fetch(EXTRA_URL + encodeURIComponent(adminId) + '&_t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) { var d = Array.isArray(j) ? j[0] : j; extraCache[adminId] = { at: Date.now(), tasks: (d && d.tasks) || [], items: (d && d.items) || {} }; cb(); })
+      .catch(function (e) { extraCache[adminId] = { at: Date.now(), err: e.message || '불러오기 실패' }; cb(); });
+    return null;
+  }
+  function renderExtraSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    var film = box.id === 'extraFilmSec';
+    box.innerHTML = '';
+    box.hidden = true;
+    var adminId = String(s.adminId || '').trim();
+    if (!adminId) return;
+    var rerender = function () { ['extraSec', 'extraFilmSec'].forEach(function (id) { var b = $(id); if (b) renderExtraSection(b, siteId); }); };
+    var d = extraData(adminId, rerender);
+    if (!d || d.err) return;
+    var plan = Share.extraPlan(d.tasks, d.items, s);
+    if (!plan.rows.length) return;
+    box.hidden = false;
+    box.classList.add('extra-sec');
+    var hrs = Math.floor(plan.minutes / 60), mins = plan.minutes % 60;
+    var 시간 = (hrs ? hrs + '시간 ' : '') + (mins ? mins + '분' : '') || '0분';
+    box.appendChild(el2('h3', 'sec-title', '➕ 추가작업 ' + plan.rows.length + '건 — 기사앱 사장님 보기에서 적은 일'));
+    var list = el2('div', 'ex-list');
+    var 표 = { 재시공: '🔁 재시공', AS: '🛠 AS', 추가요청: '➕ 추가' };
+    plan.rows.forEach(function (r) {
+      var row = el2('div', 'ex-r' + (r.done ? ' done' : ''));
+      var nm = el2('div', 'ex-nm');
+      var tag = el2('span', 'ex-t ex-' + (r.kind === 'AS' ? 'as' : r.kind === '재시공' ? 're' : 'add'), 표[r.kind] || r.kind);
+      nm.appendChild(tag); nm.appendChild(document.createTextNode(' ' + r.name));
+      var sub = el2('small', '', [r.who, r.done ? '✅ 끝남' : '약 ' + (r.minutes >= 60 ? Math.round(r.minutes / 6) / 10 + '시간' : r.minutes + '분'),
+        r.filmM ? '필름 ' + r.filmM + 'm' + (r.filmCode ? ' ' + r.filmCode : '') : ''].filter(Boolean).join(' · '));
+      nm.appendChild(sub);
+      row.appendChild(nm);
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+    if (!film) {
+      var need = Share.needStaffOf(s);
+      var st = el2('div', 'ex-plan');
+      st.appendChild(el2('b', '', '👷 남은 추가작업 약 ' + 시간 + ' ≈ ' + plan.pum + '품'));
+      st.appendChild(el2('span', '', plan.addStaff ? '필요 인원 ' + (need || 0) + '명 → ' + ((need || 0) + plan.addStaff) + '명으로 늘리면 위 날짜별 인원에서 모자란 만큼 보여요'
+        : '이미 필요 인원에 넣었어요'));
+      if (plan.addStaff) {
+        var b = el2('button', 'btn-sm primary', '필요 인원 +' + plan.addStaff + '명 넣기'); b.type = 'button';
+        b.onclick = function () {
+          var cur = Store.getSite(siteId);
+          var doneMap = Object.assign({}, cur.extraDone || {});
+          plan.rows.forEach(function (r) { if (!r.done) doneMap[r.id] = Object.assign({}, doneMap[r.id], { staff: 1 }); });
+          Store.updateSite(siteId, { extraDone: doneMap });
+          Store.setNeedStaff(siteId, (Share.needStaffOf(cur) || 0) + plan.addStaff);
+          toast('필요 인원 +' + plan.addStaff + '명 — 날짜를 더하거나 그날 사람을 넣으세요');
+          var ds = $('daysSec'); if (ds) renderDaysSection(ds, siteId);
+          rerender(); paintSiteStatus();
+        };
+        st.appendChild(b);
+      }
+      box.appendChild(st);
+    }
+    var fp = el2('div', 'ex-plan film');
+    fp.appendChild(el2('b', '', '🎞 추가작업 필름 ' + (plan.films.length ? plan.films.map(function (f) { return f.code + ' +' + f.m + 'm'; }).join(', ') : '없음')));
+    var noCode = plan.rows.filter(function (r) { return r.filmM > 0 && !r.filmCode; }).length;
+    fp.appendChild(el2('span', '', plan.newFilmRows.length ? '필름 줄에 넣어 두면 이 현장 필름 목록에 추가분(m)이 남아요 — 주문할 때 수량에 더하세요'
+      : noCode ? '필름 번호를 먼저 적어 주세요 (시공위치가 같은 줄의 번호를 씁니다)' : '이미 필름 줄에 넣었어요'));
+    if (plan.newFilmRows.length) {
+      var fb = el2('button', 'btn-sm primary', '필름 줄에 ' + plan.newFilmRows.length + '개 넣기'); fb.type = 'button';
+      fb.onclick = function () {
+        var cur = Store.getSite(siteId);
+        var doneMap = Object.assign({}, cur.extraDone || {});
+        var rows = (cur.films || []).slice();
+        plan.newFilmRows.forEach(function (r) { rows.push(Share.extraFilmRow(r)); doneMap[r.id] = Object.assign({}, doneMap[r.id], { film: 1 }); });
+        Store.updateSite(siteId, { films: rows, extraDone: doneMap });
+        toast('🎞 필름 줄 ' + plan.newFilmRows.length + '개 추가 — 시공위치에 추가분 m 이 적혀 있어요');
+        renderSite();
+      };
+      fp.appendChild(fb);
+    }
+    box.appendChild(fp);
+  }
+
   function renderSiliconeSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
     var sc = Share.siliconeOf(s);

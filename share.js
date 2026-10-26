@@ -1846,7 +1846,68 @@
     return { ordered: rows.filter(function (r) { return isIsoDate(r.orderedAt); }).length, total: rows.length };
   }
 
+  /* ---------- 추가작업 → 인원·필름 (2026-10-26 사장님, 월곡동) ----------
+     기사앱 사장님 보기에서 적은 재시공·AS·추가요청(작업목록 줄에 추가구분)을 미리 일정에 넣는다.
+     - 시간: 품목 종류별 대략 분 (문류 1개 80분, 샤시 1m 25분, 길이로 재는 가구·몰딩 1m 30분, 그 밖 1개 60분), AS 는 부분 보수라 반
+     - 인원: 8시간 = 1품. 필요 인원에는 올림해서 더한다 (반품이라도 사람 한 명이 와야 한다)
+     - 필름: 품목 설정 자재소모량 × 수량 (m). 번호는 현장 필름 줄 중 시공위치가 원래 품목과 맞는 것, 없으면 가장 많이 쓴 번호
+     tasks 는 기사앱 조회(film-quality-get-v2)의 tasks, items 는 같은 응답의 items (품목 설정) */
+  var EXTRA_DOOR = /방문|화장실문|방화문|터닝도어|현관문|중문|실외기실문|세탁실문|문\+틀|문틀/;
+  function extraMinutes(item, name, qty, kind) {
+    var c2 = str(item && item.카테고리2), q = Number(qty) || 0;
+    var per;
+    if (EXTRA_DOOR.test(c2 || name)) per = 80;
+    else if (/샤시/.test(c2 || name)) per = 25;
+    else if (item && item.길이입력) per = 30;
+    else per = 60;
+    return Math.round(per * q * (kind === 'AS' ? 0.5 : 1));
+  }
+  function extraFilmCode(films, origName) {
+    var rows = (films || []).filter(function (r) { return r && str(r.code); });
+    if (!rows.length) return '';
+    var n = str(origName).replace(/\s+/g, '');
+    var hit = n && rows.find(function (r) { var p = str(r.place).replace(/\s+/g, ''); return p && (n.indexOf(p) >= 0 || p.indexOf(n) >= 0); });
+    if (hit) return str(hit.code);
+    var cnt = {}, best = '', bestN = 0;
+    rows.forEach(function (r) { var k = str(r.code); cnt[k] = (cnt[k] || 0) + 1; if (cnt[k] > bestN) { bestN = cnt[k]; best = k; } });
+    return best;
+  }
+  function extraPlan(tasks, items, site) {
+    var done = (site && site.extraDone) || {};
+    var rows = (tasks || []).filter(function (t) { return t && t.fields && t.fields.추가구분; }).map(function (t) {
+      var f = t.fields, orig = str(f.원품목);
+      var item = (items && (items[orig] || items[f.시공품목])) || {};
+      var qty = Number(f.추가수량) || 1;
+      var per = typeof item.자재소모량 === 'number' ? item.자재소모량 : 0;
+      return {
+        id: t.id, name: str(f.시공품목), kind: f.추가구분, bill: f.청구 || '고객청구', who: str(f.청구처),
+        amount: Math.round(Number(f.추가금액) || 0), qty: qty, done: !!(f.시공완료),
+        minutes: extraMinutes(item, orig || f.시공품목, qty, f.추가구분),
+        filmM: Math.round(per * qty * 10) / 10,
+        filmCode: extraFilmCode(site && site.films, orig || f.시공품목),
+        staffDone: !!(done[t.id] && done[t.id].staff), filmDone: !!(done[t.id] && done[t.id].film)
+      };
+    });
+    var open = rows.filter(function (r) { return !r.done; });
+    var minutes = open.reduce(function (a, r) { return a + r.minutes; }, 0);
+    var pum = Math.ceil(minutes / 60 / 8 * 2) / 2;   // 0.5품 단위
+    var newMin = open.filter(function (r) { return !r.staffDone; }).reduce(function (a, r) { return a + r.minutes; }, 0);
+    var byFilm = {};
+    rows.forEach(function (r) { if (r.filmM > 0 && r.filmCode) byFilm[r.filmCode] = Math.round(((byFilm[r.filmCode] || 0) + r.filmM) * 10) / 10; });
+    return {
+      rows: rows, minutes: minutes, pum: pum,
+      addStaff: newMin ? Math.ceil(newMin / 60 / 8) : 0,               // 필요 인원에 더할 사람 수 (아직 안 더한 줄만)
+      films: Object.keys(byFilm).map(function (k) { return { code: k, m: byFilm[k] }; }),
+      newFilmRows: rows.filter(function (r) { return !r.filmDone && r.filmM > 0 && r.filmCode; })
+    };
+  }
+  function extraFilmRow(r) { return { place: '추가 ' + r.name + ' ' + r.filmM + 'm', code: r.filmCode, ready: false, orderedAt: '' }; }
+
   var Share = {
+    extraMinutes: extraMinutes,
+    extraFilmCode: extraFilmCode,
+    extraPlan: extraPlan,
+    extraFilmRow: extraFilmRow,
     filmKey: filmKey,
     choseong: choseong, nameInitial: nameInitial, nameMatch: nameMatch, staffFrequency: staffFrequency,
     busyElsewhere: busyElsewhere, staffPickGroups: staffPickGroups,

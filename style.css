@@ -1334,3 +1334,19 @@ textarea { resize: vertical; }
 .order-title { flex: 1; min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
 .order-foot { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1.5px solid #e2e8f0; }
 .order-count { flex: 1; color: #64748b; font-weight: 800; font-size: 14px; }
+
+/* ➕ 추가작업 → 인원·필름 (2026-10-26) */
+.extra-sec { border: 1.5px solid #c4b5fd !important; background: #faf8ff; }
+.ex-list { padding: 0 12px 4px; }
+.ex-r { padding: 7px 0; border-top: 1px dashed #e5e7eb; }
+.ex-r:first-child { border-top: none; }
+.ex-r.done { opacity: .55; }
+.ex-nm { font-weight: 700; font-size: 14px; }
+.ex-nm small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; margin-top: 1px; }
+.ex-t { display: inline-block; border-radius: 6px; padding: 0 6px; font-size: 11px; font-weight: 800; }
+.ex-re { background: #ede9fe; color: #6d28d9; } .ex-as { background: #fee2e2; color: #b91c1c; } .ex-add { background: #dbeafe; color: #1d4ed8; }
+.ex-plan { margin: 6px 12px 10px; background: #fff; border-radius: 10px; padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #ede9fe; }
+.ex-plan b { font-size: 14px; }
+.ex-plan span { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.ex-plan .btn-sm { align-self: flex-start; margin-top: 3px; }
+.btn-sm.primary { background: var(--primary, #2b62d9); border-color: var(--primary, #2b62d9); color: #fff; }
