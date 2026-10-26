@@ -1470,6 +1470,7 @@
     Share.FIELDS.forEach(function (f) {
       var pane = TAB_OF_FIELD[f.key] || 'info';
       if (f.key === 'films') sec('film', 'stageSec', renderStageSection);   // 필름 단계 띠는 필름 줄 바로 위
+      if (f.key === 'memo') sec('review', 'settleSec', renderSettleSection);   // 정산 내역은 메모 바로 위 (2026-10-26)
       panes[pane].appendChild(fieldRow(s, f));
       if (f.key === 'date') {                                                // 시공날짜 바로 아래 날짜별 인원
         sec('staff', 'daysSec', renderDaysSection);
@@ -2790,6 +2791,103 @@
       fp.appendChild(fb);
     }
     box.appendChild(fp);
+  }
+
+  /* ---------- 💰 정산 내역 (2026-10-26 사장님) ----------
+     일이 띄엄띄엄 여러 날이면 중간중간 정산견적을 발행한다. 발행한 견적서(정산견적 표)를 날짜순으로 모아
+     날짜·금액·내역을 보여주고, 입금은 여기서 체크한다. 같은 견적을 고쳐 다시 낸 것은 Share.settleRounds 가 합계에서 뺀다.
+     사장님 열쇠가 있는 기기에서만 (금액이 나가는 조회라 n8n 이 열쇠를 본다) */
+  var SETTLE_HISTORY_URL = 'https://primary-production-a6fa.up.railway.app/webhook/settle-history?site=';
+  var settleCache = {};
+  function won(n) { return Math.round(Number(n) || 0).toLocaleString('ko-KR') + '원'; }
+  function settleLine(r) {
+    var parts = [];
+    if (r.품수) parts.push('인건비 ' + r.품수 + '품');
+    if (r.자재비) parts.push('자재 ' + won(r.자재비));
+    if (r.추가작업 && r.추가작업.length) parts.push('추가작업 ' + r.추가작업.length + '건');
+    (r.부가내역 || []).forEach(function (e) { parts.push(e.항목명 + (e.비고 ? ' ' + e.비고 : '')); });
+    if (r.미수금) parts.push('미수금 ' + won(r.미수금));
+    return parts.join(' · ');
+  }
+  function settleMemoText(sum) {
+    var L = ['[정산 내역] ' + sum.회차 + '회 · 합계 ' + won(sum.합계) + (sum.받은 ? ' · 받은 ' + won(sum.받은) + ' · 남은 ' + won(sum.남은) : '')];
+    sum.rows.filter(function (r) { return !r.대체; }).forEach(function (r, i) {
+      L.push((i + 1) + '회 ' + Share.dayLabel(String(r.발행일시).slice(0, 10)) + ' ' + won(r.총액) + (r.입금 ? ' (입금 ' + Share.shortDate(r.입금) + ')' : ' (미입금)'));
+      var d = settleLine(r); if (d) L.push('   ' + d);
+      if (r.추가작업 && r.추가작업.length) L.push('   추가: ' + r.추가작업.map(function (a) { return a.품목명 + (a.청구 === '무상' ? ' 무상' : ''); }).join(', '));
+    });
+    return L.join('\n');
+  }
+  function renderSettleSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    var adminId = String(s.adminId || '').trim();
+    box.innerHTML = ''; box.hidden = !adminId;
+    if (!adminId) return;
+    box.classList.add('settle-sec');
+    box.appendChild(el2('h3', 'sec-title', '💰 정산 내역 — 발행한 정산견적'));
+    var rerender = function () { var b = $('settleSec'); if (b) renderSettleSection(b, siteId); };
+    var c = settleCache[adminId];
+    if (!c || (!c.loading && Date.now() - c.at > 60000)) {
+      settleCache[adminId] = { loading: true, at: Date.now() };
+      fetch(SETTLE_HISTORY_URL + encodeURIComponent(adminId))
+        .then(function (res) {
+          if (res.status === 401 || res.status === 403) throw new Error('이 기기에 사장님 열쇠가 없어 정산 내역을 못 봅니다');
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function (d) { settleCache[adminId] = { at: Date.now(), list: (d && d.정산) || [] }; })
+        .catch(function (e) { settleCache[adminId] = { at: Date.now(), err: e.message || String(e) }; })
+        .then(rerender);
+      c = settleCache[adminId];
+    }
+    if (c.loading) { box.appendChild(el2('div', 'sec-empty', '불러오는 중…')); return; }
+    if (c.err) { box.appendChild(el2('div', 'sec-empty', c.err)); return; }
+    if (!c.list.length) { box.appendChild(el2('div', 'sec-empty', '아직 발행한 정산견적이 없습니다. 정산견적을 발행하면 날짜·금액·내역이 여기 쌓여요.')); return; }
+    var sum = Share.settleRounds(c.list, s.settlePaid);
+    var top = el2('div', 'st-sum');
+    top.appendChild(el2('b', '', sum.회차 + '회 정산 · 합계 ' + won(sum.합계)));
+    top.appendChild(el2('span', sum.남은 ? 'due' : 'ok', sum.남은 ? '받은 ' + won(sum.받은) + ' · 남은 ' + won(sum.남은) : '✓ 다 받았어요'));
+    box.appendChild(top);
+    var n = 0;
+    sum.rows.forEach(function (r) {
+      var row = el2('div', 'st-r' + (r.대체 ? ' old' : '') + (r.입금 ? ' paid' : ''));
+      var head = el2('div', 'st-h');
+      var date = Share.dayLabel(String(r.발행일시).slice(0, 10));
+      head.appendChild(el2('span', 'st-no', r.대체 ? '고친 전' : (++n) + '회'));
+      head.appendChild(el2('span', 'st-d', date));
+      head.appendChild(el2('b', 'st-amt', won(r.총액)));
+      row.appendChild(head);
+      if (r.대체) {
+        var rep = sum.rows.find(function (x) { return x.코드 === r.대체; });
+        row.appendChild(el2('small', '', (rep ? Share.dayLabel(String(rep.발행일시).slice(0, 10)) : '') + ' 에 고쳐서 다시 발행 — 합계에서 뺐어요'));
+      } else {
+        var d = settleLine(r); if (d) row.appendChild(el2('small', '', d));
+        if (r.추가작업 && r.추가작업.length) row.appendChild(el2('small', 'st-add', '➕ ' + r.추가작업.map(function (a) { return a.품목명 + (a.청구 === '무상' ? ' (무상)' : a.청구 === '업체청구' ? ' (업체 청구)' : ''); }).join(', ')));
+        var bt = el2('div', 'st-bt');
+        var a = el2('a', 'btn-sm', '📄 견적서'); a.href = 'https://songil.netlify.app/s/' + encodeURIComponent(r.코드); a.target = '_blank'; a.rel = 'noopener';
+        var pay = el2('button', 'btn-sm' + (r.입금 ? ' paid' : ''), r.입금 ? '💰 입금 ' + Share.shortDate(r.입금) + ' ✓' : '💰 입금 확인'); pay.type = 'button';
+        pay.onclick = function () {
+          var cur = Store.getSite(siteId), m = Object.assign({}, cur.settlePaid || {});
+          if (m[r.코드]) delete m[r.코드]; else m[r.코드] = Share.todayIso();
+          Store.updateSite(siteId, { settlePaid: m });
+          rerender();
+        };
+        bt.appendChild(a); bt.appendChild(pay); row.appendChild(bt);
+      }
+      box.appendChild(row);
+    });
+    var cp = el2('button', 'btn-sm st-memo', '📝 정산 내역을 아래 메모에 붙이기'); cp.type = 'button';
+    cp.onclick = function () {
+      var cur = Store.getSite(siteId);
+      var text = settleMemoText(Share.settleRounds(c.list, cur.settlePaid));
+      var memo = String(cur.memo || '');
+      // 예전에 붙인 정산 내역 덩어리는 새 것으로 바꾼다 (계속 쌓이지 않게)
+      memo = memo.replace(/\[정산 내역\][\s\S]*?(?=\n\n|$)/, '').replace(/^\n+/, '');
+      Store.updateSite(siteId, { memo: text + (memo ? '\n\n' + memo : '') });
+      toast('📝 메모 맨 위에 정산 내역을 붙였어요');
+      renderSite(); pickSiteTab('review', false);
+    };
+    box.appendChild(cp);
   }
 
   function renderSiliconeSection(box, siteId) {

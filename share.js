@@ -1903,7 +1903,29 @@
   }
   function extraFilmRow(r) { return { place: '추가 ' + r.name + ' ' + r.filmM + 'm', code: r.filmCode, ready: false, orderedAt: '' }; }
 
+  /* ---------- 정산 내역 (2026-10-26 사장님) ----------
+     일이 띄엄띄엄 여러 날이면 중간중간 정산견적을 발행한다. 같은 견적을 고쳐서 다시 발행하기도 해서
+     (10/01·10/06 같은 금액 두 번) 그냥 다 더하면 두 배가 된다 — 나중 발행이 앞 발행의 품목을 다 담고 있으면
+     앞 것은 '고친 전 판' 으로 보고 합계에서 뺀다. 입금은 현장관리에서 사장님이 체크 (site.settlePaid = { 코드: 'YYYY-MM-DD' }) */
+  function settleRounds(list, paid) {
+    var rows = (list || []).slice().sort(function (a, b) { return str(a.발행일시).localeCompare(str(b.발행일시)); });
+    var keyOf = function (r) { return (r.품목 || []).concat((r.추가작업 || []).map(function (a) { return '+' + a.품목명; })); };
+    var out = rows.map(function (r, i) {
+      var mine = keyOf(r);
+      var later = rows.slice(i + 1).find(function (n) {
+        var theirs = keyOf(n);
+        return mine.length ? mine.every(function (k) { return theirs.indexOf(k) >= 0; }) : n.총액 === r.총액;
+      });
+      return Object.assign({}, r, { 대체: later ? later.코드 : '', 입금: (paid && paid[r.코드]) || '' });
+    });
+    var live = out.filter(function (r) { return !r.대체; });
+    var 합 = live.reduce(function (a, r) { return a + (Number(r.총액) || 0); }, 0);
+    var 받은 = live.filter(function (r) { return r.입금; }).reduce(function (a, r) { return a + (Number(r.총액) || 0); }, 0);
+    return { rows: out, 회차: live.length, 합계: 합, 받은: 받은, 남은: 합 - 받은 };
+  }
+
   var Share = {
+    settleRounds: settleRounds,
     extraMinutes: extraMinutes,
     extraFilmCode: extraFilmCode,
     extraPlan: extraPlan,

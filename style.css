@@ -1351,3 +1351,24 @@ textarea { resize: vertical; }
 .ex-plan .btn-sm { align-self: flex-start; margin-top: 3px; }
 .btn-sm.primary { background: var(--primary, #2b62d9); border-color: var(--primary, #2b62d9); color: #fff; }
 .icon-btn.dim { opacity: .35; }
+
+/* 💰 정산 내역 (2026-10-26) */
+.settle-sec { border: 1.5px solid #fde68a !important; background: #fffdf5; }
+.st-sum { margin: 2px 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+.st-sum b { font-size: 16px; }
+.st-sum .due { color: #b45309; font-weight: 700; font-size: 13px; }
+.st-sum .ok { color: #15803d; font-weight: 700; font-size: 13px; }
+.st-r { margin: 0 12px 8px; background: #fff; border: 1px solid #f1e6c6; border-radius: 10px; padding: 9px 11px; }
+.st-r.paid { border-color: #bbf7d0; background: #f6fef9; }
+.st-r.old { opacity: .55; background: #f8f8f8; border-style: dashed; }
+.st-h { display: flex; align-items: center; gap: 8px; }
+.st-no { background: #fef3c7; color: #92400e; border-radius: 6px; padding: 0 6px; font-size: 11.5px; font-weight: 800; }
+.st-r.old .st-no { background: #e5e7eb; color: #555; }
+.st-d { font-weight: 700; font-size: 14px; }
+.st-amt { margin-left: auto; font-size: 15px; }
+.st-r small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.45; }
+.st-r small.st-add { color: #6d28d9; }
+.st-bt { display: flex; gap: 6px; margin-top: 7px; }
+.st-bt .btn-sm { text-decoration: none; }
+.st-bt .btn-sm.paid { background: #dcfce7; border-color: #86efac; color: #166534; }
+.st-memo { margin: 2px 12px 12px; }
