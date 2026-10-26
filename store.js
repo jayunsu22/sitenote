@@ -126,6 +126,8 @@
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
     s.silicone = Share.siliconeOf(s);
+    // 추가작업을 일정·필름에 이미 넣었는지 { 작업목록ID: { staff, film } } (2026-10-26) — 두 번 넣지 않게
+    s.extraDone = (s.extraDone && typeof s.extraDone === 'object' && !Array.isArray(s.extraDone)) ? s.extraDone : {};
     s.hide = !!s.hide;   // 숨긴 현장 (2026-10-24) — 메인 목록에서만 뺀다. 일정·기록은 그대로
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
