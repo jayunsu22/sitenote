@@ -664,6 +664,9 @@
     // 챙길 부자재·공구 (2026-10-05) — AS 는 재료가 현장마다 달라 접수할 때 골라 둔다
     var tools = (v.tools || []).map(str).filter(Boolean);
     if (tools.length) lines.push('🧰 챙길 것: ' + tools.join(', '));
+    // 이 AS 에 쓸 필름을 골랐으면 그것만 (현장 필름 전체 대신) — 2026-10-27
+    var vf = (v.films || []).map(str).filter(Boolean);
+    if (vf.length) { delete has.films; lines.push('🎞 필름: ' + vf.join(', ')); }
     lines = lines.concat(infoLines(site, has));
     var bc = serviceBizContact(client, v);
     var cc = bc ? contactsText({ name: client && client.name, contacts: [bc] }) : '';

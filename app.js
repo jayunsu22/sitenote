@@ -2442,8 +2442,61 @@
       b.classList.toggle('on', b.getAttribute('data-kind') === c.v.kind);
     });
     renderServiceStaff(c);
+    renderServiceFilms(c);
     renderServiceTools(c);
     renderServiceBiz(c);
+  }
+  /* AS 필름 (2026-10-27 사장님): 현장 필름 줄에서 이 AS 에 쓸 번호를 칩으로 고르고(시공위치를 같이 보여줌),
+     아래 주문처 칩에서 담당자 이름 = 전화(필름명 복사), 💬 = 필름명이 채워진 문자. 고른 게 없으면 현장 필름 전체로 주문 */
+  function renderServiceFilms(c) {
+    var wrap = $('svcFilms'); if (!wrap) return;
+    wrap.innerHTML = '';
+    var mine = c.v.films || [];
+    var byCode = {}, order = [];
+    (c.site.films || []).forEach(function (r) {
+      var code = String((r && r.code) || '').trim(); if (!code) return;
+      var k = Share.filmKey(code);
+      if (!byCode[k]) { byCode[k] = { code: code, places: [] }; order.push(k); }
+      if (r.place && byCode[k].places.indexOf(r.place) === -1) byCode[k].places.push(r.place);
+    });
+    mine.forEach(function (code) { var k = Share.filmKey(code); if (!byCode[k]) { byCode[k] = { code: code, places: [], extra: true }; order.push(k); } });
+    var picked = el2('div', 'svc-films-picked' + (mine.length ? '' : ' none'),
+      mine.length ? '🎞 이 AS 필름: ' + mine.join(', ') : (order.length ? '쓸 필름을 탭하세요 (안 고르면 현장 필름 전체로 주문)' : '현장에 적힌 필름이 없습니다 — + 로 번호를 넣으세요'));
+    wrap.appendChild(picked);
+    var chips = el2('div', 'chips chips-pick');
+    order.forEach(function (k) {
+      var f = byCode[k];
+      var on = mine.some(function (m) { return Share.filmKey(m) === k; });
+      var chip = document.createElement('button'); chip.type = 'button';
+      chip.className = 'chip pick svc-film-chip' + (on ? ' on' : '');
+      chip.innerHTML = esc(f.code) + (on ? ' ✓' : '') + (f.places.length ? '<small>' + esc(f.places.slice(0, 3).join('·')) + (f.places.length > 3 ? '…' : '') + '</small>' : '');
+      chip.onclick = function () {
+        var cur = curService(); if (!cur) return;
+        var have = cur.v.films || [];
+        svcSave({ films: on ? have.filter(function (x) { return Share.filmKey(x) !== k; }) : have.concat([f.code]) });
+        renderServiceSheet();
+      };
+      chips.appendChild(chip);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'chip add'; add.textContent = '+ 다른 필름';
+    add.onclick = function () {
+      modalPrompt('AS 에 쓸 필름 번호', '', '예: 예림 HP604').then(function (val) {
+        var code = String(val || '').trim(); if (!code) return;
+        var cur = curService(); if (!cur) return;
+        var have = cur.v.films || [];
+        if (have.some(function (x) { return Share.filmKey(x) === Share.filmKey(code); })) return;
+        svcSave({ films: have.concat([code]) });
+        renderServiceSheet();
+      });
+    };
+    chips.appendChild(add);
+    wrap.appendChild(chips);
+    // 주문: 고른 필름(없으면 현장 필름 전체)으로 주문처 담당자에게 전화·문자
+    var forOrder = mine.length ? mine.map(function (code) { return { place: '', code: code, ready: false }; })
+      : (c.site.films || []).filter(function (r) { return r && String(r.code || '').trim(); }).map(function (r) { return { place: r.place, code: r.code, ready: false }; });
+    var ob = el2('div', 'svc-film-order');
+    renderFilmVendors(ob, forOrder, c.site);
+    wrap.appendChild(ob);
   }
   // 필요한 부자재·공구: 설정 목록(+ 이 접수에만 있는 것) 칩, 탭으로 켜고 끈다. '+ 추가' 는 설정 목록에도 넣는다
   function renderServiceTools(c) {

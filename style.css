@@ -1387,3 +1387,12 @@ textarea { resize: vertical; }
 .st-form .st-ck input { margin-top: 2px; }
 .st-form .st-ck small { display: block; }
 .st-q { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* AS 필름 단계 (2026-10-27) */
+.svc-step-film::before { background: #7c3aed; }
+.svc-films { border: 1.5px solid #ddd6fe; background: #faf8ff; border-radius: 12px; padding: 10px; }
+.svc-films-picked { font-weight: 800; color: #5b21b6; font-size: 14px; margin-bottom: 8px; }
+.svc-films-picked.none { color: var(--muted); font-weight: 600; font-size: 13px; }
+.svc-film-chip small { display: block; font-size: 11px; font-weight: 500; opacity: .75; margin-top: 1px; }
+.svc-film-order { margin-top: 10px; }
+.svc-film-order .fv-box { margin: 0; }
