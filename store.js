@@ -162,6 +162,7 @@
         phone: String(v.phone || ''),         // 고객 연락처 (2026-10-02)
         bizContact: String(v.bizContact || ''), // 작업자에게 갈 업자 담당자 (이름, 없으면 번호)
         tools: cleanStaff(v.tools),           // 챙길 부자재·공구 (2026-10-05) — 빈값·중복 정리는 인원과 같은 규칙
+        films: cleanStaff(v.films),           // 이 AS 에 쓸 필름 번호 (2026-10-27)
         // 챙긴 부자재·공구 (2026-10-14) — 할 일 창에서 체크한다. tools 에 없는 이름은 버린다
         toolsReady: cleanStaff(v.toolsReady).filter(function (n) { return cleanStaff(v.tools).indexOf(n) !== -1; }),
         done: !!v.done,
