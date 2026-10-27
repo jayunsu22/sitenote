@@ -1408,3 +1408,7 @@ textarea { resize: vertical; }
 .tr-row b { display: block; font-size: 14px; }
 .tr-row small { color: var(--muted); font-size: 12px; }
 .tr-srv { border-top: 1px dashed var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+/* 날짜입력 버튼 (stamp.js) — 글 칸 바로 아래 오른쪽 */
+.stamp-btn { display: block; margin: 4px 0 6px auto; padding: 4px 10px; font-size: 12px; line-height: 1.4; border: 1px solid var(--border); border-radius: 14px; background: var(--card, #fff); color: var(--text, #333); cursor: pointer; }
+.stamp-btn:active { background: var(--border); }
