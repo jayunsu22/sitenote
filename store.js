@@ -62,7 +62,7 @@
     return out;
   }
   function defaultState() {
-    return { version: 1, clients: [], sites: [], photos: [], tasks: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '' };
+    return { version: 1, clients: [], sites: [], photos: [], tasks: [], settings: defaultSettings(), syncQueue: [], lastSyncAt: 0, lastSyncError: '', trash: [] };
   }
   function supplyRows(names) {
     return (names || []).map(function (n) { return { name: String(n || '').trim(), ready: false }; })
@@ -275,6 +275,7 @@
       seq = state.syncQueue.reduce(function (m, o) { return Math.max(m, o.seq || 0); }, seq);
       state.lastSyncAt = parsed.lastSyncAt || 0;
       state.lastSyncError = parsed.lastSyncError || '';
+      state.trash = cleanTrash(parsed.trash);
     }
     return state;
   }
@@ -332,6 +333,7 @@
   }
   function deleteClient(id) {
     state.sites.filter(function (s) { return s.clientId === id; }).forEach(function (s) {
+      toTrash(s);
       enqueue({ op: 'delete', type: 'site', id: s.id });
     });
     state.photos.filter(function (p) { return p.clientId === id; }).forEach(function (p) {
@@ -665,9 +667,54 @@
     return true;
   }
 
+  /* 🗑 지운 현장 (2026-10-28 사장님 — AS 를 지우려다 현장을 통째로 지웠다).
+     지운 현장은 이 폰에 60일(최대 30곳) 보관해 두고 되살릴 수 있게 한다. 서버 백업은 지움 표시만 하고 내용은 남아 있어서
+     되살리면 같은 id 로 다시 올리면(upsert) 지움 표시도 풀린다 */
+  var TRASH_DAYS = 60, TRASH_MAX = 30;
+  function cleanTrash(raw) {
+    var cut = Date.now() - TRASH_DAYS * 86400000;
+    return (Array.isArray(raw) ? raw : []).filter(function (t) { return t && t.site && t.site.id && (t.at || 0) > cut; }).slice(0, TRASH_MAX);
+  }
+  function toTrash(site) {
+    if (!site) return;
+    state.trash = cleanTrash([{ site: JSON.parse(JSON.stringify(site)), at: Date.now() }].concat((state.trash || []).filter(function (t) { return t.site.id !== site.id; })));
+  }
   function deleteSite(id) {
+    toTrash(getSite(id));
     state.sites = state.sites.filter(function (s) { return s.id !== id; });
     commit({ op: 'delete', type: 'site', id: id });
+  }
+  function trashList() { return (state.trash || []).slice(); }
+  // 되살리기: 거래처가 없어졌으면 '되살린 현장' 거래처로. 숨김도 풀어서 바로 목록에 보이게
+  function restoreSite(id, fromServer) {
+    var t = fromServer ? { site: fromServer } : (state.trash || []).find(function (x) { return x.site.id === id; });
+    if (!t) return null;
+    if (getSite(t.site.id)) { state.trash = (state.trash || []).filter(function (x) { return x.site.id !== t.site.id; }); persist(); return getSite(t.site.id); }
+    var raw = Object.assign({}, t.site, { hide: false, updatedAt: Date.now() });
+    if (!getClient(raw.clientId)) {
+      var c = state.clients.find(function (x) { return x.name === '되살린 현장'; });
+      if (!c) { c = addClient('되살린 현장'); }
+      raw.clientId = c.id;
+    }
+    var site = normalizeSite(raw, state.settings.supplyDefaults);
+    state.sites.push(site);
+    state.trash = (state.trash || []).filter(function (x) { return x.site.id !== site.id; });
+    commit({ op: 'upsert', type: 'site', id: site.id, data: site });
+    return site;
+  }
+  /* 백업에는 있는데 이 폰에 없는 현장 찾기 — 폰의 다른 기록은 건드리지 않고 빠진 것만 더한다 (통째 복원과 다름).
+     아직 서버로 안 간 '지움'이 있는 현장은 빼고 찾는다 (지운 걸 다시 살리면 안 된다) */
+  function missingFromServer() {
+    if (!state.settings.backupKey) return Promise.reject(new Error('백업키가 없습니다'));
+    var pendingDel = {};
+    (state.syncQueue || []).forEach(function (o) { if (o.op === 'delete' && o.type === 'site') pendingDel[o.id] = true; });
+    return fetchWithTimeout(RESTORE_URL + '?key=' + encodeURIComponent(state.settings.backupKey), { method: 'GET' })
+      .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(function (data) {
+        var have = {};
+        state.sites.forEach(function (x) { have[x.id] = true; });
+        return (data.sites || []).filter(function (x) { return x && x.id && !have[x.id] && !pendingDel[x.id]; });
+      });
   }
 
   // ---------- 사진 원본 저장소 (IndexedDB, 없으면 localStorage) ----------
@@ -958,6 +1005,7 @@
     load: load,
     clients: clients, getClient: getClient, addClient: addClient, updateClient: updateClient,
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
+    trashList: trashList, restoreSite: restoreSite, missingFromServer: missingFromServer,
     getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
     setReviewAnswer: setReviewAnswer, toggleReviewTag: toggleReviewTag,
     renameReviewQuestion: renameReviewQuestion, moveReviewQuestion: moveReviewQuestion,

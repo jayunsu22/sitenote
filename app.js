@@ -526,6 +526,49 @@
       tg.onclick = function () { showHidden = !showHidden; renderCards(); };
       if (showHidden) wrap.insertBefore(tg, wrap.children[sites.length] || null); else wrap.appendChild(tg);
     }
+    var tr = document.createElement('button'); tr.type = 'button'; tr.className = 'hidden-toggle trash-toggle';
+    var tn = Store.trashList().length;
+    tr.textContent = '🗑 지운 현장' + (tn ? ' ' + tn + '곳' : '') + ' · 되살리기';
+    tr.onclick = openTrash;
+    wrap.appendChild(tr);
+  }
+  /* 🗑 지운 현장 되살리기 (2026-10-28) — 이 폰에 보관한 것 + 백업(Airtable)에는 있는데 폰에 없는 것.
+     되살리면 숨김도 풀리고 서버 백업도 다시 살아난다 */
+  function openTrash() {
+    var paint = function (serverList, msg) {
+      var t = Store.trashList();
+      var rows = t.map(function (x) {
+        return '<div class="tr-row"><div><b>' + esc(Share.titleLine(x.site)) + '</b><small>' + esc(new Date(x.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })) + ' 지움</small></div>' +
+          '<button type="button" class="btn-sm primary" data-tr="' + esc(x.site.id) + '">되살리기</button></div>';
+      }).join('');
+      var srows = (serverList || []).map(function (x) {
+        return '<div class="tr-row"><div><b>' + esc(Share.titleLine(x)) + '</b><small>백업에 있음' + (x.date ? ' · ' + esc(Share.shortDate(x.date)) : '') + '</small></div>' +
+          '<button type="button" class="btn-sm primary" data-srv="' + esc(x.id) + '">가져오기</button></div>';
+      }).join('');
+      openModal('🗑 지운 현장 되살리기',
+        '<div class="tr-box">' + (rows || '<p class="hint">이 폰에 보관된 지운 현장이 없습니다.</p>') +
+        '<div class="tr-srv"><button type="button" class="btn-sm" id="trScan">☁️ 백업에서 빠진 현장 찾기</button>' +
+        '<p class="hint">폰의 다른 기록은 그대로 두고, 백업에는 있는데 폰에 없는 현장만 가져옵니다.</p>' + (msg ? '<p class="hint"><b>' + esc(msg) + '</b></p>' : '') + srows + '</div></div>',
+        [{ label: '닫기', onClick: function () { closeModal(); renderCards(); } }]);
+      $('modalBody').querySelectorAll('[data-tr]').forEach(function (b) {
+        b.onclick = function () { var st = Store.restoreSite(b.getAttribute('data-tr')); toast(st ? '✅ "' + Share.titleLine(st) + '" 되살렸습니다' : '되살리지 못했습니다'); paint(serverList); };
+      });
+      $('modalBody').querySelectorAll('[data-srv]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute('data-srv');
+          var x = (serverList || []).find(function (y) { return y.id === id; });
+          var st = x && Store.restoreSite(id, x);
+          toast(st ? '✅ "' + Share.titleLine(st) + '" 가져왔습니다' : '가져오지 못했습니다');
+          paint((serverList || []).filter(function (y) { return y.id !== id; }));
+        };
+      });
+      $('trScan').onclick = function () {
+        $('trScan').disabled = true; $('trScan').textContent = '찾는 중…';
+        Store.missingFromServer().then(function (list) { paint(list, list.length ? '백업에만 있는 현장 ' + list.length + '곳' : '빠진 현장이 없습니다'); })
+          .catch(function (e) { paint(serverList, '찾기 실패: ' + e.message); });
+      };
+    };
+    paint(null);
   }
   var showHidden = false;
   $('btnAddSite').onclick = function () {
@@ -3429,9 +3472,10 @@
     show.onclick = function () { $('btnHideSite').onclick(); };
     var del = el2('button', 'btn-sm danger', '완전 삭제'); del.type = 'button';
     del.onclick = function () {
-      modalConfirm('현장 삭제', '"' + Share.titleLine(s) + '" 현장을 완전히 지웁니다. 되돌릴 수 없습니다.', '삭제', true).then(function (ok) {
-        if (!ok) return;
-        Store.deleteSite(s.id); toast('삭제됨'); back();
+      // AS 를 지우려다 현장을 지우는 일이 있어서(2026-10-28) '삭제' 를 직접 적어야 지운다. 지워도 🗑 지운 현장에서 되살릴 수 있다
+      modalPrompt('현장을 통째로 지울까요? "' + Share.titleLine(s) + '" — AS 만 지우려면 취소하세요. 지우려면 삭제 라고 적으세요', '', '삭제').then(function (v) {
+        if (String(v || '').trim() !== '삭제') { if (v != null) toast('지우지 않았습니다'); return; }
+        Store.deleteSite(s.id); toast('삭제됨 — 목록 맨 아래 🗑 지운 현장에서 되살릴 수 있어요'); back();
       });
     };
     bn.appendChild(show); bn.appendChild(del);
@@ -4586,6 +4630,7 @@
     if (!Store.pendingCount()) { toast('백업할 변경이 없습니다'); return; }
     Store.flush().then(function (ok) { toast(ok ? '백업 완료' : '백업 실패 — 나중에 다시 시도됩니다'); renderSyncStatus(); });
   };
+  $('btnTrash').onclick = openTrash;
   $('btnRestore').onclick = function () {
     if (!state.settings.backupKey) { toast('백업키를 먼저 저장하세요'); return; }
     modalConfirm('Airtable에서 복원', '이 폰의 거래처/현장 데이터를 모두 지우고 Airtable 백업으로 바꿉니다. 아직 백업 안 된 변경(' + Store.pendingCount() + '건)은 사라집니다.', '복원', true)
