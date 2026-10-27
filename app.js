@@ -2733,12 +2733,17 @@
     var c = curService(); if (!c) return;
     // 탭의 아직 저장 안 된 새 접수는 칸만 비운다
     if (svcSheet.inline && !svcSheet.id) { resetInlineService('비웠습니다'); return; }
-    modalConfirm('삭제', Share.serviceLabel(c.v) + ' "' + (c.v.request || svcWhen(c.v)) + '" 을(를) 지웁니다.', '삭제', true).then(function (ok) {
+    // 지울 대상을 먼저 잡아 둔다 — 확인창이 떠 있는 사이 접수 창이 닫히면 svcSheet 가 탭의 빈 접수로 바뀌어
+    // 아무것도 안 지우고 '삭제됨' 만 뜨던 문제 (2026-10-28)
+    var siteId = svcSheet.siteId, id = svcSheet.id, inline = !!svcSheet.inline;
+    modalConfirm('삭제', Share.serviceLabel(c.v) + ' "' + (c.v.request || svcWhen(c.v)) + '" ' + svcWhen(c.v) + ' 을(를) 지웁니다. (현장은 그대로)', '삭제', true).then(function (ok) {
       if (!ok) return;
-      Store.removeService(svcSheet.siteId, svcSheet.id);
-      if (svcSheet.inline) { resetInlineService('삭제됨'); return; }
-      closeServiceSheet();
-      toast('삭제됨');
+      Store.removeService(siteId, id);
+      var still = Share.servicesOf(Store.getSite(siteId)).some(function (x) { return x.id === id; });
+      if (inline && svcSheet.inline) { resetInlineService(still ? '지우지 못했습니다' : '삭제됨'); return; }
+      if (svcSheet.id === id) closeServiceSheet();
+      else { var sec = $('svcSec'); if (sec) renderServiceSection(sec, siteId); }
+      toast(still ? '지우지 못했습니다 — 다시 해 주세요' : '삭제됨');
     });
   };
   // 확인: 창이면 닫기. 탭 안 폼이면 '접수 완료' — 이미 저장돼 있으니 새 빈 접수로 넘어간다
