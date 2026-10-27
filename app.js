@@ -1052,7 +1052,8 @@
     if (tg.overdue.length) body.appendChild(TaskUI.renderOverdueBox(tg.overdue));
     if (tg.undated.length) body.appendChild(TaskUI.renderUndatedBox(tg.undated));
 
-    // 지난 일정: 맨 위에 접어두고, 펼치면 최근 날짜부터 거꾸로
+    // 지난 일정: 맨 위에 접어두고, 펼치면 앞으로 일정과 같은 방향(위 → 아래 = 옛날 → 최근)으로 이어진다.
+    // 예전엔 펼치면 최근부터 거꾸로라 아래로 내리면 과거로 가서, 앞으로 일정과 방향이 반대라 헷갈렸다 (2026-10-27)
     if (g.pastCount || tPast.length) {
       var pastBtn = document.createElement('button');
       pastBtn.type = 'button'; pastBtn.className = 'sch-more';
@@ -1062,11 +1063,20 @@
       pastBtn.textContent = (showPast ? '▾' : '▸') + ' 지난 일정 ' + g.pastCount + '건' +
         (tPast.length ? ' · 끝낸 할 일 ' + tPast.length + '일' : '') + ' (' +
         Share.shortDate(pFirst) + ' ~ ' + Share.shortDate(pLast) + ')';
-      pastBtn.onclick = function () { showPast = !showPast; renderScheduleList(); };
+      pastBtn.onclick = function () {
+        // 펼쳐도 지금 보던 자리(오늘 쪽)가 그대로 있게: 버튼 아래 경계선을 같은 화면 높이에 맞춘다
+        var top = pastBtn.getBoundingClientRect().top;
+        showPast = !showPast; renderScheduleList();
+        var sepEl = document.querySelector('#scheduleBody .sch-sep');
+        if (showPast && sepEl) window.scrollBy(0, sepEl.getBoundingClientRect().top - top - pastBtn.offsetHeight);
+      };
       body.appendChild(pastBtn);
       if (showPast) {
-        g.past.forEach(function (r) { body.appendChild(renderRunCard(r, dup, 차례++)); });
-        tPast.forEach(function (k) { body.appendChild(TaskUI.renderTaskDay(k, tg.byDate[k])); });
+        var pastItems = [];
+        g.past.forEach(function (r) { pastItems.push({ d: r.start, o: 1, make: function () { return renderRunCard(r, dup, 차례++); } }); });
+        tPast.forEach(function (k) { pastItems.push({ d: k, o: 0, make: function () { return TaskUI.renderTaskDay(k, tg.byDate[k]); } }); });
+        pastItems.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : a.o - b.o); });
+        pastItems.forEach(function (it) { body.appendChild(it.make()); });
         var sep = document.createElement('div'); sep.className = 'sch-sep'; body.appendChild(sep);
       }
     }
