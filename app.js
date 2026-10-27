@@ -2838,14 +2838,15 @@
   function openSettleEdit(siteId, r, onDone) {
     var 새것 = !r;
     r = r || { 수동: true, key: 'm' + Date.now().toString(36), 날짜: Share.todayIso(), 내용: '', 정산금액: '', 견적금액: 0, 사유: '', 입금액: 0, 입금일: '', 포함: true };
-    var v = function (x) { return x === 0 || x ? String(x) : ''; };
+    // 금액 칸은 적는 대로 천 단위 쉼표 (660000 → 660,000). 저장할 때 숫자만 뽑는다
+    var v = function (x) { return x === 0 || x ? Math.round(Number(x) || 0).toLocaleString('ko-KR') : ''; };
     var html = '<div class="st-form">' +
       (r.수동 ? '<label>날짜<input type="date" id="stDate" value="' + esc(r.날짜) + '"></label>' +
         '<label>내용<input type="text" id="stWhat" value="' + esc(r.내용 || '') + '" placeholder="예: 현관 손잡이 추가, 2차 중간 정산"></label>'
         : '<p class="st-q">견적서 금액 <b>' + won(r.견적금액) + '</b> · ' + esc(Share.dayLabel(r.날짜)) + ' 발행</p>') +
-      '<label>정산 금액 <small>실제로 받기로 한 돈</small><input type="number" inputmode="numeric" id="stAmt" value="' + esc(v(r.정산금액)) + '" placeholder="0"></label>' +
+      '<label>정산 금액 <small>실제로 받기로 한 돈</small><input type="text" inputmode="numeric" class="st-won" id="stAmt" value="' + esc(v(r.정산금액)) + '" placeholder="0"></label>' +
       (r.수동 ? '' : '<label>조정 사유 <small>금액이 다를 때</small><input type="text" id="stWhy" value="' + esc(r.사유 || '') + '" placeholder="예: 네고 10만원, 부자재비 빼기"></label>') +
-      '<label>입금액 <small>일부만 받았으면 받은 만큼</small><input type="number" inputmode="numeric" id="stPaid" value="' + esc(r.입금액 ? String(r.입금액) : '') + '" placeholder="0 = 아직"></label>' +
+      '<label>입금액 <small>일부만 받았으면 받은 만큼</small><input type="text" inputmode="numeric" class="st-won" id="stPaid" value="' + esc(r.입금액 ? v(r.입금액) : '') + '" placeholder="0 = 아직"></label>' +
       '<label>입금일<input type="date" id="stPaidAt" value="' + esc(r.입금일 || '') + '"></label>' +
       '<label class="st-ck"><input type="checkbox" id="stIn"' + (r.포함 ? ' checked' : '') + '> 합계에 넣기 <small>' +
         (r.자동대체 ? '나중 견적서에 같은 품목이 다 있어서 고친 전 판으로 봤어요 — 따로 받은 돈이면 켜세요' : '빼면 기록만 남아요') + '</small></label></div>';
@@ -2879,6 +2880,15 @@
       closeModal(); onDone();
     } });
     openModal(새것 ? '＋ 정산 직접 추가' : (r.수동 ? '정산 고치기' : '정산·입금 고치기'), html, btns);
+    document.querySelectorAll('#modalBody .st-won').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var digits = inp.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+        var fromEnd = inp.value.length - (inp.selectionStart || 0);   // 커서를 끝에서 같은 자리에 둔다
+        inp.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
+        var pos = Math.max(0, inp.value.length - fromEnd);
+        try { inp.setSelectionRange(pos, pos); } catch (e) { /* 일부 브라우저 */ }
+      });
+    });
   }
   function renderSettleSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
