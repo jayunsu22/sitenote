@@ -460,7 +460,7 @@ test('차량번호 있는 사람이 없으면 빈 문자열', () => {
 test('작업자에게: 업자 담당자 연락처 (빈 줄은 뺀다)', () => {
   const client = { name: '이레토탈 인테리어', contacts: [{ name: '김실장', phone: '010-7132-3491' }, { name: '', phone: '' }] };
   assert.strictEqual(Share.buildClientContacts(현장(), client),
-    '[인천 벽산블루밍 104동 901호]\n업자 이레토탈 인테리어\n김실장 010-7132-3491');
+    '[인천 벽산블루밍 104동 901호]\n업체 이레토탈 인테리어\n김실장 010-7132-3491');
   assert.strictEqual(Share.buildClientContacts(현장(), { name: 'A', contacts: [] }), '');
 });
 
@@ -542,7 +542,7 @@ test('작업자에게 AS 지시: 요청 + 출입 정보 + 업자 담당자 (원�
     '공동현관비번: 0000*\n' +
     '주차: 지하 2층\n' +
     '필름:\n현관문 PS035\n' +
-    '업자 룩스디자인 · 김실장 010-7777-8888');
+    '업체 룩스디자인\n담당자 김실장 010-7777-8888');
 });
 test('작업자에게 AS 지시: 고객 연락처는 요청 바로 아래', () => {
   const s = as현장();
@@ -584,9 +584,9 @@ test('작업자에게 AS 지시: 업자 담당자가 여럿이면 고른 한 명
   const s = as현장();
   const client = { name: '룩스디자인', contacts: [{ name: '김실장', phone: '010-7777-8888' }, { name: '이실장', phone: '010-5555-6666' }] };
   const t = Share.buildServiceOrder(s, Object.assign({}, s.services[0], { bizContact: '이실장' }), client);
-  assert.ok(t.endsWith('업자 룩스디자인 · 이실장 010-5555-6666'));
+  assert.ok(t.endsWith('업체 룩스디자인\n담당자 이실장 010-5555-6666'));
   assert.ok(!t.includes('김실장'));
-  assert.ok(!Share.buildServiceOrder(s, s.services[0], client).includes('업자'), '안 골랐으면 업자 줄 없음 (화면에서 복사를 막는다)');
+  assert.ok(!Share.buildServiceOrder(s, s.services[0], client).includes('업체'), '안 골랐으면 업체 줄 없음 (화면에서 복사를 막는다)');
 });
 test('날짜 미정 추가작업은 머리줄에 날짜 없이', () => {
   const s = as현장();
