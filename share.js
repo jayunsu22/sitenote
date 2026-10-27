@@ -634,7 +634,8 @@
       .map(function (c) { return [str(c && c.name), str(c && c.phone)].filter(Boolean).join(' '); })
       .filter(Boolean);
     if (!cs.length) return '';
-    return '업자' + (str(client && client.name) ? ' ' + str(client.name) : '') + ' · ' + cs.join(', ');
+    // 업체명 한 줄, 담당자는 다음 줄 (2026-10-28 사장님)
+    return '업체' + (str(client && client.name) ? ' ' + str(client.name) : '') + '\n담당자 ' + cs.join(', ');
   }
   // 업자 담당자 하나를 가리키는 값 - 이름, 이름이 없으면 번호 (AS 의 bizContact 에 저장)
   function contactKey(c) { return str(c && c.name) || str(c && c.phone); }
@@ -1070,7 +1071,7 @@
       .filter(Boolean);
     if (!cs.length) return '';
     var who = str(client && client.name);
-    return '[' + titleLine(site) + ']\n업자' + (who ? ' ' + who : '') + '\n' + cs.join('\n');
+    return '[' + titleLine(site) + ']\n업체' + (who ? ' ' + who : '') + '\n' + cs.join('\n');
   }
 
   // 팀원 공유용 인원 줄. 하루면 '👤 김기사·박기사', 여러 날이면 '👤 9/19 김기사·박기사 / 9/20 김기사'

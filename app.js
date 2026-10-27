@@ -3444,6 +3444,14 @@
     else { toast('다시 목록에 보입니다'); paintHideState(u); }
   };
   $('btnSiteSettings').onclick = function () { go('#settings'); };
+  // 📅 월간 일정 바로가기 (2026-10-28) — 이 현장 날짜가 든 달을 펴서 연다
+  $('btnSiteMonth').onclick = function () {
+    var s = Store.getSite(currentSiteId);
+    var d = s && Share.isIsoDate(s.date) ? s.date : Share.todayIso();
+    calMonth = ymOf(d); calMode = 'month'; monthBase = 0; pickedDate = '';
+    go('#schedule');
+    setTimeout(function () { window.scrollTo(0, 0); }, 0);
+  };
   /* 📸 완료사진 (2026-10-25 사장님): 현장업무(기사앱)에 연결된 현장만. 기사앱을 '사장님 · 완료사진' 보기로 연다 —
      기사 이름 고르고 품목 찾아 들어갈 필요 없이 모든 품목이 한 화면, 📷 한 번에 촬영 */
   function paintPhotoBtn(s) {
