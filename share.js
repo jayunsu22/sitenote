@@ -1972,7 +1972,7 @@
       if (r.입금액) lines.push({ key: 'pay:' + r.key, 종류: '입금', 견적서: r, 날짜: r.입금일 || r.날짜, 금액: r.입금액, 내용: '', 포함: r.포함 });
     });
     splitSettleManual(manual).forEach(function (m) {
-      lines.push({ key: m.id, 종류: m.종류, 수동: true, 날짜: str(m.날짜), 금액: Math.round(Number(m.금액) || 0), 내용: str(m.내용), 포함: m.포함 !== false });
+      lines.push({ key: m.id, 종류: m.종류, 수동: true, 날짜: str(m.날짜), 금액: Math.round(Number(m.금액) || 0), 내용: str(m.내용), 부가세: str(m.부가세), 포함: m.포함 !== false });
     });
     lines.forEach(function (l, i) { l._i = i; });
     lines.sort(function (a, b) { return a.날짜.localeCompare(b.날짜) || LEDGER_ORDER[a.종류] - LEDGER_ORDER[b.종류] || a._i - b._i; });

@@ -1453,3 +1453,12 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .lg-kind.on.k-견적 { background: #fef3c7; border-color: #d97706; color: #92400e; }
 .lg-kind.on.k-추가 { background: #ede9fe; border-color: #7c3aed; color: #5b21b6; }
 .lg-kind.on.k-입금 { background: #dcfce7; border-color: #16a34a; color: #166534; }
+/* 부가세 포함/불포함 (정산 장부) */
+.lg-amt-f { display: flex; flex-direction: column; gap: 4px; }
+.lg-amt-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 700; flex-wrap: wrap; }
+.lg-vat { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.lg-vat[hidden] { display: none; }
+.lg-vat label { display: inline-flex; flex-direction: row; align-items: center; gap: 3px; color: var(--text); font-weight: 600; cursor: pointer; }
+.lg-vat input { margin: 0; width: 17px; height: 17px; }
+.lg-vt { font-size: 11px; font-weight: 700; color: #6b7280; background: #f3f4f6; border-radius: 5px; padding: 0 5px; }
+.lg-vt.in { color: #1d4ed8; background: #dbeafe; }
