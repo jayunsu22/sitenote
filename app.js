@@ -2946,10 +2946,16 @@
       '<label>메모<input type="text" id="lgWhat" value="' + esc(line.내용 || '') + '" placeholder="예: 현관 손잡이 추가, 계좌이체"></label>' +
       (새것 ? '' : '<label class="st-ck"><input type="checkbox" id="lgIn"' + (line.포함 ? ' checked' : '') + '> 합계에 넣기 <small>빼면 기록만 남아요</small></label>') + '</div>';
     var btns = [{ label: '취소', onClick: closeModal }];
+    // 지우기는 한 번 더 묻는다 (2026-10-28 사장님) — 취소하면 고치던 창으로 돌아감
     if (!새것) btns.push({ label: '지우기', cls: 'danger', onClick: function () {
-      var cur = Store.getSite(siteId);
-      Store.updateSite(siteId, { settleManual: (cur.settleManual || []).filter(function (m) { return m.id !== line.key; }) });
-      closeModal(); onDone();
+      openModal('이 줄을 지울까요?', '<p class="st-q" style="font-size:15px;color:var(--text)">' + esc(Share.dayLabel(line.날짜)) + ' · ' + LEDGER_KIND[line.종류] + ' · <b>' + won(line.금액) + '</b>' +
+        (line.내용 ? '<br>' + esc(line.내용) : '') + '</p><p class="hint" style="margin-top:8px">지우면 되돌릴 수 없어요.</p>', [
+        { label: '취소', onClick: function () { openLedgerEdit(siteId, line, null, onDone); } },
+        { label: '지우기', cls: 'danger', onClick: function () {
+          var cur = Store.getSite(siteId);
+          Store.updateSite(siteId, { settleManual: (cur.settleManual || []).filter(function (m) { return m.id !== line.key; }) });
+          closeModal(); toast('🗑 지웠어요'); onDone();
+        } }]);
     } });
     btns.push({ label: '저장', cls: 'primary', onClick: function () {
       var amt = $('lgAmt').value.replace(/[^0-9]/g, '');
