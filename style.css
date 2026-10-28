@@ -1412,3 +1412,44 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 /* 날짜입력 버튼 (stamp.js) — 글 칸 바로 아래 오른쪽 */
 .stamp-btn { display: block; margin: 4px 0 6px auto; padding: 4px 10px; font-size: 12px; line-height: 1.4; border: 1px solid var(--border); border-radius: 14px; background: var(--card, #fff); color: var(--text, #333); cursor: pointer; }
 .stamp-btn:active { background: var(--border); }
+
+/* 정산 장부 (2026-10-28) — 날짜순 한 줄씩, 맨 아래 총액·납입금·미수금 */
+.lg-list { margin: 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.lg-r { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: #fff; border: 1px solid #f1e6c6; border-left: 4px solid #d97706; border-radius: 10px; padding: 9px 10px; font: inherit; color: inherit; cursor: pointer; }
+.lg-r.k-추가 { border-left-color: #7c3aed; }
+.lg-r.k-입금 { border-left-color: #16a34a; background: #f6fef9; border-color: #d1fae5; }
+.lg-r.old { opacity: .5; border-style: dashed; background: #f8f8f8; }
+.lg-no { flex: none; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.lg-r.k-추가 .lg-no { background: #ede9fe; color: #5b21b6; }
+.lg-r.k-입금 .lg-no { background: #dcfce7; color: #166534; }
+.lg-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lg-top { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.lg-d { font-weight: 800; font-size: 14px; }
+.lg-k { font-size: 12px; font-weight: 700; color: #b45309; }
+.lg-r.k-추가 .lg-k { color: #6d28d9; }
+.lg-r.k-입금 .lg-k { color: #15803d; }
+.lg-what { font-size: 13px; color: #334; word-break: keep-all; }
+.lg-sub { font-size: 11.5px; color: var(--muted); }
+.lg-right { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.lg-amt { font-size: 15px; white-space: nowrap; }
+.lg-r.k-입금 .lg-amt { color: #15803d; }
+.lg-bal { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.lg-doc { align-self: flex-end; font-size: 12px; margin: -2px 4px 2px; color: var(--primary); text-decoration: none; }
+.lg-adds { display: flex; gap: 6px; margin: 10px 12px 0; }
+.lg-add { flex: 1; padding: 10px 4px; border-radius: 10px; border: 1.5px dashed #d6c79a; background: #fff; font: inherit; font-size: 13.5px; font-weight: 800; color: #92400e; cursor: pointer; }
+.lg-add.k-추가 { border-color: #c4b5fd; color: #5b21b6; }
+.lg-add.k-입금 { border-color: #86efac; color: #166534; }
+.lg-tot { display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px 12px 8px; border: 1.5px solid #fde68a; border-radius: 12px; overflow: hidden; background: #fff; }
+.lg-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; }
+.lg-cell + .lg-cell { border-left: 1px solid #fde68a; }
+.lg-cell small { font-size: 12px; color: var(--muted); font-weight: 700; }
+.lg-cell b { font-size: 15px; white-space: nowrap; }
+.lg-cell.paid b { color: #15803d; }
+.lg-cell.due { background: #fff7ed; }
+.lg-cell.due b { color: #c2410c; }
+.lg-cell.ok b { color: #15803d; }
+.lg-kinds { display: flex; gap: 6px; }
+.lg-kind { flex: 1; padding: 9px 2px; border-radius: 9px; border: 1.5px solid var(--border); background: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.lg-kind.on.k-견적 { background: #fef3c7; border-color: #d97706; color: #92400e; }
+.lg-kind.on.k-추가 { background: #ede9fe; border-color: #7c3aed; color: #5b21b6; }
+.lg-kind.on.k-입금 { background: #dcfce7; border-color: #16a34a; color: #166534; }

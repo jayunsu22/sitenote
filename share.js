@@ -1948,8 +1948,48 @@
     return { rows: rows, 회차: live.length, 합계: 합, 받은: 받은, 남은: 합 - 받은 };
   }
 
+  /* ---------- 정산 장부 (2026-10-28 사장님) ----------
+     한 줄씩 날짜순으로: ① 기존 견적금액 → ② 10/30 입금 또는 추가견적 → ③ 10/31 … 맨 아래 총액·납입금·미수금.
+     manual = site.settleManual [{ id, 종류: '견적'|'추가'|'입금', 날짜, 금액, 내용, 포함 }]
+     발행한 정산견적(list)은 '견적서' 줄이 되고, 그 견적에 적은 입금은 따로 '입금' 줄로 나온다.
+     예전 판(종류 없이 금액+입금액 한 줄)은 splitSettleManual 이 청구 줄과 입금 줄로 나눈다 */
+  function splitSettleManual(manual) {
+    var out = [];
+    (manual || []).forEach(function (m) {
+      if (!m || !m.id) return;
+      if (m.종류 === '견적' || m.종류 === '추가' || m.종류 === '입금') { out.push(m); return; }
+      var paid = Math.round(Number(m.입금액) || 0) || (m.입금일 ? Math.round(Number(m.금액) || 0) : 0);
+      out.push({ id: m.id, 종류: '추가', 날짜: str(m.날짜), 금액: Math.round(Number(m.금액) || 0), 내용: str(m.내용), 포함: m.포함 !== false });
+      if (paid) out.push({ id: m.id + 'p', 종류: '입금', 날짜: str(m.입금일 || m.날짜), 금액: paid, 내용: str(m.내용), 포함: m.포함 !== false });
+    });
+    return out;
+  }
+  var LEDGER_ORDER = { 견적: 0, 추가: 1, 입금: 2 };
+  function settleLedger(list, log, manual) {
+    var lines = [];
+    settleRounds(list, log, []).rows.forEach(function (r) {
+      lines.push({ key: r.key, 종류: '견적', 견적서: r, 날짜: r.날짜, 금액: r.정산금액, 내용: '', 포함: r.포함 });
+      if (r.입금액) lines.push({ key: 'pay:' + r.key, 종류: '입금', 견적서: r, 날짜: r.입금일 || r.날짜, 금액: r.입금액, 내용: '', 포함: r.포함 });
+    });
+    splitSettleManual(manual).forEach(function (m) {
+      lines.push({ key: m.id, 종류: m.종류, 수동: true, 날짜: str(m.날짜), 금액: Math.round(Number(m.금액) || 0), 내용: str(m.내용), 포함: m.포함 !== false });
+    });
+    lines.forEach(function (l, i) { l._i = i; });
+    lines.sort(function (a, b) { return a.날짜.localeCompare(b.날짜) || LEDGER_ORDER[a.종류] - LEDGER_ORDER[b.종류] || a._i - b._i; });
+    var 총액 = 0, 납입 = 0, n = 0;
+    lines.forEach(function (l) {
+      delete l._i;
+      if (!l.포함) return;
+      if (l.종류 === '입금') 납입 += l.금액; else 총액 += l.금액;
+      l.번 = ++n;
+      l.미수 = 총액 - 납입;   // 이 줄까지 남은 돈
+    });
+    return { lines: lines, 총액: 총액, 납입: 납입, 미수: 총액 - 납입 };
+  }
+
   var Share = {
     settleRounds: settleRounds,
+    settleLedger: settleLedger, splitSettleManual: splitSettleManual,
     extraMinutes: extraMinutes,
     extraFilmCode: extraFilmCode,
     extraPlan: extraPlan,
