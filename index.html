@@ -6,7 +6,7 @@
   <title>거래처별 현장관리</title>
   <!-- 사장님 전용 화면 — 관리자 암호(관리자 앱과 같은 암호, 한 번 열면 같이 열림) -->
   <script src="pin-lock.js?v=20261008a" data-key="adminUnlocked"></script>
-  <link rel="stylesheet" href="style.css?v=20261028f">
+  <link rel="stylesheet" href="style.css?v=20261028g">
 
   <!-- 홈화면 추가(PWA) -->
   <link rel="manifest" href="manifest.json">
@@ -85,6 +85,9 @@
           </div>
         </div>
       </div>
+
+      <!-- 📥 카톡 정리 (2026-10-28): 업체 카톡방 대화를 붙여넣으면 AI 가 현장 칸에 넣을 것을 뽑는다 (kakao.js · app.js renderKakao) -->
+      <div id="kakaoWrap" class="fixed-wrap kk-wrap" hidden></div>
 
       <!-- 거래처 메모 내역 (2026-10-14): 날짜별로 쌓이는 기록. 할 일을 끝낼 때 적은 결과도 여기로 온다 -->
       <div id="notesWrap" class="fixed-wrap notes-wrap" hidden></div>
@@ -466,12 +469,13 @@
 
   <script src="share.js?v=20261028f"></script>
   <script src="store.js?v=20261028d"></script>
-  <script src="owner-key.js?v=20261026a"></script>
+  <script src="owner-key.js?v=20261028g"></script>
   <script src="adminlink.js?v=20261019g"></script>
   <script src="taskui.js?v=20261024h"></script>
   <script src="quote_requests.js?v=20261021a"></script>
   <script src="quote_link.js?v=20261019g"></script>
-  <script src="app.js?v=20261028f"></script>
+  <script src="kakao.js?v=20261028g"></script>
+  <script src="app.js?v=20261028g"></script>
   <script src="stamp.js?v=20261027s"></script>
   <script src="app-switcher.js?v=20261020a" data-app-id="schedule"></script>
 </body>

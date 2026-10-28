@@ -1462,3 +1462,48 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .lg-vat input { margin: 0; width: 17px; height: 17px; }
 .lg-vt { font-size: 11px; font-weight: 700; color: #6b7280; background: #f3f4f6; border-radius: 5px; padding: 0 5px; }
 .lg-vt.in { color: #1d4ed8; background: #dbeafe; }
+
+/* 📥 카톡 정리 (2026-10-28) */
+.kk-wrap.has { border-color: #fde047; box-shadow: 0 0 0 2px #fef9c3 inset; }
+.kk-badge { color: #b45309 !important; font-weight: 800 !important; }
+.kk-body { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
+.kk-paste { width: 100%; padding: 12px; border-radius: 10px; border: 0; background: #fee500; color: #3c1e1e; font: inherit; font-weight: 800; font-size: 15px; cursor: pointer; }
+.kk-site { border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; background: #fff; }
+.kk-sh { display: flex; align-items: baseline; gap: 6px; padding-bottom: 4px; }
+.kk-sh b { font-size: 14px; }
+.kk-sh small { color: var(--muted); font-size: 12px; margin-left: auto; white-space: nowrap; }
+.kk-it { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px dashed var(--border); }
+.kk-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kk-top { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.kk-k { font-size: 12px; font-weight: 800; color: var(--muted); }
+.kk-it.k-as .kk-k { color: #dc2626; }
+.kk-it.k-schedule .kk-k { color: #c2410c; }
+.kk-room-t { font-size: 11px; color: #92400e; background: #fef3c7; border-radius: 5px; padding: 0 5px; }
+.kk-v { font-size: 14px; font-weight: 700; word-break: break-all; white-space: pre-wrap; }
+.kk-chg { font-size: 11.5px; color: #b45309; font-weight: 700; }
+.kk-q { display: block; font-size: 11.5px; color: #78350f; background: #fef9c3; border-radius: 6px; padding: 3px 6px; quotes: none; margin-top: 2px; }
+.kk-pick { margin-top: 4px; padding: 6px; border: 1.5px solid #f59e0b; border-radius: 8px; font: inherit; font-size: 13px; }
+.kk-bt { flex: none; display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.kk-bt .btn-sm { white-space: nowrap; }
+.kk-x { color: var(--muted); }
+.kk-all { padding: 11px; border-radius: 10px; border: 0; background: var(--primary); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.kk-miss { border: 1.5px dashed #d1d5db; border-radius: 12px; padding: 8px 10px; }
+.kk-mh { font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 2px; }
+.kk-mr { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--border); }
+.kk-mr .kk-v { font-size: 12.5px; font-weight: 600; color: #b91c1c; }
+.kk-mr b { font-size: 13px; }
+.kk-ask { flex: none; background: #fee500; border-color: #facc15; color: #3c1e1e; font-weight: 800; }
+.kk-empty { margin: 0; }
+.kk-rooms { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.kk-room { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 11px; border-radius: 10px; border: 1.5px solid var(--border); background: #fff; font: inherit; cursor: pointer; text-align: left; }
+.kk-room b { font-size: 14px; }
+.kk-room small { font-size: 11px; color: var(--muted); }
+.kk-room.on { border-color: #eab308; background: #fef9c3; }
+.kk-room.add { justify-content: center; color: var(--primary); font-weight: 800; border-style: dashed; }
+.kk-wait { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 0; }
+.kk-spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid #fde68a; border-top-color: #eab308; animation: kkspin .9s linear infinite; }
+@keyframes kkspin { to { transform: rotate(360deg); } }
+.kk-days { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.kk-day { padding: 5px 10px; border-radius: 14px; border: 1.5px solid var(--border); background: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.kk-day.on { border-color: #16a34a; background: #dcfce7; color: #166534; }
+.fsrc { display: block; font-size: 10.5px; font-weight: 600; color: #1d4ed8; margin-top: 2px; }
