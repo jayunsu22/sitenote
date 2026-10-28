@@ -2928,7 +2928,7 @@
   function settleMemoText(sum) {
     var L = ['[정산 내역] 총액 ' + won(sum.총액) + ' · 납입금 ' + won(sum.납입) + ' · 미수금 ' + won(sum.미수)];
     sum.lines.filter(function (l) { return l.포함; }).forEach(function (l) {
-      L.push(l.번 + '. ' + Share.dayLabel(l.날짜) + ' ' + LEDGER_KIND[l.종류].replace(/^\S+ /, '') + ' ' + (l.종류 === '입금' ? '-' : '+') + won(l.금액) + ' — ' + ledgerTitle(l));
+      L.push(l.번 + '. ' + Share.dayLabel(l.날짜) + ' ' + LEDGER_KIND[l.종류].replace(/^\S+ /, '') + ' ' + (l.종류 === '입금' ? '-' : '+') + won(l.금액) + (l.부가세 && l.종류 !== '입금' ? ' (부가세 ' + l.부가세 + ')' : '') + ' — ' + ledgerTitle(l));
     });
     return L.join('\n');
   }
@@ -2942,7 +2942,11 @@
       '<div class="lg-kinds">' + ['견적', '추가', '입금'].map(function (x) {
         return '<button type="button" class="lg-kind k-' + x + (x === k ? ' on' : '') + '" data-k="' + x + '">' + LEDGER_KIND[x] + '</button>'; }).join('') + '</div>' +
       '<label>날짜<input type="date" id="lgDate" value="' + esc(line.날짜) + '"></label>' +
-      '<label><span id="lgAmtLabel">금액</span><input type="text" inputmode="numeric" class="st-won" id="lgAmt" value="' + esc(v(line.금액)) + '" placeholder="0"></label>' +
+      // 견적·추가견적 금액 옆에 부가세 포함/불포함 (2026-10-28 사장님) — 기록용 표시, 금액은 적은 그대로 계산
+      '<div class="lg-amt-f"><div class="lg-amt-h"><span id="lgAmtLabel">금액</span>' +
+        '<span class="lg-vat" id="lgVat">부가세 ' + ['포함', '불포함'].map(function (x) {
+          return '<label><input type="radio" name="lgVat" value="' + x + '"' + ((line.부가세 || '불포함') === x ? ' checked' : '') + '> ' + x + '</label>'; }).join('') + '</span></div>' +
+        '<input type="text" inputmode="numeric" class="st-won" id="lgAmt" value="' + esc(v(line.금액)) + '" placeholder="0"></div>' +
       '<label>메모<input type="text" id="lgWhat" value="' + esc(line.내용 || '') + '" placeholder="예: 현관 손잡이 추가, 계좌이체"></label>' +
       (새것 ? '' : '<label class="st-ck"><input type="checkbox" id="lgIn"' + (line.포함 ? ' checked' : '') + '> 합계에 넣기 <small>빼면 기록만 남아요</small></label>') + '</div>';
     var btns = [{ label: '취소', onClick: closeModal }];
@@ -2962,6 +2966,7 @@
       if (!amt || !Number(amt)) { toast('금액을 적어 주세요'); return; }
       var cur = Store.getSite(siteId);
       var row = { id: line.key, 종류: k, 날짜: $('lgDate').value || Share.todayIso(), 금액: Number(amt), 내용: $('lgWhat').value.trim(), 포함: $('lgIn') ? $('lgIn').checked : true };
+      if (k !== '입금') { var vt = document.querySelector('#modalBody input[name=lgVat]:checked'); row.부가세 = vt ? vt.value : '불포함'; }
       var list = cur.settleManual || [];
       var at = list.findIndex(function (m) { return m.id === line.key; });
       list = at >= 0 ? list.map(function (m, i) { return i === at ? row : m; }) : list.concat([row]);
@@ -2972,6 +2977,7 @@
     var paint = function () {
       document.querySelectorAll('#modalBody .lg-kind').forEach(function (b) { b.classList.toggle('on', b.dataset.k === k); });
       $('lgAmtLabel').textContent = k === '입금' ? '받은 금액' : k === '견적' ? '견적 금액' : '추가 금액';
+      $('lgVat').hidden = k === '입금';
       var t = $('modalTitle');
       if (t && 새것) t.textContent = '＋ ' + LEDGER_KIND[k].replace(/^\S+ /, '') + ' 적기';
     };
@@ -3077,6 +3083,7 @@
       var top = el2('span', 'lg-top');
       top.appendChild(el2('span', 'lg-d', Share.dayLabel(l.날짜)));
       top.appendChild(el2('span', 'lg-k', LEDGER_KIND[l.종류]));
+      if (l.부가세 && l.종류 !== '입금') top.appendChild(el2('span', 'lg-vt' + (l.부가세 === '포함' ? ' in' : ''), '부가세 ' + l.부가세));
       mid.appendChild(top);
       mid.appendChild(el2('span', 'lg-what', ledgerTitle(l)));
       if (l.견적서 && l.종류 === '견적' && l.포함) { var d = settleLine(l.견적서); if (d) mid.appendChild(el2('span', 'lg-sub', d)); }
