@@ -135,7 +135,8 @@
       Object.keys(s.settlePaid).forEach(function (k) { if (!s.settleLog[k]) s.settleLog[k] = { 입금일: s.settlePaid[k] }; });
       delete s.settlePaid;
     }
-    s.settleManual = Array.isArray(s.settleManual) ? s.settleManual.filter(isObj) : [];
+    // 정산 장부 (2026-10-28): 줄마다 종류(견적·추가·입금). 예전 한 줄(금액+입금액)은 청구 줄·입금 줄로 나눈다
+    s.settleManual = Share.splitSettleManual(Array.isArray(s.settleManual) ? s.settleManual.filter(isObj) : []);
     s.hide = !!s.hide;   // 숨긴 현장 (2026-10-24) — 메인 목록에서만 뺀다. 일정·기록은 그대로
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
