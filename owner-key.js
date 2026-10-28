@@ -29,7 +29,9 @@
     // 거래처별 현장관리 › 팀원 작업내역 (2026-10-23, n8n 현장관리_기사작업내역)
     'worker-history',
     // 메모·후기 › 정산 내역 (2026-10-26, n8n 현장관리_정산내역)
-    'settle-history'
+    'settle-history',
+    // 거래처 화면 › 📥 카톡 정리 (2026-10-28, n8n 현장관리_카톡정리)
+    'kakao-digest'
   ].forEach(function (p) { OWNER_PATHS[p] = true; });
 
   function readKey() { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return ''; } }

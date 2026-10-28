@@ -580,7 +580,7 @@
 
   function renderMain() {
     ensureCurrentClient();
-    renderTabs(); renderFixed(); TaskUI.renderClientNotes($('notesWrap'), currentClientId); QuoteRequests.render($('qreqWrap'), currentClientId); renderCards(); renderSyncBadge();
+    renderTabs(); renderFixed(); renderKakao($('kakaoWrap'), currentClientId); TaskUI.renderClientNotes($('notesWrap'), currentClientId); QuoteRequests.render($('qreqWrap'), currentClientId); renderCards(); renderSyncBadge();
   }
 
   // ---------- 백업 상태 배지 ----------
@@ -3584,6 +3584,8 @@
     // 현장명·달력지역은 공유 문구에 안 나가는 칸이라 고를 체크박스가 필요 없다
     if (f.key === 'name' || f.key === 'calRegion') cb.style.visibility = 'hidden';
     var label = document.createElement('div'); label.className = 'flabel'; label.textContent = f.label;
+    // 📥 카톡 정리로 채운 칸은 어느 방에서 언제 온 값인지 작게 (2026-10-28)
+    if (s.fieldSrc && s.fieldSrc[f.key]) { var srcTag = document.createElement('small'); srcTag.className = 'fsrc'; srcTag.textContent = '💬 ' + s.fieldSrc[f.key]; label.appendChild(srcTag); }
     // 현장명 옆 '주소 복사' — 내비에 붙여넣는다 (호수·평형은 빼고 아파트 이름과 동까지)
     if (f.key === 'name') {
       var navBtn = document.createElement('button');
@@ -4741,6 +4743,268 @@
     var s = Store.getSite(currentSiteId); if (!s) return;
     TaskUI.openTaskSheet({ link: { type: 'site', id: s.id, siteId: s.id, label: Share.titleLine(s) } });
   };
+
+  /* ---------- 📥 카톡 정리 (2026-10-28 사장님) ----------
+     업체 카톡방 대화를 붙여넣으면 AI(n8n 현장관리_카톡정리)가 현장별로 '앱 칸에 넣을 것'을 뽑아 이 카드에 쌓는다.
+     방은 거래처 안에 여러 개 (pk디자인: 대표실장 · 대리). 방마다 이미 읽은 메시지를 기억해서 새 것만 보낸다 (kakao.js).
+     사장님이 [저장] 을 눌러야 칸에 들어간다. 업체에 보내는 건 항상 사장님이 (복사 → 카톡 열기) */
+  var KAKAO_URL = 'https://primary-production-a6fa.up.railway.app/webhook/kakao-digest';
+  var kakaoOpen = true;
+  function kakaoStamp() { return window.Stamp ? Stamp.stampText() : Share.todayIso(); }
+  function kakaoInbox(c) { return Array.isArray(c && c.kakaoInbox) ? c.kakaoInbox : []; }
+  function kakaoSetItem(clientId, id, patch) {
+    var c = Store.getClient(clientId); if (!c) return;
+    Store.updateClient(clientId, { kakaoInbox: kakaoInbox(c).map(function (it) { return it.id === id ? Object.assign({}, it, patch) : it; }) });
+  }
+  function kakaoAppend(text, add) { text = String(text || '').replace(/\s+$/, ''); return text ? text + '\n' + add : add; }
+  // 한 줄 반영 — 칸에 넣고 '처리됨'. AS 는 접수하고 답장 초안을 띄운다
+  function kakaoApply(clientId, it, quiet) {
+    var s = Store.getSite(it.siteId);
+    if (!s) { if (!quiet) toast('현장을 먼저 골라 주세요'); return false; }
+    var tag = '[카톡 ' + it.room + ' ' + Share.shortDate(String(it.at || '').slice(0, 10) || Share.todayIso()) + ']';
+    var src = Object.assign({}, s.fieldSrc || {});
+    if (it.kind === 'field') {
+      var p = {};
+      p[it.field] = (it.field === 'carReg' || it.field === 'cargoEv') ? Object.assign({}, s[it.field] || {}, { v: it.value }) : it.value;
+      src[it.field] = it.room + ' ' + Share.shortDate(Share.todayIso());
+      p.fieldSrc = src;
+      Store.updateSite(s.id, p);
+    } else if (it.kind === 'films') {
+      src.films = it.room + ' ' + Share.shortDate(Share.todayIso());
+      Store.updateSite(s.id, { films: Kakao.mergeFilms(s.films, it.films), fieldSrc: src });
+    } else if (it.kind === 'note') {
+      Store.updateSite(s.id, { note: kakaoAppend(s.note, it.value) });
+    } else if (it.kind === 'as') {
+      Store.addService(s.id, { kind: 'AS', request: it.value, bizContact: it.room });
+      kakaoSetItem(clientId, it.id, { status: 'done' });
+      if (!quiet) kakaoReply(clientId, it, s);
+      return true;
+    } else {   // schedule · other → 메모 맨 아래
+      Store.updateSite(s.id, { memo: kakaoAppend(s.memo, tag + ' ' + it.value + (it.date ? ' (' + Share.dayLabel(it.date) + ')' : '')) });
+    }
+    kakaoSetItem(clientId, it.id, { status: 'done' });
+    return true;
+  }
+  function openKakaoApp(text, okMsg) {
+    copyText(text, okMsg || '복사했어요 — 카톡에 붙여넣고 보내세요');
+    setTimeout(function () { try { location.href = 'kakaotalk://launch'; } catch (e) { /* 카톡 없음 */ } }, 600);
+  }
+  // AS 답장 초안 — 일정이 빈 날 둘을 넣는다. 사장님이 날짜를 골라 바꿀 수 있다
+  function kakaoReply(clientId, it, s) {
+    var days = Kakao.freeDays(state.sites, Share.todayIso(), 4, Share.addDays);
+    var picked = days.slice(0, 2);
+    var text = function () {
+      return '네 확인했습니다 🙏\n' + Share.titleLine(s) + ' ' + it.value + ' 건,\n해당 부분 사진 한 장 부탁드려요.\n방문 가능한 날은\n' +
+        picked.map(function (d) { return ' · ' + Share.dayLabel(d) + ' 오전'; }).join('\n') + '\n중에 편하신 날 알려주세요!';
+    };
+    var paint = function () {
+      $('kkReply').value = text();
+      document.querySelectorAll('#modalBody .kk-day').forEach(function (b) { b.classList.toggle('on', picked.indexOf(b.dataset.d) >= 0); });
+    };
+    openModal('🛠 AS 접수했어요 — 답장 보내기',
+      '<p class="hint">AS·추가 탭에 "' + esc(it.value) + '" 로 들어갔어요. 아래 답장을 ' + esc(it.room) + '님께 보내세요.</p>' +
+      '<div class="kk-days">' + days.map(function (d) { return '<button type="button" class="kk-day" data-d="' + d + '">' + esc(Share.dayLabel(d)) + '</button>'; }).join('') + '</div>' +
+      '<textarea id="kkReply" rows="8"></textarea>',
+      [{ label: '닫기', onClick: closeModal }, { label: '📋 복사하고 카톡 열기', cls: 'primary', onClick: function () { var t = $('kkReply').value; closeModal(); openKakaoApp(t); } }]);
+    document.querySelectorAll('#modalBody .kk-day').forEach(function (b) {
+      b.onclick = function () {
+        var at = picked.indexOf(b.dataset.d);
+        if (at >= 0) picked.splice(at, 1); else picked.push(b.dataset.d);
+        picked.sort(); paint();
+      };
+    });
+    paint();
+  }
+  // 아직 못 받은 정보 — 2주 안에 시공하는 현장에서 질문할 칸이 비어 있는 것
+  function kakaoMissing(clientId) {
+    var today = Share.todayIso(), until = Share.addDays(today, 21);
+    return Store.sitesOf(clientId).filter(function (s) { return !s.hide && s.date && s.date >= today && s.date <= until; }).map(function (s) {
+      var keys = ['pwLobby', 'pwUnit', 'parking', 'toilet', 'films'].filter(function (k) {
+        if (k === 'films') return !(s.films || []).some(function (r) { return r.code; });
+        return Share.isEmpty(s, k);
+      });
+      return { site: s, keys: keys };
+    }).filter(function (x) { return x.keys.length; });
+  }
+  function openKakaoPaste(clientId) {
+    var c = Store.getClient(clientId); if (!c) return;
+    var rooms = Kakao.rooms(c);
+    var room = c.kakaoLastRoom && rooms.indexOf(c.kakaoLastRoom) >= 0 ? c.kakaoLastRoom : rooms[0] || '';
+    var seenOf = function (r) { return ((c.kakaoSeen || {})[r] || {}); };
+    var html = '<p class="hint">카톡방에서 대화를 길게 눌러 <b>복사</b>(PC 카톡은 Ctrl+A → Ctrl+C) 해서 붙여넣으세요. 이미 정리한 대화는 알아서 건너뛰어요.</p>' +
+      '<div class="kk-rooms" id="kkRooms"></div>' +
+      '<textarea id="kkText" rows="9" data-no-stamp placeholder="[pk디자인 대리] [오전 9:12] 세대비번 1902*0427이에요&#10;…"></textarea>' +
+      '<p class="hint" id="kkMsg"></p>';
+    openModal('📥 카톡 붙여넣기 — ' + c.name, html, [
+      { label: '닫기', onClick: closeModal },
+      { label: '✨ 정리하기', cls: 'primary', onClick: function () { kakaoRun(clientId, room, $('kkText').value); } }]);
+    var paintRooms = function () {
+      var box = $('kkRooms'); box.innerHTML = '';
+      rooms.forEach(function (r) {
+        var b = el2('button', 'kk-room' + (r === room ? ' on' : '')); b.type = 'button';
+        b.appendChild(el2('b', '', '💬 ' + r));
+        var last = seenOf(r).at;
+        b.appendChild(el2('small', '', last ? '마지막 정리 ' + last : '처음'));
+        b.onclick = function () { room = r; paintRooms(); };
+        box.appendChild(b);
+      });
+      var add = el2('button', 'kk-room add', '＋ 방 추가'); add.type = 'button';
+      add.onclick = function () {
+        var keep = $('kkText').value;
+        modalPrompt('카톡방 이름 (예: 대표실장, 대리)', '', '누구와의 방인가요?').then(function (name) {
+          name = String(name || '').trim();
+          if (name && rooms.indexOf(name) < 0) { rooms = rooms.concat([name]); Store.updateClient(clientId, { kakaoRooms: rooms }); room = name; }
+          openKakaoPaste(clientId); $('kkText').value = keep;
+        });
+      };
+      box.appendChild(add);
+    };
+    paintRooms();
+  }
+  function kakaoRun(clientId, room, text) {
+    var c = Store.getClient(clientId); if (!c) return;
+    if (!room) { $('kkMsg').textContent = '어느 방 대화인지 먼저 골라 주세요 (＋ 방 추가)'; return; }
+    var all = Kakao.parse(text, Share.todayIso());
+    if (!all.length) { $('kkMsg').textContent = '붙여넣은 대화가 없어요'; return; }
+    var seen = ((c.kakaoSeen || {})[room] || {}).keys || [];
+    var msgs = Kakao.fresh(all, seen);
+    if (!msgs.length) { $('kkMsg').textContent = '모두 전에 정리한 대화예요 — 새 대화가 없어요'; return; }
+    var sites = Store.sitesOf(clientId).filter(function (s) { return !s.hide || (s.date && s.date >= Share.addDays(Share.todayIso(), -60)); }).slice(0, 40).map(function (s) {
+      var known = {};
+      ['pwLobby', 'pwUnit', 'barrier', 'gate', 'parking', 'toilet', 'startTime'].forEach(function (k) { if (s[k]) known[k] = s[k]; });
+      if ((s.films || []).length) known.films = s.films.map(function (r) { return (r.place ? r.place + ' ' : '') + r.code; }).join(', ');
+      return { id: s.id, name: Share.titleLine(s), date: s.date || '', known: known };
+    });
+    $('modalBtns').hidden = true;
+    $('modalBody').innerHTML = '<div class="kk-wait"><div class="kk-spin"></div><b>' + msgs.length + '개 메시지 읽는 중…</b><p class="hint">10~20초 걸려요</p></div>';
+    fetch(KAKAO_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ room: { client: c.name, name: room }, today: Share.todayIso(), sites: sites, messages: msgs.map(function (m) { return { d: m.d, t: m.t, who: m.who, text: m.text }; }) }) })
+      .then(function (res) {
+        if (res.status === 401 || res.status === 403) throw new Error('이 기기에 사장님 열쇠가 없어요 (관리자 앱에서 등록한 기기만 정리할 수 있어요)');
+        if (!res.ok) throw new Error('서버 오류 ' + res.status);
+        return res.json();
+      })
+      .then(function (d) {
+        if (!d || !d.ok) throw new Error('AI 가 답을 못 했어요 — 잠시 뒤 다시 해 주세요');
+        var cur = Store.getClient(clientId);
+        var at = Share.todayIso() + ' ' + kakaoStamp();
+        var items = (d.items || []).map(function (it, i) {
+          return Object.assign({}, it, { id: 'k' + Date.now().toString(36) + i, room: room, at: at, status: Kakao.sameAsSite(it, Store.getSite(it.siteId)) ? 'same' : 'new' });
+        });
+        var keep = kakaoInbox(cur).filter(function (it) { return it.status === 'new' || (it.status !== 'same' && String(it.at || '') >= Share.addDays(Share.todayIso(), -7)); });
+        var seenAll = Object.assign({}, cur.kakaoSeen || {});
+        seenAll[room] = { keys: Kakao.remember(seen, msgs), at: kakaoStamp() };
+        Store.updateClient(clientId, { kakaoInbox: keep.concat(items.filter(function (x) { return x.status === 'new'; })), kakaoSeen: seenAll, kakaoLastRoom: room });
+        closeModal();
+        var n = items.filter(function (x) { return x.status === 'new'; }).length;
+        toast(n ? '📥 ' + n + '개 새로 알게 됐어요 — 확인하고 저장하세요' : '새로 적을 현장 정보는 없었어요 (' + msgs.length + '개 메시지)');
+        kakaoOpen = true; renderMain();
+      })
+      .catch(function (e) {
+        $('modalBtns').hidden = false;
+        $('modalBody').innerHTML = '<p class="admin-err">' + esc(e.message || String(e)) + '</p><p class="hint">붙여넣은 대화는 아직 정리 안 한 걸로 남아 있어요.</p>';
+        $('modalBtns').innerHTML = ''; var b = el2('button', 'primary', '닫기'); b.onclick = closeModal; $('modalBtns').appendChild(b);
+      });
+  }
+  function renderKakao(wrap, clientId) {
+    if (!wrap) return;
+    var c = Store.getClient(clientId);
+    wrap.innerHTML = ''; wrap.hidden = !c;
+    if (!c) return;
+    var items = kakaoInbox(c).filter(function (it) { return it.status === 'new'; });
+    var missing = kakaoMissing(clientId);
+    wrap.className = 'fixed-wrap kk-wrap' + (kakaoOpen ? ' open' : '') + (items.length ? ' has' : '');
+    var tg = el2('button', 'fixed-toggle'); tg.type = 'button';
+    tg.innerHTML = '<span class="fixed-arrow">▶</span> 📥 카톡 정리 <span class="fixed-sub"></span>';
+    tg.querySelector('.fixed-sub').textContent = items.length ? '새로 알게 된 것 ' + items.length + '개' : missing.length ? '못 받은 정보 ' + missing.length + '곳' : '업체 카톡 붙여넣으면 현장 칸에';
+    if (items.length) tg.querySelector('.fixed-sub').classList.add('kk-badge');
+    tg.onclick = function () { kakaoOpen = !kakaoOpen; renderKakao(wrap, clientId); };
+    wrap.appendChild(tg);
+    if (!kakaoOpen) return;
+    var body = el2('div', 'fixed-body kk-body');
+    var paste = el2('button', 'kk-paste', '📋 카톡 붙여넣기'); paste.type = 'button';
+    paste.onclick = function () { openKakaoPaste(clientId); };
+    body.appendChild(paste);
+    var rerender = function () { renderKakao(wrap, clientId); renderCards(); };
+    // 현장별로 묶기 (현장 모르는 것은 맨 아래)
+    var groups = {}, order = [];
+    items.forEach(function (it) {
+      var k = Store.getSite(it.siteId) ? it.siteId : '';
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(it);
+    });
+    order.sort(function (a, b) { return (a ? 0 : 1) - (b ? 0 : 1); });
+    var sites = Store.sitesOf(clientId);
+    order.forEach(function (sid) {
+      var s = Store.getSite(sid);
+      var box = el2('div', 'kk-site');
+      var h = el2('div', 'kk-sh');
+      h.appendChild(el2('b', '', s ? '📍 ' + Share.titleLine(s) : '❔ 어느 현장인지 모름'));
+      if (s && s.date) h.appendChild(el2('small', '', Share.dayLabel(s.date)));
+      box.appendChild(h);
+      groups[sid].forEach(function (it) {
+        var row = el2('div', 'kk-it k-' + it.kind);
+        var tx = el2('div', 'kk-tx');
+        var top = el2('div', 'kk-top');
+        top.appendChild(el2('span', 'kk-k', Kakao.label(it)));
+        top.appendChild(el2('span', 'kk-room-t', '💬 ' + it.room));
+        tx.appendChild(top);
+        var cur = s && it.kind === 'field' ? s[it.field] : '';
+        if (cur && typeof cur === 'object') cur = cur.v;
+        tx.appendChild(el2('div', 'kk-v', it.value));
+        if (cur && cur !== '미확인') tx.appendChild(el2('div', 'kk-chg', '지금 적힌 값: ' + cur + ' → 바뀜'));
+        if (it.quote) tx.appendChild(el2('q', 'kk-q', it.quote));
+        if (!s) {
+          var sel = el2('select', 'kk-pick');
+          sel.innerHTML = '<option value="">현장 고르기…</option>' + sites.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(Share.titleLine(x)) + '</option>'; }).join('');
+          sel.onchange = function () { kakaoSetItem(clientId, it.id, { siteId: sel.value }); rerender(); };
+          tx.appendChild(sel);
+        }
+        row.appendChild(tx);
+        var bt = el2('div', 'kk-bt');
+        var ok = el2('button', 'btn-sm ' + (it.kind === 'as' ? 'danger' : 'primary'),
+          it.kind === 'as' ? 'AS 접수' : it.kind === 'schedule' || it.kind === 'other' ? '메모에' : it.kind === 'note' ? '특이사항에' : it.kind === 'films' ? '반영' : '저장');
+        ok.type = 'button'; ok.disabled = !s;
+        ok.onclick = function () { if (kakaoApply(clientId, it)) { if (it.kind !== 'as') toast('✓ 현장 칸에 넣었어요'); rerender(); } };
+        var no = el2('button', 'btn-sm kk-x', '✕'); no.type = 'button'; no.title = '버리기';
+        no.onclick = function () { kakaoSetItem(clientId, it.id, { status: 'dismissed' }); rerender(); };
+        bt.appendChild(ok); bt.appendChild(no);
+        row.appendChild(bt);
+        box.appendChild(row);
+      });
+      body.appendChild(box);
+    });
+    var bulk = items.filter(function (it) { return it.kind !== 'as' && Store.getSite(it.siteId); });
+    if (bulk.length > 1) {
+      var all = el2('button', 'kk-all', '✓ 모두 저장 (' + bulk.length + ')'); all.type = 'button';
+      all.onclick = function () { bulk.forEach(function (it) { kakaoApply(clientId, it, true); }); toast('✓ ' + bulk.length + '개 넣었어요'); rerender(); };
+      body.appendChild(all);
+    }
+    // 아직 못 받은 정보 → 질문 준비
+    if (missing.length) {
+      var mb = el2('div', 'kk-miss');
+      mb.appendChild(el2('div', 'kk-mh', '❓ 아직 못 받은 정보 (3주 안 시공)'));
+      missing.forEach(function (x) {
+        var r = el2('div', 'kk-mr');
+        var t = el2('div', 'kk-tx');
+        t.appendChild(el2('b', '', Share.titleLine(x.site) + ' · ' + Share.dayLabel(x.site.date)));
+        t.appendChild(el2('div', 'kk-v', x.keys.map(function (k) { return k === 'films' ? '필름 번호' : Kakao.FIELD_LABEL[k]; }).join(' · ')));
+        r.appendChild(t);
+        var q = el2('button', 'btn-sm kk-ask', '💬 질문'); q.type = 'button';
+        q.onclick = function () {
+          var text = Share.buildQuestion(x.site, x.keys, state.settings.questions) || ('[' + Share.titleLine(x.site) + ']');
+          openModal('💬 질문 보내기', '<p class="hint">복사해서 업체 카톡방에 보내세요. 답이 오면 그 대화를 📋 카톡 붙여넣기 하면 칸에 들어가요.</p><textarea id="kkAsk" rows="8"></textarea>',
+            [{ label: '닫기', onClick: closeModal }, { label: '📋 복사하고 카톡 열기', cls: 'primary', onClick: function () { var v = $('kkAsk').value; closeModal(); openKakaoApp(v); } }]);
+          $('kkAsk').value = '안녕하세요 섬세한손길입니다 🙂\n' + text;
+        };
+        r.appendChild(q);
+        mb.appendChild(r);
+      });
+      body.appendChild(mb);
+    }
+    if (!items.length && !missing.length) body.appendChild(el2('p', 'hint kk-empty', '새로 알게 된 것이 없어요. 업체 카톡방 대화를 복사해서 붙여넣으면 비번·화장실·필름·일정·AS 를 찾아 현장 칸에 넣어 드려요.'));
+    wrap.appendChild(body);
+  }
 
   // ---------- 시작 ----------
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
