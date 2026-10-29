@@ -20,12 +20,12 @@
   var OWNER_PATHS = {};
   [
     // 현장견적·정산견적·저장함 (별도 워크플로우)
-    'pro-master', 'pro-publish', 'pro-photo', 'pro-box-sync', 'pro-box-restore', 'pro-box-photo', 'pro-box-photos',
+    'pro-master', 'pro-publish', 'pro-photo', 'pro-box-sync', 'pro-box-restore', 'pro-box-photo', 'pro-box-photos', 'pro-wordbook', 'work-photos-by-item', 'request-master', 'quote-draft-read',
     'settle-master', 'settle-publish', 'settle-settings', 'owner-check',
     // 관리자 앱 (품질관리 워크플로우 안의 사장님 전용)
     'film-admin-get-v2', 'film-blog-publish', 'film-checkpoint-template-create',
     'film-journal-create', 'film-journal-list', 'film-journal-photo-upload', 'film-journal-photo-delete',
-    'film-notice-create', 'film-sample-photo-upload', 'film-sample-photo-delete', 'raw-photo-update', 'raw-photo-upload',
+    'film-notice-create', 'film-notice-parts', 'film-notice-parts-save', 'film-notice-edit', 'film-sample-photo-upload', 'film-sample-photo-delete', 'raw-photo-update', 'raw-photo-upload',
     // 거래처별 현장관리 › 팀원 작업내역 (2026-10-23, n8n 현장관리_기사작업내역)
     'worker-history',
     // 메모·후기 › 정산 내역 (2026-10-26, n8n 현장관리_정산내역)
