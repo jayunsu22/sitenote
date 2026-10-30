@@ -39,4 +39,15 @@ assert.strictEqual(K.sameAsSite({ kind: 'field', field: 'carReg', value: '필요
 const add = (d, n) => { const x = new Date(d + 'T00:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10).replace(/.*/, () => { const y = x.getFullYear(), mo = x.getMonth() + 1, da = x.getDate(); return y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'); }); };
 const free = K.freeDays([{ days: [{ date: '2026-10-30' }] }], '2026-10-28', 3, add);   // 10/29 목, 10/30 금(현장), 10/31 토, 11/1 일
 assert.deepStrictEqual(free, ['2026-10-29', '2026-10-31', '2026-11-02']);
+// 우편함 → 현장 patch (2026-10-31 '비서' 4단계): 비번·화장실은 칸에, 필름은 합치기, 출처 표시. 다른 칸·빈 값은 안 넣음
+const site = { films: [{ place: '방문', code: '', ready: false, orderedAt: '' }], fieldSrc: { parking: '대리 10/28' } };
+let fp = K.fillPatch(site, { kind: 'field', field: 'pwUnit', value: ' 1902*0427 ' }, '봄애실장님 11/1');
+assert.deepStrictEqual(fp, { pwUnit: '1902*0427', fieldSrc: { parking: '대리 10/28', pwUnit: '봄애실장님 11/1' } });
+assert.deepStrictEqual(site.fieldSrc, { parking: '대리 10/28' });   // 원본은 그대로
+fp = K.fillPatch(site, { kind: 'films', films: [{ place: '방문 3', code: 'PS010' }, { place: '몰딩', code: '' }] }, '봄애실장님 11/1');
+assert.deepStrictEqual(fp.films.map((r) => [r.place, r.code]), [['방문', 'PS010']]);
+assert.strictEqual(fp.fieldSrc.films, '봄애실장님 11/1');
+assert.strictEqual(K.fillPatch(site, { kind: 'field', field: 'memo', value: 'x' }, 'a'), null);
+assert.strictEqual(K.fillPatch(site, { kind: 'field', field: 'toilet', value: ' ' }, 'a'), null);
+assert.strictEqual(K.fillPatch(null, { kind: 'field', field: 'toilet', value: '1층' }, 'a'), null);
 console.log('kakao ok');

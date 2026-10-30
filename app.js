@@ -5006,8 +5006,44 @@
     wrap.appendChild(body);
   }
 
+  /* ---------- 📬 카톡 우편함 (2026-10-31 카톡 '비서' 4단계) ----------
+     노트북(카톡 읽기)이 시공 1주 전 빈칸(공동현관·세대 비번·화장실·필름)을 업체 카톡 방에 묻고, 답에서 뽑은 값을
+     n8n 현장관리_빈칸 우편함에 둔다. 앱을 열 때·다시 볼 때·5분마다 가져와 이 기기에 있는 현장 칸에 바로 넣는다 (사장님: 확인 없이).
+     이 기기에 없는 현장은 우편함에 남겨 다른 기기를 기다린다. 사장님 열쇠가 있는 기기만 */
+  var FILL_URL = 'https://primary-production-a6fa.up.railway.app/webhook/site-fill-take';
+  var fillBusy = false;
+  function takeFills() {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    if (fillBusy || !key || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+    fillBusy = true;
+    var post = function (body) {
+      return fetch(FILL_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); });
+    };
+    post({}).then(function (d) {
+      var done = [], n = 0;
+      (d && d.fills || []).forEach(function (f) {
+        var s = Store.getSite(f.siteId);
+        if (!s) return;   // 이 기기에 없는 현장
+        var p = Kakao.fillPatch(s, f, (f.room || '카톡') + ' ' + Share.shortDate(f.at || Share.todayIso()));
+        if (p) { Store.updateSite(s.id, p); n += f.kind === 'films' ? f.films.length : 1; }
+        done.push(f.id);
+      });
+      if (!done.length) return;
+      return post({ done: done }).then(function () {
+        if (!n) return;
+        toast('📬 카톡에서 ' + n + '칸 채웠어요');
+        if (!$('viewSite').hidden) renderSite(); else if (!$('viewMain').hidden) renderMain();
+      });
+    }).catch(function () { /* 다음에 다시 */ }).then(function () { fillBusy = false; });
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) takeFills(); });
+  setInterval(function () { if (!document.hidden) takeFills(); }, 5 * 60 * 1000);
+
   // ---------- 시작 ----------
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
+  takeFills();
   handleAdminLinkHash();
   scheduleAdminSync();   // 앱을 열 때 맞출 게 남은 연결 현장이 있으면 한 번 더
   // 첫 진입: 해시가 없고 마지막에 일정 화면을 봤으면 일정으로 시작

@@ -31,7 +31,9 @@
     // 메모·후기 › 정산 내역 (2026-10-26, n8n 현장관리_정산내역)
     'settle-history',
     // 거래처 화면 › 📥 카톡 정리 (2026-10-28, n8n 현장관리_카톡정리)
-    'kakao-digest'
+    'kakao-digest',
+    // 현장 빈칸 우편함 (2026-10-31, n8n 현장관리_빈칸) — 노트북이 업체 답에서 뽑은 값을 앱이 가져가 칸에 넣는다
+    'site-fill-take'
   ].forEach(function (p) { OWNER_PATHS[p] = true; });
 
   function readKey() { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return ''; } }
