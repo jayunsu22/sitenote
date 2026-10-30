@@ -112,6 +112,27 @@
     var 받는중 = null;
     var 오류 = '';
 
+    // 방문견적(quote_pro.js 링크()) 과 같은 주소: /q/코드?d=1&n=제목(base64url)
+    function 보낼링크(x) {
+      var 링크 = VIEW + x.견적코드 + '?d=1';
+      if (x.이름 && !x.연결) {
+        var bin = '';
+        new TextEncoder().encode(x.이름).forEach(function (b) { bin += String.fromCharCode(b); });
+        링크 += '&n=' + btoa(bin).split('+').join('-').split('/').join('_').split('=').join('');
+      }
+      return 링크;
+    }
+    // 복사되면 버튼 글이 잠깐 '복사됨' 으로. 막히면 주소를 보여 줘서 길게 눌러 복사
+    function 링크복사(btn, 링크) {
+      var 됨 = function () {
+        btn.textContent = '✅ 복사됨';
+        setTimeout(function () { btn.textContent = '🔗 링크 복사'; }, 1800);
+      };
+      var 안됨 = function () { window.prompt('길게 눌러 복사하세요', 링크); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(링크).then(됨, 안됨);
+      else 안됨();
+    }
+
     function el(tag, cls, text) {
       var e = document.createElement(tag);
       if (cls) e.className = cls;
@@ -297,6 +318,13 @@
           var see = el('button', 'qreq-act', '📄 이 견적 보기');
           see.onclick = function () { window.open(VIEW + x.견적코드, '_blank'); };
           acts.appendChild(see);
+        }
+        // [🔗 링크 복사] (2026-10-30) - 업체 카톡방·문자에 바로 붙여넣게. 보낸 견적과 같은 꼴로
+        // (d=1 품목설명 켬, n= 제목 → 카톡 미리보기 카드 제목)
+        if (x.견적코드) {
+          var copy = el('button', 'qreq-act', '🔗 링크 복사');
+          copy.onclick = function () { 링크복사(copy, 보낼링크(x)); };
+          acts.appendChild(copy);
         }
         var edit = el('button', 'qreq-act primary', x.상태 === '발행' ? '✏️ 이 견적 수정하기' : '✏️ 이어서 작성하기');
         edit.onclick = function () {
