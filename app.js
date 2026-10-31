@@ -83,8 +83,13 @@
   // ---------- 라우팅 ----------
   function route() {
     var h = location.hash || '';
-    var m = /^#site\/(.+)$/.exec(h);
-    if (m && Store.getSite(m[1])) { currentSiteId = m[1]; showView('viewSite'); renderSite(); return; }
+    // #site/현장id 또는 #site/현장id/탭 (2026-11-01: 텔레그램 필름 주문 알림이 #site/…/film 으로 필름 탭을 바로 연다)
+    var m = /^#site\/([^/]+)(?:\/(\w+))?$/.exec(h);
+    if (m && Store.getSite(m[1])) {
+      currentSiteId = m[1];
+      if (m[2] && SITE_TABS.some(function (t) { return t.key === m[2]; })) { siteTab = m[2]; siteTabFor = m[1]; }
+      showView('viewSite'); renderSite(); return;
+    }
     var mp = /^#photo\/(.+)$/.exec(h);
     if (mp && Store.getPhoto(mp[1])) { showView('viewMain'); renderMain(); openPhotoViewer(mp[1]); return; }
     closePhotoViewer();
