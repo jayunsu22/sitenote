@@ -933,6 +933,10 @@
     fb.textContent = '🎞 필름 모아보기';
     fb.onclick = function () { TaskUI.openFilmBoard(); };
     row.appendChild(fb);
+    var bx = document.createElement('button'); bx.type = 'button'; bx.className = 'schcal-toggle';
+    bx.textContent = '📦 AS 박스 찾기';
+    bx.onclick = function () { openBoxFinder(''); };
+    row.appendChild(bx);
     box.appendChild(row);
     return box;
   }
@@ -1531,9 +1535,11 @@
         sec('staff', '', renderContactSection);
       }
     });
+    sec('film', 'boxSec', renderBoxSection);       // AS 필름 박스 — 마지막 날 남긴 필름 (2026-10-31)
     sec('film', 'extraFilmSec', renderExtraSection);   // 추가작업 → 필름 (같은 내용, 필름 탭에서도)
     sec('film', '', renderSuppliesSection);     // 필름 바로 아래 부자재 (2026-10-05 한 탭으로 묶음)
     sec('film', 'silSec', renderSiliconeSection);   // 부자재 바로 아래 실리콘 (2026-10-24)
+    sec('etc', 'asBoxSec', renderBoxSection);      // AS 접수 위에 이 현장 박스 (같은 내용)
     sec('etc', 'svcSec', renderServiceSection);
     sec('review', 'reviewSec', renderReviewSection);
     pickSiteTab(siteTab, false);
@@ -3142,6 +3148,210 @@
       foot.appendChild(cp);
     }
     if (foot.children.length) box.appendChild(foot);
+  }
+
+  /* ---------- AS 필름 박스 (2026-10-31 사장님) ----------
+     시공 마지막 날 남은 필름 중 가장 긴 것만 박스에 넣고, 롤 테이프에 'ps010 300x2450'(번호 폭x길이)을 적어 사진을 찍는다.
+     [📷 박스 사진 올리기] → 사진은 이 현장 사진으로 남고(주인 'filmbox:현장id'), n8n 현장관리_필름라벨(Gemini)이 테이프 글씨를
+     읽어 확인 칸에 채운다 → [박스에 넣기]. 줄을 누르면 [다 씀]·[남은 길이]. 필름 탭(boxSec)과 AS 탭(asBoxSec)에 같은 내용.
+     찾기는 일정 화면 아래 '📦 AS 박스 찾기' (모든 현장에서 번호로) */
+  var FILM_LABEL_URL = 'https://primary-production-a6fa.up.railway.app/webhook/film-label-read';
+  function boxOwner(siteId) { return 'filmbox:' + siteId; }
+  var boxDraft = {};     // 현장id → { rows: ['PS010 300x2450', …], note } 확인 중인 라벨 (화면용)
+  var boxReading = {};   // 현장id → true (AI 읽는 중)
+  var boxOpenRow = '';   // 버튼을 펼친 줄 id
+  function paintBoxes(siteId) {
+    ['boxSec', 'asBoxSec'].forEach(function (id) { var b = $(id); if (b) renderBoxSection(b, siteId); });
+  }
+  function saveBox(siteId, box) { Store.updateSite(siteId, { filmBox: box }); }
+  function boxRow(siteId, it, onChange) {
+    var row = el2('div', 'bx-row' + (it.usedAt ? ' used' : '') + (boxOpenRow === it.id ? ' open' : ''));
+    var main = document.createElement('button'); main.type = 'button'; main.className = 'bx-main';
+    var left = el2('span', 'bx-left');
+    left.appendChild(el2('b', 'bx-code', it.code));
+    var size = Share.filmSizeText(it);
+    if (size) left.appendChild(el2('span', 'bx-size', size));
+    main.appendChild(left);
+    main.appendChild(el2('span', 'bx-note', Share.filmBoxNote(it)));
+    main.onclick = function () { boxOpenRow = boxOpenRow === it.id ? '' : it.id; onChange(); };
+    row.appendChild(main);
+    if (boxOpenRow !== it.id) return row;
+    var acts = el2('div', 'bx-acts');
+    var add = function (label, cls, fn) { var b = el2('button', 'btn-sm ' + cls, label); b.type = 'button'; b.onclick = fn; acts.appendChild(b); };
+    var cur = function () { return (Store.getSite(siteId) || {}).filmBox; };
+    if (it.usedAt) {
+      add('↩ 되살리기', '', function () { saveBox(siteId, Share.filmBoxUndoUse(cur(), it.id)); boxOpenRow = ''; onChange(); });
+    } else {
+      add('✔ 다 씀', 'danger', function () {
+        saveBox(siteId, Share.filmBoxUse(cur(), it.id, Share.todayIso())); boxOpenRow = '';
+        toast(it.code + ' 다 씀 — 박스에서 뺐어요'); onChange();
+      });
+      add('✂ 남은 길이', 'primary', function () {
+        modalPrompt(it.code + ' 남은 길이 (mm)', String(it.l || ''), '예: 1450').then(function (v) {
+          if (v == null) return;
+          var n = parseInt(String(v).replace(/[^\d]/g, ''), 10);
+          if (!(n >= 0)) { toast('숫자로 적어 주세요'); return; }
+          saveBox(siteId, Share.filmBoxSetLength(cur(), it.id, n, Share.todayIso())); boxOpenRow = '';
+          toast(n > 0 ? it.code + ' 남은 길이 ' + n : it.code + ' 다 씀'); onChange();
+        });
+      });
+    }
+    row.appendChild(acts);
+    return row;
+  }
+  function renderBoxSection(box, siteId) {
+    var s = Store.getSite(siteId); if (!s) return;
+    var asTab = box.id === 'asBoxSec';
+    var all = Share.normalizeFilmBox(s.filmBox);
+    var live = all.filter(function (it) { return !it.usedAt; }), used = all.filter(function (it) { return it.usedAt; });
+    var photos = Store.photosOf(boxOwner(siteId));
+    box.className = 'sec bx-sec' + (asTab ? ' as' : '');
+    box.innerHTML = '<h3 class="sec-title">📦 ' + (asTab ? '이 현장 AS 박스' : 'AS 박스') + ' <span class="sec-hint">— ' +
+      (asTab ? (live.length ? '꺼내 쓰면 줄을 눌러 고치기' : '필름·부자재 탭에서 넣어요') : '마지막 날 가장 긴 필름만 넣고 사진') + '</span></h3>';
+    if (photos.length) {
+      var strip = el2('div', 'bx-photos');
+      photos.forEach(function (p) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'bx-photo';
+        var img = document.createElement('img'); img.alt = '박스 사진'; img.loading = 'lazy';
+        if (Share.isImageDataUrl(p.thumb || p.dataUrl)) img.src = p.thumb || p.dataUrl;
+        b.appendChild(img);
+        b.appendChild(el2('span', 'bx-photo-cap', p.name || ''));
+        b.onclick = function () { go('#photo/' + p.id); };
+        strip.appendChild(b);
+      });
+      box.appendChild(strip);
+    }
+    var again = function () { paintBoxes(siteId); };
+    live.forEach(function (it) { box.appendChild(boxRow(siteId, it, again)); });
+    if (!live.length && !asTab && !boxDraft[siteId] && !boxReading[siteId]) {
+      box.appendChild(el2('div', 'bx-empty', '아직 없음 — 롤 테이프에 "ps010 300x2450" 처럼 적고 사진을 올리세요'));
+    }
+    if (!live.length && asTab) box.appendChild(el2('div', 'bx-empty', '이 현장 박스에 넣은 필름이 없어요'));
+    if (used.length) {
+      var det = document.createElement('details'); det.className = 'bx-used';
+      det.appendChild(el2('summary', '', '다 쓴 것 ' + used.length));
+      used.forEach(function (it) { det.appendChild(boxRow(siteId, it, again)); });
+      if (used.some(function (it) { return it.id === boxOpenRow; })) det.open = true;
+      box.appendChild(det);
+    }
+    if (asTab) return;
+    if (boxReading[siteId]) { box.appendChild(el2('div', 'bx-reading', '🔎 사진 속 테이프 글씨를 읽는 중…')); return; }
+    if (boxDraft[siteId]) { renderBoxDraft(box, siteId); return; }
+    var btns = el2('div', 'bx-btns');
+    var up = el2('button', 'btn-sm primary', '📷 박스 사진 올리기'); up.type = 'button';
+    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.hidden = true;
+    inp.onchange = function () { var f = Array.prototype.slice.call(inp.files || []); inp.value = ''; if (f.length) uploadBoxPhotos(siteId, f); };
+    up.onclick = function () { inp.click(); };
+    var hand = el2('button', 'btn-sm', '✏️ 직접 적기'); hand.type = 'button';
+    hand.onclick = function () { boxDraft[siteId] = { rows: [''], note: '' }; paintBoxes(siteId); };
+    btns.appendChild(up); btns.appendChild(hand); btns.appendChild(inp);
+    box.appendChild(btns);
+  }
+  // 확인 칸: 줄마다 'PS010 300x2450' — 고치거나 지우고 [박스에 넣기]
+  function renderBoxDraft(box, siteId) {
+    var d = boxDraft[siteId];
+    var wrap = el2('div', 'bx-draft');
+    if (d.note) wrap.appendChild(el2('div', 'bx-draft-note', d.note));
+    d.rows.forEach(function (v, i) {
+      var r = el2('div', 'bx-draft-row');
+      var t = document.createElement('input'); t.type = 'text'; t.value = v; t.placeholder = 'ps010 300x2450';
+      t.autocapitalize = 'characters';
+      t.oninput = function () { d.rows[i] = t.value; };
+      var x = el2('button', 'x', '✕'); x.type = 'button'; x.title = '이 줄 빼기';
+      x.onclick = function () { d.rows.splice(i, 1); paintBoxes(siteId); };
+      r.appendChild(t); r.appendChild(x);
+      wrap.appendChild(r);
+    });
+    var more = el2('button', 'bx-draft-add', '＋ 줄 추가'); more.type = 'button';
+    more.onclick = function () { d.rows.push(''); paintBoxes(siteId); };
+    wrap.appendChild(more);
+    var foot = el2('div', 'bx-btns');
+    var ok = el2('button', 'btn-sm primary', '📦 박스에 넣기'); ok.type = 'button';
+    ok.onclick = function () {
+      var labels = Share.parseFilmLabels(d.rows.join('\n'));
+      if (!labels.length) { toast('필름 번호를 적어 주세요 (예: ps010 300x2450)'); return; }
+      var r = Share.filmBoxPut((Store.getSite(siteId) || {}).filmBox, labels, Share.todayIso(), function (i) { return 'fb' + Date.now().toString(36) + i; });
+      saveBox(siteId, r.box);
+      delete boxDraft[siteId];
+      toast('📦 박스에 ' + (r.added ? r.added + '개 넣음' : '') + (r.added && r.updated ? ', ' : '') + (r.updated ? r.updated + '개 새 치수로' : ''));
+      paintBoxes(siteId);
+    };
+    var no = el2('button', 'btn-sm', '취소'); no.type = 'button';
+    no.onclick = function () { delete boxDraft[siteId]; paintBoxes(siteId); };
+    foot.appendChild(ok); foot.appendChild(no);
+    wrap.appendChild(foot);
+    box.appendChild(wrap);
+  }
+  // 사진을 이 현장 박스 사진으로 저장 → AI 에게 글씨 읽기 → 확인 칸
+  function uploadBoxPhotos(siteId, files) {
+    boxReading[siteId] = true; paintBoxes(siteId);
+    var urls = [];
+    var next = function (i) {
+      if (i >= files.length) return Promise.resolve();
+      return compressImage(files[i]).then(function (r) {
+        urls.push(r.dataUrl);
+        return Store.addPhoto(boxOwner(siteId), { name: Share.shortDate(Share.todayIso()) + ' 박스', thumb: r.thumb, dataUrl: r.dataUrl, w: r.w, h: r.h, bytes: r.bytes });
+      }).catch(function () { /* 이 사진은 건너뛴다 */ }).then(function () { return next(i + 1); });
+    };
+    next(0).then(function () {
+      if (!urls.length) throw new Error('사진을 열 수 없어요');
+      return fetch(FILM_LABEL_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ photos: urls.map(function (u) { return { mime: 'image/jpeg', data: u.split(',')[1] || '' }; }) }) })
+        .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); });
+    }).then(function (data) {
+      var rows = ((data && data.labels) || []).map(function (l) {
+        return [l.code, l.w && l.l ? l.w + 'x' + l.l : ''].filter(Boolean).join(' ');
+      }).filter(Boolean);
+      boxDraft[siteId] = rows.length
+        ? { rows: rows, note: '사진에서 ' + rows.length + '개 읽었어요 — 맞는지 보고 넣으세요' }
+        : { rows: [''], note: '글씨를 못 읽었어요 — 직접 적어 주세요 (사진은 저장됨)' };
+    }).catch(function (e) {
+      boxDraft[siteId] = { rows: [''], note: '글씨 읽기 실패(' + (e && e.message || '연결') + ') — 직접 적어 주세요' + (urls.length ? ' (사진은 저장됨)' : '') };
+    }).then(function () {
+      delete boxReading[siteId];
+      paintBoxes(siteId);
+    });
+  }
+  // 📦 AS 박스 찾기 — 모든 현장 박스에서 번호로 (다 쓴 것 빼고)
+  function openBoxFinder(q) {
+    $('taskSheetTitle').textContent = '📦 AS 박스 찾기';
+    var body = $('taskBody'); body.innerHTML = '';
+    var inp = document.createElement('input'); inp.type = 'search'; inp.className = 'bx-search';
+    inp.placeholder = '필름 번호 (예: ps010)'; inp.value = q || '';
+    var list = el2('div', 'bx-found');
+    body.appendChild(inp); body.appendChild(list);
+    var paint = function () {
+      list.innerHTML = '';
+      var hits = Share.filmBoxSearch(Store.state.sites, inp.value);
+      var sites = {}; hits.forEach(function (h) { sites[h.site.id] = 1; });
+      list.appendChild(el2('div', 'task-meta', hits.length ? hits.length + '개 · 현장 ' + Object.keys(sites).length + '곳' :
+        (inp.value.trim() ? '박스에 없어요 — 주문해야 해요' : '박스가 비어 있어요')));
+      hits.forEach(function (h) {
+        var g = el2('div', 'fb-grp bx-hit');
+        g.appendChild(boxRow(h.site.id, h.item, paint));
+        var c = Store.getClient(h.site.clientId);
+        var go1 = el2('button', 'bx-site', Share.titleLine(h.site) + (c ? ' (' + c.name + ')' : '') + ' ›'); go1.type = 'button';
+        go1.onclick = function () { $('taskSheet').hidden = true; go('#site/' + h.site.id); };
+        g.appendChild(go1);
+        var ph = Store.photosOf(boxOwner(h.site.id));
+        if (ph.length) {
+          var strip = el2('div', 'bx-photos');
+          ph.slice(-3).forEach(function (p) {
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'bx-photo';
+            var img = document.createElement('img'); img.alt = '박스 사진';
+            if (Share.isImageDataUrl(p.thumb || p.dataUrl)) img.src = p.thumb || p.dataUrl;
+            b.appendChild(img);
+            b.onclick = function () { $('taskSheet').hidden = true; go('#photo/' + p.id); };
+            strip.appendChild(b);
+          });
+          g.appendChild(strip);
+        }
+        list.appendChild(g);
+      });
+    };
+    inp.oninput = paint;
+    paint();
+    $('taskSheet').hidden = false;
   }
 
   function renderSiliconeSection(box, siteId) {

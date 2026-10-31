@@ -1507,3 +1507,39 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .kk-day { padding: 5px 10px; border-radius: 14px; border: 1.5px solid var(--border); background: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .kk-day.on { border-color: #16a34a; background: #dcfce7; color: #166534; }
 .fsrc { display: block; font-size: 10.5px; font-weight: 600; color: #1d4ed8; margin-top: 2px; }
+
+/* AS 필름 박스 (2026-10-31) — 필름 탭 boxSec · AS 탭 asBoxSec · 일정 '📦 AS 박스 찾기' */
+.bx-sec { background: #fffdf5; }
+.bx-photos { display: flex; gap: 8px; padding: 4px 12px 8px; overflow-x: auto; }
+.bx-photo { flex: none; position: relative; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: #fff; overflow: hidden; }
+.bx-photo img { display: block; width: 96px; height: 72px; object-fit: cover; }
+.bx-photo-cap { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; padding: 1px 4px; }
+.bx-photo-cap:empty { display: none; }
+.bx-row { border-top: 1px solid #f1ece0; }
+.bx-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 9px 12px; border: 0; background: transparent; text-align: left; font: inherit; color: var(--text); }
+.bx-left { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.bx-code { font-size: 15px; }
+.bx-size { font-size: 14px; color: #374151; }
+.bx-note { font-size: 12px; color: var(--muted); text-align: right; }
+.bx-row.open { background: #fff7e0; }
+.bx-row.used .bx-main { opacity: .55; }
+.bx-row.used .bx-code { text-decoration: line-through; }
+.bx-acts { display: flex; gap: 8px; padding: 0 12px 10px; }
+.bx-acts .btn-sm { flex: 1; }
+.bx-used { padding: 2px 0; }
+.bx-used summary { padding: 6px 12px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.bx-empty, .bx-reading { padding: 4px 12px 8px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.bx-reading { color: #b45309; font-weight: 700; }
+.bx-btns { display: flex; gap: 8px; padding: 6px 12px 4px; }
+.bx-btns .btn-sm { flex: 1; padding: 10px 12px; }
+.bx-draft { margin: 6px 12px 2px; padding: 8px; border: 1.5px dashed #e0a800; border-radius: 10px; background: #fff; }
+.bx-draft .bx-btns { padding: 6px 0 0; }
+.bx-draft-note { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 6px; }
+.bx-draft-row { display: flex; gap: 4px; margin-bottom: 6px; }
+.bx-draft-row input { flex: 1; min-width: 0; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; text-transform: uppercase; }
+.bx-draft-row .x { width: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+.bx-draft-add { border: 0; background: transparent; color: var(--primary, #2b62d9); font-weight: 700; font-size: 13px; padding: 2px 0; }
+.bx-search { width: 100%; box-sizing: border-box; margin: 2px 0 8px; padding: 11px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 16px; }
+.bx-hit { padding: 0; overflow: hidden; }
+.bx-hit .bx-row { border-top: 0; }
+.bx-site { display: block; width: 100%; padding: 8px 12px; border: 0; border-top: 1px solid var(--border); background: #f8fafc; text-align: left; font: inherit; font-size: 13.5px; color: var(--text); }

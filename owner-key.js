@@ -33,7 +33,9 @@
     // 거래처 화면 › 📥 카톡 정리 (2026-10-28, n8n 현장관리_카톡정리)
     'kakao-digest',
     // 현장 빈칸 우편함 (2026-10-31, n8n 현장관리_빈칸) — 노트북이 업체 답에서 뽑은 값을 앱이 가져가 칸에 넣는다
-    'site-fill-take'
+    'site-fill-take',
+    // 현장 › 필름 › 📦 AS 박스 사진 글씨 읽기 (2026-10-31, n8n 현장관리_필름라벨)
+    'film-label-read'
   ].forEach(function (p) { OWNER_PATHS[p] = true; });
 
   function readKey() { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return ''; } }

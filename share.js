@@ -1456,6 +1456,105 @@
     return hit.length ? hit[0] : null;
   }
 
+  /* ---------- AS 필름 박스 (2026-10-31 사장님) ----------
+     시공 마지막 날 남은 필름 중 가장 긴 것만 박스에 넣고, 롤 테이프에 'ps010 300x2450'(번호 폭x길이, mm)을 적어
+     사진을 찍는다. 앱은 그 현장에 site.filmBox = [{ id, code, w, l, at, usedAt, log:[{ at, from, to }] }] 로 남긴다.
+     꺼내 쓰면 [다 씀](usedAt) 또는 [남은 길이](l 을 줄이고 log 에 남김). 같은 번호를 다시 올리면 새 치수로 바뀐다 */
+  var FILM_LABEL_RE = /^(.*?)[\s,:]*(\d{2,5})\s*[xX×*]\s*(\d{2,5})\s*(?:mm)?\s*$/;
+  // 'ps010 300x2450' → { code: 'PS010', w: 300, l: 2450 }. 치수가 없으면 번호만 (w, l = 0). 번호가 없으면 null
+  function parseFilmLabel(text) {
+    var t = str(text).replace(/\s+/g, ' ');
+    if (!t) return null;
+    var m = FILM_LABEL_RE.exec(t);
+    var code = str(m ? m[1] : t).replace(/[\s,:]+$/, '').toUpperCase();
+    if (!code) return null;
+    return { code: code, w: m ? Number(m[2]) : 0, l: m ? Number(m[3]) : 0 };
+  }
+  // 여러 줄(또는 쉼표·슬래시로 나눈) 글 → 라벨 목록
+  function parseFilmLabels(text) {
+    return String(text == null ? '' : text).split(/[\n/;]+/).map(parseFilmLabel).filter(Boolean);
+  }
+  function filmSizeText(it) {
+    var w = Number(it && it.w) || 0, l = Number(it && it.l) || 0;
+    return w && l ? w + 'x' + l : (l ? '길이 ' + l : (w ? '폭 ' + w : ''));
+  }
+  function normalizeFilmBox(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function (r) { return r && typeof r === 'object' && str(r.code); }).map(function (r, i) {
+      return {
+        id: str(r.id) || ('fb' + i + '_' + filmKey(r.code)),
+        code: str(r.code),
+        w: Math.max(0, Math.round(Number(r.w) || 0)),
+        l: Math.max(0, Math.round(Number(r.l) || 0)),
+        at: isIsoDate(r.at) ? r.at : '',
+        usedAt: isIsoDate(r.usedAt) ? r.usedAt : '',
+        log: (Array.isArray(r.log) ? r.log : []).filter(function (g) { return g && isIsoDate(g.at); })
+          .map(function (g) { return { at: g.at, from: Number(g.from) || 0, to: Number(g.to) || 0 }; })
+      };
+    });
+  }
+  function filmBoxActive(box) { return normalizeFilmBox(box).filter(function (it) { return !it.usedAt; }); }
+  /* 사진(또는 직접 적은) 라벨을 박스에 넣는다. 같은 번호가 박스에 있으면 그 줄을 새 치수로 바꾼다
+     (다 쓴 줄이어도 다시 살린다). newId(i) 로 새 줄 id → { box, added, updated } */
+  function filmBoxPut(box, labels, today, newId) {
+    var out = normalizeFilmBox(box), added = 0, updated = 0;
+    (labels || []).forEach(function (lb, i) {
+      var k = filmKey(lb && lb.code);
+      if (!k) return;
+      var w = Math.max(0, Math.round(Number(lb.w) || 0)), l = Math.max(0, Math.round(Number(lb.l) || 0));
+      var hit = out.filter(function (it) { return filmKey(it.code) === k; })[0];
+      if (hit) {
+        if (hit.l !== l && !hit.usedAt) hit.log.push({ at: today, from: hit.l, to: l });
+        hit.code = str(lb.code); hit.w = w || hit.w; hit.l = l; hit.at = today; hit.usedAt = '';
+        updated++;
+      } else {
+        out.push({ id: newId ? newId(i) : ('fb' + Date.now() + '_' + i), code: str(lb.code), w: w, l: l, at: today, usedAt: '', log: [] });
+        added++;
+      }
+    });
+    return { box: out, added: added, updated: updated };
+  }
+  function filmBoxUse(box, id, today) {
+    return normalizeFilmBox(box).map(function (it) { return it.id === id ? Object.assign(it, { usedAt: today }) : it; });
+  }
+  // 남은 길이로 고친다. 0 이하면 다 쓴 것
+  function filmBoxSetLength(box, id, l, today) {
+    var n = Math.round(Number(l) || 0);
+    return normalizeFilmBox(box).map(function (it) {
+      if (it.id !== id) return it;
+      if (n <= 0) return Object.assign(it, { usedAt: today });
+      if (n !== it.l) it.log.push({ at: today, from: it.l, to: n });
+      it.l = n;
+      return it;
+    });
+  }
+  function filmBoxUndoUse(box, id) {
+    return normalizeFilmBox(box).map(function (it) { return it.id === id ? Object.assign(it, { usedAt: '' }) : it; });
+  }
+  // 줄 아래 작은 글: '10/31 넣음 · 11/15 1000 씀' / '10/31 넣음 → 11/15 다 씀'
+  function filmBoxNote(it) {
+    var parts = [it.at ? shortDate(it.at) + ' 넣음' : ''];
+    var last = (it.log || [])[it.log.length - 1];
+    if (last && last.from > last.to) parts.push(shortDate(last.at) + ' ' + (last.from - last.to) + ' 씀');
+    var t = parts.filter(Boolean).join(' · ');
+    return it.usedAt ? t + ' → ' + shortDate(it.usedAt) + ' 다 씀' : t;
+  }
+  /* 모든 현장 박스에서 번호로 찾기 (다 쓴 것 빼고). 번호 일부만 쳐도 된다(ps01 → PS010).
+     빈 칸이면 전체. 번호순, 같은 번호는 최근에 넣은 것 먼저 → [{ site, item }] */
+  function filmBoxSearch(sites, query) {
+    var q = filmKey(query), out = [];
+    (sites || []).forEach(function (s) {
+      filmBoxActive(s && s.filmBox).forEach(function (it) {
+        if (!q || filmKey(it.code).indexOf(q) !== -1) out.push({ site: s, item: it });
+      });
+    });
+    return out.sort(function (a, b) {
+      var ka = filmKey(a.item.code), kb = filmKey(b.item.code);
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return a.item.at < b.item.at ? 1 : (a.item.at > b.item.at ? -1 : 0);
+    });
+  }
+
   /* ---------- 내 차 재고 (2026-10-19) ----------
      본드·장갑 같은 상비 부자재는 현장마다 '준비'하는 게 아니라 차에 싣고 다니다가 현장에서 꺼내 쓴다(불출).
      그래서 보충은 현장이 아니라 '나'에게 붙는 할 일이다 — 현장이 3곳이어도 할 일은 하나.
@@ -1995,6 +2094,17 @@
     extraPlan: extraPlan,
     extraFilmRow: extraFilmRow,
     filmKey: filmKey,
+    parseFilmLabel: parseFilmLabel,
+    parseFilmLabels: parseFilmLabels,
+    filmSizeText: filmSizeText,
+    normalizeFilmBox: normalizeFilmBox,
+    filmBoxActive: filmBoxActive,
+    filmBoxPut: filmBoxPut,
+    filmBoxUse: filmBoxUse,
+    filmBoxSetLength: filmBoxSetLength,
+    filmBoxUndoUse: filmBoxUndoUse,
+    filmBoxNote: filmBoxNote,
+    filmBoxSearch: filmBoxSearch,
     choseong: choseong, nameInitial: nameInitial, nameMatch: nameMatch, staffFrequency: staffFrequency,
     busyElsewhere: busyElsewhere, staffPickGroups: staffPickGroups,
     filmOverlaps: filmOverlaps, filmOverlapsAhead: filmOverlapsAhead, filmOverlapText: filmOverlapText, siteShortName: siteShortName,
