@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자투리 필름 관리 흐름</title>
+<style>
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; background:#f4f5f7; color:#222; margin:0; padding:16px; line-height:1.45; }
+  h1 { font-size:20px; margin:4px 0 4px; }
+  h2 { font-size:17px; margin:28px 0 10px; padding-left:8px; border-left:4px solid #3b6fd8; }
+  .sub { color:#666; font-size:13px; margin-bottom:12px; }
+  .flow { display:flex; flex-direction:column; align-items:center; gap:0; max-width:520px; margin:0 auto; }
+  .box { background:#fff; border:2px solid #cfd6e4; border-radius:12px; padding:10px 14px; width:100%; box-sizing:border-box; text-align:center; font-size:15px; }
+  .box small { display:block; color:#666; font-size:12px; margin-top:3px; }
+  .start { background:#eef3ff; border-color:#3b6fd8; font-weight:bold; }
+  .q { background:#fff8e6; border-color:#e0a800; font-weight:bold; }
+  .app { background:#eafaf0; border-color:#2e9e5b; }
+  .bad { background:#fdeeee; border-color:#d9534f; }
+  .arrow { font-size:22px; color:#8a94a6; height:26px; line-height:26px; }
+  .row { display:flex; gap:8px; width:100%; }
+  .row > .col { flex:1; display:flex; flex-direction:column; align-items:center; }
+  .row .box { font-size:13px; padding:8px; }
+  .tag { display:inline-block; font-size:11px; padding:1px 6px; border-radius:8px; background:#2e9e5b; color:#fff; margin-bottom:4px; }
+  .lab { font-size:12px; color:#555; margin:2px 0; }
+  /* 폰 화면 예시 */
+  .phones { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
+  .phone { width:240px; background:#fff; border:8px solid #222; border-radius:24px; padding:10px; box-sizing:border-box; font-size:13px; }
+  .phone .t { font-weight:bold; font-size:14px; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:6px; }
+  .phone .cap { text-align:center; font-size:12px; color:#3b6fd8; font-weight:bold; margin-top:8px; }
+  .fl { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed #eee; }
+  .btn { background:#2e9e5b; color:#fff; border-radius:8px; padding:3px 8px; font-size:12px; }
+  .btn.gray { background:#999; }
+  .alert { background:#fff3cd; border:1px solid #e0a800; border-radius:8px; padding:6px 8px; margin:6px 0; font-size:12px; }
+  .old { color:#d9534f; font-size:11px; }
+  .input { border:1px solid #bbb; border-radius:6px; padding:4px 6px; margin:4px 0; color:#999; }
+  .note { max-width:520px; margin:18px auto 0; background:#fff; border-radius:10px; padding:12px 14px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<h1>🎞 자투리 필름 관리 흐름</h1>
+<div class="sub">초록색 칸 = 앱이 해 주는 부분</div>
+
+<h2>① 전체 흐름</h2>
+<div class="flow">
+  <div class="box start">시공 끝 — 필름이 남음 (3~4m)</div>
+  <div class="arrow">↓</div>
+  <div class="box q">이 자투리, 남길까?</div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <div class="col">
+      <div class="lab">AS 대비</div>
+      <div class="box">이 현장 필름<br><b>1~2m만 남김</b></div>
+    </div>
+    <div class="col">
+      <div class="lab">자주 쓰는 색</div>
+      <div class="box">화이트·우드 등<br><b>통째로 남김</b></div>
+    </div>
+    <div class="col">
+      <div class="lab">둘 다 아님</div>
+      <div class="box bad">버리거나<br>나눠 줌</div>
+    </div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="box">롤에 테이프로 <b>번호 · 길이 · 날짜</b> 적고 통에 세워 보관</div>
+  <div class="arrow">↓</div>
+  <div class="box app"><span class="tag">앱</span><br>현장 필름 줄에서 <b>[자투리 남김]</b> → 길이만 입력<br><small>번호·현장명·날짜는 자동</small></div>
+  <div class="arrow">↓</div>
+  <div class="box app"><span class="tag">앱</span><br>📦 <b>자투리 목록</b>에 쌓임</div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <div class="col">
+      <div class="box app">새 현장에 필름번호 적음<br>→ <b>"자투리 있음"</b> 알림<br><small>몰딩분은 주문에서 뺌 💰</small></div>
+    </div>
+    <div class="col">
+      <div class="box app">AS 접수<br>→ <b>"그 현장 자투리 있음"</b><br><small>주문 없이 바로 출동</small></div>
+    </div>
+    <div class="col">
+      <div class="box app">6개월~1년 지남<br>→ <b>"정리하세요"</b> 표시<br><small>짐 안 쌓이게</small></div>
+    </div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="box app">썼으면 <b>[사용]</b> → 길이 줄이거나 목록에서 뺌</div>
+</div>
+
+<h2>② 앱 화면 예시</h2>
+<div class="phones">
+
+  <div class="phone">
+    <div class="t">현장 › 필름 탭</div>
+    <div class="fl"><span>한솔 콘크리트화이트</span><span class="btn">자투리 남김</span></div>
+    <div class="fl"><span>LX 오크 W123</span><span class="btn">자투리 남김</span></div>
+    <div class="alert">남은 길이? <div class="input">3.5 m</div><span class="btn">저장</span></div>
+    <div class="cap">① 시공 끝나고 기록</div>
+  </div>
+
+  <div class="phone">
+    <div class="t">📦 자투리 목록</div>
+    <div class="fl"><span><b>콘크리트화이트</b><br><small>3.5m · ○○아파트 · 10월</small></span><span class="btn gray">사용</span></div>
+    <div class="fl"><span><b>LX 오크 W123</b><br><small>2m · △△빌라 · 9월</small></span><span class="btn gray">사용</span></div>
+    <div class="fl"><span><b>레놀릿 화이트</b><br><small class="old">4m · □□상가 · 작년 3월 ⚠ 정리하세요</small></span><span class="btn gray">버림</span></div>
+    <div class="cap">② 번호별로 한눈에</div>
+  </div>
+
+  <div class="phone">
+    <div class="t">새 현장 › 필름 번호 입력</div>
+    <div class="input" style="color:#222">한솔 콘크리트화이트</div>
+    <div class="alert">🎞 자투리 <b>3.5m</b> 있음<br><small>○○아파트 · 10월 — 몰딩용으로 쓰면 주문 줄여도 돼요</small></div>
+    <div class="cap">③ 주문 전에 알려 줌</div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>핵심은 두 가지</b><br>
+  1) 남길 때 <b>길이만 입력</b> (10초)<br>
+  2) 같은 번호를 다시 쓸 때 <b>앱이 먼저 알려 줌</b> → 자투리가 실제로 다시 쓰임
+</div>
+
+</body>
+</html>
