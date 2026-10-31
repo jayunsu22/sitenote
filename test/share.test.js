@@ -1330,6 +1330,8 @@ test('업체 확인 질문 (2026-11-01): 기본 3개, {날짜} 바꾸기, 이상
   assert.deepStrictEqual(Share.normalizeChecks([{ id: 'a', text: ' x ' }, { id: 'a', text: 'dup' }, { id: '', text: 'no id' }]), [{ id: 'a', text: 'x', ok: false, off: false }]);
   assert.strictEqual(Share.checkAnswer({ checks: { door: { v: '안 닿음' } } }, 'door'), '안 닿음');
   assert.strictEqual(Share.checkAnswer({}, 'door'), '');
+  assert.strictEqual(Share.checkSkipped({ checks: { xmark: { v: '', skip: true } } }, 'xmark'), true);   // 이 현장은 안 물음
+  assert.strictEqual(Share.checkSkipped({ checks: { door: { v: '안 닿음' } } }, 'door'), false);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

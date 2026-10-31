@@ -1520,3 +1520,8 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .chk-q.done { color: var(--text); }
 .chk-row input { width: 100%; box-sizing: border-box; }
 .chk-src { display: block; margin-top: 2px; color: var(--muted, #888); font-size: 12px; }
+.chk-top { display: flex; align-items: center; gap: 6px; }
+.chk-top .chk-q { flex: 1; margin-bottom: 0; }
+.chk-top .chk-tog { flex: none; height: 28px; font-size: 12px; }
+.chk-row .chk-top + input { margin-top: 4px; }
+.chk-q.skip { color: var(--muted); text-decoration: line-through; }

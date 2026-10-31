@@ -1570,7 +1570,7 @@
     // 기본·출입: 업자에게 물어볼 칸 중 빈 것
     var empty = INFO_ASK.filter(function (k) { return Share.isEmpty(s, k); });
     // 업체 확인 질문 (2026-11-01) — 시공 전인 현장만 '못 받은 답' 으로 센다 (지난 현장까지 빨갛게 두지 않게)
-    if (s.date && s.date >= today) checksNow().forEach(function (c) { if (!c.off && !Share.checkAnswer(s, c.id)) empty.push('check:' + c.id); });
+    if (s.date && s.date >= today) checksNow().forEach(function (c) { if (!c.off && !Share.checkAnswer(s, c.id) && !Share.checkSkipped(s, c.id)) empty.push('check:' + c.id); });
     st.info = { warn: empty.length > 0, pill: empty.length ? '🚪 ' + empty.length + '칸 빔' : '🚪 출입 ✓', tone: empty.length ? 'amber' : 'green' };
     // 일정·인원
     var dated = s.days.filter(function (d) { return Share.isIsoDate(d.date); });
@@ -4683,19 +4683,32 @@
     box.innerHTML = '';
     if (!list.length) return;
     box.appendChild(el2('div', 'field-label', '📋 업체 확인'));
+    var save = function (all) { Store.updateSite(siteId, { checks: all }); renderCheckSection(box, siteId); };
     list.forEach(function (c) {
       var row = el2('div', 'chk-row');
       var a = (s.checks || {})[c.id];
       var v = Share.checkAnswer(s, c.id);
-      row.appendChild(el2('div', 'chk-q' + (v ? ' done' : ''), (v ? '✅ ' : '☐ ') + Share.checkText(c, s) + (c.ok ? ' (확답)' : '')));
+      // '이 현장은 안 물음' (사장님 11/1) — 예: 현관문 공사가 없는 현장의 X 표시. 다시 누르면 묻기로 돌아간다
+      var skipped = Share.checkSkipped(s, c.id);
+      var top = el2('div', 'chk-top');
+      top.appendChild(el2('div', 'chk-q' + (v || skipped ? ' done' : '') + (skipped ? ' skip' : ''),
+        (skipped ? '➖ ' : v ? '✅ ' : '☐ ') + Share.checkText(c, s) + (c.ok ? ' (확답)' : '')));
+      var sk = el2('button', 'chk-tog' + (skipped ? ' on' : ''), skipped ? '다시 묻기' : '이 현장은 안 물음'); sk.type = 'button';
+      sk.onclick = function () {
+        var all = Object.assign({}, Store.getSite(siteId).checks || {});
+        if (skipped) delete all[c.id]; else all[c.id] = { v: '', skip: true };
+        save(all);
+      };
+      if (!v || skipped) top.appendChild(sk);
+      row.appendChild(top);
+      if (skipped) { box.appendChild(row); return; }
       var inp = document.createElement('input'); inp.type = 'text'; inp.value = v; inp.autocomplete = 'off';
       inp.placeholder = c.ok ? '확답 받으면 "확답 받음"' : '업체 답';
       inp.addEventListener('change', function () {
         var cur = Store.getSite(siteId), all = Object.assign({}, cur.checks || {});
         var t = inp.value.trim();
         if (t) all[c.id] = { v: t, src: '' }; else delete all[c.id];
-        Store.updateSite(siteId, { checks: all });
-        renderCheckSection(box, siteId);
+        save(all);
       });
       row.appendChild(inp);
       if (a && a.src) row.appendChild(el2('small', 'chk-src', '💬 ' + a.src));

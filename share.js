@@ -1374,6 +1374,11 @@
     var a = site && site.checks && site.checks[id];
     return a && typeof a === 'object' ? str(a.v) : str(a);
   }
+  // '이 현장은 안 물음' (2026-11-01) — site.checks[id] = { v: '', skip: true }. 업체에 안 묻고, 못 받은 답으로도 안 센다
+  function checkSkipped(site, id) {
+    var a = site && site.checks && site.checks[id];
+    return !!(a && typeof a === 'object' && a.skip);
+  }
 
   var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
   var DEFAULT_REVIEW_TAGS = ['도배시공후', '바닥시공후'];
@@ -2055,7 +2060,7 @@
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
-    DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer,
+    DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer, checkSkipped: checkSkipped,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,
