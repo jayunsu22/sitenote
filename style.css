@@ -211,6 +211,9 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .film-row { display: flex; gap: 6px; margin-bottom: 6px; }
 .film-row input { flex: 1; min-width: 0; }
 .film-row input.code { flex: 0.8; }
+/* 필요량 (2026-11-01) — 좁은 폰에서도 한 줄에 들어가게 짧게 */
+.film-row select.qty { flex: 0 0 auto; width: 92px; min-width: 0; padding-left: 6px; padding-right: 2px; font-size: 14px; }
+.film-row select.qty:invalid, .film-row select.qty option[value=""] { color: var(--muted); }
 .film-row .x { width: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
 .film-actions { display: flex; gap: 6px; }
 .film-add { flex: 1 1 auto; padding: 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background: transparent; color: var(--primary); font-weight: 700; font-size: 13px; }

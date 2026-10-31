@@ -109,6 +109,11 @@ test('빈 줄·공백은 빼고, 같은 번호는 한 번만', () => {
   assert.strictEqual(Share.filmOrderText(s), 'px454-2\nps101');
 });
 test('필름 없으면 빈 문자열', () => { assert.strictEqual(Share.filmOrderText(blank()), ''); });
+test('필요량 (2026-11-01): 번호 뒤에, 같은 번호 줄의 필요량은 + 로 합침', () => {
+  const s = { films: [{ place: '기본필름', code: 'pwt1200', qty: '1롤' }, { place: '2m정도', code: 'pwe1501-2', qty: '5m 이상' }, { place: '방', code: 'PWT1200', qty: '10m 이상' }, { place: '몰딩', code: 'ps035', qty: '' }] };
+  assert.strictEqual(Share.filmOrderText(s), 'pwt1200 1롤 + 10m 이상\npwe1501-2 5m 이상\nps035');
+  assert.deepStrictEqual(Share.FILM_QTYS.slice(-2), ['4롤', '5롤']);
+});
 test('주문용이라 같은 필름은 한 번만 — 대소문자·띄어쓰기 차이도 같은 필름으로 본다 (처음 적은 모양으로)', () => {
   const s = blank();
   s.films = [{ place: '방3,화2 문짝', code: '보닥 spw25' }, { place: '방3,화2 문틀', code: '예림 hp602' },

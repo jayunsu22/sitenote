@@ -198,15 +198,18 @@
     var picked = rows.filter(function (r) { return r.ready; });
     if (picked.length) rows = picked;
     // 같은 필름인지는 대소문자·띄어쓰기를 무시하고 본다 ('예림 hp602' = '예림  HP602').
-    // 적힌 모양은 처음 나온 줄 그대로 쓴다
-    return rows
-      .map(function (r) { return str(r.code); })
-      .filter(function (c) {
-        var k = c.replace(/\s+/g, ' ').toLowerCase();
-        if (!c || seen[k]) return false; seen[k] = true; return true;
-      })
-      .join('\n');
+    // 적힌 모양은 처음 나온 줄 그대로 쓴다. 필요량(qty, 2026-11-01)은 번호 뒤에 — 같은 번호 줄들의 필요량을 ' + ' 로
+    var order = [], qtys = {};
+    rows.forEach(function (r) {
+      var c = str(r.code), k = c.replace(/\s+/g, ' ').toLowerCase();
+      if (!seen[k]) { seen[k] = c; order.push(k); qtys[k] = []; }
+      var q = str(r.qty);
+      if (q && qtys[k].indexOf(q) === -1) qtys[k].push(q);
+    });
+    return order.map(function (k) { return seen[k] + (qtys[k].length ? ' ' + qtys[k].join(' + ') : ''); }).join('\n');
   }
+  // 필름 필요량 (2026-11-01 사장님) — 줄마다 드롭다운. 주문 문자에 번호 뒤로 들어간다
+  var FILM_QTYS = ['5m 이상', '10m 이상', '15m 이상', '30m 이상', '1롤', '2롤', '3롤', '4롤', '5롤'];
   // 필름 '줄 추가' 에 들어갈 새 줄 (2026-09-29): 시공위치는 빈칸, 필름명은 바로 위 줄 것.
   // 시공위치만 다르고 필름은 같은 경우가 많다. 위 줄 필름이 비었으면 그 위에서 마지막으로 적은 것
   function newFilmRow(films) {
@@ -2091,6 +2094,7 @@
     titleLine: titleLine,
     navAddress: navAddress,
     filmOrderText: filmOrderText,
+    FILM_QTYS: FILM_QTYS,
     filmOrderMessage: filmOrderMessage,
     phoneDigits: phoneDigits,
     telHref: telHref,

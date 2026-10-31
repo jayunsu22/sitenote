@@ -3757,6 +3757,11 @@
       var line = document.createElement('div'); line.className = 'film-row';
       line.innerHTML = '<input type="text" class="place" placeholder="시공위치 (현관문 뒷면)" value="' + esc(r.place) + '">' +
         '<input type="text" class="code" placeholder="필름번호 (PS035)" value="' + esc(r.code) + '">' +
+        // 필요량 (2026-11-01 사장님) — 주문 문자에 번호 뒤로 들어간다. 목록에 없는 옛 값도 그대로 보인다
+        '<select class="qty" title="필요량"><option value="">필요량</option>' +
+        Share.FILM_QTYS.concat(r.qty && Share.FILM_QTYS.indexOf(r.qty) < 0 ? [r.qty] : []).map(function (q) {
+          return '<option' + (q === r.qty ? ' selected' : '') + '>' + esc(q) + '</option>';
+        }).join('') + '</select>' +
         '<button type="button" class="x" title="줄 삭제">×</button>';
       // 줄마다 [주문] 버튼은 뺐다 (2026-10-24 사장님: 번거롭다 — 위 단계 띠의 '필름 주문' 으로 충분)
       // 준비됨 ☑ — 줄 맨 앞. 아직 저장 안 된 빈 첫 줄이면 먼저 저장하고 토글한다
@@ -3767,11 +3772,13 @@
         return films[i].ready;
       }), line.firstChild);
       var upd = function () {
-        films[i] = Object.assign({}, films[i], { place: line.querySelector('.place').value, code: line.querySelector('.code').value, ready: !!films[i].ready });
+        films[i] = Object.assign({}, films[i], { place: line.querySelector('.place').value, code: line.querySelector('.code').value,
+          qty: line.querySelector('.qty').value, ready: !!films[i].ready });
         save({ films: films.slice() });
       };
       line.querySelector('.place').addEventListener('input', upd);
       line.querySelector('.code').addEventListener('input', upd);
+      line.querySelector('.qty').addEventListener('change', upd);
       // 번호를 다 적고 나가면 겹침 경고를 다시 그린다 (적는 중에 다시 그리면 커서가 날아간다)
       line.querySelector('.code').addEventListener('change', function () { warnPainters.forEach(function (f) { f(); }); });
       line.querySelector('.x').onclick = function () {
@@ -3888,9 +3895,12 @@
       list.appendChild(el2('p', 'sec-empty', vendor.name + ' 담당자가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요.'));
       return;
     }
-    var 본문 = state.settings.smsSiteName
-      ? Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films })
-      : Share.filmOrderText({ films: films });
+    // 문자 본문은 💬 를 누르는 순간 만든다 (2026-11-01) — 그려 둔 뒤 고친 필름 번호·필요량도 들어가게
+    var 본문Now = function () {
+      return state.settings.smsSiteName
+        ? Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films })
+        : Share.filmOrderText({ films: films });
+    };
     vendor.people.forEach(function (p, i) {
       var who = p.name || ('담당자 ' + (i + 1));
       var pill = el2('span', 'fv-chip' + (p.phone ? '' : ' off'));
@@ -3908,16 +3918,20 @@
       }
 
       // 💬 = 문자 (번호와 필름명이 이미 채워진 문자창)
-      var ok = p.phone && 본문;
-      var sms = document.createElement(ok ? 'a' : 'button');
+      var sms = document.createElement(p.phone ? 'a' : 'button');
       sms.className = 'fv-chip-sms'; sms.textContent = '💬';
-      if (ok) {
-        sms.href = smsHref(p.phone, 본문);
-        sms.title = who + ' 에게 문자 — 필름명이 채워집니다';
-        sms.onclick = function () { toast('필름명이 채워진 문자창이 열립니다 — 보내기만 누르세요'); };
+      if (p.phone) {
+        sms.href = smsHref(p.phone, 본문Now());
+        sms.title = who + ' 에게 문자 — 필름명·필요량이 채워집니다';
+        sms.onclick = function (e) {
+          var body = 본문Now();
+          if (!body) { e.preventDefault(); toast('적힌 필름 번호가 없습니다'); return; }
+          sms.href = smsHref(p.phone, body);   // 누르는 순간의 필름·필요량
+          toast('필름명이 채워진 문자창이 열립니다 — 보내기만 누르세요');
+        };
       } else {
-        sms.type = 'button'; sms.title = p.phone ? '적힌 필름 번호가 없음' : '번호 없음';
-        sms.onclick = function () { toast(p.phone ? '적힌 필름 번호가 없습니다' : who + ' 번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
+        sms.type = 'button'; sms.title = '번호 없음';
+        sms.onclick = function () { toast(who + ' 번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
       }
       pill.appendChild(call); pill.appendChild(sms);
       list.appendChild(pill);
