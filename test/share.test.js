@@ -1323,5 +1323,14 @@ test('작업시간 묶음: 샤시는 종류·면별 1m당, 문+틀은 1개당, �
   assert.deepStrictEqual([g2.rows[0].per, g2.rows[0].측정제외, g2.trend], [null, true, null]);
 });
 
+test('업체 확인 질문 (2026-11-01): 기본 3개, {날짜} 바꾸기, 이상한 줄 버림, 답 읽기', () => {
+  const def = Share.normalizeChecks();
+  assert.deepStrictEqual(def.map((c) => [c.id, c.ok]), [['door', false], ['overlap', false], ['xmark', true]]);
+  assert.strictEqual(Share.checkText(def[1], { date: '2026-11-25' }), '11/25에 겹치는 다른 공정');
+  assert.deepStrictEqual(Share.normalizeChecks([{ id: 'a', text: ' x ' }, { id: 'a', text: 'dup' }, { id: '', text: 'no id' }]), [{ id: 'a', text: 'x', ok: false, off: false }]);
+  assert.strictEqual(Share.checkAnswer({ checks: { door: { v: '안 닿음' } } }, 'door'), '안 닿음');
+  assert.strictEqual(Share.checkAnswer({}, 'door'), '');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

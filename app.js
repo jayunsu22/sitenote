@@ -1531,6 +1531,7 @@
         sec('staff', '', renderContactSection);
       }
     });
+    sec('info', 'checkSec', renderCheckSection);   // 업체 확인 질문의 답 (2026-11-01) — 출입 칸 아래
     sec('film', 'extraFilmSec', renderExtraSection);   // 추가작업 → 필름 (같은 내용, 필름 탭에서도)
     sec('film', '', renderSuppliesSection);     // 필름 바로 아래 부자재 (2026-10-05 한 탭으로 묶음)
     sec('film', 'silSec', renderSiliconeSection);   // 부자재 바로 아래 실리콘 (2026-10-24)
@@ -1568,6 +1569,8 @@
     var st = {};
     // 기본·출입: 업자에게 물어볼 칸 중 빈 것
     var empty = INFO_ASK.filter(function (k) { return Share.isEmpty(s, k); });
+    // 업체 확인 질문 (2026-11-01) — 시공 전인 현장만 '못 받은 답' 으로 센다 (지난 현장까지 빨갛게 두지 않게)
+    if (s.date && s.date >= today) checksNow().forEach(function (c) { if (!c.off && !Share.checkAnswer(s, c.id)) empty.push('check:' + c.id); });
     st.info = { warn: empty.length > 0, pill: empty.length ? '🚪 ' + empty.length + '칸 빔' : '🚪 출입 ✓', tone: empty.length ? 'amber' : 'green' };
     // 일정·인원
     var dated = s.days.filter(function (d) { return Share.isIsoDate(d.date); });
@@ -4623,6 +4626,83 @@
   bindListAdder('reviewQuestionInput', 'btnAddReviewQuestion', function () { return state.settings.reviewQuestions || []; }, function (next) { Store.setSettings({ reviewQuestions: next }); renderReviewQuestionList(); });
   bindListAdder('reviewTagInput', 'btnAddReviewTag', function () { return state.settings.reviewTags || []; }, function (next) { Store.setSettings({ reviewTags: next }); renderReviewSettingLists(); });
 
+  /* 업체 확인 질문 (2026-11-01 사장님) — 설정 › 문구. 글을 누르면 고치기, [확답만] 은 '네' 만 받으면 되는 부탁,
+     [쉼] 은 잠시 안 묻기, ↑↓ 순서(업체에 가는 번호 순서), × 빼기. id 는 그대로 두어 이미 받은 답이 따라간다 */
+  function checksNow() { return Share.normalizeChecks(state.settings.checks); }
+  function saveChecks(list) { Store.setSettings({ checks: list }); renderCheckList(); }
+  function renderCheckList() {
+    var box = $('checkList'), list = checksNow();
+    box.innerHTML = '';
+    if (!list.length) { var e = el2('div', 'sec-empty', '아직 없음'); box.appendChild(e); }
+    list.forEach(function (c, i) {
+      var row = el2('div', 'slist-row rvq-row chk-set' + (c.off ? ' off' : ''));
+      var nm = el2('button', 'slist-name rvq-name', (i + 1) + '. ' + c.text); nm.type = 'button'; nm.title = '눌러서 고치기';
+      nm.onclick = function () {
+        modalPrompt('업체 확인 질문 고치기', c.text).then(function (v) {
+          var to = String(v == null ? '' : v).trim();
+          if (!to || to === c.text) return;
+          var next = checksNow(); next[i].text = to; saveChecks(next);
+        });
+      };
+      var ok = el2('button', 'chk-tog' + (c.ok ? ' on' : ''), '확답만'); ok.type = 'button'; ok.title = "'네' 만 받으면 되는 부탁";
+      ok.onclick = function () { var next = checksNow(); next[i].ok = !next[i].ok; saveChecks(next); };
+      var off = el2('button', 'chk-tog' + (c.off ? ' on' : ''), '쉼'); off.type = 'button'; off.title = '잠시 안 묻기';
+      off.onclick = function () { var next = checksNow(); next[i].off = !next[i].off; saveChecks(next); };
+      var up = el2('button', 'rvq-mv', '↑'); up.type = 'button'; up.disabled = i === 0;
+      up.onclick = function () { var next = checksNow(); next.splice(i - 1, 0, next.splice(i, 1)[0]); saveChecks(next); };
+      var dn = el2('button', 'rvq-mv', '↓'); dn.type = 'button'; dn.disabled = i === list.length - 1;
+      dn.onclick = function () { var next = checksNow(); next.splice(i + 1, 0, next.splice(i, 1)[0]); saveChecks(next); };
+      var x = el2('button', 'x', '×'); x.type = 'button'; x.title = '빼기';
+      x.onclick = function () {
+        modalConfirm('질문 빼기', '"' + c.text + '" 를 더는 묻지 않습니다. 이미 받은 답은 그 현장에 남습니다.', '빼기', true).then(function (yes) {
+          if (!yes) return;
+          var next = checksNow(); next.splice(i, 1); saveChecks(next);
+        });
+      };
+      [nm, ok, off, up, dn, x].forEach(function (b) { row.appendChild(b); });
+      box.appendChild(row);
+    });
+  }
+  (function () {
+    var add = function () {
+      var v = $('checkInput').value.trim();
+      if (!v) return;
+      var list = checksNow();
+      if (list.some(function (c) { return c.text === v; })) { toast('이미 있습니다'); return; }
+      list.push({ id: 'c' + Date.now().toString(36), text: v, ok: false, off: false });
+      $('checkInput').value = '';
+      saveChecks(list);
+    };
+    $('btnAddCheck').onclick = add;
+    $('checkInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  })();
+  // 현장 › 기본·출입 › 업체 확인 — 질문마다 답 칸. 노트북이 업체 답을 넣으면 '카톡 방 날짜' 가 붙는다. 손으로 적어도 된다
+  function renderCheckSection(box, siteId) {
+    var s = Store.getSite(siteId), list = checksNow().filter(function (c) { return !c.off || Share.checkAnswer(s, c.id); });
+    box.className = 'sec chk-sec';
+    box.innerHTML = '';
+    if (!list.length) return;
+    box.appendChild(el2('div', 'field-label', '📋 업체 확인'));
+    list.forEach(function (c) {
+      var row = el2('div', 'chk-row');
+      var a = (s.checks || {})[c.id];
+      var v = Share.checkAnswer(s, c.id);
+      row.appendChild(el2('div', 'chk-q' + (v ? ' done' : ''), (v ? '✅ ' : '☐ ') + Share.checkText(c, s) + (c.ok ? ' (확답)' : '')));
+      var inp = document.createElement('input'); inp.type = 'text'; inp.value = v; inp.autocomplete = 'off';
+      inp.placeholder = c.ok ? '확답 받으면 "확답 받음"' : '업체 답';
+      inp.addEventListener('change', function () {
+        var cur = Store.getSite(siteId), all = Object.assign({}, cur.checks || {});
+        var t = inp.value.trim();
+        if (t) all[c.id] = { v: t, src: '' }; else delete all[c.id];
+        Store.updateSite(siteId, { checks: all });
+        renderCheckSection(box, siteId);
+      });
+      row.appendChild(inp);
+      if (a && a.src) row.appendChild(el2('small', 'chk-src', '💬 ' + a.src));
+      box.appendChild(row);
+    });
+  }
+
   /* 앱 파일 버전 — 폰이 새 화면을 받았는지 설정에서 눈으로 확인한다.
      index.html 의 app.js?v=… 를 그대로 읽어 온다 (따로 적어 두면 어긋난다) */
   function appVersion() {
@@ -4643,6 +4723,7 @@
     renderServiceToolList();
     TaskUI.renderTaskRules($('taskRules'));
     renderReviewSettingLists();
+    renderCheckList();
     var wrap = $('questionList'); wrap.innerHTML = '';
     Share.FIELDS.filter(function (f) { return f.question; }).forEach(function (f) {
       var row = document.createElement('div'); row.className = 'qrow';

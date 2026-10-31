@@ -136,6 +136,11 @@
     } else if (f.kind === 'films' && Array.isArray(f.films) && f.films.some(function (x) { return x && x.code; })) {
       p.films = mergeFilms(site.films, f.films.filter(function (x) { return x && x.code; }));
       src.films = by;
+    } else if (f.kind === 'check' && f.checkId && String(f.value || '').trim()) {
+      // 업체 확인 질문의 답 (2026-11-01) — 출처는 답 옆에 둔다
+      var checks = Object.assign({}, site.checks || {});
+      checks[f.checkId] = { v: String(f.value).trim(), src: by };
+      return { checks: checks };
     } else return null;
     p.fieldSrc = src;
     return p;

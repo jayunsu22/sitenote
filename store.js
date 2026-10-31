@@ -52,7 +52,8 @@
       income: {},                                              // 하루 수익 — 사장님이 직접 적는 남은 돈 (2026-10-14)
       taskPresets: DEFAULT_TASK_PRESETS.slice(),               // 할 일 빠른 버튼 (2026-10-14)
       evals: {},                                               // 팀원 하루 평가 { 이름: { 날짜: {s, n} } } (2026-10-23, 화면은 뺐고 값만 둔다)
-      tracked: []                                              // 작업내역을 보는 팀원 이름 — 명단에 'N일차' (2026-10-24)
+      tracked: [],                                             // 작업내역을 보는 팀원 이름 — 명단에 'N일차' (2026-10-24)
+      checks: Share.normalizeChecks()                          // 업체 확인 질문 (2026-11-01) — 노트북이 1주 전 업체 방에 번호 매겨 묻는다
     };
   }
   function stringList(arr, fallback) {
@@ -140,6 +141,8 @@
     s.hide = !!s.hide;   // 숨긴 현장 (2026-10-24) — 메인 목록에서만 뺀다. 일정·기록은 그대로
     s.services = normalizeServices(s.services);
     s.review = Share.normalizeReview(s.review);
+    // 업체 확인 질문의 답 { 질문id: { v: 답, src: '방 날짜' } } (2026-11-01)
+    s.checks = (s.checks && typeof s.checks === 'object' && !Array.isArray(s.checks)) ? s.checks : {};
     return s;
   }
   // 발주처 담당자 { name, role, phone } — 모양이 이상한 줄은 버린다 (빈 줄은 적는 중일 수 있어 둔다)
@@ -268,6 +271,7 @@
       state.settings.income = Share.normalizeIncome(state.settings.income);
       state.settings.evals = Share.normalizeEvals(state.settings.evals);
       state.settings.tracked = stringList(state.settings.tracked, []);
+      state.settings.checks = Share.normalizeChecks(state.settings.checks);   // 예전 저장엔 없다 → 기본 질문
       state.clients = (parsed.clients || []).map(normalizeClient);
       state.tasks = normalizeTasks(parsed.tasks);
       state.sites = (parsed.sites || []).map(function (r) { return normalizeSite(r, state.settings.supplyDefaults); });
@@ -302,7 +306,8 @@
       stockLow: state.settings.stockLow, filmVendors: state.settings.filmVendors,
       people: state.settings.people, reviewQuestions: state.settings.reviewQuestions, reviewTags: state.settings.reviewTags,
       serviceTools: state.settings.serviceTools, taskRules: state.settings.taskRules, holds: state.settings.holds,
-      taskPresets: state.settings.taskPresets, income: state.settings.income, evals: state.settings.evals, tracked: state.settings.tracked };
+      taskPresets: state.settings.taskPresets, income: state.settings.income, evals: state.settings.evals, tracked: state.settings.tracked,
+      checks: state.settings.checks };
   }
 
   // ---------- 거래처 ----------
@@ -835,11 +840,12 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income', 'evals', 'tracked'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income', 'evals', 'tracked', 'checks'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);
     if (patch && patch.taskRules) state.settings.taskRules = Share.normalizeTaskRules(patch.taskRules);
+    if (patch && patch.checks) state.settings.checks = Share.normalizeChecks(patch.checks);
     // 보내는 칸이 바뀐 때만 올린다 (2026-09-24).
     // 예전엔 화면만 옮겨도(lastView·lastTab) 설정 전체를 올렸다. 그래서 다른 브라우저에서 앱을
     // 열기만 해도 그쪽의 빈 팀원 명단·부자재 기본값이 백업을 덮어썼다 — 위젯이 네이버 브라우저로
@@ -966,6 +972,7 @@
         state.settings.income = Share.normalizeIncome(ds.income);   // 예전 백업엔 없다 → 빈 표
         state.settings.evals = Share.normalizeEvals(ds.evals);      // 팀원 하루 평가 (2026-10-23) — 예전 백업엔 없다
         state.settings.tracked = stringList(ds.tracked, []);         // 작업내역 보는 팀원 (2026-10-24)
+        state.settings.checks = Share.normalizeChecks(ds.checks);     // 업체 확인 질문 (2026-11-01) — 예전 백업엔 없다
         state.clients = (data.clients || []).map(normalizeClient);
         // 할 일 (2026-10-14) — 옛 서버(할일 표 없음)는 tasks 를 안 준다. 그때는 폰의 할 일을 지우지 않는다
         if (Array.isArray(data.tasks)) state.tasks = normalizeTasks(data.tasks);

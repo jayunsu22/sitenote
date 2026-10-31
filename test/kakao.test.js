@@ -50,4 +50,8 @@ assert.strictEqual(fp.fieldSrc.films, '봄애실장님 11/1');
 assert.strictEqual(K.fillPatch(site, { kind: 'field', field: 'memo', value: 'x' }, 'a'), null);
 assert.strictEqual(K.fillPatch(site, { kind: 'field', field: 'toilet', value: ' ' }, 'a'), null);
 assert.strictEqual(K.fillPatch(null, { kind: 'field', field: 'toilet', value: '1층' }, 'a'), null);
+// 업체 확인 질문의 답 (2026-11-01)
+fp = K.fillPatch({ checks: { overlap: { v: '없음', src: '' } } }, { kind: 'check', checkId: 'door', value: ' 안 닿음 ' }, '봄애실장님 11/1');
+assert.deepStrictEqual(fp, { checks: { overlap: { v: '없음', src: '' }, door: { v: '안 닿음', src: '봄애실장님 11/1' } } });
+assert.strictEqual(K.fillPatch(site, { kind: 'check', checkId: 'door', value: '' }, 'a'), null);
 console.log('kakao ok');

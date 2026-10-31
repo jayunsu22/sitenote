@@ -1507,3 +1507,16 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .kk-day { padding: 5px 10px; border-radius: 14px; border: 1.5px solid var(--border); background: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .kk-day.on { border-color: #16a34a; background: #dcfce7; color: #166534; }
 .fsrc { display: block; font-size: 10.5px; font-weight: 600; color: #1d4ed8; margin-top: 2px; }
+
+/* 업체 확인 질문 (2026-11-01) — 설정 목록 + 현장 기본·출입 의 답 칸 */
+.chk-set { flex-wrap: wrap; gap: 4px; }
+.chk-set .rvq-name { flex: 1 1 100%; }
+.chk-set.off .rvq-name { opacity: .45; text-decoration: line-through; }
+.chk-tog { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--muted, #666); font-size: 13px; }
+.chk-tog.on { background: #fde68a; border-color: #f59e0b; color: #92400e; font-weight: 700; }
+.chk-sec { margin-top: 10px; }
+.chk-row { margin: 8px 0; }
+.chk-q { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #b45309; }
+.chk-q.done { color: var(--text); }
+.chk-row input { width: 100%; box-sizing: border-box; }
+.chk-src { display: block; margin-top: 2px; color: var(--muted, #888); font-size: 12px; }

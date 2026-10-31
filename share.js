@@ -1351,6 +1351,30 @@
     return out;
   }
 
+  /* 업체 확인 질문 (2026-11-01 사장님) — 빈칸이 아니어도 시공 1주 전에 업체에 꼭 묻는 것. 설정 › 문구 에서 더하고 고친다.
+     노트북(카톡 읽기)이 비번·화장실·필름 빈칸과 함께 번호를 매겨 업체 방에 묻고, 답을 site.checks[id] 에 넣는다.
+     ok = 확답만 받으면 되는 부탁 ('네' 가 오면 '확답 받음'). off = 잠시 안 묻기. text 의 {날짜} 는 그 현장 시공날짜(11/25)로 바뀐다 */
+  var DEFAULT_CHECKS = [
+    { id: 'door', text: '방문이 상하좌우 문틀에 닿는지 (닿으면 목수님 조정 부탁드려요)', ok: false },
+    { id: 'overlap', text: '{날짜}에 겹치는 다른 공정', ok: false },
+    { id: 'xmark', text: '현관문 부속교환할 부분에 마카펜으로 X 표시 부탁드려요', ok: true }
+  ];
+  function normalizeChecks(list) {
+    if (!Array.isArray(list)) return DEFAULT_CHECKS.map(function (c) { return Object.assign({ off: false }, c); });
+    var seen = {};
+    return list.map(function (c) {
+      c = c && typeof c === 'object' ? c : {};
+      return { id: str(c.id), text: str(c.text), ok: !!c.ok, off: !!c.off };
+    }).filter(function (c) { if (!c.id || !c.text || seen[c.id]) return false; seen[c.id] = true; return true; });
+  }
+  function checkText(c, site) {
+    return String(c.text || '').replace(/\{날짜\}/g, site && site.date ? shortDate(site.date) : '시공날짜');
+  }
+  function checkAnswer(site, id) {
+    var a = site && site.checks && site.checks[id];
+    return a && typeof a === 'object' ? str(a.v) : str(a);
+  }
+
   var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
   var DEFAULT_REVIEW_TAGS = ['도배시공후', '바닥시공후'];
   var REVIEW_TAG_MAX = 5;
@@ -2031,6 +2055,7 @@
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
+    DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
     REVIEW_TAG_MAX: REVIEW_TAG_MAX,
