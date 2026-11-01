@@ -142,9 +142,13 @@
       checks[f.checkId] = { v: String(f.value).trim(), src: by };
       return { checks: checks };
     } else if (f.kind === 'filmOrdered') {
-      // 텔레그램 버튼으로 사장님 폰이 주문 문자를 보냄 (2026-11-01) → '필름 주문' 단계. 이미 수령이면 그대로
+      // 텔레그램 버튼으로 사장님 폰이 주문 문자를 보냄 (2026-11-01) → '필름 주문' 단계 (이미 수령이면 그대로)
+      // + 필름 탭에 '11/1 에이엔디·주문담당 ps170 1롤 주문' 기록 (filmOrders, 같은 우편 id 는 한 번)
       var k = parseInt(site.filmStage, 10) || 0;
-      return k < 2 ? { filmStage: 2 } : null;
+      var orders = Array.isArray(site.filmOrders) ? site.filmOrders : [];
+      if (f.id && orders.some(function (o) { return o && o.id === f.id; })) return null;
+      return { filmStage: Math.max(k, 2),
+        filmOrders: orders.concat([{ id: f.id || '', at: String(f.at || ''), to: String(f.room || ''), items: String(f.value || '') }]) };
     } else return null;
     p.fieldSrc = src;
     return p;

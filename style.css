@@ -1188,6 +1188,7 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .film-ord.on { border-color: #86efac; background: #dcfce7; color: #166534; }
 .film-warn { margin: -2px 0 8px; padding: 5px 8px; border-radius: 8px; background: #fef2f2; color: #b91c1c; font-size: 12.5px; font-weight: 700; white-space: pre-line; }
 .film-warn[hidden] { display: none; }
+.film-ordered { margin: 2px 0 6px; padding: 5px 8px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 12.5px; font-weight: 700; }
 .schcal-nml.film { font-size: 10px; letter-spacing: -0.3px; }
 .schcal-nml.film.dup { color: #dc2626; font-weight: 800; }
 .task-ord { margin-left: 8px; padding: 1px 6px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 800; }

@@ -1488,9 +1488,9 @@
     return hit.length ? hit[0] : null;
   }
   /* 필름 주문 텔레그램 (2026-11-01 사장님) — 필름 줄마다 필요량을 다 고르면 n8n film-order 로 보낼 본문.
-     텔레그램에 담당자 버튼(최대 3)이 뜨고, 누르면 사장님 폰(SMS Gateway)이 그 담당자에게 문자를 보낸다.
+     텔레그램에 담당자 버튼이 뜨고, 누르면 사장님 폰(SMS Gateway)이 그 담당자에게 문자를 보낸다.
      아직 다 안 골랐거나, 이미 '필름 주문' 단계 이상이거나, 같은 내용을 이미 보냈으면(site.filmOrderAsk) null */
-  var ORDER_BUTTONS = 3;
+  var ORDER_BUTTONS = 10;   // 주문처 담당자 전부 (n8n 카톡_알림 버튼 10개까지, 사장님 11/1)
   function filmOrderAsk(site, settings) {
     var rows = ((site && site.films) || []).filter(function (r) { return r && str(r.code); });
     if (!rows.length || rows.some(function (r) { return !str(r.qty); }) || filmStageOf(site) >= 2) return null;

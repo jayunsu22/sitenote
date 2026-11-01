@@ -51,8 +51,12 @@ assert.strictEqual(K.fillPatch(site, { kind: 'field', field: 'memo', value: 'x' 
 assert.strictEqual(K.fillPatch(site, { kind: 'field', field: 'toilet', value: ' ' }, 'a'), null);
 assert.strictEqual(K.fillPatch(null, { kind: 'field', field: 'toilet', value: '1층' }, 'a'), null);
 // 텔레그램 버튼으로 필름 주문 문자를 보냄 (2026-11-01) → '필름 주문' 단계, 수령이면 그대로
-assert.deepStrictEqual(K.fillPatch({ filmStage: 1 }, { kind: 'filmOrdered' }, 'a'), { filmStage: 2 });
-assert.strictEqual(K.fillPatch({ filmStage: 3 }, { kind: 'filmOrdered' }, 'a'), null);
+// + 필름 탭 기록 '11/1 에이엔디·주문담당 ps170 1롤 주문' (같은 우편 id 는 한 번)
+const ord = { id: 'f1', kind: 'filmOrdered', room: '에이엔디·주문담당', at: '2026-11-01', value: 'ps170 1롤 · px450 30m 이상' };
+assert.deepStrictEqual(K.fillPatch({ filmStage: 1 }, ord, 'a'),
+  { filmStage: 2, filmOrders: [{ id: 'f1', at: '2026-11-01', to: '에이엔디·주문담당', items: 'ps170 1롤 · px450 30m 이상' }] });
+assert.strictEqual(K.fillPatch({ filmStage: 3 }, ord, 'a').filmStage, 3);
+assert.strictEqual(K.fillPatch({ filmStage: 2, filmOrders: [{ id: 'f1' }] }, ord, 'a'), null);
 // 업체 확인 질문의 답 (2026-11-01)
 fp = K.fillPatch({ checks: { overlap: { v: '없음', src: '' } } }, { kind: 'check', checkId: 'door', value: ' 안 닿음 ' }, '봄애실장님 11/1');
 assert.deepStrictEqual(fp, { checks: { overlap: { v: '없음', src: '' }, door: { v: '안 닿음', src: '봄애실장님 11/1' } } });

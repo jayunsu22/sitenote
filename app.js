@@ -49,7 +49,7 @@
   }
   function modalConfirm(title, msg, okLabel, danger) {
     return new Promise(function (resolve) {
-      openModal(title, '<p style="margin:0;line-height:1.6">' + esc(msg) + '</p>', [
+      openModal(title, '<p style="margin:0;line-height:1.6;white-space:pre-line">' + esc(msg) + '</p>', [
         { label: '취소', onClick: function () { closeModal(); resolve(false); } },
         { label: okLabel || '확인', cls: danger ? 'danger' : 'primary', onClick: function () { closeModal(); resolve(true); } }
       ]);
@@ -3804,6 +3804,13 @@
       paintWarn(); warnPainters.push(paintWarn);
       ctl.appendChild(warn);
     });
+    // 텔레그램 버튼으로 보낸 주문 (2026-11-01 사장님) — 필름 줄 바로 아래 '11/1 에이엔디·주문담당 ps170 1롤 주문'
+    (s.filmOrders || []).forEach(function (o) {
+      if (!o) return;
+      var row = document.createElement('div'); row.className = 'film-ordered';
+      row.textContent = '📦 ' + [o.at ? Share.shortDate(o.at) : '', o.to, o.items].filter(Boolean).join(' ') + ' 주문';
+      ctl.appendChild(row);
+    });
     // 줄 추가 | 필름명 복사. 복사는 필름 번호만 한 줄에 하나씩 - 대리점 주문용이라
     // 시공위치는 빼고 준다. 방금 친 값(films 배열)을 그대로 읽는다.
     var acts = document.createElement('div'); acts.className = 'film-actions';
@@ -3939,6 +3946,14 @@
         sms.onclick = function () { toast(who + ' 번호가 없습니다 — 설정 › 현장준비 › 필름 거래처에서 넣으세요'); };
       }
       pill.appendChild(call); pill.appendChild(sms);
+      // 📨 = 바로 주문 (2026-11-01 사장님) — 사장님 폰(SMS Gateway)이 바로 보내고 필름 탭에 기록 (추가 주문도 남게)
+      if (p.phone && site) {
+        var now = document.createElement('button');
+        now.type = 'button'; now.className = 'fv-chip-sms'; now.textContent = '📨';
+        now.title = who + ' 에게 바로 주문 문자 (사장님 폰에서 발송, 필름 탭에 기록)';
+        now.onclick = function () { sendFilmOrderNow(site, films, vendor.name + '·' + who, p.phone); };
+        pill.appendChild(now);
+      }
       list.appendChild(pill);
     });
   }
@@ -5138,6 +5153,34 @@
         toast(body.people.length ? '📨 텔레그램에 필름 주문 버튼을 보냈어요' : '📨 텔레그램에 보냈지만 주문처 담당자 번호가 없어요 — 설정 › 필름 주문처');
       })
       .catch(function () { toast('필름 주문 알림을 못 보냈어요 — 인터넷을 확인하고 필요량을 다시 골라 주세요'); });
+  }
+  // 📨 바로 주문 (2026-11-01 사장님): 필름 주문처 담당자 옆 📨 → 확인 → n8n 이 바로 사장님 폰으로 문자 → 필름 탭에 기록·'필름 주문' 단계.
+  // 1롤인 줄 알았는데 더 필요해서 추가 주문할 때도 — ☑ 체크한 줄이 있으면 그 줄만 보낸다 (필름명 복사와 같은 규칙)
+  function sendFilmOrderNow(site, films, to, phone) {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    if (!key) { toast('이 기기는 사장님 열쇠가 없어 바로 보낼 수 없어요 — 💬 로 보내 주세요'); return; }
+    var text = Share.filmOrderMessage({ name: site.name || '', unit: site.unit, size: site.size, films: films });
+    if (!text) { toast('적힌 필름 번호가 없습니다'); return; }
+    modalConfirm('📨 바로 주문', to + ' 에게 지금 이 문자를 보냅니다 (사장님 폰에서):\n\n' + text, '보내기').then(function (ok) {
+      if (!ok) return;
+      toast('보내는 중…');
+      fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ siteId: site.id, name: Share.titleLine(site), text: text, sendTo: { label: to, phone: Share.phoneDigits(phone) } }) })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (d) {
+            if (!res.ok || !d.ok) throw new Error(d.error || ('HTTP ' + res.status));
+          });
+        })
+        .then(function () {
+          var cur = Store.getSite(site.id) || site;
+          Store.updateSite(site.id, { filmStage: Math.max(Share.filmStageOf(cur), 2),
+            filmOrders: (cur.filmOrders || []).concat([{ id: '', at: Share.todayIso(), to: to, items: Share.filmOrderText({ films: films }).split('\n').join(' · ') }]) });
+          toast('✅ ' + to + '에게 보냈어요');
+          if (!$('viewSite').hidden) renderSite();
+        })
+        .catch(function (e) { toast('❌ 못 보냈어요 — 폰의 SMS Gateway 를 확인하고 💬 로 보내 주세요 (' + String(e.message || e).slice(0, 80) + ')'); });
+    });
   }
   var fillBusy = false;
   function takeFills() {
