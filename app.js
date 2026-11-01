@@ -2306,27 +2306,11 @@
   function openRecruitOrder(siteId, rerender) {
     var site = Store.getSite(siteId);
     var list = Share.recruitOrderOf(site, state.settings.team);
-    var paint = function () {
-      var body = $('modalBody').querySelector('.rc-olist'); body.innerHTML = '';
-      list.forEach(function (n, i) {
-        var p = Share.personOf(state.settings.people, n);
-        var row = el2('div', 'rc-orow');
-        row.appendChild(el2('span', 'team-no', String(i + 1)));
-        row.appendChild(el2('span', 'rc-oname', n + (p.pay ? ' (' + p.pay + ')' : ' (일당?)')));
-        [['▲', -1], ['▼', 1]].forEach(function (a) {
-          var b = el2('button', 'team-btn mv', a[0]); b.type = 'button';
-          b.disabled = i + a[1] < 0 || i + a[1] >= list.length;
-          b.onclick = function () { var j = i + a[1], t = list[i]; list[i] = list[j]; list[j] = t; paint(); };
-          row.appendChild(b);
-        });
-        body.appendChild(row);
-      });
-    };
-    openModal('🔢 이 현장 모집 순서', '<p class="hint" style="margin:0 0 8px">위에서부터 모집 문자를 보냅니다. 저장하면 이 현장에서만 이 순서를 씁니다.</p><div class="rc-olist"></div>', [
-      { label: '기본 순서로', onClick: function () { Store.updateSite(siteId, { recruitOrder: [] }); closeModal(); rerender(); toast('설정 › 팀원 순서를 씁니다'); } },
-      { label: '저장', cls: 'primary', onClick: function () { Store.updateSite(siteId, { recruitOrder: list.slice() }); closeModal(); rerender(); toast('이 현장 모집 순서를 저장했어요'); } }
-    ]);
-    paint();
+    openTapOrder('🔢 이 현장 모집 순서',
+      '이 현장에서 문자를 먼저 보낼 사람부터 차례로 탭하세요. 안 누른 사람은 지금 순서대로 뒤에 붙습니다. 저장하면 이 현장에서만 이 순서를 씁니다.',
+      list.map(personOrderItem), function (order) {
+        Store.updateSite(siteId, { recruitOrder: order }); rerender(); toast('이 현장 모집 순서를 저장했어요');
+      }, [{ label: '기본 순서로', onClick: function () { Store.updateSite(siteId, { recruitOrder: [] }); closeModal(); rerender(); toast('설정 › 팀원 순서를 씁니다'); } }]);
   }
   // ---------- 달력 시트 (시공날짜 여러 날 고르기) ----------
   // 탭 = 넣기/빼기, 고른 날엔 1·2·3 번호(날짜순). [초기화] 전부 지움, [확인] 저장, 바깥/✕ = 취소
@@ -4258,6 +4242,12 @@
     // 등급 탭: 전체 / A / B / C / F — 옆의 숫자는 그 등급 사람 수.
     // 등급을 안 정한 사람(미정)은 [전체]에서만 보인다
     var gradeOf = function (n) { return Share.personOf(state.settings.people, n).grade; };
+    if (team.length > 1) {
+      var ob = el2('button', 'team-order-btn', '🔢 순서 정하기'); ob.type = 'button';
+      ob.title = '번호 = 인원 모집 문자를 보내는 순서';
+      ob.onclick = openTeamOrder;
+      box.appendChild(ob);
+    }
     if (team.length) {
       var tabs = document.createElement('div'); tabs.className = 'team-tabs';
       [''].concat(Share.PERSON_GRADES).forEach(function (g) {
@@ -4281,20 +4271,16 @@
     shown.forEach(function (name) {
       var i = team.indexOf(name);
       var p = Share.personOf(state.settings.people, name);
-      var row = document.createElement('div'); row.className = 'team-row team-tap';
+      // 한 사람 = 테두리 칸 2줄 (11/2 사장님): 번호 이름(일당) · A B C F · ✕ / 수정 전화 문자 일정
+      var row = document.createElement('div'); row.className = 'team-row team-card';
       var main = document.createElement('div'); main.className = 'team-main';
       var t = document.createElement('div'); t.className = 'slist-name';
+      t.appendChild(el2('span', 'team-no', String(i + 1)));   // 번호 = 인원 모집 문자를 보내는 기본 순서
       t.appendChild(document.createTextNode(name));
-      if (p.grade) {   // 이름 뒤에 등급 — 서영호A(23)
-        var gb = document.createElement('span'); gb.className = 'gbadge g-' + p.grade; gb.textContent = p.grade;
-        gb.title = '등급 ' + p.grade;
-        t.appendChild(gb);
-      }
-      if (p.pay) {   // 이름 뒤에 일당 — 서영호(23)
-        var pay = document.createElement('span'); pay.className = 'team-pay'; pay.textContent = '(' + p.pay + ')';
-        pay.title = '일당 ' + p.pay + '만원';
-        t.appendChild(pay);
-      }
+      // 이름 뒤에 일당 — 서영호(23). 없으면 회색 (일당?) — 모집 문자 대상이 안 된다
+      var pay = el2('span', 'team-pay' + (p.pay ? '' : ' none'), p.pay ? '(' + p.pay + ')' : '(일당?)');
+      pay.title = p.pay ? '일당 ' + p.pay + '만원' : '일당이 없으면 인원 모집 문자를 받지 않습니다 — [수정]에서 페이를 넣으세요';
+      t.appendChild(pay);
       main.appendChild(t);
       // 이름 아래 '📒 18일차 ›' — 누르면 작업내역 (2026-10-23). 사장님이 [수정]에서 켠 사람만 (2026-10-24)
       var h = (state.settings.tracked || []).indexOf(name) !== -1 ? Share.personHistory(state.sites, name, Share.todayIso()) : null;
@@ -4351,29 +4337,73 @@
             toast(name + ' 님을 명단에서 지웠습니다');
           });
       };
-      // ▲▼ 순서 = 인원 모집 문자를 보내는 기본 순서 (2026-11-01 사장님). 등급 탭에서는 섞이니 [전체]에서만
-      var mv = null;
-      if (!teamTab) {
-        mv = el2('div', 'team-mv');
-        [['▲', -1], ['▼', 1]].forEach(function (a) {
-          var b = el2('button', 'team-btn mv', a[0]); b.type = 'button';
-          b.title = a[1] < 0 ? '위로 (모집 문자를 먼저 받음)' : '아래로';
-          b.disabled = i + a[1] < 0 || i + a[1] >= team.length;
-          b.onclick = function (e) {
-            e.stopPropagation();
-            var next = team.slice(), j = i + a[1];
-            next[i] = team[j]; next[j] = team[i];
-            Store.setSettings({ team: next }); renderTeamList();
-          };
-          mv.appendChild(b);
-        });
-        var no = el2('span', 'team-no', String(i + 1)); no.title = '모집 순서 ' + (i + 1) + '번';
-        t.insertBefore(no, t.firstChild);
-      }
-      row.appendChild(main); if (mv) row.appendChild(mv);
-      row.appendChild(edit); row.appendChild(call); row.appendChild(sms); row.appendChild(cal); row.appendChild(x);
+      x.textContent = '✕';
+      // 등급 A B C F — 누르면 바로 바뀌고, 같은 등급을 다시 누르면 빠진다(미정)
+      var gs = el2('div', 'team-grades');
+      Share.PERSON_GRADES.forEach(function (g) {
+        var b = el2('button', 'team-g g-' + g + (p.grade === g ? ' on' : ''), g); b.type = 'button';
+        b.title = p.grade === g ? '등급 ' + g + ' 빼기' : '등급 ' + g;
+        b.onclick = function (e) {
+          e.stopPropagation();
+          Store.setSettings({ people: Share.mergePerson(state.settings.people, name, { grade: p.grade === g ? '' : g }) });
+          renderTeamList();
+        };
+        gs.appendChild(b);
+      });
+      var l1 = el2('div', 'team-l1'), l2 = el2('div', 'team-l2');
+      l1.appendChild(main); l1.appendChild(gs); l1.appendChild(x);
+      l2.appendChild(edit); l2.appendChild(call); l2.appendChild(sms); l2.appendChild(cal);
+      row.appendChild(l1); row.appendChild(l2);
+      if (sub) row.appendChild(sub);   // 📒 작업내역은 칸 맨 아래
       box.appendChild(row);
     });
+  }
+  /* 🔢 순서 빠르게 정하기 (11/2 사장님, 할 일 순서와 같은 방식) — 원하는 순서대로 탭하면 1, 2, 3 …, 다시 탭하면 빠진다.
+     저장하면 안 누른 것은 누른 것 뒤에 지금 순서대로 붙는다. items = [{ key, label, sub }], onSave(키 순서) */
+  function openTapOrder(title, hint, items, onSave, extra) {
+    var picked = [];
+    openModal(title, '<p class="hint" style="margin:0 0 6px">' + esc(hint) + '</p><div class="order-list"></div><div class="order-count"></div>',
+      (extra || []).concat([
+        { label: '초기화', onClick: function () { picked = []; paint(); } },
+        { label: '💾 저장', cls: 'primary', onClick: function () {
+          var rest = items.map(function (it) { return it.key; }).filter(function (k) { return picked.indexOf(k) < 0; });
+          closeModal(); onSave(picked.concat(rest));
+        } }
+      ]));
+    var wrap = $('modalBody').querySelector('.order-list'), count = $('modalBody').querySelector('.order-count');
+    var paint = function () {
+      wrap.innerHTML = '';
+      items.forEach(function (it) {
+        var n = picked.indexOf(it.key) + 1;
+        var row = el2('button', 'order-row' + (n ? ' on' : '')); row.type = 'button';
+        row.onclick = function () { var j = picked.indexOf(it.key); if (j >= 0) picked.splice(j, 1); else picked.push(it.key); paint(); };
+        row.appendChild(el2('span', 'order-num', n ? String(n) : ''));
+        row.appendChild(el2('span', 'order-title', it.label));
+        if (it.sub) row.appendChild(el2('span', 'order-sub', it.sub));
+        wrap.appendChild(row);
+      });
+      count.textContent = picked.length + ' / ' + items.length + '명 지정됨';
+    };
+    paint();
+  }
+  function personOrderItem(n) {
+    var p = Share.personOf(state.settings.people, n);
+    return { key: n, label: n, sub: [p.grade, p.pay].filter(Boolean).join(' · ') || '일당?' };
+  }
+  // 팀원 명단 순서 (= 인원 모집 기본 순서). 등급 탭에서 열면 그 등급 사람들 자리 안에서만 바꾼다
+  function openTeamOrder() {
+    var team = (state.settings.team || []).slice();
+    var gradeOf = function (n) { return Share.personOf(state.settings.people, n).grade; };
+    var shown = teamTab ? team.filter(function (n) { return gradeOf(n) === teamTab; }) : team;
+    if (shown.length < 2) { toast('순서를 바꿀 사람이 둘 이상이어야 해요'); return; }
+    openTapOrder('🔢 모집 순서 정하기' + (teamTab ? ' (' + teamTab + '등급)' : ''),
+      '문자를 먼저 보낼 사람부터 차례로 탭하세요. 번호가 매겨지고, 다시 탭하면 빠집니다. 안 누른 사람은 누른 사람 뒤에 지금 순서대로 붙습니다.',
+      shown.map(personOrderItem), function (order) {
+        var slots = [];
+        team.forEach(function (n, k) { if (shown.indexOf(n) >= 0) slots.push(k); });
+        slots.forEach(function (k, j) { team[k] = order[j]; });
+        Store.setSettings({ team: team }); renderTeamList(); toast('모집 순서를 저장했어요');
+      });
   }
   /* 팀원 작업내역 창 (2026-10-23, 2026-10-24 사장님: 탭 두 개만) — [품목별 경험] [현장별 경험].
      기록은 현장업무(관리자 앱)에서 받는다: n8n worker-history (사장님 열쇠). 품목을 누르면 그 품목을 한 현장들이 펼쳐진다.

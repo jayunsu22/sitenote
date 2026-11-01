@@ -1569,3 +1569,21 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .rc-ck-r { margin-left: auto; color: var(--muted); font-size: 13px; }
 .rc-pv-h { margin-top: 10px; font-weight: 800; font-size: 14px; }
 .rc-pv { margin-top: 4px; padding: 10px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; white-space: pre-line; font-size: 13.5px; line-height: 1.5; }
+/* 팀원 명단 2줄 칸 (11/2 사장님) — 번호 이름(일당) · A B C F · ✕ / 수정 전화 문자 일정 */
+.team-row.team-card { margin: 0 0 12px; padding: 10px 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 14px; background: #fafbfc; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+.team-l1 { display: flex; align-items: center; gap: 6px; }
+.team-l2 { display: flex; gap: 6px; margin-top: 9px; }
+.team-l2 .team-btn { flex: 1; min-height: 38px; font-size: 15px; }
+.team-grades { flex: 0 0 auto; display: flex; gap: 4px; }
+.team-g { width: 34px; height: 34px; padding: 0; border: 1.5px solid var(--border); border-radius: 9px; background: #fff; color: #9ca3af; font-weight: 800; font-size: 14px; }
+.team-g.g-A.on { background: #15803d; border-color: #15803d; color: #fff; }
+.team-g.g-B.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+.team-g.g-C.on { background: #9333ea; border-color: #9333ea; color: #fff; }
+.team-g.g-F.on { background: #dc2626; border-color: #dc2626; color: #fff; }
+.team-row.team-card .x { color: #b91c1c; border-color: #fecaca; background: #fff; font-size: 16px; }
+.team-pay.none { color: #9ca3af; font-weight: 700; }
+.team-card .team-hist { margin-top: 8px; }
+.team-order-btn { display: block; margin: 0 0 8px auto; padding: 8px 12px; border: 1.5px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: var(--primary); font-weight: 800; font-size: 14px; }
+.order-sub { flex: none; color: var(--muted); font-size: 13px; font-weight: 700; }
+.order-count { color: var(--muted); font-weight: 800; font-size: 13.5px; }
+#modalBody .order-num { color: #fff; }
