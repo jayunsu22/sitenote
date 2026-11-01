@@ -1560,3 +1560,12 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .rc-order { margin: 8px 12px 4px; padding: 8px 12px; border: 1.5px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: var(--primary); font-weight: 800; font-size: 14px; }
 .rc-orow { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
 .rc-oname { flex: 1; font-weight: 800; }
+/* 📨 여러 날 한 번에 모집 (11/1) */
+.rc-all { margin: 8px 0 10px; padding: 10px 12px; border: 1.5px solid #bfdbfe; border-radius: 12px; background: #eff6ff; }
+.rc-all-h { font-weight: 800; font-size: 14.5px; margin-bottom: 4px; }
+.rc-left-all { font-weight: 800; color: #92400e; }
+.rc-ck { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 15px; font-weight: 700; }
+.rc-ck input { width: 20px; height: 20px; }
+.rc-ck-r { margin-left: auto; color: var(--muted); font-size: 13px; }
+.rc-pv-h { margin-top: 10px; font-weight: 800; font-size: 14px; }
+.rc-pv { margin-top: 4px; padding: 10px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; white-space: pre-line; font-size: 13.5px; line-height: 1.5; }

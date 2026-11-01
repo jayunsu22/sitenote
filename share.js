@@ -1725,9 +1725,61 @@
       noPay: have.filter(function (h) { return !h.pay; }).map(function (h) { return h.name; }),
       queue: queue, first: pickWithinBudget(queue, slots, plan.budget ? left : 0) };
   }
-  // 팀원에게 가는 묻기 문자 (사장님 11/1) — 일당·현장명은 넣지 않는다
-  function recruitAskText(iso) {
-    return '안녕하세요~\n' + dayLabel(iso) + ' 일정 가능하신가요?\n가능하시면 "네", 일정 안되시면 "아니요"라고 해주세요~';
+  /* 여러 날 한 번에 모집 (11/1 사장님) — 자리 남은 날들 → { days:[{iso,label,slots,budget,left}],
+     queue:[{name, phone, pay, dates:[되는 날]}] (그 날들 중 하루라도 비고 예산 안에 드는 사람, 순서대로),
+     first:[{name, pay, dates}] (처음 묻는 사람 — n8n 인원모집 advance 와 같은 규칙: 순서대로, 아직 빈 날 중 그 사람이 되는 날을 묻고 자리를 잡아 둔다) } */
+  function recruitMulti(site, isos, sites, settings) {
+    var plans = (isos || []).map(function (iso) { return recruitPlan(site, iso, sites, settings); }).filter(function (p) { return p.slots > 0; });
+    var byName = {}, queue = [];
+    plans.forEach(function (p) {
+      p.queue.forEach(function (c) {
+        var k = normName(c.name);
+        if (!byName[k]) { byName[k] = { name: c.name, phone: c.phone, pay: c.pay, dates: [] }; }
+        byName[k].dates.push(p.iso);
+      });
+    });
+    recruitOrderOf(site, (settings || {}).team).forEach(function (n) { var c = byName[normName(n)]; if (c) queue.push(c); });
+    // 처음 묻는 사람 — 날마다 남은 자리·예산을 잡아 가며
+    var open = {}, used = {};
+    plans.forEach(function (p) { open[p.iso] = p.slots; used[p.iso] = 0; });
+    var waits = queue.slice(), first = [];
+    for (var guard = 0; guard < 50; guard++) {
+      var hit = -1, dates = [];
+      for (var i = 0; i < waits.length && hit < 0; i++) {
+        dates = plans.filter(function (p) {
+          if (open[p.iso] <= 0 || waits[i].dates.indexOf(p.iso) < 0) return false;
+          if (!p.budget) return true;
+          var me = waits[i];
+          var fill = waits.filter(function (x) { return x !== me && x.dates.indexOf(p.iso) >= 0; }).map(function (x) { return x.pay; })
+            .sort(function (a, b) { return a - b; }).slice(0, open[p.iso] - 1).reduce(function (a, b) { return a + b; }, 0);
+          return me.pay + fill <= p.left - used[p.iso];
+        }).map(function (p) { return p.iso; });
+        if (dates.length) hit = i;
+      }
+      if (hit < 0) break;
+      var c = waits.splice(hit, 1)[0];
+      dates.forEach(function (iso) { open[iso]--; used[iso] += c.pay; });
+      first.push({ name: c.name, pay: c.pay, dates: dates });
+    }
+    return { days: plans.map(function (p) { return { iso: p.iso, label: dayLabel(p.iso), slots: p.slots, budget: p.budget, left: p.left }; }),
+      queue: queue, first: first };
+  }
+  // '11월 15일,16일,18일' · 달이 바뀌면 '11월 30일, 12월 1일'
+  function recruitDatesText(isos) {
+    var g = [];
+    isos.forEach(function (iso) {
+      var m = parseInt(iso.slice(5, 7), 10), d = parseInt(iso.slice(8, 10), 10) + '일';
+      if (!g.length || g[g.length - 1].m !== m) g.push({ m: m, d: [] });
+      g[g.length - 1].d.push(d);
+    });
+    return g.map(function (x) { return x.m + '월 ' + x.d.join(','); }).join(', ');
+  }
+  // 팀원에게 가는 묻기 문자 (사장님 11/1) — 일당·현장명은 넣지 않는다. n8n 인원모집 lib.js ASK 와 같은 글
+  function recruitAskText(isos) {
+    isos = [].concat(isos || []);
+    return '안녕하세요. 김정헌실장님의\nAI 인원모집비서입니다.\n\n' + recruitDatesText(isos) + ' 구인중입니다.\n일정 되시는날을 알려주세요.\n\n' +
+      isos.map(function (iso, i) { return parseInt(iso.slice(8, 10), 10) + '일 ' + (i === 1 ? '불가능' : '가능'); }).join('\n') +
+      '\n\n이렇게 보내주시면 됩니다.\n감사합니다.';
   }
 
   /* ---------- 하루 수익 (2026-10-14) ----------
@@ -2184,6 +2236,7 @@
     pickWithinBudget: pickWithinBudget,
     recruitPlan: recruitPlan,
     recruitAskText: recruitAskText,
+    recruitMulti: recruitMulti,
     personHistory: personHistory,
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,

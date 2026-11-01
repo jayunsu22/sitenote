@@ -1393,8 +1393,19 @@ console.log('인원 모집 (2026-11-01)');
     assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }, { pay: 29 }, { pay: 8 }], 2, 38).map((c) => c.pay), [30, 8]);
     assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }], 2, 20), []);
   });
-  test('recruitAskText: 날짜만, 일당·현장명 없음', () => {
-    assert.strictEqual(Share.recruitAskText('2026-11-05'), '안녕하세요~\n11/5(목) 일정 가능하신가요?\n가능하시면 "네", 일정 안되시면 "아니요"라고 해주세요~');
+  test('recruitAskText: 여러 날 한 문자, 일당·현장명 없음 (사장님 11/1)', () => {
+    assert.strictEqual(Share.recruitAskText(['2026-11-15', '2026-11-16', '2026-11-18']),
+      '안녕하세요. 김정헌실장님의\nAI 인원모집비서입니다.\n\n11월 15일,16일,18일 구인중입니다.\n일정 되시는날을 알려주세요.\n\n15일 가능\n16일 불가능\n18일 가능\n\n이렇게 보내주시면 됩니다.\n감사합니다.');
+    assert.ok(Share.recruitAskText(['2026-11-30', '2026-12-01']).includes('11월 30일, 12월 1일 구인중입니다.'));
+  });
+  test('recruitMulti: 날마다 되는 사람, 처음 묻는 사람은 빈 날을 잡아 가며', () => {
+    const s2 = { id: 's1', days: [{ date: '2026-11-05', staff: ['고정'] }, { date: '2026-11-06', staff: ['고정'] }],
+      dayPlan: { '2026-11-05': { budget: 50, need: 3 }, '2026-11-06': { need: 2 } } };
+    const m = Share.recruitMulti(s2, ['2026-11-05', '2026-11-06'], [s2, other], settings);
+    assert.deepStrictEqual(m.days.map((d) => [d.iso, d.slots, d.left]), [['2026-11-05', 2, 42], ['2026-11-06', 1, 0]]);
+    assert.deepStrictEqual(m.queue.find((c) => c.name === '바쁨').dates, ['2026-11-06']);
+    // 가A: 5·6일, 그다음 5일 1자리(남은 17만) → 다C
+    assert.deepStrictEqual(m.first.map((c) => [c.name, c.dates.length]), [['가A', 2], ['다C', 1]]);
   });
 }
 
