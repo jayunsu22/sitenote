@@ -1407,6 +1407,25 @@ console.log('인원 모집 (2026-11-01)');
     // 가A: 5·6일, 그다음 5일 1자리(남은 17만) → 다C
     assert.deepStrictEqual(m.first.map((c) => [c.name, c.dates.length]), [['가A', 2], ['다C', 1]]);
   });
+  test('parseTeamPaste: 이름·번호·일당·메모, 번호 없는 줄은 버림 (번호는 지어낸 것)', () => {
+    const rows = Share.parseTeamPaste('가나다 준기공 010-0000-1111 15\n라마 조공 01000002222\n\n번호없음 기공\n바사아 | 기공 | +82 10-0000-3333 | 23만');
+    assert.deepStrictEqual(rows, [
+      { name: '가나다', phone: '010-0000-1111', pay: '15', memo: '준기공' },
+      { name: '라마', phone: '010-0000-2222', pay: '', memo: '조공' },
+      { name: '바사아', phone: '010-0000-3333', pay: '23', memo: '기공' }]);
+  });
+  test('mergeTeamPaste: 새 이름은 뒤에, 있는 이름은 빈 칸만, 번호 다른 동명이인은 건너뜀', () => {
+    const people = { 가나다: { pay: '20' }, 라마: { phone: '010-9999-9999' } };
+    const r = Share.mergeTeamPaste(['가나다', '라마'], people, [
+      { name: '가나다', phone: '010-0000-1111', pay: '15', memo: '준기공' },
+      { name: '라마', phone: '010-0000-2222', pay: '', memo: '' },
+      { name: '새사람', phone: '010-0000-3333', pay: '', memo: '조공' }]);
+    assert.deepStrictEqual(r.team, ['가나다', '라마', '새사람']);
+    assert.deepStrictEqual([r.added, r.filled, r.skipped], [['새사람'], ['가나다'], ['라마']]);
+    assert.strictEqual(r.people.가나다.pay, '20');   // 있던 일당은 그대로
+    assert.strictEqual(r.people.가나다.phone, '010-0000-1111');
+    assert.strictEqual(r.people.새사람.memo, '조공');
+  });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

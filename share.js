@@ -1046,6 +1046,46 @@
     if (any) out[n] = next; else delete out[n];
     return out;
   }
+  /* 팀원 한꺼번에 넣기 (11/2 사장님 — 문자 기록에서 뽑은 명단을 붙여 넣는다).
+     한 줄에 한 사람: '이종암 기공 010-1234-5678 15' — 이름(첫 한글 낱말), 번호, 8~30 숫자는 일당, 나머지는 메모 */
+  function parseTeamPaste(text) {
+    var out = [];
+    String(text == null ? '' : text).split(/\r?\n/).forEach(function (line) {
+      var l = line.trim();
+      var pm = /(?:\+82[\s-]?|0)1\d[\s.-]?\d{3,4}[\s.-]?\d{4}/.exec(l);
+      if (!pm) return;
+      var phone = pm[0].replace(/\D/g, '').replace(/^82/, '0');
+      var rest = (l.slice(0, pm.index) + ' ' + l.slice(pm.index + pm[0].length)).replace(/[|,\t]/g, ' ');
+      var nm = /[가-힣]{2,5}/.exec(rest);
+      if (!nm) return;
+      rest = rest.replace(nm[0], ' ');
+      var pay = '';
+      rest = rest.replace(/(^|\s)(\d{1,2})(만)?(?=\s|$)/, function (m, a, n) { var p = payOf(n); if (p && !pay) { pay = p; return a; } return m; });
+      out.push({ name: nm[0], phone: phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'), pay: pay, memo: rest.replace(/\s+/g, ' ').trim() });
+    });
+    return out;
+  }
+  // 명단에 합치기 — 새 이름은 맨 뒤에. 이미 있는 이름은 빈 칸(번호·일당·메모)만 채운다.
+  // 같은 이름인데 번호가 다르면 건드리지 않고 skipped 로 알린다 (동명이인)
+  function mergeTeamPaste(team, people, rows) {
+    var t = (team || []).slice(), ppl = Object.assign({}, people || {}), added = [], filled = [], skipped = [];
+    (rows || []).forEach(function (r) {
+      var have = t.filter(function (n) { return normName(n) === normName(r.name); })[0];
+      if (!have) {
+        t.push(r.name); added.push(r.name);
+        ppl = mergePerson(ppl, r.name, { phone: r.phone, pay: r.pay, memo: r.memo });
+        return;
+      }
+      var cur = personOf(ppl, have);
+      if (cur.phone && phoneDigits(cur.phone) !== phoneDigits(r.phone)) { skipped.push(r.name); return; }
+      var patch = {};
+      if (!cur.phone) patch.phone = r.phone;
+      if (!cur.pay && r.pay) patch.pay = r.pay;
+      if (!cur.memo && r.memo) patch.memo = r.memo;
+      if (Object.keys(patch).length) { ppl = mergePerson(ppl, have, patch); filled.push(have); }
+    });
+    return { team: t, people: ppl, added: added, filled: filled, skipped: skipped };
+  }
   // 현장에 오는 사람과 오는 날 [{name, dates}] — 처음 나온 순.
   // 오늘 이후로 배치된 날이 있으면 그 날들만 (지난 날 인원까지 보내면 누가 오는지 헷갈린다),
   // 없으면 전부. 날짜를 아직 안 정한 날의 인원도 넣는다 (날짜 없이)
@@ -2237,6 +2277,8 @@
     recruitPlan: recruitPlan,
     recruitAskText: recruitAskText,
     recruitMulti: recruitMulti,
+    parseTeamPaste: parseTeamPaste,
+    mergeTeamPaste: mergeTeamPaste,
     personHistory: personHistory,
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,

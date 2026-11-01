@@ -4801,6 +4801,30 @@
   });
   // 새로 넣은 사람은 등급이 아직 없으니, 등급 탭을 보고 있었으면 [전체]로 돌려 바로 보이게 한다
   bindListAdder('teamInput', 'btnAddTeam', function () { return state.settings.team || []; }, function (next) { Store.setSettings({ team: next }); teamTab = ''; renderTeamList(); });
+  // 📋 여러 명 한꺼번에 넣기 (11/2 사장님 — 문자 기록에서 뽑은 명단). 한 줄에 '이름 구분 번호 일당'
+  $('btnTeamPaste').onclick = function () {
+    openModal('📋 여러 명 한꺼번에 넣기',
+      '<p class="hint" style="margin:0 0 6px">한 줄에 한 사람 — <b>이름 구분 번호 일당</b> (예: 김기사 준기공 010-1234-5678 15). 일당은 없어도 됩니다.</p>' +
+      '<textarea id="teamPasteText" rows="9" style="width:100%;font-size:14px" placeholder="여기에 붙여 넣기"></textarea>' +
+      '<p id="teamPasteInfo" class="hint" style="margin-top:6px"></p>', [
+      { label: '취소', onClick: closeModal },
+      { label: '넣기', cls: 'primary', onClick: function () {
+        var rows = Share.parseTeamPaste($('teamPasteText').value);
+        if (!rows.length) { toast('넣을 사람이 없어요 — 줄마다 이름과 번호가 있어야 합니다'); return; }
+        var r = Share.mergeTeamPaste(state.settings.team, state.settings.people, rows);
+        Store.setSettings({ team: r.team, people: r.people });
+        closeModal(); teamTab = ''; renderTeamList();
+        modalConfirm('📋 넣었어요', '새로 넣음 ' + r.added.length + '명' + (r.filled.length ? '\n빈 칸 채움: ' + r.filled.join(', ') : '') +
+          (r.skipped.length ? '\n건너뜀 (같은 이름, 다른 번호): ' + r.skipped.join(', ') : '') +
+          '\n\n일당이 없는 사람은 [수정]에서 페이를 넣어야 인원 모집 문자 대상이 됩니다.', '확인');
+      } }
+    ]);
+    var ta = $('teamPasteText');
+    ta.oninput = function () {
+      var rows = Share.parseTeamPaste(ta.value);
+      $('teamPasteInfo').textContent = rows.length ? rows.length + '명 읽음 — ' + rows.slice(0, 6).map(function (x) { return x.name + (x.pay ? '(' + x.pay + ')' : ''); }).join(', ') + (rows.length > 6 ? ' …' : '') : '';
+    };
+  };
   bindListAdder('supplyInput', 'btnAddSupplyDefault', function () { return state.settings.supplyDefaults || []; }, function (next) { Store.setSettings({ supplyDefaults: next }); renderSupplyDefaultList(); });
   // AS 부자재·공구 (2026-10-05) — AS·추가작업 접수에서 탭으로 고르는 목록
   function renderServiceToolList() {
