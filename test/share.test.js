@@ -114,6 +114,20 @@ test('필요량 (2026-11-01): 번호 뒤에, 같은 번호 줄의 필요량은 +
   assert.strictEqual(Share.filmOrderText(s), 'pwt1200 1롤 + 10m 이상\npwe1501-2 5m 이상\nps035');
   assert.deepStrictEqual(Share.FILM_QTYS.slice(-2), ['4롤', '5롤']);
 });
+test('filmOrderAsk (2026-11-01): 필요량을 다 고르면 텔레그램 주문 본문, 필름명에 든 주문처 담당자 먼저·최대 3명', () => {
+  const settings = { filmVendors: [
+    { id: 'a', name: '에이엔디', people: [{ name: '주문담당', phone: '010-1234-5678' }, { name: '번호없음', phone: '' }] },
+    { id: 'b', name: '한솔', people: [{ name: '김과장', phone: '010 4321 0000' }, { name: '이대리', phone: '01011112222' }, { name: '박부장', phone: '01033334444' }] }] };
+  const s = { id: 's1', name: '미래타운 101동 1203호', films: [{ place: '현관', code: '한솔 ps035', qty: '' }, { place: '', code: '' }] };
+  assert.strictEqual(Share.filmOrderAsk(s, settings), null);                       // 아직 필요량 없음
+  s.films[0].qty = '1롤';
+  const b = Share.filmOrderAsk(s, settings);
+  assert.deepStrictEqual(b, { siteId: 's1', name: '미래타운 101동 1203호', text: '[미래타운 101동 1203호]\n한솔 ps035 1롤',
+    people: [{ label: '한솔·김과장', phone: '01043210000' }, { label: '한솔·이대리', phone: '01011112222' }, { label: '한솔·박부장', phone: '01033334444' }] });
+  assert.strictEqual(Share.filmOrderAsk(Object.assign({}, s, { filmOrderAsk: b.text }), settings), null);   // 같은 내용은 한 번
+  assert.strictEqual(Share.filmOrderAsk(Object.assign({}, s, { filmStage: 2 }), settings), null);          // 이미 주문
+  assert.strictEqual(Share.filmOrderAsk(Object.assign({}, s, { films: [{ code: 'ps035', qty: '5m 이상' }] }), settings).people[0].label, '에이엔디·주문담당');
+});
 test('주문용이라 같은 필름은 한 번만 — 대소문자·띄어쓰기 차이도 같은 필름으로 본다 (처음 적은 모양으로)', () => {
   const s = blank();
   s.films = [{ place: '방3,화2 문짝', code: '보닥 spw25' }, { place: '방3,화2 문틀', code: '예림 hp602' },

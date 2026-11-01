@@ -1487,6 +1487,25 @@
     });
     return hit.length ? hit[0] : null;
   }
+  /* 필름 주문 텔레그램 (2026-11-01 사장님) — 필름 줄마다 필요량을 다 고르면 n8n film-order 로 보낼 본문.
+     텔레그램에 담당자 버튼(최대 3)이 뜨고, 누르면 사장님 폰(SMS Gateway)이 그 담당자에게 문자를 보낸다.
+     아직 다 안 골랐거나, 이미 '필름 주문' 단계 이상이거나, 같은 내용을 이미 보냈으면(site.filmOrderAsk) null */
+  var ORDER_BUTTONS = 3;
+  function filmOrderAsk(site, settings) {
+    var rows = ((site && site.films) || []).filter(function (r) { return r && str(r.code); });
+    if (!rows.length || rows.some(function (r) { return !str(r.qty); }) || filmStageOf(site) >= 2) return null;
+    var text = filmOrderMessage(site);
+    if (!text || str(site.filmOrderAsk) === text) return null;
+    var vendors = filmVendors(settings), hit = vendorForSite(site, vendors);
+    if (hit) vendors = [hit].concat(vendors.filter(function (v) { return v !== hit; }));   // 필름명에 이름이 든 주문처 먼저
+    var people = [];
+    vendors.forEach(function (v) {
+      v.people.forEach(function (p) {
+        if (phoneDigits(p.phone)) people.push({ label: v.name + (p.name ? '·' + p.name : ''), phone: phoneDigits(p.phone) });
+      });
+    });
+    return { siteId: site.id, name: titleLine(site), text: text, people: people.slice(0, ORDER_BUTTONS) };
+  }
 
   /* ---------- 내 차 재고 (2026-10-19) ----------
      본드·장갑 같은 상비 부자재는 현장마다 '준비'하는 게 아니라 차에 싣고 다니다가 현장에서 꺼내 쓴다(불출).
@@ -2094,6 +2113,7 @@
     titleLine: titleLine,
     navAddress: navAddress,
     filmOrderText: filmOrderText,
+    filmOrderAsk: filmOrderAsk,
     FILM_QTYS: FILM_QTYS,
     filmOrderMessage: filmOrderMessage,
     phoneDigits: phoneDigits,

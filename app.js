@@ -3783,7 +3783,7 @@
       };
       line.querySelector('.place').addEventListener('input', upd);
       line.querySelector('.code').addEventListener('input', upd);
-      line.querySelector('.qty').addEventListener('change', upd);
+      line.querySelector('.qty').addEventListener('change', function () { upd(); askFilmOrder(s.id); });
       // 번호를 다 적고 나가면 겹침 경고를 다시 그린다 (적는 중에 다시 그리면 커서가 날아간다)
       line.querySelector('.code').addEventListener('change', function () { warnPainters.forEach(function (f) { f(); }); });
       line.querySelector('.x').onclick = function () {
@@ -5124,6 +5124,21 @@
      n8n 현장관리_빈칸 우편함에 둔다. 앱을 열 때·다시 볼 때·5분마다 가져와 이 기기에 있는 현장 칸에 바로 넣는다 (사장님: 확인 없이).
      이 기기에 없는 현장은 우편함에 남겨 다른 기기를 기다린다. 사장님 열쇠가 있는 기기만 */
   var FILL_URL = 'https://primary-production-a6fa.up.railway.app/webhook/site-fill-take';
+  /* 🎞 필름 주문 (2026-11-01 사장님) — 필름 줄마다 필요량을 다 고르면 n8n(카톡_버튼 film-order)이 텔레그램에
+     주문처 담당자 버튼을 띄운다. 누르면 사장님 폰(SMS Gateway)이 문자를 보내고, 우편함으로 '필름 주문' 단계가 온다 */
+  var ORDER_URL = 'https://primary-production-a6fa.up.railway.app/webhook/film-order';
+  function askFilmOrder(siteId) {
+    var s = Store.getSite(siteId), body = s && Share.filmOrderAsk(s, state.settings), key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    if (!body || !key) return;
+    fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        Store.updateSite(siteId, { filmOrderAsk: body.text });   // 같은 내용은 한 번만
+        toast(body.people.length ? '📨 텔레그램에 필름 주문 버튼을 보냈어요' : '📨 텔레그램에 보냈지만 주문처 담당자 번호가 없어요 — 설정 › 필름 주문처');
+      })
+      .catch(function () { toast('필름 주문 알림을 못 보냈어요 — 인터넷을 확인하고 필요량을 다시 골라 주세요'); });
+  }
   var fillBusy = false;
   function takeFills() {
     var key = '';

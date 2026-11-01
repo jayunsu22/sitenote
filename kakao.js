@@ -141,6 +141,10 @@
       var checks = Object.assign({}, site.checks || {});
       checks[f.checkId] = { v: String(f.value).trim(), src: by };
       return { checks: checks };
+    } else if (f.kind === 'filmOrdered') {
+      // 텔레그램 버튼으로 사장님 폰이 주문 문자를 보냄 (2026-11-01) → '필름 주문' 단계. 이미 수령이면 그대로
+      var k = parseInt(site.filmStage, 10) || 0;
+      return k < 2 ? { filmStage: 2 } : null;
     } else return null;
     p.fieldSrc = src;
     return p;
