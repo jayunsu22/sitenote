@@ -3803,13 +3803,11 @@
       };
       paintWarn(); warnPainters.push(paintWarn);
       ctl.appendChild(warn);
-    });
-    // 텔레그램 버튼으로 보낸 주문 (2026-11-01 사장님) — 필름 줄 바로 아래 '11/1 에이엔디·주문담당 ps170 1롤 주문'
-    (s.filmOrders || []).forEach(function (o) {
-      if (!o) return;
-      var row = document.createElement('div'); row.className = 'film-ordered';
-      row.textContent = '📦 ' + [o.at ? Share.shortDate(o.at) : '', o.to, o.items].filter(Boolean).join(' ') + ' 주문';
-      ctl.appendChild(row);
+      // 보낸 주문 기록 — 그 필름 줄 바로 아래 '📦 11/1 멋진필름·주문담당 ps170 1롤 주문' (2026-11-01 사장님). 같은 번호가 여러 줄이면 첫 줄에만
+      var firstOfCode = films.findIndex(function (f) { return Share.filmKey(f && f.code) === Share.filmKey(r.code); }) === i;
+      if (firstOfCode) Share.filmOrderLines(s, r.code).forEach(function (t) {
+        ctl.appendChild(el2('div', 'film-ordered', '📦 ' + t));
+      });
     });
     // 줄 추가 | 필름명 복사. 복사는 필름 번호만 한 줄에 하나씩 - 대리점 주문용이라
     // 시공위치는 빼고 준다. 방금 친 값(films 배열)을 그대로 읽는다.
@@ -3909,9 +3907,9 @@
     }
     // 문자 본문은 💬 를 누르는 순간 만든다 (2026-11-01) — 그려 둔 뒤 고친 필름 번호·필요량도 들어가게
     var 본문Now = function () {
-      return state.settings.smsSiteName
-        ? Share.filmOrderMessage({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films })
-        : Share.filmOrderText({ films: films });
+      // 첫 줄 인사 + (퀵서비스용 현장주소 켰을 때만 [현장명]) + 필름 (2026-11-01)
+      return Share.filmOrderSms({ name: (site && site.name) || '', unit: site && site.unit, size: site && site.size, films: films },
+        !!state.settings.smsSiteName);
     };
     vendor.people.forEach(function (p, i) {
       var who = p.name || ('담당자 ' + (i + 1));
@@ -5160,7 +5158,7 @@
     var key = '';
     try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
     if (!key) { toast('이 기기는 사장님 열쇠가 없어 바로 보낼 수 없어요 — 💬 로 보내 주세요'); return; }
-    var text = Share.filmOrderMessage({ name: site.name || '', unit: site.unit, size: site.size, films: films });
+    var text = Share.filmOrderSms({ name: site.name || '', unit: site.unit, size: site.size, films: films }, !!state.settings.smsSiteName);
     if (!text) { toast('적힌 필름 번호가 없습니다'); return; }
     modalConfirm('📨 바로 주문', to + ' 에게 지금 이 문자를 보냅니다 (사장님 폰에서):\n\n' + text, '보내기').then(function (ok) {
       if (!ok) return;

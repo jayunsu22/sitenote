@@ -234,6 +234,31 @@
     var 이름 = titleLine(site);
     return (이름 && 이름 !== '(이름없음)' ? '[' + 이름 + ']\n' : '') + 필름;
   }
+  /* 주문처에 보내는 문자 (2026-11-01 사장님) — 💬·📨·텔레그램 버튼 모두 이 모양.
+     첫 줄 인사 → (퀵서비스용 현장주소를 켰을 때만 [현장명]) → 필름 번호·필요량 */
+  var ORDER_HELLO = '필름주문이요.. 내일 오전에 갈께요.';
+  /* 필름 줄 아래 주문 기록 (2026-11-01 사장님: 각 필름 밑에 따로) — site.filmOrders = [{at, to, items:'ps170 1롤 · px450 30m 이상'}]
+     이 번호(code)의 조각만 골라 '11/1 멋진필름·주문담당 ps170 1롤 주문' 으로. 같은 번호가 여러 줄이면 부르는 쪽이 첫 줄에만 단다 */
+  function filmOrderLines(site, code) {
+    var k = filmKey(code);
+    if (!k) return [];
+    var out = [];
+    ((site && site.filmOrders) || []).forEach(function (o) {
+      if (!o) return;
+      str(o.items).split(' · ').forEach(function (piece) {
+        // 'ps170 1롤 + 10m 이상' → 뒤의 필요량을 떼고 번호만 비교
+        var 번호 = str(piece).replace(/(\s*\+?\s*(\d+m 이상|\d+롤))+$/, '');
+        if (filmKey(번호) !== k) return;
+        out.push([o.at ? shortDate(o.at) : '', o.to, str(piece), '주문'].filter(Boolean).join(' '));
+      });
+    });
+    return out;
+  }
+  function filmOrderSms(site, withSite) {
+    var 필름 = filmOrderText(site);
+    if (!필름) return '';
+    return ORDER_HELLO + '\n' + (withSite ? filmOrderMessage(site) : 필름);
+  }
 
   /* 전화·문자 주소 (2026-10-19) — 번호가 붙는 자리는 어디든 📞 와 💬 를 같이 단다.
      번호에서 숫자와 +(국가번호) 만 남긴다. 번호가 없으면 빈 문자열 — 부르는 쪽에서 버튼을 흐리게 한다.
@@ -1494,7 +1519,7 @@
   function filmOrderAsk(site, settings) {
     var rows = ((site && site.films) || []).filter(function (r) { return r && str(r.code); });
     if (!rows.length || rows.some(function (r) { return !str(r.qty); }) || filmStageOf(site) >= 2) return null;
-    var text = filmOrderMessage(site);
+    var text = filmOrderSms(site, !!(settings && settings.smsSiteName));
     if (!text || str(site.filmOrderAsk) === text) return null;
     var vendors = filmVendors(settings), hit = vendorForSite(site, vendors);
     if (hit) vendors = [hit].concat(vendors.filter(function (v) { return v !== hit; }));   // 필름명에 이름이 든 주문처 먼저
@@ -1504,7 +1529,9 @@
         if (phoneDigits(p.phone)) people.push({ label: v.name + (p.name ? '·' + p.name : ''), phone: phoneDigits(p.phone) });
       });
     });
-    return { siteId: site.id, name: titleLine(site), text: text, people: people.slice(0, ORDER_BUTTONS) };
+    // items = 필름 탭 주문 기록에 남길 줄 ('ps170 1롤 · px450 30m 이상')
+    return { siteId: site.id, name: titleLine(site), text: text, items: filmOrderText(site).split('\n').join(' · '),
+      people: people.slice(0, ORDER_BUTTONS) };
   }
 
   /* ---------- 내 차 재고 (2026-10-19) ----------
@@ -2114,6 +2141,8 @@
     navAddress: navAddress,
     filmOrderText: filmOrderText,
     filmOrderAsk: filmOrderAsk,
+    filmOrderSms: filmOrderSms,
+    filmOrderLines: filmOrderLines,
     FILM_QTYS: FILM_QTYS,
     filmOrderMessage: filmOrderMessage,
     phoneDigits: phoneDigits,

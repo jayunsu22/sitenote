@@ -122,11 +122,22 @@ test('filmOrderAsk (2026-11-01): 필요량을 다 고르면 텔레그램 주문 
   assert.strictEqual(Share.filmOrderAsk(s, settings), null);                       // 아직 필요량 없음
   s.films[0].qty = '1롤';
   const b = Share.filmOrderAsk(s, settings);
-  assert.deepStrictEqual(b, { siteId: 's1', name: '미래타운 101동 1203호', text: '[미래타운 101동 1203호]\n한솔 ps035 1롤',
+  assert.deepStrictEqual(b, { siteId: 's1', name: '미래타운 101동 1203호', text: '필름주문이요.. 내일 오전에 갈께요.\n한솔 ps035 1롤', items: '한솔 ps035 1롤',
     people: [{ label: '한솔·김과장', phone: '01043210000' }, { label: '한솔·이대리', phone: '01011112222' }, { label: '한솔·박부장', phone: '01033334444' }, { label: '에이엔디·주문담당', phone: '01012345678' }] });
   assert.strictEqual(Share.filmOrderAsk(Object.assign({}, s, { filmOrderAsk: b.text }), settings), null);   // 같은 내용은 한 번
+  // 퀵서비스용 현장주소를 켰을 때만 [현장명] (사장님 11/1)
+  assert.strictEqual(Share.filmOrderAsk(s, Object.assign({ smsSiteName: true }, settings)).text,
+    '필름주문이요.. 내일 오전에 갈께요.\n[미래타운 101동 1203호]\n한솔 ps035 1롤');
   assert.strictEqual(Share.filmOrderAsk(Object.assign({}, s, { filmStage: 2 }), settings), null);          // 이미 주문
   assert.strictEqual(Share.filmOrderAsk(Object.assign({}, s, { films: [{ code: 'ps035', qty: '5m 이상' }] }), settings).people[0].label, '에이엔디·주문담당');
+});
+test('filmOrderLines (2026-11-01): 주문 기록을 필름 번호마다 나눠서', () => {
+  const s = { filmOrders: [{ at: '2026-11-01', to: '멋진필름·주문담당', items: 'ps170 10m 이상 · px450 30m 이상' },
+    { at: '2026-11-02', to: '에이엔디·주문담당', items: 'PS170 1롤 + 5m 이상' }] };
+  assert.deepStrictEqual(Share.filmOrderLines(s, 'ps170'), ['11/1 멋진필름·주문담당 ps170 10m 이상 주문', '11/2 에이엔디·주문담당 PS170 1롤 + 5m 이상 주문']);
+  assert.deepStrictEqual(Share.filmOrderLines(s, 'px450'), ['11/1 멋진필름·주문담당 px450 30m 이상 주문']);
+  assert.deepStrictEqual(Share.filmOrderLines(s, 'ps17'), []);   // 다른 번호의 앞부분은 아님
+  assert.deepStrictEqual(Share.filmOrderLines(s, ''), []);
 });
 test('주문용이라 같은 필름은 한 번만 — 대소문자·띄어쓰기 차이도 같은 필름으로 본다 (처음 적은 모양으로)', () => {
   const s = blank();
