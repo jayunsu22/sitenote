@@ -2134,8 +2134,16 @@
         onDelToggle: function () { staffDelDay = (staffDelDay === i ? -1 : i); rerender(); }
       });
       row.appendChild(head); row.appendChild(chips);
+      if (Share.isIsoDate(d.date)) row.appendChild(recruitBlock(s, d.date, rerender));
       box.appendChild(row);
     });
+    if (s.days.some(function (d) { return Share.isIsoDate(d.date); })) {
+      var ord = el2('button', 'rc-order', '🔢 이 현장 모집 순서' + ((s.recruitOrder || []).length ? ' (따로 정함)' : ''));
+      ord.type = 'button';
+      ord.onclick = function () { openRecruitOrder(siteId, rerender); };
+      box.appendChild(ord);
+      paintRecruitStatus(box, siteId, rerender);
+    }
     // 합계 줄 — 날짜 줄을 다 더한 수를 필요 인원과 견준다
     if (s.days.length > 1 || ss.need) {
       var sum = document.createElement('div'); sum.className = 'sec-row sum-row';
@@ -2149,6 +2157,142 @@
       hint.textContent = '위 시공날짜 칸에서 날짜를 고르면 날마다 인원을 넣을 수 있습니다.';
       box.appendChild(hint);
     }
+  }
+  /* ---------- 👥 인원 모집 (2026-11-01 사장님) ----------
+     일차 칸마다 예산(만원)·필요 인원 → 넣은 사람 일당을 빼고 '남은 예산 42만 · 남은 자리 2명' → 📨 인원 모집.
+     문자는 n8n 인원모집 흐름(crew-recruit)이 사장님 폰(SMS Gateway)으로: 남은 자리 수만큼 순서대로, 2시간 답 없으면 한 번 더,
+     '아니요'·무응답이면 다음 사람. '네' 는 텔레그램 [넣기] 를 누르면 우편함으로 이 앱 그날 인원에 들어온다 (kakao.js crewAdd).
+     설계 songil docs/superpowers/specs/2026-11-01-인원모집-design.md */
+  var CREW_URL = 'https://primary-production-a6fa.up.railway.app/webhook/crew-recruit';
+  function crewPost(body) {
+    return fetch(CREW_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (d) {
+          if (!res.ok || !d.ok) throw new Error(d.error || ('HTTP ' + res.status));
+          return d;
+        });
+      });
+  }
+  function ownerKeyOn() { try { return !!localStorage.getItem('ownerKey'); } catch (e) { return false; } }
+  function recruitBlock(site, iso, rerender) {
+    var wrap = el2('div', 'rc-box');
+    var plan = Share.recruitPlan(site, iso, state.sites, state.settings);
+    var setPlan = function (patch) {
+      var cur = Store.getSite(site.id), dp = Object.assign({}, cur.dayPlan || {});
+      dp[iso] = Object.assign({}, Share.dayPlanOf(cur, iso), patch);
+      Store.updateSite(site.id, { dayPlan: dp }); rerender();
+    };
+    // 예산 [50] 만 · 필요 [− 3명 ＋]
+    var money = el2('div', 'rc-money');
+    var bud = document.createElement('input'); bud.type = 'text'; bud.inputMode = 'numeric'; bud.className = 'rc-budget';
+    bud.placeholder = '0'; bud.value = plan.budget ? String(plan.budget) : '';
+    bud.onchange = function () { setPlan({ budget: parseInt(String(bud.value).replace(/[^0-9]/g, ''), 10) || 0 }); };
+    money.appendChild(el2('span', 'rc-lab', '예산')); money.appendChild(bud); money.appendChild(el2('span', 'rc-lab', '만'));
+    money.appendChild(el2('span', 'rc-lab rc-gap', '필요'));
+    var step = el2('div', 'stepper');
+    [['−', -1], ['＋', 1]].forEach(function (a, k) {
+      var b = el2('button', 'step-btn', a[0]); b.type = 'button';
+      b.onclick = function () { setPlan({ need: Math.max(0, plan.need + a[1]) }); };
+      if (k === 1) step.appendChild(el2('div', 'step-val' + (plan.need ? '' : ' none'), plan.need ? plan.need + '명' : '미정'));
+      step.appendChild(b);
+    });
+    money.appendChild(step);
+    wrap.appendChild(money);
+    if (!plan.need) return wrap;
+    // 남은 예산 · 남은 자리
+    var left = el2('div', 'rc-left' + (plan.slots ? '' : ' ok') + (plan.budget && plan.left < 0 ? ' over' : ''),
+      (plan.budget ? '남은 예산 ' + plan.left + '만' : '예산 안 정함') + ' · 남은 자리 ' + plan.slots + '명' + (plan.slots ? '' : ' ✓'));
+    wrap.appendChild(left);
+    if (plan.noPay.length) wrap.appendChild(el2('div', 'rc-warn', '⚠ 일당 미입력: ' + plan.noPay.join('·') + ' — 설정 › 팀원 [수정]에서 페이를 넣으세요'));
+    if (plan.slots) {
+      var go = el2('button', 'rc-go', '📨 인원 모집'); go.type = 'button';
+      go.onclick = function () { startRecruit(site.id, iso, rerender); };
+      wrap.appendChild(go);
+    }
+    var prog = el2('div', 'rc-prog'); prog.dataset.iso = iso;
+    wrap.appendChild(prog);
+    return wrap;
+  }
+  function startRecruit(siteId, iso, rerender) {
+    var site = Store.getSite(siteId);
+    var plan = Share.recruitPlan(site, iso, state.sites, state.settings);
+    if (!ownerKeyOn()) { toast('이 기기는 사장님 열쇠가 없어 모집 문자를 보낼 수 없어요'); return; }
+    if (!plan.first.length) {
+      toast('예산 안에 드는 팀원이 없습니다 — 밴드에서 구해 주세요'); return;
+    }
+    var later = plan.queue.filter(function (c) { return plan.first.indexOf(c) < 0; });
+    var msg = Share.dayLabel(iso) + ' 남은 ' + plan.slots + '자리' + (plan.budget ? ' · 남은 예산 ' + plan.left + '만' : '') + '\n\n' +
+      '먼저 보냄: ' + plan.first.map(function (c) { return c.name + '(' + c.pay + ')'; }).join(', ') +
+      (plan.budget ? ' = ' + plan.first.reduce(function (a, c) { return a + c.pay; }, 0) + '만' : '') + '\n' +
+      (later.length ? '대기 (거절·무응답 때 차례로): ' + later.map(function (c) { return c.name + '(' + c.pay + ')'; }).join(', ') + '\n' : '') +
+      '\n보낼 문자 (사장님 폰에서):\n' + Share.recruitAskText(iso);
+    modalConfirm('📨 인원 모집', msg, '보내기').then(function (ok) {
+      if (!ok) return;
+      toast('보내는 중…');
+      crewPost({ action: 'start', siteId: siteId, siteName: Share.titleLine(site), date: iso, label: Share.dayLabel(iso),
+        slots: plan.slots, budget: plan.budget ? plan.left : 0, queue: plan.queue, band: Share.buildRecruitText(site) })
+        .then(function (d) { toast('📨 ' + (d.sent || 0) + '명에게 보냈어요 — 답은 텔레그램으로 옵니다'); rerender(); })
+        .catch(function (e) { toast('❌ 못 보냈어요 (' + String(e.message || e).slice(0, 80) + ')'); });
+    });
+  }
+  // 진행 상황 — 일차 칸 아래 '✅ 김동진 넣음 / ❌ 서영호 아니요 / ⏳ 안병군 1번 보냄'
+  var CREW_ST = { asked: '⏳', yes: '🙋', in: '✅', no: '❌', timeout: '⌛', skip: '➖' };
+  var CREW_TXT = { asked: '답 기다림', yes: '네 — 텔레그램 [넣기] 기다림', in: '넣음', no: '아니요', timeout: '답 없음', skip: '안 넣음' };
+  function paintRecruitStatus(box, siteId, rerender) {
+    if (!ownerKeyOn()) return;
+    crewPost({ action: 'status', siteId: siteId }).then(function (d) {
+      (d.recruits || []).forEach(function (r) {
+        var prog = box.querySelector('.rc-prog[data-iso="' + r.date + '"]');
+        if (!prog) return;
+        prog.innerHTML = '';
+        prog.appendChild(el2('div', 'rc-prog-h', (r.active ? '📨 모집 중' : '📨 모집 끝') + (r.exhausted ? ' — 순서를 다 돌았습니다 (밴드)' : '')));
+        (r.people || []).filter(function (p) { return p.st !== 'wait'; }).forEach(function (p) {
+          var t = (p.at ? new Date(p.at).toTimeString().slice(0, 5) : '');
+          var line = el2('div', 'rc-st', (CREW_ST[p.st] || '·') + ' ' + p.name + ' — ' + (CREW_TXT[p.st] || p.st) +
+            (p.st === 'asked' && p.tries > 1 ? ' (2번째)' : ''));
+          if (t) line.appendChild(el2('span', 'rc-t', t));
+          prog.appendChild(line);
+        });
+        if (r.active) {
+          var stop = el2('button', 'rc-stop', '⏹ 모집 멈추기'); stop.type = 'button';
+          stop.onclick = function () {
+            modalConfirm('모집 멈추기', Share.dayLabel(r.date) + ' 모집을 멈춥니다. 더는 문자를 보내지 않습니다 (이미 보낸 사람의 답은 텔레그램으로 알림만).', '멈추기', true)
+              .then(function (ok) {
+                if (!ok) return;
+                crewPost({ action: 'stop', siteId: siteId, date: r.date }).then(function () { toast('멈췄어요'); rerender(); })
+                  .catch(function () { toast('못 멈췄어요 — 인터넷을 확인해 주세요'); });
+              });
+          };
+          prog.appendChild(stop);
+        }
+      });
+    }).catch(function () { /* 인터넷 없으면 진행 상황만 안 보임 */ });
+  }
+  // 🔢 이 현장 모집 순서 — 기본(설정 팀원) 순서를 복사해 ▲▼. 저장하면 이 현장에서만
+  function openRecruitOrder(siteId, rerender) {
+    var site = Store.getSite(siteId);
+    var list = Share.recruitOrderOf(site, state.settings.team);
+    var paint = function () {
+      var body = $('modalBody').querySelector('.rc-olist'); body.innerHTML = '';
+      list.forEach(function (n, i) {
+        var p = Share.personOf(state.settings.people, n);
+        var row = el2('div', 'rc-orow');
+        row.appendChild(el2('span', 'team-no', String(i + 1)));
+        row.appendChild(el2('span', 'rc-oname', n + (p.pay ? ' (' + p.pay + ')' : ' (일당?)')));
+        [['▲', -1], ['▼', 1]].forEach(function (a) {
+          var b = el2('button', 'team-btn mv', a[0]); b.type = 'button';
+          b.disabled = i + a[1] < 0 || i + a[1] >= list.length;
+          b.onclick = function () { var j = i + a[1], t = list[i]; list[i] = list[j]; list[j] = t; paint(); };
+          row.appendChild(b);
+        });
+        body.appendChild(row);
+      });
+    };
+    openModal('🔢 이 현장 모집 순서', '<p class="hint" style="margin:0 0 8px">위에서부터 모집 문자를 보냅니다. 저장하면 이 현장에서만 이 순서를 씁니다.</p><div class="rc-olist"></div>', [
+      { label: '기본 순서로', onClick: function () { Store.updateSite(siteId, { recruitOrder: [] }); closeModal(); rerender(); toast('설정 › 팀원 순서를 씁니다'); } },
+      { label: '저장', cls: 'primary', onClick: function () { Store.updateSite(siteId, { recruitOrder: list.slice() }); closeModal(); rerender(); toast('이 현장 모집 순서를 저장했어요'); } }
+    ]);
+    paint();
   }
   // ---------- 달력 시트 (시공날짜 여러 날 고르기) ----------
   // 탭 = 넣기/빼기, 고른 날엔 1·2·3 번호(날짜순). [초기화] 전부 지움, [확인] 저장, 바깥/✕ = 취소
@@ -4173,7 +4317,27 @@
             toast(name + ' 님을 명단에서 지웠습니다');
           });
       };
-      row.appendChild(main); row.appendChild(edit); row.appendChild(call); row.appendChild(sms); row.appendChild(cal); row.appendChild(x);
+      // ▲▼ 순서 = 인원 모집 문자를 보내는 기본 순서 (2026-11-01 사장님). 등급 탭에서는 섞이니 [전체]에서만
+      var mv = null;
+      if (!teamTab) {
+        mv = el2('div', 'team-mv');
+        [['▲', -1], ['▼', 1]].forEach(function (a) {
+          var b = el2('button', 'team-btn mv', a[0]); b.type = 'button';
+          b.title = a[1] < 0 ? '위로 (모집 문자를 먼저 받음)' : '아래로';
+          b.disabled = i + a[1] < 0 || i + a[1] >= team.length;
+          b.onclick = function (e) {
+            e.stopPropagation();
+            var next = team.slice(), j = i + a[1];
+            next[i] = team[j]; next[j] = team[i];
+            Store.setSettings({ team: next }); renderTeamList();
+          };
+          mv.appendChild(b);
+        });
+        var no = el2('span', 'team-no', String(i + 1)); no.title = '모집 순서 ' + (i + 1) + '번';
+        t.insertBefore(no, t.firstChild);
+      }
+      row.appendChild(main); if (mv) row.appendChild(mv);
+      row.appendChild(edit); row.appendChild(call); row.appendChild(sms); row.appendChild(cal); row.appendChild(x);
       box.appendChild(row);
     });
   }

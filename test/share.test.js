@@ -1364,5 +1364,39 @@ test('업체 확인 질문 (2026-11-01): 기본 3개, {날짜} 바꾸기, 이상
   assert.strictEqual(Share.checkSkipped({ checks: { door: { v: '안 닿음' } } }, 'door'), false);
 });
 
+console.log('인원 모집 (2026-11-01)');
+{
+  // 가짜 팀원 — 번호는 지어낸 것
+  const settings = {
+    team: ['고정', '가A', '나B', '다C', '라D', '번호없음', '일당없음', '바쁨'],
+    people: { 고정: { pay: '8', phone: '01000000001' }, 가A: { pay: '25', phone: '01000000002' }, 나B: { pay: '23', phone: '01000000003' },
+      다C: { pay: '17', phone: '01000000004' }, 라D: { pay: '30', phone: '01000000005' }, 번호없음: { pay: '10' },
+      일당없음: { phone: '01000000006' }, 바쁨: { pay: '9', phone: '01000000007' } },
+    holds: {}
+  };
+  const site = { id: 's1', days: [{ date: '2026-11-05', staff: ['고정'] }, { date: '2026-11-06', staff: [] }],
+    dayPlan: { '2026-11-05': { budget: 50, need: 3 } } };
+  const other = { id: 's2', days: [{ date: '2026-11-05', staff: ['바쁨'] }] };
+  test('recruitPlan: 고정 팀원 일당을 빼고 남은 예산·자리, 바쁜 사람·번호·일당 없는 사람·예산 넘는 사람은 빠짐', () => {
+    const p = Share.recruitPlan(site, '2026-11-05', [site, other], settings);
+    assert.strictEqual(p.left, 42); assert.strictEqual(p.slots, 2);
+    assert.deepStrictEqual(p.queue.map((c) => c.name), ['가A', '나B', '다C', '라D']);
+    assert.deepStrictEqual(p.first.map((c) => c.name), ['가A', '다C']);   // 25+23=48 ✗, 25+17=42 ✓
+  });
+  test('recruitOrderOf: 현장 순서 먼저, 명단의 나머지는 뒤에, 명단에 없는 이름은 버림', () => {
+    assert.deepStrictEqual(Share.recruitOrderOf({ recruitOrder: ['다C', '없는사람', '가A'] }, ['가A', '나B', '다C']), ['다C', '가A', '나B']);
+    const p = Share.recruitPlan(Object.assign({}, site, { recruitOrder: ['다C', '나B'] }), '2026-11-05', [site, other], settings);
+    assert.deepStrictEqual(p.first.map((c) => c.name), ['다C', '나B']);   // 17+23=40 ✓
+  });
+  test('pickWithinBudget: 예산 0 이면 제한 없이 순서대로', () => {
+    assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }, { pay: 29 }, { pay: 8 }], 2, 0).map((c) => c.pay), [30, 29]);
+    assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }, { pay: 29 }, { pay: 8 }], 2, 38).map((c) => c.pay), [30, 8]);
+    assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }], 2, 20), []);
+  });
+  test('recruitAskText: 날짜만, 일당·현장명 없음', () => {
+    assert.strictEqual(Share.recruitAskText('2026-11-05'), '안녕하세요~\n11/5(목) 일정 가능하신가요?\n가능하시면 "네", 일정 안되시면 "아니요"라고 해주세요~');
+  });
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

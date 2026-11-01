@@ -1656,6 +1656,80 @@
     return list.filter(function (n) { return !busy[normName(n)]; });
   }
 
+  /* ---------- 인원 모집 (2026-11-01 사장님) ----------
+     날짜마다 인건비 예산·필요 인원 → 고정 팀원 일당을 빼고 남은 예산 안에서 모집 순서대로 문자.
+     site.dayPlan = { 'YYYY-MM-DD': { budget(만원), need(명) } }, site.recruitOrder = [이름…] (비면 설정 팀원 순서).
+     설계 songil docs/superpowers/specs/2026-11-01-인원모집-design.md */
+  function dayPlanOf(site, iso) {
+    var p = ((site && site.dayPlan) || {})[str(iso)] || {};
+    var n = function (v) { var x = parseInt(v, 10); return x > 0 ? x : 0; };
+    return { budget: n(p.budget), need: n(p.need) };
+  }
+  // 이 현장 모집 순서 — 현장 순서(명단에 있는 사람만) + 그 뒤에 명단의 나머지 (새로 들어온 사람)
+  function recruitOrderOf(site, team) {
+    var t = (team || []).map(str).filter(Boolean), out = [], seen = {};
+    ((site && site.recruitOrder) || []).concat(t).forEach(function (n) {
+      var k = normName(n);
+      if (!k || seen[k] || !t.some(function (x) { return normName(x) === k; })) return;
+      seen[k] = 1; out.push(str(n));
+    });
+    return out;
+  }
+  // 그날 어느 현장·AS 에 들어갔거나 대기로 잡힌 사람 { 이름: 1 }
+  function busyOn(sites, holds, iso) {
+    var busy = {};
+    (sites || []).forEach(function (s) {
+      daysOf(s).forEach(function (d) { if (str(d.date) === iso) staffOf(d).forEach(function (n) { busy[normName(n)] = 1; }); });
+      servicesOf(s).forEach(function (v) { if (str(v.date) === iso) staffOf(v).forEach(function (n) { busy[normName(n)] = 1; }); });
+    });
+    ((holds && holds[iso]) || []).forEach(function (n) { busy[normName(n)] = 1; });
+    return busy;
+  }
+  /* 예산 안에서 고르기 — n8n 인원모집 흐름과 같은 규칙 (바꾸면 둘 다).
+     순서대로 보며, 이 사람을 넣고 남은 자리를 남은 후보 중 가장 싼 사람들로 채워도 예산 안이면 고른다.
+     budget 0 = 예산 안 정함(제한 없음) */
+  function pickWithinBudget(cands, slots, budget) {
+    var picked = [], left = budget, rest = cands.slice();
+    while (picked.length < slots && rest.length) {
+      var need = slots - picked.length, hit = -1;
+      for (var i = 0; i < rest.length && hit < 0; i++) {
+        var others = rest.filter(function (_, j) { return j !== i; }).map(function (c) { return c.pay; }).sort(function (a, b) { return a - b; });
+        var fill = others.slice(0, need - 1).reduce(function (a, b) { return a + b; }, 0);
+        if (!budget || rest[i].pay + fill <= left) hit = i;
+      }
+      if (hit < 0) break;
+      picked.push(rest[hit]); left -= rest[hit].pay; rest.splice(hit, 1);
+    }
+    return picked;
+  }
+  /* 한 날짜의 모집 판 — { iso, budget, need, have:[{name,pay}], spent, left, slots, noPay:[이름],
+     queue:[{name, phone, pay}] (예산 안에 들 수 있는 후보, 순서대로), first:[처음 보낼 사람] } */
+  function recruitPlan(site, iso, sites, settings) {
+    settings = settings || {};
+    var plan = dayPlanOf(site, iso), people = settings.people || {};
+    var day = daysOf(site).filter(function (d) { return str(d.date) === iso; })[0];
+    var have = staffOf(day).map(function (n) { var p = personOf(people, n); return { name: n, pay: parseInt(p.pay, 10) || 0 }; });
+    var spent = have.reduce(function (a, h) { return a + h.pay; }, 0);
+    var left = plan.budget ? plan.budget - spent : 0;
+    var slots = Math.max(0, plan.need - have.length);
+    var busy = busyOn(sites, settings.holds, iso);
+    var queue = [];
+    recruitOrderOf(site, settings.team).forEach(function (n) {
+      if (busy[normName(n)]) return;
+      var p = personOf(people, n), pay = parseInt(p.pay, 10) || 0;
+      if (!pay || !phoneDigits(p.phone)) return;
+      if (plan.budget && pay > left) return;
+      queue.push({ name: n, phone: phoneDigits(p.phone), pay: pay });
+    });
+    return { iso: iso, budget: plan.budget, need: plan.need, have: have, spent: spent, left: left, slots: slots,
+      noPay: have.filter(function (h) { return !h.pay; }).map(function (h) { return h.name; }),
+      queue: queue, first: pickWithinBudget(queue, slots, plan.budget ? left : 0) };
+  }
+  // 팀원에게 가는 묻기 문자 (사장님 11/1) — 일당·현장명은 넣지 않는다
+  function recruitAskText(iso) {
+    return '안녕하세요~\n' + dayLabel(iso) + ' 일정 가능하신가요?\n가능하시면 "네", 일정 안되시면 "아니요"라고 해주세요~';
+  }
+
   /* ---------- 하루 수익 (2026-10-14) ----------
      사장님이 그날 인건비·자재비 등을 빼고 남은 돈을 직접 적는다. income = { 'YYYY-MM-DD': [{ id, amt(원), memo }] }.
      지난 날 기록이라 오래돼도 지우지 않는다. 금액 0·잘못된 날짜는 버린다 */
@@ -2105,6 +2179,11 @@
     ownerRows: ownerRows,
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
+    dayPlanOf: dayPlanOf,
+    recruitOrderOf: recruitOrderOf,
+    pickWithinBudget: pickWithinBudget,
+    recruitPlan: recruitPlan,
+    recruitAskText: recruitAskText,
     personHistory: personHistory,
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,

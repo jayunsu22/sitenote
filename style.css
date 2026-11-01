@@ -917,6 +917,11 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .pf-sel { width: 100%; padding: 10px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-size: 15px; font-weight: 700; color: var(--text); }
 /* 팀원 명단: 이름 뒤 일당 — 서영호(23) */
 .team-pay { margin-left: 1px; color: #047857; font-weight: 800; }
+/* 모집 순서 ▲▼ (2026-11-01) — 위아래로 쌓아 한 칸만 차지 */
+.team-mv { flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; }
+.team-btn.mv { min-width: 32px; height: 17px; padding: 0 4px; font-size: 10px; line-height: 1; color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+.team-btn.mv:disabled { color: #d1d5db; background: #f9fafb; border-color: #e5e7eb; }
+.team-no { display: inline-block; min-width: 18px; margin-right: 4px; color: var(--muted); font-size: 12px; font-weight: 800; }
 /* 등급 탭: 전체 / A / B / C / F (2026-10-16) — 고른 탭만 그 등급 색으로 */
 .team-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
 .team-tab { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
@@ -1529,3 +1534,29 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .chk-top .chk-tog { flex: none; height: 28px; font-size: 12px; }
 .chk-row .chk-top + input { margin-top: 4px; }
 .chk-q.skip { color: var(--muted); text-decoration: line-through; }
+
+/* 👥 인원 모집 (2026-11-01) — 일차 칸 안: 예산·필요 인원·남은 예산·📨·진행 */
+.rc-box { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
+.rc-money { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.rc-lab { font-size: 13px; font-weight: 700; color: var(--muted); }
+.rc-gap { margin-left: 8px; }
+.rc-budget { width: 64px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 15px; font-weight: 800; text-align: right; }
+.rc-money .stepper { display: flex; align-items: center; gap: 4px; }
+.rc-money .step-btn { width: 34px; height: 32px; border: 1.5px solid var(--border); border-radius: 8px; background: #fafafa; font-size: 16px; font-weight: 800; color: var(--primary); }
+.rc-money .step-val { min-width: 48px; text-align: center; padding: 5px 4px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; font-weight: 800; }
+.rc-money .step-val.none { color: var(--muted); font-weight: 600; }
+.rc-left { margin-top: 8px; padding: 7px 10px; border-radius: 10px; background: #fef3c7; color: #92400e; font-weight: 800; font-size: 14px; }
+.rc-left.ok { background: #dcfce7; color: #166534; }
+.rc-left.over { background: #fee2e2; color: #b91c1c; }
+.rc-warn { margin-top: 6px; font-size: 12.5px; color: #b45309; font-weight: 700; }
+.rc-go { margin-top: 8px; width: 100%; padding: 10px 0; border: 0; border-radius: 10px; background: var(--primary); color: #fff; font-size: 15px; font-weight: 800; }
+.rc-prog:empty { display: none; }
+.rc-prog { margin-top: 8px; padding: 6px 8px; border-radius: 10px; background: #f8fafc; border: 1px solid var(--border); }
+.rc-prog-h { font-size: 12.5px; font-weight: 800; color: var(--muted); margin-bottom: 2px; }
+.rc-st { display: flex; gap: 6px; font-size: 13.5px; padding: 3px 0; border-bottom: 1px dashed #e5e7eb; }
+.rc-st:last-of-type { border-bottom: 0; }
+.rc-t { margin-left: auto; color: var(--muted); font-size: 12px; }
+.rc-stop { margin-top: 6px; padding: 6px 10px; border: 1.5px solid #fecaca; border-radius: 8px; background: #fff; color: #b91c1c; font-weight: 700; font-size: 13px; }
+.rc-order { margin: 8px 12px 4px; padding: 8px 12px; border: 1.5px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: var(--primary); font-weight: 800; font-size: 14px; }
+.rc-orow { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+.rc-oname { flex: 1; font-weight: 800; }

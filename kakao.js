@@ -141,6 +141,14 @@
       var checks = Object.assign({}, site.checks || {});
       checks[f.checkId] = { v: String(f.value).trim(), src: by };
       return { checks: checks };
+    } else if (f.kind === 'crewAdd') {
+      // 인원 모집 (2026-11-01): 팀원이 '네' → 사장님이 텔레그램 [넣기] → 그날 인원에 이름 (이미 있으면 그대로)
+      var nm = String(f.name || '').trim(), dt = String(f.date || '');
+      var days = (site.days || []).map(function (d) { return { date: d.date, staff: (d.staff || []).slice() }; });
+      var day = days.filter(function (d) { return d.date === dt; })[0];
+      if (!nm || !day || day.staff.indexOf(nm) !== -1) return null;
+      day.staff.push(nm);
+      return { days: days };
     } else if (f.kind === 'filmOrdered') {
       // 텔레그램 버튼으로 사장님 폰이 주문 문자를 보냄 (2026-11-01) → '필름 주문' 단계 (이미 수령이면 그대로)
       // + 필름 탭에 '11/1 에이엔디·주문담당 ps170 1롤 주문' 기록 (filmOrders, 같은 우편 id 는 한 번)
