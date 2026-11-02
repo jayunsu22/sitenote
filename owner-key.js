@@ -37,7 +37,9 @@
     // 필름 주문 텔레그램 버튼 (2026-11-01, n8n 카톡_버튼) — 필요량을 다 고르면 앱이 보낸다
     'film-order',
     // 인원 모집 문자 (2026-11-01, n8n 인원모집) — 시작·진행 상황·멈추기
-    'crew-recruit'
+    'crew-recruit',
+    // 📋 결재함 · 업무일정표 (2026-11-03, n8n 업무일정표)
+    'report'
   ].forEach(function (p) { OWNER_PATHS[p] = true; });
 
   function readKey() { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return ''; } }

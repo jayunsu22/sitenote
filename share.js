@@ -1654,6 +1654,78 @@
     });
     return out;
   }
+  /* 📋 내일 업무일정표 (2026-11-03 사장님 — 저녁 7시 n8n 업무일정표 흐름이 이 함수로 만든다, 결재함).
+     today = 오늘. 돌려줌 { date: 내일, today, done: [{ kind, title, res }], next: [{ id, kind, title, res, siteId, act }] }.
+     act: 'film' = 필름 발주(진행해 → 담당자 골라 9시 문자), 'crew' = 인원 모집(9시 시작), '' = 확인만.
+     설계 songil docs/superpowers/specs/2026-11-03-결재함-design.md */
+  var REPORT_ASK_DAYS = 7, REPORT_PAY_DAYS = 14;
+  function dailyReport(sites, settings, tasks, today) {
+    settings = settings || {};
+    var tomorrow = addDays(today, 1), done = [], next = [];
+    var dayOf = function (ms) { return new Date(ms + 9 * 3600e3).toISOString().slice(0, 10); };   // 한국 날짜
+    var won = function (n) { return Math.round(n / 10000) + '만원'; };
+    (sites || []).forEach(function (s) {
+      if (!s || !s.id) return;
+      var name = titleLine(s);
+      // 오늘 결과 — 보낸 필름 주문, 받은 입금
+      (s.filmOrders || []).forEach(function (o) {
+        if (o && str(o.at) === today) done.push({ kind: 'film', title: name + ' 필름 발주 완료', res: str(o.to) + (o.items ? ' — ' + str(o.items) : '') });
+      });
+      var paid = 0;
+      Object.keys(s.settleLog || {}).forEach(function (k) {
+        var L = s.settleLog[k] || {};
+        if (str(L.입금일) === today) paid += Number(L.입금액) || Number(L.금액) || 0;
+      });
+      splitSettleManual(s.settleManual).forEach(function (m) { if (m.종류 === '입금' && str(m.날짜) === today) paid += Number(m.금액) || 0; });
+      if (paid) done.push({ kind: 'pay', title: name + ' 입금 받음', res: won(paid) });
+      // 내일 — AS 방문
+      servicesOf(s).forEach(function (v) {
+        if (v.done || str(v.date) !== tomorrow) return;
+        next.push({ id: 'as:' + s.id + ':' + v.id, kind: 'as', title: name + ' ' + serviceLabel(v) + ' 방문', res: str(v.memo || v.request || '').slice(0, 60), siteId: s.id, act: '' });
+      });
+      // 내일 — 출입정보 질문 (시공 7일 전, 공동현관·세대 비번·화장실 빈칸)
+      var first = str(s.date);
+      if (isIsoDate(first) && dayDiff(tomorrow, first) === REPORT_ASK_DAYS) {
+        var miss = [['pwLobby', '공동현관'], ['pwUnit', '세대 비번'], ['toilet', '화장실']].filter(function (k) { return !str(s[k[0]]); });
+        if (miss.length) next.push({ id: 'ask:' + s.id, kind: 'ask', title: name + ' 출입정보 질문', res: miss.map(function (k) { return k[1]; }).join('·') + ' — 업체 카톡방', siteId: s.id, act: '' });
+      }
+      // 내일 — 잔금 받기 (시공 끝난 지 14일 안, 입금 기록이 하나도 없음)
+      var ds = daysOf(s).map(function (d) { return str(d.date); }).filter(isIsoDate).sort();
+      var end = ds[ds.length - 1];
+      if (end && dayDiff(end, tomorrow) >= 1 && dayDiff(end, tomorrow) <= REPORT_PAY_DAYS) {
+        var any = Object.keys(s.settleLog || {}).some(function (k) { return str((s.settleLog[k] || {}).입금일); }) ||
+          splitSettleManual(s.settleManual).some(function (m) { return m.종류 === '입금'; });
+        if (!any) next.push({ id: 'pay:' + s.id, kind: 'pay', title: name + ' 잔금 받기', res: '시공 끝 ' + shortDate(end) + ' · 입금 기록 없음', siteId: s.id, act: '' });
+      }
+    });
+    // 내일 — 앱 자동 할 일과 같은 기준 (필름 발주·인원 모집·실리콘·자재·차 보충·대기 인원 배정)
+    autoTasks(sites, tomorrow, settings.taskRules, settings.holds, settings).forEach(function (t) {
+      var siteId = t.link && t.link.siteId || '';
+      var site = siteId && (sites || []).filter(function (s) { return s && s.id === siteId; })[0];
+      var it = { id: t.id.replace(/^auto:/, ''), kind: t.kind, title: t.title, res: '', siteId: siteId, act: '' };
+      if (t.kind === 'film') { it.act = 'film'; it.res = site ? filmOrderText(site).split('\n').join(' · ') : ''; }
+      if (t.kind === 'staff') { it.kind = 'crew'; it.act = 'crew'; }
+      next.push(it);
+    });
+    // 할 일 — 오늘 끝낸 것(결과), 내일 날짜로 적어 둔 것(예정)
+    (tasks || []).forEach(function (t) {
+      if (!t || !t.title) return;
+      if (t.done && t.doneAt && dayOf(t.doneAt) === today) done.push({ kind: 'task', title: t.title, res: str(t.result) });
+      if (!t.done && str(t.date) === tomorrow) next.push({ id: 'task:' + t.id, kind: 'task', title: t.title, res: str(t.time), siteId: t.link && t.link.siteId || '', act: '' });
+    });
+    return { date: tomorrow, today: today, done: done, next: next };
+  }
+  // 카톡 김정헌방에 올리는 글 (C안) — 링크를 누르면 앱 결재함
+  function dailyReportKakao(rep, url) {
+    var lines = ['📋 ' + dayLabel(rep.date) + ' 업무일정표'];
+    lines.push('✅ 오늘 결과 ' + rep.done.length + '건');
+    rep.done.slice(0, 8).forEach(function (d) { lines.push(' · ' + d.title); });
+    lines.push('📅 내일 예정 ' + rep.next.length + '건' + (rep.next.length ? ' — 결재해 주세요' : ''));
+    rep.next.slice(0, 10).forEach(function (n) { lines.push(' · ' + n.title); });
+    if (rep.next.length > 10) lines.push(' · … 외 ' + (rep.next.length - 10) + '건');
+    lines.push('👉 결재하기: ' + url);
+    return lines.join('\n');
+  }
   // 밴드에 올리는 인원 모집 문구. 현장명·주소는 넣지 않는다(공개 게시판) — 동네 이름만
   function buildRecruitText(site) {
     var st = staffStatus(site);
@@ -2277,6 +2349,8 @@
     recruitPlan: recruitPlan,
     recruitAskText: recruitAskText,
     recruitMulti: recruitMulti,
+    dailyReport: dailyReport,
+    dailyReportKakao: dailyReportKakao,
     parseTeamPaste: parseTeamPaste,
     mergeTeamPaste: mergeTeamPaste,
     personHistory: personHistory,

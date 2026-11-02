@@ -1426,6 +1426,34 @@ console.log('인원 모집 (2026-11-01)');
     assert.strictEqual(r.people.가나다.phone, '010-0000-1111');
     assert.strictEqual(r.people.새사람.memo, '조공');
   });
+  test('dailyReport: 오늘 결과(필름 주문·입금·끝낸 할 일)와 내일 예정(필름·모집·AS·질문·잔금·할 일)', () => {
+    const today = '2026-11-03';
+    const sites = [
+      { id: 'a', name: '필름현장', date: '2026-11-06', days: [{ date: '2026-11-06', staff: [] }], films: [{ code: 'ps035', qty: '2롤' }],
+        filmOrders: [{ at: '2026-11-03', to: '에이엔디·주문담당', items: 'pwt1200 5롤' }], needStaff: 2, pwLobby: '1', pwUnit: '1', toilet: '있음' },
+      { id: 'b', name: '질문현장', date: '2026-11-11', days: [{ date: '2026-11-11', staff: [] }], pwLobby: '', pwUnit: '', toilet: '있음',
+        services: [{ id: 'v1', kind: 'AS', date: '2026-11-04', request: '문틀 들뜸' }] },
+      { id: 'c', name: '끝난현장', date: '2026-10-28', days: [{ date: '2026-10-28', staff: ['가'] }], settleManual: [] },
+      { id: 'd', name: '입금현장', date: '2026-10-25', days: [{ date: '2026-10-25', staff: ['가'] }],
+        settleManual: [{ id: 'm1', 종류: '입금', 날짜: '2026-11-03', 금액: 1500000 }] },
+    ];
+    const tasks = [{ id: 't1', title: '세금계산서', done: true, doneAt: Date.parse('2026-11-03T03:00:00Z') },
+      { id: 't2', title: '샘플 챙기기', date: '2026-11-04', done: false }];
+    const r = Share.dailyReport(sites, { taskRules: { filmDays: 3, staffDays: 3, supplyDays: 1 } }, tasks, today);
+    assert.strictEqual(r.date, '2026-11-04');
+    assert.deepStrictEqual(r.done.map((d) => d.kind), ['film', 'pay', 'task']);
+    assert.strictEqual(r.done[1].res, '150만원');
+    const by = Object.fromEntries(r.next.map((n) => [n.id, n]));
+    assert.strictEqual(by['as:b:v1'].res, '문틀 들뜸');
+    assert.strictEqual(by['ask:b'].res, '공동현관·세대 비번 — 업체 카톡방');
+    assert.ok(by['pay:c'] && !by['pay:d']);   // 입금 기록 있는 현장은 잔금 항목 없음
+    assert.strictEqual(by['film:a'].act, 'film');
+    assert.ok(by['film:a'].res.includes('ps035'));
+    assert.strictEqual(by['staff:a'].act, 'crew');
+    assert.ok(by['task:t2']);
+    const k = Share.dailyReportKakao(r, 'https://x/#approve/2026-11-04');
+    assert.ok(k.startsWith('📋 11/4(수) 업무일정표') && k.endsWith('👉 결재하기: https://x/#approve/2026-11-04'));
+  });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

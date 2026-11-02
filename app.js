@@ -96,13 +96,15 @@
     if (h === '#settings') { showView('viewSettings'); renderSettings(); return; }
     if (h === '#schedule') { rememberView('schedule'); showView('viewSchedule'); schDelKey = ''; renderSchedule(); return; }
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
+    var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
+    if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
     showView('viewMain'); renderMain();
   }
   function showView(id) {
-    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule', 'viewReviews'].forEach(function (v) { $(v).hidden = v !== id; });
+    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule', 'viewReviews', 'viewApprove'].forEach(function (v) { $(v).hidden = v !== id; });
     window.scrollTo(0, 0);
   }
   // 앱을 다시 열 때 마지막에 본 화면(거래처/일정)으로 시작한다
@@ -2626,6 +2628,131 @@
   }
   $('btnReviews').onclick = function () { go('#reviews'); };
   $('btnReviewsBack').onclick = function () { go(''); };
+
+  /* ---------- 📋 결재함 (2026-11-03 사장님, 목업 A안 + C안 카톡) ----------
+     n8n 업무일정표가 저녁 7시에 만든 '내일 업무일정표' (카톡 김정헌방 링크 #approve/날짜 로도 열림).
+     항목마다 [진행해] [다음날로 연기] [내가할께] — 안 누르면 지금처럼. 필름 발주 [진행해]는 거래처·담당자를 고른다
+     → 다음 날 9시 그 담당자에게 주문 문자. 인원 모집 [진행해] → 9시 여러 날 모집 시작. [내가할께] → 9시 그날 할 일로.
+     설계 songil docs/superpowers/specs/2026-11-03-결재함-design.md */
+  var REPORT_URL = 'https://primary-production-a6fa.up.railway.app/webhook/report';
+  var approvePending = 0;   // 결재 안 한 내일 항목 수 — 내 앱 패널 '📋 결재함 (3)'
+  function reportPost(body) {
+    return fetch(REPORT_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (d) {
+          if (!res.ok || !d.ok) throw new Error(d.error || ('HTTP ' + res.status));
+          return d;
+        });
+      });
+  }
+  var AP_KIND = { film: '필름', crew: '인원', ask: '질문', as: 'AS', pay: '잔금', task: '할 일', silicone: '실리콘', supply: '자재', stock: '차 보충', hold: '인원 배정' };
+  var AP_ACT = { go: '진행해', later: '다음날로 연기', mine: '내가할께' };
+  function countPending(d) {
+    if (!d || !d.rep || d.date < Share.todayIso()) return 0;
+    return d.rep.next.filter(function (n) { return !(d.decisions || {})[n.id]; }).length;
+  }
+  function refreshApproveCount() {
+    if (!ownerKeyOn()) return;
+    reportPost({ action: 'get' }).then(function (d) { approvePending = countPending(d); }).catch(function () { /* 다음에 */ });
+  }
+  function renderApprove(date) {
+    var body = $('approveBody');
+    if (!ownerKeyOn()) { body.innerHTML = '<p class="sec-empty">이 기기는 사장님 열쇠가 없어 결재함을 볼 수 없어요.</p>'; return; }
+    body.innerHTML = '<p class="sec-empty">불러오는 중…</p>';
+    reportPost({ action: 'get', date: date || '' }).then(paintApprove).catch(function (e) {
+      body.innerHTML = '<p class="sec-empty">못 불러왔어요 — 인터넷을 확인해 주세요 (' + esc(String(e.message || e).slice(0, 60)) + ')</p>';
+    });
+  }
+  function paintApprove(d) {
+    var body = $('approveBody'); body.innerHTML = '';
+    if (d.none || !d.rep) {
+      body.appendChild(el2('p', 'sec-empty', '아직 업무일정표가 없습니다. 매일 저녁 7시에 만들어집니다.'));
+      var mk = el2('button', 'ap-btn go', '지금 만들어 보기'); mk.type = 'button';
+      mk.onclick = function () { mk.disabled = true; reportPost({ action: 'make' }).then(function () { renderApprove(''); }).catch(function () { toast('못 만들었어요'); mk.disabled = false; }); };
+      body.appendChild(mk);
+      return;
+    }
+    if (d.reports && d.date === d.reports[0]) approvePending = countPending(d);
+    // 지난 보고서 — 날짜 칩
+    if ((d.reports || []).length > 1) {
+      var chips = el2('div', 'ap-dates');
+      d.reports.slice(0, 7).forEach(function (iso) {
+        var c = el2('button', 'ap-date' + (iso === d.date ? ' on' : ''), Share.shortDate(iso)); c.type = 'button';
+        c.onclick = function () { go('#approve/' + iso); };
+        chips.appendChild(c);
+      });
+      body.appendChild(chips);
+    }
+    var card = el2('div', 'ap-card');
+    card.appendChild(el2('h3', 'ap-title', Share.dayLabel(d.date) + ' 업무일정표'));
+    card.appendChild(el2('div', 'ap-sec done', '✅ 오늘 업무 결과 (' + Share.shortDate(d.rep.today) + ')'));
+    if (!d.rep.done.length) card.appendChild(el2('div', 'ap-none', '기록된 결과가 없습니다'));
+    d.rep.done.forEach(function (x) { card.appendChild(apItem(x, null, d)); });
+    card.appendChild(el2('div', 'ap-sec next', '📅 내일 업무 예정 (' + Share.shortDate(d.date) + ')'));
+    if (!d.rep.next.length) card.appendChild(el2('div', 'ap-none', '예정된 일이 없습니다'));
+    d.rep.next.forEach(function (x) { card.appendChild(apItem(x, (d.decisions || {})[x.id] || null, d)); });
+    var left = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && x.act !== 'film'; });
+    if (left.length && d.date >= Share.todayIso()) {
+      var all = el2('button', 'ap-btn go ap-all', '✅ 남은 것 모두 진행 (' + left.length + ')'); all.type = 'button';
+      all.title = '필름 발주는 담당자를 골라야 해서 빠집니다';
+      all.onclick = function () {
+        all.disabled = true;
+        left.reduce(function (p, x) { return p.then(function () { return reportPost({ action: 'decide', date: d.date, id: x.id, act: 'go' }); }); }, Promise.resolve())
+          .then(function () { toast('모두 진행으로 결재했어요'); renderApprove(d.date); })
+          .catch(function () { toast('일부를 못 했어요 — 다시 눌러 주세요'); renderApprove(d.date); });
+      };
+      card.appendChild(all);
+    }
+    body.appendChild(card);
+    body.appendChild(el2('p', 'hint ap-hint', '[진행해] 필름 발주·인원 모집은 내일 오전 9시에 비서가 합니다. 안 누른 항목은 지금처럼 진행합니다.'));
+  }
+  function apItem(x, dec, d) {
+    var it = el2('div', 'ap-item' + (dec ? ' decided' : ''));
+    var head = el2('div', 'ap-head');
+    head.appendChild(el2('span', 'ap-kind k-' + x.kind, AP_KIND[x.kind] || '할 일'));
+    var t = el2('b', 'ap-name', x.title);
+    if (x.siteId && Store.getSite(x.siteId)) { t.classList.add('ap-link'); t.onclick = function () { go('#site/' + x.siteId); }; }
+    head.appendChild(t);
+    it.appendChild(head);
+    if (x.res) it.appendChild(el2('div', 'ap-res', x.res));
+    if (!x.id) return it;   // 오늘 결과 줄 — 버튼 없음
+    if (dec && dec.doneAt) { it.appendChild(el2('div', 'ap-stamp', '✔ ' + AP_ACT[dec.act] + ' — 9시에 처리함')); return it; }
+    if (dec && dec.to) it.appendChild(el2('div', 'ap-to', '→ ' + dec.to.label));
+    var btns = el2('div', 'ap-btns');
+    ['go', 'later', 'mine'].forEach(function (act) {
+      var b = el2('button', 'ap-btn ' + act + (dec && dec.act === act ? ' on' : ''), (dec && dec.act === act ? '✔ ' : '') + AP_ACT[act]); b.type = 'button';
+      b.onclick = function () {
+        if (dec && dec.act === act) return decideApprove(d, x, '');   // 다시 누르면 결재 취소
+        if (act === 'go' && x.act === 'film') return pickOrderContact(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
+        decideApprove(d, x, act);
+      };
+      btns.appendChild(b);
+    });
+    it.appendChild(btns);
+    return it;
+  }
+  function decideApprove(d, x, act, to) {
+    reportPost({ action: 'decide', date: d.date, id: x.id, act: act, to: to || null })
+      .then(function (r) { paintApprove(r); toast(act ? AP_ACT[act] + ' — ' + x.title : '결재를 취소했어요'); })
+      .catch(function (e) { toast('❌ ' + String(e.message || e).slice(0, 60)); });
+  }
+  // 필름 발주 [진행해] — 설정 › 필름 거래처의 담당자 중 번호 있는 사람
+  function pickOrderContact(x) {
+    var items = [];
+    Share.filmVendors(state.settings).forEach(function (v) {
+      (v.people || []).forEach(function (p) {
+        if (p.phone) items.push({ label: v.name + ' · ' + (p.name || '담당자') + ' (' + p.phone + ')', value: { label: v.name + '·' + (p.name || '담당자'), phone: p.phone } });
+      });
+    });
+    if (!items.length) { toast('설정 › 현장준비 › 필름 거래처에 담당자 번호가 없어요'); return Promise.resolve(null); }
+    return modalSheet('📨 어디에 주문할까요? (내일 9시 문자)', items);
+  }
+  $('btnApproveBack').onclick = function () { go(''); };
+  // 내 앱 패널 맨 위 '이 앱에서' — 📋 결재함 (결재 안 한 수)
+  (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
+    icon: '📋', get name() { return '결재함' + (approvePending ? ' (' + approvePending + ')' : ''); },
+    onClick: function () { go('#approve'); }
+  });
 
   var svcSheet = { siteId: '', id: '', onDone: null };
   var svcExtraRow = false; // '+ 한 명 더' 를 눌러 빈 드롭다운이 하나 더 열려 있는가
@@ -5458,6 +5585,14 @@
     post({}).then(function (d) {
       var done = [], n = 0;
       (d && d.fills || []).forEach(function (f) {
+        // 결재함 [내가할께] → 그날 할 일 (2026-11-03). 현장이 이 기기에 있으면 현장에 이어 둔다
+        if (f.kind === 'task') {
+          var ts = Store.getSite(f.siteId);
+          var exists = Store.tasks().some(function (t) { return t.title === f.title && t.date === f.date; });
+          if (!exists && Store.addTask({ title: f.title, date: f.date, link: ts ? { type: 'site', id: ts.id, siteId: ts.id, label: Share.titleLine(ts) } : null })) n++;
+          done.push(f.id);
+          return;
+        }
         var s = Store.getSite(f.siteId);
         if (!s) return;   // 이 기기에 없는 현장
         var p = Kakao.fillPatch(s, f, (f.room || '카톡') + ' ' + Share.shortDate(f.at || Share.todayIso()));
@@ -5472,12 +5607,13 @@
       });
     }).catch(function () { /* 다음에 다시 */ }).then(function () { fillBusy = false; });
   }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) takeFills(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { takeFills(); refreshApproveCount(); } });
   setInterval(function () { if (!document.hidden) takeFills(); }, 5 * 60 * 1000);
 
   // ---------- 시작 ----------
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
   takeFills();
+  refreshApproveCount();
   handleAdminLinkHash();
   scheduleAdminSync();   // 앱을 열 때 맞출 게 남은 연결 현장이 있으면 한 번 더
   // 첫 진입: 해시가 없고 마지막에 일정 화면을 봤으면 일정으로 시작
