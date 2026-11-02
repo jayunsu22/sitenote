@@ -1587,30 +1587,45 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .order-sub { flex: none; color: var(--muted); font-size: 13px; font-weight: 700; }
 .order-count { color: var(--muted); font-weight: 800; font-size: 13.5px; }
 #modalBody .order-num { color: #fff; }
-/* 📋 결재함 (2026-11-03, 사장님 1안: 업무마다 떠 있는 카드) */
-.ap-body { padding: 12px 12px 24px; max-width: 720px; margin: 0 auto; background: #f1f5f9; min-height: 100%; }
-.ap-dates { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; }
-.ap-date { flex: none; padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff; font-weight: 800; font-size: 13.5px; color: #475569; }
-.ap-date.on { border-color: #1e293b; background: #1e293b; color: #fff; }
-.ap-day { margin: 6px 2px 2px; font-size: 19px; }
-.ap-meta { margin: 0 2px 6px; color: var(--muted); font-size: 13px; }
-.ap-gt { margin: 16px 4px 7px; font-weight: 900; font-size: 14px; color: #475569; }
-.ap-card { margin: 0 0 12px; background: #fff; border-radius: 16px; padding: 12px; box-shadow: 0 2px 10px rgba(15,23,42,.10); }
-.ap-card.is-done { opacity: .6; }
-.ap-empty { color: var(--muted); font-weight: 700; }
-.ap-kind { font-size: 12px; font-weight: 900; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.ap-again { font-size: 11.5px; font-weight: 800; border-radius: 6px; padding: 1px 6px; background: #fef3c7; color: #92400e; }
-.ap-name { font-size: 16.5px; font-weight: 900; margin: 3px 0 1px; line-height: 1.35; }
+/* 📋 결재함 (2026-11-03, 사장님 3안 '오늘의 미션': 남색 머리 + 경험치 막대, 큰 아이콘 미션 카드) */
+.ap-body { padding: 0 0 24px; max-width: 720px; margin: 0 auto; background: #eef2ff; min-height: 100%; }
+.ap-hero { background: #312e81; color: #fff; padding: 14px 16px 16px; border-radius: 0 0 22px 22px; margin-bottom: 4px; }
+.ap-hero-row { display: flex; align-items: center; gap: 8px; }
+.ap-dates { display: flex; gap: 5px; overflow-x: auto; margin-left: auto; }
+.ap-date { flex: none; padding: 4px 9px; border: 0; border-radius: 8px; background: rgba(255,255,255,.14); color: #c7d2fe; font-weight: 800; font-size: 12.5px; }
+.ap-date.on { background: #facc15; color: #312e81; }
+.ap-h1 { font-size: 22px; font-weight: 900; margin: 10px 0 8px; }
+.ap-xp { height: 12px; background: #4338ca; border-radius: 999px; overflow: hidden; }
+.ap-xp span { display: block; height: 100%; background: linear-gradient(90deg, #a3e635, #facc15); border-radius: 999px; transition: width .4s; }
+.ap-cnt { font-size: 12.5px; font-weight: 800; margin-top: 6px; color: #c7d2fe; }
+.ap-card { margin: 12px 12px 0; background: #fff; border-radius: 18px; padding: 14px; box-shadow: 0 4px 14px rgba(67,56,202,.14); }
+.ap-mission { display: flex; gap: 12px; }
+.ap-mission.is-clear { background: linear-gradient(135deg, #f0fdf4, #fff); }
+.ap-tile { width: 46px; height: 46px; flex: none; border-radius: 14px; display: grid; place-items: center; font-size: 24px; }
+.ap-bd { flex: 1; min-width: 0; }
+.ap-kind { font-size: 12px; font-weight: 900; color: #6366f1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.is-clear .ap-kind { color: #16a34a; }
+.ap-again { font-size: 11.5px; font-weight: 800; border-radius: 6px; padding: 1px 6px; background: #fef9c3; color: #854d0e; }
+.ap-name { font-size: 16px; font-weight: 900; margin: 2px 0; line-height: 1.35; }
 .ap-link { cursor: pointer; }
-.ap-res { color: var(--muted); font-size: 13px; }
-.ap-stamp { margin-top: 8px; color: #15803d; font-weight: 800; font-size: 13px; }
+.ap-res { color: #64748b; font-size: 12.5px; }
+.ap-clear { font-size: 13.5px; font-weight: 900; color: #16a34a; margin-top: 8px; }
+.ap-undo { margin-top: 6px; padding: 4px 10px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff; color: #64748b; font-weight: 700; font-size: 12px; }
+.ap-stamp { margin-top: 8px; color: #4338ca; font-weight: 800; font-size: 13px; }
 .ap-btns { display: flex; gap: 5px; margin-top: 10px; }
-.ap-ib { flex: 1; min-width: 0; text-align: center; border-radius: 10px; padding: 6px 2px 5px; font-size: 12px; font-weight: 800; background: #fff; border: 1.5px solid #e2e8f0; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ap-ib i { display: block; font-style: normal; font-size: 16px; line-height: 1.15; }
-.ap-ib.on { background: #1e293b; border-color: #1e293b; color: #fff; }
-.ap-all { display: block; width: 100%; margin: 4px 0 6px; padding: 11px 0; border: 0; border-radius: 12px; background: #1e293b; color: #fff; font-weight: 900; font-size: 15px; }
-.ap-done-line { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14.5px; }
+.ap-ib { flex: 1; min-width: 0; text-align: center; border-radius: 12px; padding: 7px 2px 6px; font-size: 12px; font-weight: 900; border: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #eef2ff; color: #4338ca; }
+.ap-ib i { display: block; font-style: normal; font-size: 16px; line-height: 1.2; }
+.ap-ib.b-go { background: #4f46e5; color: #fff; }
+.ap-ib.b-later { background: #eef2ff; color: #4338ca; }
+.ap-ib.b-mine { background: #fef9c3; color: #854d0e; }
+.ap-ib.b-done { background: #dcfce7; color: #166534; }
+.ap-ib.on { box-shadow: 0 0 0 3px #facc15 inset; }
+.ap-ib.b-go.on { background: #312e81; }
+.ap-ib.b-later.on { background: #64748b; color: #fff; }
+.ap-ib.b-mine.on { background: #f59e0b; color: #fff; }
+.ap-all { display: block; width: calc(100% - 24px); margin: 14px 12px 0; padding: 12px 0; border: 0; border-radius: 14px; background: linear-gradient(90deg, #4f46e5, #7c3aed); color: #fff; font-weight: 900; font-size: 15px; box-shadow: 0 4px 12px rgba(79,70,229,.3); }
+.ap-done-line { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14px; }
 .ap-done-line:last-child { border-bottom: 0; }
-.ap-hint { margin: 10px 4px; font-size: 12.5px; line-height: 1.5; }
-.ap-send { display: flex; gap: 6px; margin: 4px 0 8px; }
-.ap-send .ap-ib { padding: 10px 2px; font-size: 13px; }
+.ap-hint { margin: 12px 16px; font-size: 12.5px; line-height: 1.5; }
+.ap-send { display: flex; gap: 6px; margin: 4px 12px 8px; }
+.ap-send .ap-ib { padding: 11px 2px; font-size: 13px; background: #fff; color: #4338ca; box-shadow: 0 2px 8px rgba(67,56,202,.12); }
