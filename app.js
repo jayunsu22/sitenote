@@ -2645,8 +2645,7 @@
         });
       });
   }
-  var AP_KIND = { film: '필름', crew: '인원', ask: '질문', as: 'AS', pay: '잔금', task: '할 일', silicone: '실리콘', supply: '자재', stock: '차 보충', hold: '인원 배정' };
-  var AP_ACT = { go: '진행해', later: '다음날로 연기', mine: '내가할께' };
+  var AP_ACT = { go: '진행해', later: '다음날로 연기', mine: '내가할께', done: '완료' };
   function countPending(d) {
     if (!d || !d.rep || d.date < Share.todayIso()) return 0;
     return d.rep.next.filter(function (n) { return !(d.decisions || {})[n.id]; }).length;
@@ -2663,18 +2662,22 @@
       body.innerHTML = '<p class="sec-empty">못 불러왔어요 — 인터넷을 확인해 주세요 (' + esc(String(e.message || e).slice(0, 60)) + ')</p>';
     });
   }
+  // 1안 (사장님 11/3): 종류별 작은 제목 아래, 업무마다 떠 있는 흰 카드 한 장 · 버튼 4개 (누른 것만 진하게)
+  var AP_ORDER = ['film', 'crew', 'ask', 'as', 'pay', 'task', 'silicone', 'supply', 'stock', 'hold'];
+  var AP_ICON = { film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
+  var AP_TITLE = { film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
+  var AP_BTN = [['go', '▶', '진행해'], ['later', '⏭', '연기'], ['mine', '✋', '내가할께'], ['done', '✔', '완료']];
   function paintApprove(d) {
     var body = $('approveBody'); body.innerHTML = '';
     if (d.none || !d.rep) {
       body.appendChild(el2('p', 'sec-empty', '아직 업무일정표가 없습니다. 매일 저녁 7시에 만들어집니다.'));
-      var mk = el2('button', 'ap-btn go', '지금 만들어 보기'); mk.type = 'button';
+      var mk = el2('button', 'ap-all', '지금 만들어 보기'); mk.type = 'button';
       mk.onclick = function () { mk.disabled = true; reportPost({ action: 'make' }).then(function () { renderApprove(''); }).catch(function () { toast('못 만들었어요'); mk.disabled = false; }); };
       body.appendChild(mk);
       return;
     }
     if (d.reports && d.date === d.reports[0]) approvePending = countPending(d);
-    // 지난 보고서 — 날짜 칩
-    if ((d.reports || []).length > 1) {
+    if ((d.reports || []).length > 1) {   // 지난 보고서 — 날짜 칩
       var chips = el2('div', 'ap-dates');
       d.reports.slice(0, 7).forEach(function (iso) {
         var c = el2('button', 'ap-date' + (iso === d.date ? ' on' : ''), Share.shortDate(iso)); c.type = 'button';
@@ -2683,48 +2686,66 @@
       });
       body.appendChild(chips);
     }
-    var card = el2('div', 'ap-card');
-    card.appendChild(el2('h3', 'ap-title', Share.dayLabel(d.date) + ' 업무일정표'));
-    card.appendChild(el2('div', 'ap-sec done', '✅ 오늘 업무 결과 (' + Share.shortDate(d.rep.today) + ')'));
-    if (!d.rep.done.length) card.appendChild(el2('div', 'ap-none', '기록된 결과가 없습니다'));
-    d.rep.done.forEach(function (x) { card.appendChild(apItem(x, null, d)); });
-    card.appendChild(el2('div', 'ap-sec next', '📅 내일 업무 예정 (' + Share.shortDate(d.date) + ')'));
-    if (!d.rep.next.length) card.appendChild(el2('div', 'ap-none', '예정된 일이 없습니다'));
-    d.rep.next.forEach(function (x) { card.appendChild(apItem(x, (d.decisions || {})[x.id] || null, d)); });
-    var left = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && x.act !== 'film'; });
-    if (left.length && d.date >= Share.todayIso()) {
-      var all = el2('button', 'ap-btn go ap-all', '✅ 남은 것 모두 진행 (' + left.length + ')'); all.type = 'button';
+    var left = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id]; }).length;
+    body.appendChild(el2('h2', 'ap-day', Share.dayLabel(d.date) + ' 업무일정표'));
+    body.appendChild(el2('div', 'ap-meta', '결재할 일 ' + left + '건 · 전체 ' + d.rep.next.length + '건'));
+    // 내일 예정 — 종류별 묶음
+    var kinds = {};
+    d.rep.next.forEach(function (x) { (kinds[x.kind] = kinds[x.kind] || []).push(x); });
+    var order = AP_ORDER.filter(function (k) { return kinds[k]; }).concat(Object.keys(kinds).filter(function (k) { return AP_ORDER.indexOf(k) < 0; }));
+    if (!order.length) body.appendChild(el2('div', 'ap-card ap-empty', '📅 내일 예정된 일이 없습니다'));
+    order.forEach(function (k) {
+      body.appendChild(el2('div', 'ap-gt', (AP_ICON[k] || '📝') + ' ' + (AP_TITLE[k] || '할 일') + '  ' + kinds[k].length + '건'));
+      kinds[k].forEach(function (x) { body.appendChild(apItem(x, (d.decisions || {})[x.id] || null, d)); });
+    });
+    var rest = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && x.act !== 'film'; });
+    if (rest.length && d.date >= Share.todayIso()) {
+      var all = el2('button', 'ap-all', '▶ 남은 것 모두 진행 (' + rest.length + ')'); all.type = 'button';
       all.title = '필름 발주는 담당자를 골라야 해서 빠집니다';
       all.onclick = function () {
         all.disabled = true;
-        left.reduce(function (p, x) { return p.then(function () { return reportPost({ action: 'decide', date: d.date, id: x.id, act: 'go' }); }); }, Promise.resolve())
+        rest.reduce(function (p, x) { return p.then(function () { return reportPost({ action: 'decide', date: d.date, id: x.id, act: 'go' }); }); }, Promise.resolve())
           .then(function () { toast('모두 진행으로 결재했어요'); renderApprove(d.date); })
           .catch(function () { toast('일부를 못 했어요 — 다시 눌러 주세요'); renderApprove(d.date); });
       };
-      card.appendChild(all);
+      body.appendChild(all);
     }
-    body.appendChild(card);
-    body.appendChild(el2('p', 'hint ap-hint', '[진행해] 필름 발주·인원 모집은 내일 오전 9시에 비서가 합니다. 안 누른 항목은 지금처럼 진행합니다.'));
+    // 오늘 결과 — 한 카드에 줄로
+    body.appendChild(el2('div', 'ap-gt', '✅ 오늘 업무 결과 (' + Share.shortDate(d.rep.today) + ')  ' + d.rep.done.length + '건'));
+    var res = el2('div', 'ap-card ap-done');
+    if (!d.rep.done.length) res.appendChild(el2('div', 'ap-res', '기록된 결과가 없습니다'));
+    d.rep.done.forEach(function (x) {
+      var line = el2('div', 'ap-done-line');
+      line.appendChild(el2('b', '', (AP_ICON[x.kind] || '✅') + ' ' + x.title));
+      if (x.res) line.appendChild(el2('div', 'ap-res', x.res));
+      res.appendChild(line);
+    });
+    body.appendChild(res);
+    body.appendChild(el2('p', 'hint ap-hint', '▶ 진행해 = 내일 오전 9시에 비서가 함(필름 발주·인원 모집) · ⏭ 연기 = 다음 보고서에 다시 · ✋ 내가할께 = 내가 마무리, 안 되면 다음 보고서에 다시 물음 · ✔ 완료 = 이미 끝남(앱에 반영). 안 누르면 지금처럼.'));
   }
   function apItem(x, dec, d) {
-    var it = el2('div', 'ap-item' + (dec ? ' decided' : ''));
-    var head = el2('div', 'ap-head');
-    head.appendChild(el2('span', 'ap-kind k-' + x.kind, AP_KIND[x.kind] || '할 일'));
-    var t = el2('b', 'ap-name', x.title);
+    var it = el2('div', 'ap-card' + (dec && dec.act === 'done' ? ' is-done' : ''));
+    var kind = el2('div', 'ap-kind', (AP_ICON[x.kind] || '📝') + ' ' + (AP_TITLE[x.kind] || '할 일'));
+    if (x.again) kind.appendChild(el2('span', 'ap-again', '어제 내가할께 — 아직 안 됨'));
+    it.appendChild(kind);
+    var t = el2('div', 'ap-name', x.title);
     if (x.siteId && Store.getSite(x.siteId)) { t.classList.add('ap-link'); t.onclick = function () { go('#site/' + x.siteId); }; }
-    head.appendChild(t);
-    it.appendChild(head);
+    it.appendChild(t);
     if (x.res) it.appendChild(el2('div', 'ap-res', x.res));
-    if (!x.id) return it;   // 오늘 결과 줄 — 버튼 없음
-    if (dec && dec.doneAt) { it.appendChild(el2('div', 'ap-stamp', '✔ ' + AP_ACT[dec.act] + ' — 9시에 처리함')); return it; }
-    if (dec && dec.to) it.appendChild(el2('div', 'ap-to', '→ ' + dec.to.label));
+    if (dec && dec.doneAt) { it.appendChild(el2('div', 'ap-stamp', '✔ ' + AP_ACT[dec.act] + ' — 처리함')); return it; }
     var btns = el2('div', 'ap-btns');
-    ['go', 'later', 'mine'].forEach(function (act) {
-      var b = el2('button', 'ap-btn ' + act + (dec && dec.act === act ? ' on' : ''), (dec && dec.act === act ? '✔ ' : '') + AP_ACT[act]); b.type = 'button';
+    AP_BTN.forEach(function (a) {
+      var on = dec && dec.act === a[0];
+      var label = a[0] === 'go' && on && dec.to ? dec.to.label.split('·')[0] : a[2];
+      var b = el2('button', 'ap-ib' + (on ? ' on' : '')); b.type = 'button';
+      b.appendChild(el2('i', '', a[1])); b.appendChild(document.createTextNode(label));
       b.onclick = function () {
-        if (dec && dec.act === act) return decideApprove(d, x, '');   // 다시 누르면 결재 취소
-        if (act === 'go' && x.act === 'film') return pickOrderContact(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
-        decideApprove(d, x, act);
+        if (on) return decideApprove(d, x, '');   // 다시 누르면 결재 취소
+        if (a[0] === 'go' && x.act === 'film') return pickOrderContact(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
+        if (a[0] === 'done') {
+          return modalConfirm('✔ 완료표시', x.title + '\n\n이미 끝난 일로 표시합니다' + (x.kind === 'pay' ? ' (잔금 받음).' : '.') + ' 앱 기록에도 반영됩니다.', '완료').then(function (ok) { if (ok) decideApprove(d, x, 'done'); });
+        }
+        decideApprove(d, x, a[0]);
       };
       btns.appendChild(b);
     });

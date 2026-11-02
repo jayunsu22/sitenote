@@ -1587,34 +1587,28 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .order-sub { flex: none; color: var(--muted); font-size: 13px; font-weight: 700; }
 .order-count { color: var(--muted); font-weight: 800; font-size: 13.5px; }
 #modalBody .order-num { color: #fff; }
-/* 📋 결재함 (2026-11-03) */
-.ap-body { padding: 12px; max-width: 720px; margin: 0 auto; }
-.ap-dates { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; }
+/* 📋 결재함 (2026-11-03, 사장님 1안: 업무마다 떠 있는 카드) */
+.ap-body { padding: 12px 12px 24px; max-width: 720px; margin: 0 auto; background: #f1f5f9; min-height: 100%; }
+.ap-dates { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; }
 .ap-date { flex: none; padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff; font-weight: 800; font-size: 13.5px; color: #475569; }
 .ap-date.on { border-color: #1e293b; background: #1e293b; color: #fff; }
-.ap-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px 12px; }
-.ap-title { margin: 0 0 8px; font-size: 18px; }
-.ap-sec { font-weight: 900; font-size: 14px; margin: 12px 0 7px; padding: 5px 9px; border-radius: 8px; }
-.ap-sec.done { background: #dcfce7; color: #166534; }
-.ap-sec.next { background: #dbeafe; color: #1e40af; }
-.ap-none { color: var(--muted); font-size: 13.5px; padding: 2px 4px 6px; }
-.ap-item { border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px; margin-bottom: 8px; background: #fcfcfd; }
-.ap-item.decided { border-color: #c7d2fe; background: #f8faff; }
-.ap-head { display: flex; align-items: flex-start; gap: 6px; }
-.ap-kind { flex: none; font-size: 11.5px; font-weight: 800; border-radius: 6px; padding: 2px 6px; background: #f1f5f9; color: #334155; margin-top: 2px; }
-.ap-kind.k-film { background: #ede9fe; color: #6d28d9; } .ap-kind.k-crew, .ap-kind.k-hold { background: #dcfce7; color: #166534; }
-.ap-kind.k-ask { background: #ffedd5; color: #c2410c; } .ap-kind.k-as { background: #fee2e2; color: #b91c1c; } .ap-kind.k-pay { background: #fef9c3; color: #854d0e; }
-.ap-name { font-size: 15px; line-height: 1.35; }
-.ap-link { color: #1d4ed8; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.ap-res { color: var(--muted); font-size: 13px; margin-top: 3px; }
-.ap-to { color: #6d28d9; font-size: 13px; font-weight: 800; margin-top: 3px; }
-.ap-stamp { margin-top: 6px; color: #15803d; font-weight: 800; font-size: 13px; }
-.ap-btns { display: flex; gap: 6px; margin-top: 8px; }
-.ap-btn { flex: 1; min-height: 38px; border-radius: 10px; border: 1.5px solid #cbd5e1; background: #fff; color: #475569; font-weight: 800; font-size: 14px; padding: 0 4px; }
-.ap-btn.go { border-color: #2563eb; color: #1d4ed8; }
-.ap-btn.go.on { background: #2563eb; color: #fff; }
-.ap-btn.later.on { background: #64748b; border-color: #64748b; color: #fff; }
-.ap-btn.mine { border-color: #f59e0b; color: #b45309; }
-.ap-btn.mine.on { background: #f59e0b; color: #fff; }
-.ap-all { width: 100%; margin-top: 6px; background: #2563eb; color: #fff; }
-.ap-hint { margin: 10px 4px; }
+.ap-day { margin: 6px 2px 2px; font-size: 19px; }
+.ap-meta { margin: 0 2px 6px; color: var(--muted); font-size: 13px; }
+.ap-gt { margin: 16px 4px 7px; font-weight: 900; font-size: 14px; color: #475569; }
+.ap-card { margin: 0 0 12px; background: #fff; border-radius: 16px; padding: 12px; box-shadow: 0 2px 10px rgba(15,23,42,.10); }
+.ap-card.is-done { opacity: .6; }
+.ap-empty { color: var(--muted); font-weight: 700; }
+.ap-kind { font-size: 12px; font-weight: 900; color: #64748b; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ap-again { font-size: 11.5px; font-weight: 800; border-radius: 6px; padding: 1px 6px; background: #fef3c7; color: #92400e; }
+.ap-name { font-size: 16.5px; font-weight: 900; margin: 3px 0 1px; line-height: 1.35; }
+.ap-link { cursor: pointer; }
+.ap-res { color: var(--muted); font-size: 13px; }
+.ap-stamp { margin-top: 8px; color: #15803d; font-weight: 800; font-size: 13px; }
+.ap-btns { display: flex; gap: 5px; margin-top: 10px; }
+.ap-ib { flex: 1; min-width: 0; text-align: center; border-radius: 10px; padding: 6px 2px 5px; font-size: 12px; font-weight: 800; background: #fff; border: 1.5px solid #e2e8f0; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-ib i { display: block; font-style: normal; font-size: 16px; line-height: 1.15; }
+.ap-ib.on { background: #1e293b; border-color: #1e293b; color: #fff; }
+.ap-all { display: block; width: 100%; margin: 4px 0 6px; padding: 11px 0; border: 0; border-radius: 12px; background: #1e293b; color: #fff; font-weight: 900; font-size: 15px; }
+.ap-done-line { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14.5px; }
+.ap-done-line:last-child { border-bottom: 0; }
+.ap-hint { margin: 10px 4px; font-size: 12.5px; line-height: 1.5; }
