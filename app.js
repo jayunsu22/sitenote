@@ -2722,6 +2722,20 @@
     });
     body.appendChild(res);
     body.appendChild(el2('p', 'hint ap-hint', '▶ 진행해 = 내일 오전 9시에 비서가 함(필름 발주·인원 모집) · ⏭ 연기 = 다음 보고서에 다시 · ✋ 내가할께 = 내가 마무리, 안 되면 다음 보고서에 다시 물음 · ✔ 완료 = 이미 끝남(앱에 반영). 안 누르면 지금처럼.'));
+    // 📤 카톡으로 보내기 (11/3 사장님) — 보고서를 지금 다시 만들어 노트북이 카톡 김정헌방에 (5분 안)
+    var send = el2('div', 'ap-send');
+    [['📤 오늘 할 일 보내기', Share.addDays(Share.todayIso(), -1)], ['📤 내일 일정표 보내기', '']].forEach(function (a) {
+      var b = el2('button', 'ap-ib', a[0]); b.type = 'button';
+      b.onclick = function () {
+        b.disabled = true;
+        reportPost({ action: 'make', base: a[1] }).then(function (r) {
+          toast('📤 만들었어요 — 노트북이 5분 안에 카톡 김정헌방에 올립니다');
+          renderApprove(r.date || '');
+        }).catch(function () { toast('못 만들었어요 — 인터넷을 확인해 주세요'); b.disabled = false; });
+      };
+      send.appendChild(b);
+    });
+    body.appendChild(send);
   }
   function apItem(x, dec, d) {
     var it = el2('div', 'ap-card' + (dec && dec.act === 'done' ? ' is-done' : ''));
