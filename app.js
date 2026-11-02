@@ -5410,10 +5410,23 @@
     var key = '';
     try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
     if (!key) { toast('이 기기는 사장님 열쇠가 없어 바로 보낼 수 없어요 — 💬 로 보내 주세요'); return; }
-    var text = Share.filmOrderSms({ name: site.name || '', unit: site.unit, size: site.size, films: films }, !!state.settings.smsSiteName);
-    if (!text) { toast('적힌 필름 번호가 없습니다'); return; }
-    modalConfirm('📨 바로 주문', to + ' 에게 지금 이 문자를 보냅니다 (사장님 폰에서):\n\n' + text, '보내기').then(function (ok) {
-      if (!ok) return;
+    var full = Share.filmOrderSms({ name: site.name || '', unit: site.unit, size: site.size, films: films }, !!state.settings.smsSiteName);
+    if (!full) { toast('적힌 필름 번호가 없습니다'); return; }
+    // 첫 줄(인사 문구)만 이 창에서 고친다 — 아래 필름·양은 그대로 (11/2 사장님)
+    var cut = full.indexOf('\n'), body = full.slice(cut + 1);
+    new Promise(function (resolve) {
+      openModal('📨 바로 주문', '<p class="hint" style="margin:0 0 6px">' + esc(to) + ' 에게 지금 이 문자를 보냅니다 (사장님 폰에서). 문구는 고칠 수 있어요.</p>' +
+        '<textarea id="orderHello" rows="2" style="width:100%;font-size:15px"></textarea>' +
+        '<div class="rc-pv" style="margin-top:6px">' + esc(body) + '</div>', [
+        { label: '취소', onClick: function () { closeModal(); resolve(''); } },
+        { label: '보내기', cls: 'primary', onClick: function () {
+          var hello = String($('orderHello').value || '').trim();
+          closeModal(); resolve((hello ? hello + '\n' : '') + body);
+        } }
+      ]);
+      $('orderHello').value = full.slice(0, cut);
+    }).then(function (text) {
+      if (!text) return;
       toast('보내는 중…');
       fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ siteId: site.id, name: Share.titleLine(site), text: text, sendTo: { label: to, phone: Share.phoneDigits(phone) } }) })
