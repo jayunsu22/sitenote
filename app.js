@@ -5593,6 +5593,13 @@
           done.push(f.id);
           return;
         }
+        // 결재함 [완료표시] 할 일 → 그 할 일 완료 (2026-11-03)
+        if (f.kind === 'done' && f.what === 'task') {
+          var tk = Store.getTask(f.taskId);
+          if (tk && !tk.done && Store.completeTask(tk.id, '결재함 완료표시')) n++;
+          done.push(f.id);
+          return;
+        }
         var s = Store.getSite(f.siteId);
         if (!s) return;   // 이 기기에 없는 현장
         var p = Kakao.fillPatch(s, f, (f.room || '카톡') + ' ' + Share.shortDate(f.at || Share.todayIso()));

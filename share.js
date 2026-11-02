@@ -1689,10 +1689,10 @@
         var miss = [['pwLobby', '공동현관'], ['pwUnit', '세대 비번'], ['toilet', '화장실']].filter(function (k) { return !str(s[k[0]]); });
         if (miss.length) next.push({ id: 'ask:' + s.id, kind: 'ask', title: name + ' 출입정보 질문', res: miss.map(function (k) { return k[1]; }).join('·') + ' — 업체 카톡방', siteId: s.id, act: '' });
       }
-      // 내일 — 잔금 받기 (시공 끝난 지 14일 안, 입금 기록이 하나도 없음)
+      // 내일 — 잔금 받기 (시공 끝난 지 14일 안, 입금 기록이 하나도 없음, 결재함 [완료표시] 안 함 = payDone)
       var ds = daysOf(s).map(function (d) { return str(d.date); }).filter(isIsoDate).sort();
       var end = ds[ds.length - 1];
-      if (end && dayDiff(end, tomorrow) >= 1 && dayDiff(end, tomorrow) <= REPORT_PAY_DAYS) {
+      if (end && !str(s.payDone) && dayDiff(end, tomorrow) >= 1 && dayDiff(end, tomorrow) <= REPORT_PAY_DAYS) {
         var any = Object.keys(s.settleLog || {}).some(function (k) { return str((s.settleLog[k] || {}).입금일); }) ||
           splitSettleManual(s.settleManual).some(function (m) { return m.종류 === '입금'; });
         if (!any) next.push({ id: 'pay:' + s.id, kind: 'pay', title: name + ' 잔금 받기', res: '시공 끝 ' + shortDate(end) + ' · 입금 기록 없음', siteId: s.id, act: '' });

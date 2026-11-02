@@ -68,4 +68,9 @@ assert.strictEqual(K.fillPatch({ filmStage: 2, filmOrders: [{ id: 'f1' }] }, ord
 fp = K.fillPatch({ checks: { overlap: { v: '없음', src: '' } } }, { kind: 'check', checkId: 'door', value: ' 안 닿음 ' }, '봄애실장님 11/1');
 assert.deepStrictEqual(fp, { checks: { overlap: { v: '없음', src: '' }, door: { v: '안 닿음', src: '봄애실장님 11/1' } } });
 assert.strictEqual(K.fillPatch(site, { kind: 'check', checkId: 'door', value: '' }, 'a'), null);
+// 결재함 [완료표시] (2026-11-03) — 잔금 받음 · AS 완료
+assert.deepStrictEqual(K.fillPatch({}, { kind: 'done', what: 'pay', at: '2026-11-05' }, 'a'), { payDone: '2026-11-05' });
+assert.strictEqual(K.fillPatch({ payDone: '2026-11-01' }, { kind: 'done', what: 'pay', at: '2026-11-05' }, 'a'), null);
+assert.deepStrictEqual(K.fillPatch({ services: [{ id: 'v1', done: false }, { id: 'v2' }] }, { kind: 'done', what: 'as', serviceId: 'v1' }, 'a'),
+  { services: [{ id: 'v1', done: true }, { id: 'v2' }] });
 console.log('kakao ok');

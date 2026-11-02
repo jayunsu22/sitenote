@@ -157,6 +157,18 @@
       if (f.id && orders.some(function (o) { return o && o.id === f.id; })) return null;
       return { filmStage: Math.max(k, 2),
         filmOrders: orders.concat([{ id: f.id || '', at: String(f.at || ''), to: String(f.room || ''), items: String(f.value || '') }]) };
+    } else if (f.kind === 'done') {
+      // 결재함 [완료표시] (2026-11-03): 잔금 받음 → payDone(그 뒤로 '잔금 받기' 안 뜸) / AS 끝냄 → 그 AS 완료
+      if (f.what === 'pay') return site.payDone ? null : { payDone: String(f.at || '') || '완료' };
+      if (f.what === 'as') {
+        var hit = false;
+        var svcs = (site.services || []).map(function (v) {
+          if (v && v.id === f.serviceId && !v.done) { hit = true; return Object.assign({}, v, { done: true }); }
+          return v;
+        });
+        return hit ? { services: svcs } : null;
+      }
+      return null;
     } else return null;
     p.fieldSrc = src;
     return p;
