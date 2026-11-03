@@ -2966,6 +2966,53 @@
     Store.updateSite(s.id, p);
     return prev;
   }
+  /* 👷 작업자가 바뀌면 그 사람에게 현장 기본정보 문자 (11/4 사장님: 작업자가 바뀌면 현장주소는 당연히 보내야).
+     팀원 공유 문구(고객·발주처 번호는 빼고) + 📍 주소. 번호는 설정 › 팀원 연락처(people). 사장님 폰(SMS Gateway)으로 —
+     필름 📨 바로 주문과 같은 길(n8n 카톡_버튼 film-order sendTo). 지시에 '문자·보내' 가 있으면 묻지 않고 바로 */
+  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo'];
+  function workerInfoText(s) {
+    var keys = Share.FIELDS.map(function (f) { return f.key; }).filter(function (k) { return WORKER_SHARE_SKIP.indexOf(k) === -1; });
+    var text = Share.buildShare(s, keys.concat([Share.WORKER_KEY]));
+    var addr = Share.navAddress(s), cut = text.indexOf('\n');
+    if (!addr) return text;
+    return cut === -1 ? text + '\n📍 주소: ' + addr : text.slice(0, cut) + '\n📍 주소: ' + addr + text.slice(cut);
+  }
+  function workerPhone(name) { var p = (state.settings.people || {})[name]; return Share.phoneDigits((p && p.phone) || ''); }
+  function sendWorkerInfo(siteId, names) {
+    var s = Store.getSite(siteId), key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    if (!s) return Promise.resolve([]);
+    var text = workerInfoText(s);
+    return Promise.all(names.map(function (n) {
+      var phone = workerPhone(n);
+      if (!phone) return { name: n, ok: false, why: '번호 없음 (설정 › 팀원 연락처)' };
+      return fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+        body: JSON.stringify({ siteId: s.id, name: Share.titleLine(s), text: text, sendTo: { label: n, phone: phone } }) })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
+          return { name: n, ok: res.ok && !!d.ok, why: d.error || (res.ok ? '' : 'HTTP ' + res.status) }; }); })
+        .catch(function (e) { return { name: n, ok: false, why: String(e.message || e).slice(0, 60) }; });
+    }));
+  }
+  function workerSendResult(id, rs) {
+    if (!rs.length) return;
+    orderPatch(id, { sms: rs.map(function (r) { return { name: r.name, ok: r.ok, why: r.why || '' }; }) });
+    var bad = rs.filter(function (r) { return !r.ok; });
+    toast(bad.length ? '📨 ' + bad.map(function (r) { return r.name + ' 못 보냄 (' + r.why + ')'; }).join(', ')
+      : '📨 ' + rs.map(function (r) { return r.name; }).join(', ') + '님께 현장 정보 문자를 보냈어요');
+    if (!$('viewOrder').hidden) renderOrder();
+  }
+  // 작업자 처리된 카드 → 새로 들어간 사람에게 문자 (바로 또는 물어보고)
+  function offerWorkerInfo(o, direct) {
+    var names = o.f.mode === 'remove' ? [] : o.f.names;
+    if (!names.length || !Store.getSite(o.siteId)) return;
+    if (direct) { sendWorkerInfo(o.siteId, names).then(function (rs) { workerSendResult(o.id, rs); }); return; }
+    var s = Store.getSite(o.siteId), miss = names.filter(function (n) { return !workerPhone(n); });
+    openModal('👷 현장 정보 문자 보낼까요?', '<p class="hint" style="margin:0 0 6px">' + esc(names.join(', ')) + '님께 사장님 폰으로 보냅니다' +
+      (miss.length ? ' — <b>' + esc(miss.join(', ')) + '</b> 번호가 없어요 (설정 › 팀원 연락처)' : '') + '</p><div class="rc-pv">' + esc(workerInfoText(s)) + '</div>', [
+      { label: '안 보냄', onClick: function () { closeModal(); } },
+      { label: '📨 보내기', cls: 'primary', onClick: function () { closeModal(); sendWorkerInfo(o.siteId, names).then(function (rs) { workerSendResult(o.id, rs); }); } }
+    ]);
+  }
   function orderStateOf(prev) { return !prev ? 'nosite' : prev.nodate ? 'nodate' : prev.same ? 'same' : 'done'; }
   function orderUndo(o) {
     var s = Store.getSite(o.siteId);
@@ -3020,7 +3067,10 @@
         (d.picks || []).forEach(function (f) { rows.push({ state: 'pick', f: f, cands: f.cands || [] }); });
         (d.missed || []).forEach(function (f) { rows.push({ state: 'missed', f: f }); });
         if (!rows.length) rows.push({ state: 'none' });
-        orderSave(rows.map(function (r, i) { return Object.assign({ id: id + i, at: at, text: text }, r); }).concat(orderList()));
+        var saved = rows.map(function (r, i) { return Object.assign({ id: id + i, at: at, text: text }, r); });
+        orderSave(saved.concat(orderList()));
+        var wantSms = /문자|보내|알려/.test(text);
+        saved.filter(function (r) { return r.state === 'done' && r.f.kind === 'staff'; }).forEach(function (r) { offerWorkerInfo(r, wantSms); });
         box.value = '';
         var ok = rows.filter(function (r) { return r.state === 'done'; });
         var same = rows.filter(function (r) { return r.state === 'same'; });
@@ -3034,6 +3084,60 @@
         if (!$('viewOrder').hidden) renderOrder();
       });
   }
+  /* 👩‍💼 비서실 (11/4 사장님: 실제 비서실처럼 부분마다 비서 그림) — 헤드셋 낀 비서 그림(SVG, 그려서 넣음).
+     출입(비번·화장실) / 필름 / 인력(작업자·문자) / 정산(잔금) / 접수(못 찾음·확인 필요) */
+  var SECRETARY = {
+    door:  { name: '하은', role: '출입 비서', bg: '#e0e7ff', suit: '#4338ca', hair: '#3b2416', long: true,  badge: '🔑' },
+    film:  { name: '서연', role: '필름 비서', bg: '#ede9fe', suit: '#7c3aed', hair: '#1f1308', long: true,  badge: '🎞' },
+    crew:  { name: '지훈', role: '인력 비서', bg: '#dcfce7', suit: '#15803d', hair: '#111827', long: false, badge: '👷' },
+    pay:   { name: '유나', role: '정산 비서', bg: '#fef9c3', suit: '#b45309', hair: '#5b3a1a', long: true,  badge: '💰' },
+    desk:  { name: '민준', role: '접수 비서', bg: '#e0f2fe', suit: '#0369a1', hair: '#2d1b0e', long: false, badge: '📋' }
+  };
+  function secretaryOf(f) {
+    if (!f) return 'desk';
+    if (f.kind === 'staff') return 'crew';
+    if (f.kind === 'films') return 'film';
+    if (f.kind === 'pay') return 'pay';
+    if (f.kind === 'field') return 'door';
+    return 'desk';
+  }
+  function secretarySvg(key) {
+    var c = SECRETARY[key] || SECRETARY.desk;
+    var hairBack = c.long ? '<path d="M17 30c-2 12 0 22 4 28h38c4-6 6-16 4-28-2-14-12-21-23-21S19 16 17 30z" fill="' + c.hair + '"/>' : '';
+    var hairTop = c.long
+      ? '<path d="M22 31c0-12 8-19 18-19s18 7 18 19c-5-6-12-8-19-8-6 0-12 3-17 8z" fill="' + c.hair + '"/>'
+      : '<path d="M23 31c-1-12 7-19 17-19s18 6 17 19c-3-5-9-7-17-7s-14 2-17 7z" fill="' + c.hair + '"/>';
+    return '<svg viewBox="0 0 80 80" width="100%" height="100%" aria-hidden="true">' +
+      '<circle cx="40" cy="40" r="40" fill="' + c.bg + '"/>' + hairBack +
+      '<path d="M14 80c2-15 12-22 26-22s24 7 26 22z" fill="' + c.suit + '"/>' +
+      '<path d="M33 58l7 9 7-9z" fill="#fff"/><rect x="36" y="48" width="8" height="10" rx="3" fill="#f2c4a0"/>' +
+      '<ellipse cx="40" cy="35" rx="15" ry="17" fill="#f8d5b8"/>' + hairTop +
+      '<circle cx="34" cy="36" r="1.8" fill="#1f2937"/><circle cx="46" cy="36" r="1.8" fill="#1f2937"/>' +
+      '<path d="M35 43q5 4 10 0" stroke="#c2410c" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="31" cy="41" r="2.3" fill="#fca5a5" opacity=".6"/><circle cx="49" cy="41" r="2.3" fill="#fca5a5" opacity=".6"/>' +
+      '<path d="M23 35a17 19 0 0 1 34 0" stroke="#334155" stroke-width="3" fill="none"/>' +
+      '<rect x="20" y="32" width="6" height="10" rx="3" fill="#334155"/><rect x="54" y="32" width="6" height="10" rx="3" fill="#334155"/>' +
+      '<path d="M23 42q2 8 11 8" stroke="#334155" stroke-width="2" fill="none"/><circle cx="35" cy="50" r="2" fill="#334155"/>' +
+      '</svg>';
+  }
+  function secretaryTile(key) {
+    var c = SECRETARY[key] || SECRETARY.desk;
+    var t = el2('div', 'ap-tile od-sec');
+    t.innerHTML = secretarySvg(key);
+    t.appendChild(el2('span', 'od-badge', c.badge));
+    t.title = c.role + ' ' + c.name;
+    return t;
+  }
+  function renderSecretaryRoom() {
+    var row = $('orderSecs');
+    if (!row || row.childNodes.length) return;
+    ['door', 'film', 'crew', 'pay', 'desk'].forEach(function (k) {
+      var c = SECRETARY[k], b = el2('div', 'od-secp');
+      b.appendChild(secretaryTile(k));
+      b.appendChild(el2('div', 'od-secn', c.role));
+      row.appendChild(b);
+    });
+  }
   var ORDER_STATE = { done: ['✅', '처리됨', '#dcfce7'], undone: ['↩', '되돌림', '#f1f5f9'], pick: ['❓', '어느 현장?', '#e0e7ff'],
     missed: ['⚠️', '현장을 못 찾음', '#ffedd5'], same: ['ℹ️', '이미 돼 있음', '#e0f2fe'], nodate: ['⚠️', '그 날짜가 현장에 없음', '#ffedd5'], nosite: ['⚠️', '이 기기에 없는 현장', '#ffedd5'], none: ['🤔', '넣을 정보 없음', '#f1f5f9'], skip: ['–', '넘김', '#f1f5f9'] };
   function sameText(f) {
@@ -3041,6 +3145,7 @@
     return f.mode === 'remove' ? f.names.join(', ') + ' 은(는) 이미 배정돼 있지 않아요' : f.names.join(', ') + ' 이미 배정돼 있어요';
   }
   function renderOrder() {
+    renderSecretaryRoom();
     var list = $('orderList');
     list.innerHTML = '';
     var all = orderList();
@@ -3048,11 +3153,11 @@
     all.forEach(function (o) {
       var st = ORDER_STATE[o.state] || ORDER_STATE.none;
       var it = el2('div', 'ap-card ap-mission od-card od-' + o.state);
-      var tile = el2('div', 'ap-tile', st[0]); tile.style.background = st[2];
-      it.appendChild(tile);
+      var sk = o.state === 'missed' || o.state === 'none' ? 'desk' : secretaryOf(o.f);
+      it.appendChild(secretaryTile(sk));
       var bd = el2('div', 'ap-bd');
       var when = new Date(o.at);
-      bd.appendChild(el2('div', 'ap-kind', st[1] + ' · ' + Share.shortDate(Share.todayIso(when)) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2)));
+      bd.appendChild(el2('div', 'ap-kind', st[0] + ' ' + st[1] + ' · ' + SECRETARY[sk].role + ' ' + SECRETARY[sk].name + ' · ' + Share.shortDate(Share.todayIso(when)) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2)));
       if (o.state === 'same' || o.state === 'nodate') {
         var ts = el2('div', 'ap-name', o.siteName + ' · ' + o.f.label);
         if (Store.getSite(o.siteId)) { ts.classList.add('ap-link'); ts.onclick = function () { go('#site/' + o.siteId); }; }
@@ -3072,6 +3177,12 @@
         bd.appendChild(el2('div', 'ap-res', '거래처·아파트 이름을 같이 써서 다시 지시해 주세요'));
       }
       bd.appendChild(el2('div', 'ap-res ap-quote', '"' + o.text + '"'));
+      (o.sms || []).forEach(function (m) { bd.appendChild(el2('div', 'od-sms' + (m.ok ? '' : ' bad'), (m.ok ? '📨 ' + m.name + '님께 현장 정보 문자 보냄' : '📨 ' + m.name + ' 못 보냄 — ' + m.why))); });
+      if (o.f && o.f.kind === 'staff' && o.f.mode !== 'remove' && (o.state === 'done' || o.state === 'same') && Store.getSite(o.siteId)) {
+        var sm = el2('button', 'ap-pick od-smsbtn', '📨 ' + o.f.names.join(', ') + '님께 현장 정보 문자'); sm.type = 'button';
+        sm.onclick = function () { offerWorkerInfo(o, false); };
+        bd.appendChild(sm);
+      }
       if (o.state === 'done' && o.prev) {
         var u = el2('button', 'ap-undo', '↩ 되돌리기'); u.type = 'button';
         u.onclick = function () { orderUndo(o); };
@@ -3085,6 +3196,7 @@
             var prev = orderApply(o.f, c.id);
             if (!prev) { toast('이 기기에 그 현장이 없어요'); return; }
             orderPatch(o.id, { state: orderStateOf(prev), siteId: c.id, siteName: c.name, prev: prev });
+            if (o.f.kind === 'staff' && orderStateOf(prev) === 'done') offerWorkerInfo(Object.assign({}, o, { siteId: c.id }), /문자|보내|알려/.test(o.text));
             toast(prev.same ? 'ℹ️ ' + c.name + ' ' + sameText(o.f) : prev.nodate ? '⚠️ 그 날짜가 현장에 없어요' : '✅ ' + c.name + ' ' + o.f.label + ' 바꿨어요'); renderOrder();
           };
           row.appendChild(b);

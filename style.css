@@ -1651,3 +1651,14 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .od-undone .od-chg { color: #64748b; text-decoration: line-through; }
 .od-nosite .od-chg { color: #c2410c; }
 .od-same { color: #0369a1; }
+.od-sms { font-size: 12.5px; font-weight: 800; color: #16a34a; margin: 4px 0; }
+.od-sms.bad { color: #c2410c; }
+.od-smsbtn { display: block; margin: 6px 0 4px; }
+/* 👩‍💼 비서실 (11/4) */
+.od-secs { display: flex; justify-content: space-between; gap: 4px; margin: 2px 0 10px; }
+.od-secp { flex: 1; min-width: 0; text-align: center; }
+.od-secp .od-sec { width: 50px; height: 50px; margin: 0 auto 3px; }
+.od-secn { font-size: 11px; font-weight: 800; color: #c7d2fe; white-space: nowrap; }
+.od-sec { position: relative; padding: 0; overflow: visible; border-radius: 50%; background: none; }
+.od-sec svg { display: block; border-radius: 50%; box-shadow: 0 2px 6px rgba(49,46,129,.18); }
+.od-badge { position: absolute; right: -4px; bottom: -4px; font-size: 15px; line-height: 1; background: #fff; border-radius: 50%; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
