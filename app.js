@@ -3128,16 +3128,6 @@
     t.title = c.role + ' ' + c.name;
     return t;
   }
-  function renderSecretaryRoom() {
-    var row = $('orderSecs');
-    if (!row || row.childNodes.length) return;
-    ['door', 'film', 'crew', 'pay', 'desk'].forEach(function (k) {
-      var c = SECRETARY[k], b = el2('div', 'od-secp');
-      b.appendChild(secretaryTile(k));
-      b.appendChild(el2('div', 'od-secn', c.role));
-      row.appendChild(b);
-    });
-  }
   var ORDER_STATE = { done: ['✅', '처리됨', '#dcfce7'], undone: ['↩', '되돌림', '#f1f5f9'], pick: ['❓', '어느 현장?', '#e0e7ff'],
     missed: ['⚠️', '현장을 못 찾음', '#ffedd5'], same: ['ℹ️', '이미 돼 있음', '#e0f2fe'], nodate: ['⚠️', '그 날짜가 현장에 없음', '#ffedd5'], nosite: ['⚠️', '이 기기에 없는 현장', '#ffedd5'], none: ['🤔', '넣을 정보 없음', '#f1f5f9'], skip: ['–', '넘김', '#f1f5f9'] };
   function sameText(f) {
@@ -3145,7 +3135,6 @@
     return f.mode === 'remove' ? f.names.join(', ') + ' 은(는) 이미 배정돼 있지 않아요' : f.names.join(', ') + ' 이미 배정돼 있어요';
   }
   function renderOrder() {
-    renderSecretaryRoom();
     var list = $('orderList');
     list.innerHTML = '';
     var all = orderList();
