@@ -108,7 +108,7 @@
   function confirmWord(text) {
     var t = str(text).replace(/[\s.!?,~]/g, '');
     if (/^(아니|아니요|아니야|아뇨|안돼|안보내|보내지마|취소|취소해|하지마)/.test(t)) return 'no';
-    if (/^(응|어|네|예|그래|ㅇㅇ|좋아|보내|보내줘|보내요|보내주세요)$/.test(t)) return 'yes';
+    if (/^(응|어|네|예|그래|ㅇㅇ|좋아|보내|보내줘|보내요|보내주세요)+$/.test(t)) return 'yes';   // '보내 보내' — 말은 되풀이돼 찍히기 쉽다
     return '';
   }
   // 소리로 읽을 글 — 이모지·꾸밈은 뺀다
@@ -173,6 +173,30 @@
     ['tool', 'ok', 'partial', 'why', 'waiting', 'text', 'data', 'people', 'undoId', 'same'].forEach(function (k) { if (x[k] !== undefined && x[k] !== '') o[k] = x[k]; });
     return o;
   }
+  // 📋 업무 내역: 시킨 일의 실제 결과 → 내역 줄 (비번 값 없음). 실패 중 사장님이 봐야 할 것(문자)은 state need
+  function logItems(results) {
+    var out = [];
+    (results || []).forEach(function (r) {
+      if (r.waiting || r.same) return;
+      (r.logs || []).forEach(function (l) { out.push(Object.assign({ src: 'me' }, l)); });
+    });
+    return out;
+  }
+  // 예전 내역 옮기기 (한 번만): 업무지시 카드·비서 대화의 결과 — 비번 값은 ':' 뒤를 잘라 뺀다
+  function oldLogItems(orders, chats) {
+    var out = [];
+    (orders || []).forEach(function (o) {
+      if (o.state !== 'done' || !o.f || !o.f.label) return;
+      out.push({ id: 'old-' + o.id, t: Date.parse(o.at) || 0, src: 'me', kind: o.f.kind === 'staff' ? 'crew' : 'site', title: o.f.label + ' 바꿈', detail: o.siteName || '', siteId: o.siteId || '' });
+    });
+    (chats || []).forEach(function (m) {
+      (m.cards || []).forEach(function (c, i) {
+        if (!c.ok || c.wait || c.same || /^↩/.test(c.text)) return;
+        out.push({ id: 'old-' + m.id + '-' + i, t: Date.parse(m.at) || 0, src: 'me', kind: /문자/.test(c.text) ? 'sms' : 'site', title: str(String(c.text).split(':')[0]).replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '') });
+      });
+    });
+    return out;
+  }
   // 저장된 대화 → AI 에게 보낼 대화 (최근 것만)
   function toHistory(msgs) {
     return (msgs || []).slice(-HISTORY).map(function (m) {
@@ -184,5 +208,5 @@
   function recentUserText(msgs) {
     return (msgs || []).filter(function (m) { return m.role === 'me'; }).slice(-6).map(function (m) { return m.text; }).join(' ');
   }
-  return { buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
+  return { buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
 });

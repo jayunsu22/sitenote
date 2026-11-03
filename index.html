@@ -6,7 +6,7 @@
   <title>거래처별 현장관리</title>
   <!-- 사장님 전용 화면 — 관리자 암호(관리자 앱과 같은 암호, 한 번 열면 같이 열림) -->
   <script src="pin-lock.js?v=20261008a" data-key="adminUnlocked"></script>
-  <link rel="stylesheet" href="style.css?v=20261104i">
+  <link rel="stylesheet" href="style.css?v=20261104j">
 
   <!-- 홈화면 추가(PWA) -->
   <!-- 📝 업무지시 화면(#order)에서 '설치 및 바로가기' 하면 따로 된 업무지시 앱으로 설치 (2026-11-04: 현장관리 앱으로 설치되던 것) -->
@@ -178,6 +178,15 @@
       <h1 class="topbar-title topbar-title-center">🤖 비서</h1>
       <div class="topbar-actions"></div>
     </header>
+    <div class="wl-tabs">
+      <button id="tabChat" type="button" class="on">💬 대화</button>
+      <button id="tabLog" type="button">📋 업무 내역</button>
+    </div>
+    <div id="logPane" class="wl-pane" hidden>
+      <div id="logChips" class="wl-chips"></div>
+      <div id="logList" class="wl-list"></div>
+    </div>
+    <div id="chatPane" class="ch-pane">
     <div class="ap-body od-body ch-body">
       <details id="chatOld" class="ch-old" hidden>
         <summary>이전 처리 내역 (<span id="chatOldCount">0</span>건)</summary>
@@ -189,6 +198,7 @@
       <textarea id="chatText" rows="2" placeholder="비서에게 말하기…" data-no-stamp></textarea>
       <button id="btnChatMic" type="button" class="ch-mic" aria-label="말로 하기" hidden>🎤</button>
       <button id="btnChatSend" type="button" class="ch-send" aria-label="보내기">📨</button>
+    </div>
     </div>
   </section>
 
@@ -518,8 +528,8 @@
   <script src="quote_requests.js?v=20261103e"></script>
   <script src="quote_link.js?v=20261019g"></script>
   <script src="kakao.js?v=20261103b"></script>
-  <script src="boss_chat.js?v=20261104b"></script>
-  <script src="app.js?v=20261104i"></script>
+  <script src="boss_chat.js?v=20261104c"></script>
+  <script src="app.js?v=20261104j"></script>
   <script src="stamp.js?v=20261027s"></script>
   <script src="app-switcher.js?v=20261020a" data-app-id="schedule"></script>
 </body>

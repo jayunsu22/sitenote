@@ -1684,3 +1684,26 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 @keyframes chMic { 50% { opacity: .55; } }
 .ch-send { border: 0; border-radius: 12px; background: #facc15; padding: 10px 14px; font-size: 18px; }
 .ch-send:disabled { opacity: .6; }
+
+/* 📋 업무 내역 (2026-11-04) */
+.wl-tabs { display: flex; background: #fff; position: sticky; top: 0; z-index: 2; }
+.wl-tabs button { flex: 1; padding: 10px 0; border: 0; border-bottom: 3px solid transparent; background: none; font-size: 14px; font-weight: 800; color: #64748b; }
+.wl-tabs button.on { color: #312e81; border-bottom-color: #312e81; }
+.ch-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.ch-pane[hidden], .wl-pane[hidden] { display: none; }
+.wl-pane { flex: 1; background: #f8fafc; }
+.wl-chips { display: flex; gap: 5px; padding: 9px 10px; overflow-x: auto; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.wl-chip { flex: none; border: 1.5px solid #cbd5e1; border-radius: 99px; padding: 5px 11px; background: #fff; font-size: 13px; font-weight: 700; color: #475569; }
+.wl-chip.on { background: #312e81; border-color: #312e81; color: #fff; }
+.wl-list { padding: 4px 10px 24px; }
+.wl-alert { display: block; width: 100%; box-sizing: border-box; margin: 10px 0 0; padding: 10px 12px; border: 1.5px solid #fed7aa; border-radius: 12px; background: #fff7ed; color: #c2410c; font-size: 14px; font-weight: 800; text-align: left; }
+.wl-day { font-size: 13px; font-weight: 800; color: #64748b; margin: 12px 2px 6px; }
+.wl-item { display: flex; gap: 9px; align-items: flex-start; background: #fff; border-radius: 12px; padding: 9px 10px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.wl-item.bad { background: #fff7ed; }
+.wl-ic { font-size: 19px; line-height: 1.25; }
+.wl-bd { flex: 1; min-width: 0; }
+.wl-t { font-size: 14.5px; font-weight: 700; line-height: 1.35; word-break: break-word; }
+.wl-d { font-size: 13px; color: #475569; margin-top: 2px; line-height: 1.4; word-break: break-word; }
+.wl-m { font-size: 11.5px; color: #94a3b8; margin-top: 3px; }
+.wl-m b { color: #4338ca; font-weight: 700; }
+.wl-ok { flex: none; margin-top: 0; }

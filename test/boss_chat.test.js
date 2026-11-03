@@ -81,6 +81,14 @@ function runWith(replies, execs, more) {
   assert.deepStrictEqual(['응', '네.', '보내줘', '아니요', '취소', '그래 그런데 내일 보내'].map(B.confirmWord), ['yes', 'yes', 'yes', 'no', 'no', '']);
   assert.strictEqual(B.speakable('👍 바꿨어요 ⚠️ 하늘 · 푸른'), '바꿨어요 하늘 , 푸른');
 
+  assert.strictEqual(B.confirmWord('보내 보내'), 'yes');
+  // 내역 줄: 이미 그대로인 일·기다리는 일은 안 적음, 예전 내역은 비번 값 빼고
+  assert.deepStrictEqual(B.logItems([{ logs: [{ kind: 'sms', title: '문자' }] }, { same: true, logs: [{ title: 'x' }] }, { waiting: true }]), [{ src: 'me', kind: 'sms', title: '문자' }]);
+  const olds = B.oldLogItems([{ id: 'o1', at: '2026-11-04T00:00:00Z', state: 'done', siteName: '하늘', f: { kind: 'field', label: '세대 비번', value: '7777' } }, { id: 'o2', state: 'none' }],
+    [{ id: 'm1', at: '2026-11-04T00:00:00Z', cards: [{ ok: true, text: '🔑 하늘 세대 비번: 1111 → 7777' }, { ok: false, text: '실패' }, { ok: true, text: '📨 마바님께 문자 보냄' }] }]);
+  assert.deepStrictEqual(olds.map((x) => x.title), ['세대 비번 바꿈', '하늘 세대 비번', '마바님께 문자 보냄']);
+  assert.ok(!JSON.stringify(olds).includes('7777'));
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);
