@@ -110,7 +110,7 @@
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
-    if (h === '#order') { showView('viewOrder'); renderOrder(); return; }   // 📝 업무지시 보드 (2026-11-04)
+    if (h === '#order') { showView('viewOrder'); renderChat(); return; }   // 📝 업무지시 보드 (2026-11-04)
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
@@ -2979,15 +2979,19 @@
   }
   function workerPhone(name) { var p = (state.settings.people || {})[name]; return Share.phoneDigits((p && p.phone) || ''); }
   function sendWorkerInfo(siteId, names) {
-    var s = Store.getSite(siteId), key = '';
-    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    var s = Store.getSite(siteId);
     if (!s) return Promise.resolve([]);
-    var text = workerInfoText(s);
+    return smsTo(s.id, Share.titleLine(s), workerInfoText(s), names);
+  }
+  // 사장님 폰(SMS Gateway)으로 문자 — 사람마다 { name, ok, why }. siteId '-' = 현장 없는 문자 (🤖 비서, 11/4)
+  function smsTo(siteId, title, text, names) {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
     return Promise.all(names.map(function (n) {
       var phone = workerPhone(n);
       if (!phone) return { name: n, ok: false, why: '번호 없음 (설정 › 팀원 연락처)' };
       return fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
-        body: JSON.stringify({ siteId: s.id, name: Share.titleLine(s), text: text, sendTo: { label: n, phone: phone } }) })
+        body: JSON.stringify({ siteId: siteId, name: title, text: text, sendTo: { label: n, phone: phone } }) })
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
           return { name: n, ok: res.ok && !!d.ok, why: d.error || (res.ok ? '' : 'HTTP ' + res.status) }; }); })
         .catch(function (e) { return { name: n, ok: false, why: String(e.message || e).slice(0, 60) }; });
@@ -3037,52 +3041,216 @@
     if (prev.key === 'days') return (prev.value || []).map(function (d) { return (d.date ? Share.shortDate(d.date) + ' ' : '') + ((d.staff || []).join(',') || '없음'); }).join(' / ');
     return String(prev.value || '');
   }
-  function sendOrder() {
-    var box = $('orderText'), text = String(box.value || '').trim(), key = '';
+  /* 🤖 대화형 비서 (2026-11-04 사장님: 계산기 말고 저랑 대화하듯 일처리) — 채팅으로 시키고 묻는다.
+     AI(n8n kakao-chat)가 할 일을 고르면 앱이 실제로 하고, 결과를 돌려줘 답을 쓰게 한다 (BossChat.run).
+     카드는 AI 말이 아니라 실제 결과로 그린다. 4명 이상 받는 문자는 [보내] 를 눌러야 나간다. 대화는 이 기기에 최근 200개.
+     설계 songil docs/superpowers/specs/2026-11-04-대화형비서-design.md */
+  var CHAT_URL = 'https://primary-production-a6fa.up.railway.app/webhook/kakao-chat';
+  var CHAT_KEY = 'bossChat', chatBusy = false;
+  var CHAT_LABEL = { pwLobby: '공동현관 비번', pwUnit: '세대 비번', toilet: '화장실' };
+  function chatList() { try { return JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); } catch (e) { return []; } }
+  function chatSave(list) { try { localStorage.setItem(CHAT_KEY, JSON.stringify(list.slice(-200))); } catch (e) { /* 저장소 막힘 */ } }
+  function chatAdd(m) {
+    var list = chatList();
+    m.id = 'm' + Date.now().toString(36) + list.length;
+    m.at = new Date().toISOString();
+    list.push(m);
+    chatSave(list);
+    return m;
+  }
+  function chatPatch(id, patch) { chatSave(chatList().map(function (m) { return m.id === id ? Object.assign({}, m, patch) : m; })); }
+  function chatUndoable() {
+    var out = [];
+    chatList().slice(-30).forEach(function (m) { (m.cards || []).forEach(function (c) { if (c.undoId && !c.undone) out.push({ id: c.undoId, text: c.text }); }); });
+    return out.slice(-10);
+  }
+  function chatContext() {
+    var today = Share.todayIso(), todo = [];
+    try { todo = Share.dailyReport(state.sites, state.settings, state.tasks, today).next; } catch (e) { /* 일정표 없이도 대화는 된다 */ }
+    return BossChat.buildContext({ today: today, clients: state.clients, sites: state.sites, settings: state.settings, tasks: state.tasks, todo: todo, undo: chatUndoable() });
+  }
+  function chatAsk(history) {
+    var key = '';
     try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
-    if (!text || orderBusy) return;
-    if (!key) { toast('이 기기는 사장님 열쇠가 없어 업무지시를 보낼 수 없어요'); return; }
-    orderBusy = true;
-    $('btnOrderSend').disabled = true; $('btnOrderSend').textContent = '🤖 판단 중…';
-    var id = 'o' + Date.now().toString(36), at = new Date().toISOString();
-    fetch(ASSIST_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
-      body: JSON.stringify({ mode: 'boss', room: '업무지시', client: '', today: Share.todayIso(), recent: [], mine: ['김정헌'],
-        messages: [{ d: Share.todayIso(), t: '', who: '김정헌', text: text }] }) })
+    return fetch(CHAT_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+      body: JSON.stringify({ history: history, context: chatContext() }) })
       .then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (d) {
-          if (!res.ok || !d.ok) throw new Error(d.error || d.message || ('HTTP ' + res.status));
+          if (!res.ok) throw new Error(d.message || ('HTTP ' + res.status));
           return d;
         });
-      })
-      .then(function (d) {
-        var rows = [];
-        (d.fills || []).forEach(function (f) {
-          var prev = orderApply(f, f.siteId);
-          rows.push({ state: orderStateOf(prev), siteId: f.siteId, siteName: f.name, f: f, prev: prev });
-        });
-        (d.pays || []).forEach(function (p) {
-          var f = { kind: 'pay', label: '잔금' }, prev = orderApply(f, p.siteId);
-          rows.push({ state: orderStateOf(prev), siteId: p.siteId, siteName: p.name, f: f, prev: prev });
-        });
-        (d.picks || []).forEach(function (f) { rows.push({ state: 'pick', f: f, cands: f.cands || [] }); });
-        (d.missed || []).forEach(function (f) { rows.push({ state: 'missed', f: f }); });
-        if (!rows.length) rows.push({ state: 'none' });
-        var saved = rows.map(function (r, i) { return Object.assign({ id: id + i, at: at, text: text }, r); });
-        orderSave(saved.concat(orderList()));
-        var wantSms = /문자|보내|알려/.test(text);
-        saved.filter(function (r) { return r.state === 'done' && r.f.kind === 'staff'; }).forEach(function (r) { offerWorkerInfo(r, wantSms); });
-        box.value = '';
-        var ok = rows.filter(function (r) { return r.state === 'done'; });
-        var same = rows.filter(function (r) { return r.state === 'same'; });
-        if (!ok.length && same.length) { toast('ℹ️ ' + same.map(function (r) { return r.siteName + ' ' + sameText(r.f); }).join(', ')); return; }
-        toast(ok.length ? '✅ ' + ok.map(function (r) { return r.siteName + ' ' + r.f.label; }).join(', ') + ' 바꿨어요' : '확인할 게 있어요 — 아래 카드를 봐 주세요');
-      })
-      .catch(function (e) { toast('❌ 못 보냈어요 — 인터넷을 확인해 주세요 (' + String(e.message || e).slice(0, 50) + ')'); })
-      .then(function () {
-        orderBusy = false;
-        $('btnOrderSend').disabled = false; $('btnOrderSend').textContent = '📨 지시하기';
-        if (!$('viewOrder').hidden) renderOrder();
       });
+  }
+  function chatUndoId() { return 'u' + Date.now().toString(36) + Math.floor(Math.random() * 1000); }
+  // 칸 바꾸기 한 건 (비번·필름·잔금·작업자) — 전 값을 남겨 되돌릴 수 있게
+  function chatApply(f, siteId, icon) {
+    var s = Store.getSite(siteId);
+    var name = s ? Share.titleLine(s) : '';
+    var prev = orderApply(f, siteId);
+    if (!prev) return { ok: false, why: '이 기기에 그 현장이 없어요' };
+    if (prev.nodate) return { ok: false, why: name + ': ' + Share.shortDate(f.date) + ' 은 시공 날짜가 아니에요' };
+    if (prev.same) return { ok: true, same: true, text: icon + ' ' + name + ': ' + sameText(f) };
+    var was = orderPrevText(prev);
+    return { ok: true, text: icon + ' ' + name + ' ' + f.label + ': ' + (was ? was + ' → ' : '') + orderValue(f), undoId: chatUndoId(), undo: { kind: 'site', siteId: siteId, prev: prev } };
+  }
+  // 문자 (사장님 폰). 사람마다 결과 카드 하나
+  function chatSms(siteId, names, text, what) {
+    var s = siteId ? Store.getSite(siteId) : null;
+    return smsTo(s ? s.id : '-', s ? Share.titleLine(s) : '비서 문자', text, names).then(function (rs) {
+      return {
+        ok: rs.every(function (r) { return r.ok; }),
+        partial: rs.some(function (r) { return r.ok; }),   // 일부만 나감 — 안 나간 걸로 말하면 안 된다
+        people: rs.map(function (r) { return { name: r.name, ok: r.ok, why: r.why || '' }; }),
+        cards: rs.map(function (r) { return r.ok ? { ok: true, text: '📨 ' + r.name + '님께 ' + what + ' 보냄' } : { ok: false, text: '⚠️ ' + r.name + ': ' + r.why }; })
+      };
+    });
+  }
+  function chatExec(a) {
+    if (a.tool === 'set_field') return Promise.resolve(chatApply({ kind: 'field', field: a.field, value: String(a.value).trim(), label: CHAT_LABEL[a.field] }, a.siteId, a.field === 'toilet' ? '🚻' : '🔑'));
+    if (a.tool === 'set_films') return Promise.resolve(chatApply({ kind: 'films', films: a.films.filter(function (x) { return x && x.code; }), label: '필름' }, a.siteId, '🎞'));
+    if (a.tool === 'mark_paid') return Promise.resolve(chatApply({ kind: 'pay', label: '잔금' }, a.siteId, '💰'));
+    if (a.tool === 'set_staff') return Promise.resolve(chatApply({ kind: 'staff', names: a.names, mode: a.mode, date: /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : '', label: '작업자' }, a.siteId, '👷'));
+    if (a.tool === 'send_site_info') return chatSms(a.siteId, a.names, workerInfoText(Store.getSite(a.siteId)), '현장 정보 문자');
+    if (a.tool === 'send_text') return chatSms(a.siteId, a.names, String(a.text).trim().slice(0, 1500), '문자');
+    if (a.tool === 'save_phone') {
+      var old = ((state.settings.people || {})[a.name] || {}).phone || '';
+      Store.setSettings({ people: Share.mergePerson(state.settings.people, a.name, { phone: a.phone }) });
+      return Promise.resolve({ ok: true, text: '📇 ' + a.name + '님 연락처 저장', undoId: chatUndoId(), undo: { kind: 'phone', name: a.name, prev: old } });
+    }
+    if (a.tool === 'add_task') {
+      var date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : Share.todayIso();
+      var t = Store.addTask({ title: String(a.title).trim(), date: date });
+      if (!t) return Promise.resolve({ ok: false, why: '할 일을 못 넣었어요' });
+      return Promise.resolve({ ok: true, text: '📝 ' + Share.shortDate(date) + ' 할 일: ' + t.title, undoId: chatUndoId(), undo: { kind: 'task', id: t.id } });
+    }
+    if (a.tool === 'undo') return Promise.resolve(chatUndo(a.id));
+    if (a.tool === 'find_sites') return Promise.resolve({ ok: true, data: BossChat.findSites(state.sites, state.clients, a.query) });
+    return Promise.resolve({ ok: false, why: '비서가 할 줄 모르는 일이에요' });
+  }
+  function chatUndo(id) {
+    var list = chatList(), hit = null;
+    list.forEach(function (m) { (m.cards || []).forEach(function (c) { if (c.undoId === id) hit = c; }); });
+    if (!hit || !hit.undo) return { ok: false, why: '되돌릴 내역을 못 찾았어요' };
+    if (hit.undone) return { ok: true, same: true, text: '↩ 이미 되돌렸어요' };
+    var u = hit.undo;
+    if (u.kind === 'site') {
+      var s = Store.getSite(u.siteId);
+      if (!s) return { ok: false, why: '이 기기에 그 현장이 없어요' };
+      var p = {}; p[u.prev.key] = u.prev.value;
+      if (u.prev.key !== 'payDone' && u.prev.key !== 'days') { var src = Object.assign({}, s.fieldSrc || {}); if (u.prev.src) src[u.prev.key] = u.prev.src; else delete src[u.prev.key]; p.fieldSrc = src; }
+      Store.updateSite(s.id, p);
+    } else if (u.kind === 'phone') Store.setSettings({ people: Share.mergePerson(state.settings.people, u.name, { phone: u.prev }) });
+    else if (u.kind === 'task') Store.deleteTask(u.id);
+    hit.undone = true;
+    chatSave(list);
+    return { ok: true, text: '↩ 되돌림: ' + hit.text };
+  }
+  // 실제 결과 → 카드 (AI 말이 아니라 이걸 믿는다)
+  function chatCards(results) {
+    var out = [];
+    results.forEach(function (r) {
+      if (r.waiting || r.tool === 'find_sites') return;
+      if (r.cards) out = out.concat(r.cards);
+      else if (!r.ok) out.push({ ok: false, text: '⚠️ ' + (r.why || '못 했어요') });
+      else if (r.text) out.push({ ok: true, text: r.text, undoId: r.undoId, undo: r.undo, same: r.same });
+    });
+    return out;
+  }
+  function chatPendingCards(pending) {
+    return pending.map(function (a) {
+      var text = a.tool === 'send_text' ? a.text : workerInfoText(Store.getSite(a.siteId));
+      return { wait: true, text: '📨 ' + a.names.join(', ') + ' (' + a.names.length + '명)께 보낼 문자\n' + text };
+    });
+  }
+  function chatSend(text) {
+    var box = $('chatText'), value = String(text == null ? box.value : text).trim();
+    if (!value || chatBusy) return;
+    if (!ownerKeyOn()) { toast('이 기기는 사장님 열쇠가 없어 비서를 쓸 수 없어요'); return; }
+    chatBusy = true;
+    if (text == null) box.value = '';
+    chatAdd({ role: 'me', text: value });
+    renderChat();
+    var list = chatList();
+    BossChat.run(BossChat.toHistory(list), {
+      ask: chatAsk, exec: chatExec, userText: BossChat.recentUserText(list),
+      hasSite: function (id) { return !!Store.getSite(id); }
+    }).then(function (r) {
+      chatAdd({ role: 'ai', text: r.say, cards: chatPendingCards(r.pending).concat(chatCards(r.results)), chips: r.pending.length ? [] : r.chips, pending: r.pending });
+      if (r.failed && !r.results.length && !box.value) box.value = value;   // 못 보낸 말은 입력칸에 되돌려 다시 보내기 쉽게
+    }).catch(function (e) {
+      chatAdd({ role: 'ai', text: '문제가 생겼어요: ' + String(e.message || e).slice(0, 80) });
+    }).then(function () {
+      chatBusy = false;
+      if (!$('viewOrder').hidden) renderChat();
+    });
+  }
+  // 4명 이상 문자 [보내] / [안 보냄] — AI 를 거치지 않고 앱이 바로
+  function chatDecide(m, yes) {
+    chatPatch(m.id, { pending: [] });
+    if (!yes) { chatAdd({ role: 'ai', text: '안 보냈어요.' }); renderChat(); return; }
+    chatBusy = true;
+    renderChat();
+    m.pending.reduce(function (p, a) {
+      return p.then(function (rs) { return chatExec(a).then(function (x) { return rs.concat([Object.assign({ tool: a.tool }, x)]); }); });
+    }, Promise.resolve([])).then(function (rs) {
+      var ok = rs.every(function (r) { return r.ok; });
+      chatAdd({ role: 'ai', text: ok ? '보냈어요.' : '일부를 못 보냈어요. 아래 결과를 봐 주세요.', cards: chatCards(rs) });
+    }).catch(function (e) {
+      chatAdd({ role: 'ai', text: '보내다 문제가 생겼어요: ' + String(e.message || e).slice(0, 80) });
+    }).then(function () { chatBusy = false; if (!$('viewOrder').hidden) renderChat(); });
+  }
+  function renderChat() {
+    var old = orderList(), hist = $('chatOld');
+    hist.hidden = !old.length;
+    if (old.length) { $('chatOldCount').textContent = old.length; renderOrder(); }
+    var body = $('chatMsgs');
+    body.innerHTML = '';
+    var list = chatList();
+    if (!list.length) body.appendChild(chatBubble('무엇을 도와드릴까요? 편하게 말씀해 주세요.\n예: 류춘화 현장 작업자 전체에게 주소 문자 보내줘 / 이번주 잔금 안 받은 현장 어디야?'));
+    list.forEach(function (m, i) {
+      if (m.role === 'me') { var me = el2('div', 'ch-me'); me.appendChild(el2('span', '', m.text)); body.appendChild(me); return; }
+      var row = chatBubble(m.text), bub = row.querySelector('.ch-bub');
+      (m.cards || []).forEach(function (c) {
+        var card = el2('div', 'ch-card' + (c.wait ? ' wait' : c.ok ? '' : ' bad') + (c.undone ? ' undone' : ''), c.text);
+        bub.appendChild(card);
+        if (c.undoId && !c.undone) {
+          var u = el2('button', 'ap-undo', '↩ 되돌리기'); u.type = 'button';
+          u.onclick = function () {
+            var r = chatUndo(c.undoId);
+            chatAdd({ role: 'ai', text: r.ok ? '되돌렸어요.' : r.why, cards: r.ok && r.text ? [{ ok: true, text: r.text }] : [] });
+            renderChat();
+          };
+          bub.appendChild(u);
+        }
+      });
+      if (i === list.length - 1 && !chatBusy) {
+        var chips = el2('div', 'ap-picks');
+        if ((m.pending || []).length) {
+          var yes = el2('button', 'ap-pick', '보내'), no = el2('button', 'ap-pick no', '안 보냄');
+          yes.type = no.type = 'button';
+          yes.onclick = function () { chatDecide(m, true); };
+          no.onclick = function () { chatDecide(m, false); };
+          chips.appendChild(yes); chips.appendChild(no);
+        }
+        (m.chips || []).forEach(function (t) {
+          var b = el2('button', 'ap-pick', t); b.type = 'button';
+          b.onclick = function () { chatSend(t); };
+          chips.appendChild(b);
+        });
+        if (chips.children.length) bub.appendChild(chips);
+      }
+      body.appendChild(row);
+    });
+    if (chatBusy) body.appendChild(chatBubble('생각하는 중…'));
+    $('btnChatSend').disabled = chatBusy;
+    body.scrollIntoView(false);
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  }
+  function chatBubble(text) {
+    var row = el2('div', 'ch-ai');
+    row.appendChild(el2('div', 'ch-av', '🤖'));
+    row.appendChild(el2('div', 'ch-bub', text));
+    return row;
   }
   /* 👩‍💼 비서실 (11/4 사장님: 실제 비서실처럼 부분마다 비서 그림) — 헤드셋 낀 비서 그림(SVG, 그려서 넣음).
      출입(비번·화장실) / 필름 / 인력(작업자·문자) / 정산(잔금) / 접수(못 찾음·확인 필요) */
@@ -3199,7 +3367,7 @@
       list.appendChild(it);
     });
   }
-  $('btnOrderSend').onclick = sendOrder;
+  $('btnChatSend').onclick = function () { chatSend(); };
   $('btnOrderBack').onclick = function () { go(''); };
   (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
     icon: '📝', name: '업무지시', onClick: function () { go('#order'); }
