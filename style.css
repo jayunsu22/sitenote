@@ -1172,10 +1172,13 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .qreq-linked { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #e0f2fe; color: #075985; font-size: 11.5px; font-weight: 800; }
 .qreq-item { display: flex; flex-wrap: wrap; align-items: stretch; border-top: 1px solid var(--border); }
 /* 줄 아래 [이 견적 보기] [이 견적 수정하기] (2026-10-21) */
-.qreq-acts { flex-basis: 100%; display: flex; gap: 8px; padding: 0 0 10px; }
+.qreq-acts { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 10px; }
 .qreq-act { flex: 1; padding: 9px 6px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--text); font-size: 13.5px; font-weight: 700; cursor: pointer; }
 .qreq-act.primary { border-color: #3b63e0; background: #eef3ff; color: #2747b8; }
 .qreq-act:active { filter: brightness(.95); }
+/* 이 견적으로 현장개설 + 작업관리 생성 (2026-11-03) — 한 줄을 다 쓴다. 이미 개설됐으면 초록 */
+.qreq-act.qreq-site { flex-basis: 100%; padding: 11px 8px; border-color: #ea580c; background: #fff4ec; color: #b4430a; font-size: 14px; }
+.qreq-act.qreq-site.done { border-color: #15803d; background: #effaf2; color: #166534; }
 .qreq-row { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; width: 100%; padding: 9px 2px; border: 0; background: transparent; text-align: left; color: var(--text); cursor: pointer; }
 /* 줄 오른쪽 ✕ — 목록에서만 숨긴다 (quote_requests.js 숨기기) */
 .qreq-del { flex: none; width: 40px; margin: 6px 0; border: 0; border-radius: 8px; background: transparent; color: #a0a8b6; font-size: 17px; cursor: pointer; }

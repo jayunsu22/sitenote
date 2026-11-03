@@ -1932,6 +1932,63 @@
     });
   }
 
+  /* ---------- 견적요청 내역의 [🏗 이 견적으로 현장개설 + 작업관리 생성] (2026-11-03) ----------
+     1) 같은 견적으로 만든 현장이 있으면 그 현장을 쓴다 (고쳐 다시 발행한 견적이면 견적코드만 새 것으로 바꾼다)
+        없으면 이 거래처에 현장을 새로 만든다 — 현장명 = 견적서 제목, 견적서 연결
+     2) 현장업무(관리자 앱)가 안 이어져 있으면: 이름이 비슷한 현장업무가 있으면 고르게 하고, 없으면 새로 만든다
+     3) 현장업무가 생기면 견적서대로 시공품목을 켠다 (createAdminProject / openAdminPicker 가 applyQuoteItems 를 부른다) */
+  function siteFromQuote(clientId, x) {
+    var s = QuoteRequests.견적현장찾기(Store.state && Store.state.sites, x, clientId);
+    var 새현장 = !s, 코드바뀜 = false;
+    if (!s) {
+      s = Store.addSite(clientId);
+      Store.updateSite(s.id, { name: QuoteRequests.견적현장명(x.이름), quoteCode: x.견적코드 });
+    } else if (s.quoteCode !== x.견적코드) {
+      Store.updateSite(s.id, { quoteCode: x.견적코드 });
+      코드바뀜 = true;
+    }
+    var siteId = s.id;
+    go('#site/' + siteId);
+    s = Store.getSite(siteId);
+    if (s.adminId) {
+      toast(코드바뀜 ? '이미 개설된 현장입니다 — 새 견적서로 바꿔 이었습니다' : '이미 개설된 현장입니다');
+      if (코드바뀜) applyQuoteItems(siteId, true);   // 켜기만 한다 (끄지 않는다)
+      return;
+    }
+    if (!AdminLink.adminTitle(s)) { toast((새현장 ? '현장을 만들었습니다' : '현장을 열었습니다') + ' — 현장명을 적은 뒤 현장업무를 연결하세요'); return; }
+    adminFromQuote(siteId, 새현장);
+  }
+  // 이름이 비슷하고 아직 안 묶인 현장업무가 있으면 '그걸로 잇기' 를 먼저 보여준다 — 관리자 앱에서 먼저 만들어 둔 경우
+  function adminFromQuote(siteId, 새현장) {
+    var s = Store.getSite(siteId);
+    var 머리 = 새현장 ? '현장을 만들었습니다. ' : '이 견적의 현장이 이미 있어 그 현장을 열었습니다. ';
+    openModal('작업관리 생성', '<p class="hint">' + esc(머리) + '현장업무를 찾는 중…</p>', []);
+    AdminLink.listProjects(adminDeps).then(function (list) {
+      var linked = ((Store.state && Store.state.sites) || []).map(function (y) { return y.adminId; }).filter(Boolean);
+      var 비슷 = QuoteRequests.비슷한현장업무(list, AdminLink.adminTitle(s), linked).slice(0, 5);
+      if (!비슷.length) { createAdminProject(siteId); return; }
+      $('modalBody').innerHTML = '<p class="hint">' + esc(머리) + '이름이 비슷한 현장업무가 있습니다. 같은 현장이면 골라서 잇고, 아니면 새로 만드세요.</p>' +
+        '<div class="sheet-list">' +
+          비슷.map(function (p, k) {
+            return '<button type="button" data-k="' + k + '">🔗 ' + esc(p.name || '(이름없음)') +
+              '<small>' + esc([p.date ? Share.shortDate(p.date) : '시공일 미정', p.workers.length ? '기사 ' + p.workers.length + '명' : ''].filter(Boolean).join(' · ')) + '</small></button>';
+          }).join('') +
+          '<button type="button" data-act="create">➕ 새 현장업무 만들기<small>' + esc(AdminLink.adminTitle(s)) + '</small></button>' +
+        '</div>';
+      $('modalBody').querySelectorAll('button[data-k]').forEach(function (b) {
+        b.onclick = function () {
+          AdminLink.linkExisting(siteId, 비슷[+b.dataset.k].id, adminDeps);
+          closeModal(); adminRepaint(); toast('현장업무를 연결했습니다 — 견적서대로 시공품목을 켭니다');
+          applyQuoteItems(siteId, true);
+        };
+      });
+      $('modalBody').querySelector('button[data-act="create"]').onclick = function () { createAdminProject(siteId); };
+    }, function () {
+      createAdminProject(siteId);   // 목록을 못 받아도 만들기는 해 본다 (실패하면 그 화면에서 알려 준다)
+    });
+  }
+  QuoteRequests.현장개설 = siteFromQuote;
+
   // 견적 앱이 보낸 연결 주소(#adminlink=<현장 id>:<현장업무 id>)를 처리한다. route() 가 모르는 해시를 지우기 전에 먼저 본다
   function handleAdminLinkHash() {
     var al = AdminLink.parseAdminLinkHash(location.hash);

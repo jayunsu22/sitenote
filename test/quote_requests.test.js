@@ -123,5 +123,50 @@ test('고쳐서 다시 발행해 밀려난 견적코드는 목록에서 뺀다 (
   assert.deepStrictEqual(r2.map((x) => x.견적코드), ['N2']);
 });
 
+
+/* ---- 이 견적으로 현장개설 (2026-11-03) ---- */
+test('견적현장찾기: 같은 견적코드를 단 현장을 찾고, 없으면 null', function () {
+  var sites = [{ id: 's1', clientId: 'c1', quoteCode: 'AAA' }, { id: 's2', clientId: 'c1', quoteCode: '' }];
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: 'AAA' }, 'c1').id, 's1');
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: 'BBB' }, 'c1'), null);
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: '' }, 'c1'), null);
+});
+test('견적현장찾기: 고쳐 다시 발행한 견적은 앞 코드를 단 현장도 찾는다 (새 코드가 먼저)', function () {
+  var sites = [{ id: 'old', clientId: 'c1', quoteCode: 'OLD1' }];
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: 'NEW1', 앞코드: ['OLD1'] }, 'c1').id, 'old');
+  sites.push({ id: 'new', clientId: 'c2', quoteCode: 'NEW1' });
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: 'NEW1', 앞코드: ['OLD1'] }, 'c1').id, 'new');
+});
+test('견적현장찾기: 같은 코드면 이 거래처 현장이 먼저, 방문견적이 적은 현장 id 도 본다', function () {
+  var sites = [{ id: 'a', clientId: 'c2', quoteCode: 'X' }, { id: 'b', clientId: 'c1', quoteCode: 'X' }, { id: 'z', clientId: 'c1', quoteCode: '' }];
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: 'X' }, 'c1').id, 'b');
+  assert.strictEqual(Q.견적현장찾기(sites, { 견적코드: 'Q', 현장ID: 'z' }, 'c1').id, 'z');
+});
+test('견적현장명: 가견적 제목의 날짜·(업체미확인) 을 뗀다', function () {
+  assert.strictEqual(Q.견적현장명('30평 아파트 샤시 가견적 11월2일 오후11시(업체미확인)'), '30평 아파트 샤시 가견적');
+  assert.strictEqual(Q.견적현장명('군포 우륵아파트 704동 606호'), '군포 우륵아파트 704동 606호');
+  assert.strictEqual(Q.견적현장명('(연결한 견적서)'), '');
+  assert.strictEqual(Q.견적현장명(null), '');
+});
+test('요청내역: 줄마다 앞코드·현장ID 를 싣는다', function () {
+  var items = [{ id: 1, 현장코드: 'NEW', 이전견적코드: ['OLD', 'NEW'], 요청: { 거래처ID: 'c1', 원문: 'x' } }];
+  var pub = [{ 견적코드: 'NEW', 현장명: 'a', 현장관리_현장ID: 'site9', 현장관리_거래처ID: 'c1' },
+             { 견적코드: 'P2', 현장명: 'b', 현장관리_거래처ID: 'c1' }];
+  var r = Q.요청내역(items, pub, 'c1', [], []);
+  var n = r.filter(function (x) { return x.견적코드 === 'NEW'; })[0];
+  assert.deepStrictEqual(n.앞코드, ['OLD']);
+  assert.strictEqual(n.현장ID, 'site9');
+  var p2 = r.filter(function (x) { return x.견적코드 === 'P2'; })[0];
+  assert.deepStrictEqual(p2.앞코드, []);
+});
+
+test('비슷한현장업무: 흔한 말(아파트·샤시·평)만 겹치면 비슷하지 않다', function () {
+  var ps = [{ id: 'r1', name: '군포 우륵아파트 704동', date: '' }, { id: 'r2', name: '풍림아이원 2단지 샤시', date: '' },
+            { id: 'r3', name: '풍림아이원 거실', date: '2026-11-05' }];
+  assert.deepStrictEqual(Q.비슷한현장업무(ps, '30평 아파트 샤시 가견적', []), []);
+  assert.deepStrictEqual(Q.비슷한현장업무(ps, '풍림아이원 2단지 203동', []).map(function (p) { return p.id; }), ['r3', 'r2']);
+  assert.deepStrictEqual(Q.비슷한현장업무(ps, '풍림아이원 2단지 203동', ['r3']).map(function (p) { return p.id; }), ['r2']);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

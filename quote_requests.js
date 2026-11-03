@@ -11,7 +11,8 @@
    옛 견적서를 치우려는 것이라 서버 기록과 견적서 링크는 그대로 둔다 - 고객에게 보낸 링크가 죽으면 안 된다.
    줄 아래 [이 견적 보기] [이 견적 수정하기] (2026-10-21). 수정은 방문견적을 ?edit=<키>&client=<거래처ID> 로 연다.
    고쳐서 다시 발행하면 방문견적이 앞 견적코드를 이전견적코드로 남기고, 이 목록은 그 앞 견적서를 뺀다.
-   순수 계산(요청내역·답장전수)은 node 테스트: test/quote_requests.test.js */
+   줄 아래 [🏗 이 견적으로 현장개설 + 작업관리 생성] (2026-11-03). 같은 견적으로 만든 현장이 있으면 그 현장으로 잇는다.
+   순수 계산(요청내역·답장전수·견적현장찾기)은 node 테스트: test/quote_requests.test.js */
 (function (root) {
   'use strict';
 
@@ -63,12 +64,16 @@
       var 상태 = 코드 ? '발행' : (it.건수 > 0 ? '작성 중' : '답장 전');
       if (코드) 쓴코드[코드] = true;
       var p = 코드 && 발행맵[코드];
+      var 앞 = it.이전견적코드 || (it.상태 && it.상태.이전견적코드);
       out.push({
         상태: 상태, 이름: it.이름 || '', 요약: 요약글(요.원문),
         날짜: (p && p.발행일시) || 요.접수일시 || it.저장일시 || '',
         금액: 상태 === '답장 전' ? 0 : (p ? p.총액 : it.총액) || 0,
         견적코드: 코드,
         키: 코드 || 'box:' + it.id,
+        // 현장개설 버튼이 '이미 만든 현장' 을 찾는 데 쓴다 - 고쳐서 다시 발행하면 현장엔 앞 코드가 붙어 있다
+        앞코드: Array.isArray(앞) ? 앞.filter(function (c) { return c && c !== 코드; }) : [],
+        현장ID: (p && p.현장관리_현장ID) || '',
       });
     });
     (발행 || []).forEach(function (p) {
@@ -77,13 +82,13 @@
       if (!내것 && !이은것) return;
       쓴코드[p.견적코드] = true;
       out.push({ 상태: '발행', 이름: p.현장명 || '', 요약: '', 날짜: p.발행일시 || '', 금액: p.총액 || 0,
-                 견적코드: p.견적코드, 키: p.견적코드, 연결: 이은것 && !내것 });
+                 견적코드: p.견적코드, 키: p.견적코드, 연결: 이은것 && !내것, 앞코드: [], 현장ID: p.현장관리_현장ID || '' });
     });
     // 발행목록에 없는 연결 코드 (아직 못 받았거나 방문견적에서 지운 건) — 코드만이라도 남긴다
     코드목록(연결).forEach(function (c) {
       if (쓴코드[c] || 밀려난[c]) return;
       쓴코드[c] = true;
-      out.push({ 상태: '발행', 이름: '(연결한 견적서)', 요약: '', 날짜: '', 금액: 0, 견적코드: c, 키: c, 연결: true });
+      out.push({ 상태: '발행', 이름: '(연결한 견적서)', 요약: '', 날짜: '', 금액: 0, 견적코드: c, 키: c, 연결: true, 앞코드: [], 현장ID: '' });
     });
     var 숨긴 = {};
     (숨김 || []).forEach(function (k) { 숨긴[String(k)] = true; });
@@ -98,7 +103,57 @@
     return (목록 || []).filter(function (x) { return x.상태 === '답장 전'; }).length;
   }
 
-  var QuoteRequests = { 요청내역: 요청내역, 답장전수: 답장전수, 코드뽑기: 코드뽑기, 코드목록: 코드목록 };
+  /* [🏗 이 견적으로 현장개설 + 작업관리 생성] (2026-11-03) 이 쓰는 순수 계산 */
+  // 이 견적으로 이미 만든(또는 이어 붙인) 현장 — 같은 견적코드, 고치기 전 앞 코드, 방문견적이 적어 둔 현장 id 순.
+  // 이 거래처 현장을 먼저 본다
+  function 견적현장찾기(sites, x, 거래처ID) {
+    if (!x || !x.견적코드) return null;
+    var 코드들 = [x.견적코드].concat(x.앞코드 || []);
+    var 후보 = (sites || []).filter(function (s) {
+      return s && ((s.quoteCode && 코드들.indexOf(s.quoteCode) >= 0) || (x.현장ID && s.id === x.현장ID));
+    });
+    후보.sort(function (a, b) {
+      var 점 = function (s) {
+        return (s.quoteCode === x.견적코드 ? 0 : s.quoteCode && 코드들.indexOf(s.quoteCode) >= 0 ? 1 : 2) * 2 + (s.clientId === 거래처ID ? 0 : 1);
+      };
+      return 점(a) - 점(b);
+    });
+    return 후보[0] || null;
+  }
+  // 견적서 제목 → 현장명. 가견적 제목에 붙는 '11월2일 오후11시' '(업체미확인)' 은 뗀다
+  function 견적현장명(이름) {
+    var v = String(이름 == null ? '' : 이름)
+      .replace(/\(업체미확인\)/g, ' ')
+      .replace(/\d{1,2}월\s*\d{1,2}일(\s*(오전|오후)?\s*\d{1,2}시(\s*\d{1,2}분)?)?/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    return v === '(연결한 견적서)' ? '' : v;
+  }
+
+  // 관리자 앱에 먼저 만들어 둔 같은 현장업무 후보. '아파트' '샤시' '가견적' 같은 흔한 말은 빼고
+  // 두 글자 조각이 2개 이상 겹쳐야 비슷하다고 본다 (그냥 세면 '…아파트' 끼리 다 비슷해진다)
+  var 흔한말 = /아파트|오피스텔|빌라|주택|가견적|견적|샤시|창호|필름|인테리어|전체|부분|확장|\d+\s*(평형?|동|호|층|단지|세트|틀)/g;
+  function 조각들(t) {
+    var out = {};
+    String(t || '').replace(흔한말, ' ').split(/\s+/).forEach(function (w) {
+      for (var i = 0; i + 1 < w.length; i++) {
+        var g = w.slice(i, i + 2);
+        if (!/[\d()\[\]·,.-]/.test(g)) out[g] = true;
+      }
+    });
+    return Object.keys(out);
+  }
+  function 비슷한현장업무(projects, 제목, 묶인ID) {
+    var base = 조각들(제목), 묶인 = 묶인ID || [];
+    return (projects || []).map(function (p) {
+      var n = 조각들(p && p.name).filter(function (g) { return base.indexOf(g) >= 0; }).length;
+      return { p: p, n: n };
+    }).filter(function (x) { return x.p && x.n >= 2 && 묶인.indexOf(x.p.id) < 0; })
+      .sort(function (a, b) { return (b.n - a.n) || String(b.p.date || '').localeCompare(String(a.p.date || '')); })
+      .map(function (x) { return x.p; });
+  }
+
+  var QuoteRequests = { 요청내역: 요청내역, 답장전수: 답장전수, 코드뽑기: 코드뽑기, 코드목록: 코드목록,
+                        견적현장찾기: 견적현장찾기, 견적현장명: 견적현장명, 비슷한현장업무: 비슷한현장업무 };
 
   /* ---------- 화면 (브라우저에서만) ---------- */
   if (typeof document !== 'undefined') {
@@ -138,6 +193,10 @@
       if (cls) e.className = cls;
       if (text != null) e.textContent = text;
       return e;
+    }
+    function 현장제목(s) {
+      var t = root.Share && root.Share.titleLine ? root.Share.titleLine(s) : (s.name || '');
+      return t.length > 18 ? t.slice(0, 17) + '…' : t;
     }
     function 원(n) { return Math.round(n || 0).toLocaleString('ko-KR') + '원'; }
     function 짧은날(iso) {
@@ -331,6 +390,17 @@
           window.open(QUOTE_APP + '?edit=' + encodeURIComponent(x.키) + '&client=' + encodeURIComponent(clientId), '_blank');
         };
         acts.appendChild(edit);
+        // [🏗 이 견적으로 현장개설 + 작업관리 생성] (2026-11-03) - 발행한 견적만.
+        // 이미 만든 현장이 있으면 그 현장으로 잇는다 (새로 만들지 않는다). 실제 일은 app.js 가 한다
+        if (x.상태 === '발행' && x.견적코드 && QuoteRequests.현장개설) {
+          var 있는 = 견적현장찾기(root.Store && root.Store.state && root.Store.state.sites, x, clientId);
+          var 글 = !있는 ? '🏗 이 견적으로 현장개설 + 작업관리 생성'
+            : 있는.adminId ? '🏗 개설된 현장 열기 · ' + 현장제목(있는)
+            : '🏗 현장 열기 + 작업관리 생성 · ' + 현장제목(있는);
+          var mk = el('button', 'qreq-act qreq-site' + (있는 ? ' done' : ''), 글);
+          mk.onclick = function () { QuoteRequests.현장개설(clientId, x); };
+          acts.appendChild(mk);
+        }
         item.appendChild(acts);
         body.appendChild(item);
       });
