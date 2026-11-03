@@ -110,13 +110,14 @@
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
+    if (h === '#order') { showView('viewOrder'); renderOrder(); return; }   // 📝 업무지시 보드 (2026-11-04)
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
     showView('viewMain'); renderMain();
   }
   function showView(id) {
-    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule', 'viewReviews', 'viewApprove'].forEach(function (v) { $(v).hidden = v !== id; });
+    ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule', 'viewReviews', 'viewApprove', 'viewOrder'].forEach(function (v) { $(v).hidden = v !== id; });
     window.scrollTo(0, 0);
   }
   // 앱을 다시 열 때 마지막에 본 화면(거래처/일정)으로 시작한다
@@ -2925,6 +2926,151 @@
   (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
     icon: '📋', get name() { return '결재함' + (approvePending ? ' (' + approvePending + ')' : ''); },
     onClick: function () { go('#approve'); }
+  });
+
+  /* ---------- 📝 업무지시 보드 (2026-11-04 사장님) ----------
+     통화로 들은 현장 정보를 카톡방 대신 여기에 쓴다: '류춘화 미래타운 세대비번 2222 로 바뀜'.
+     n8n 카톡_비서(mode boss)가 어느 현장·어느 칸인지 맞추고, 확실하면 이 앱이 바로 칸을 바꾼다 (전 값은 남겨 [되돌리기]).
+     애매하면 후보 현장 버튼, 못 찾으면 다시 써 달라고. 처리 내역은 이 기기에 최근 100건 (orderBoard).
+     범위: 비번·화장실·필름·잔금 (현장 정보만). 설계 songil docs/superpowers/specs/2026-11-04-업무지시보드-design.md */
+  var ASSIST_URL = 'https://primary-production-a6fa.up.railway.app/webhook/kakao-assist';
+  var ORDER_KEY = 'orderBoard', orderBusy = false;
+  function orderList() { try { return JSON.parse(localStorage.getItem(ORDER_KEY) || '[]'); } catch (e) { return []; } }
+  function orderSave(list) { try { localStorage.setItem(ORDER_KEY, JSON.stringify(list.slice(0, 100))); } catch (e) { /* 저장소 막힘 */ } }
+  function orderPatch(id, patch) { orderSave(orderList().map(function (o) { return o.id === id ? Object.assign({}, o, patch) : o; })); }
+  // 한 칸 바꾸기 — 바꾸기 전 값을 돌려준다 (되돌리기용). 현장이 이 기기에 없으면 null
+  function orderApply(f, siteId) {
+    var s = Store.getSite(siteId);
+    if (!s) return null;
+    var key = f.kind === 'films' ? 'films' : f.kind === 'pay' ? 'payDone' : f.field;
+    var prev = { key: key, value: s[key] == null ? '' : JSON.parse(JSON.stringify(s[key])), src: (s.fieldSrc || {})[key] || '' };
+    var by = '업무지시 ' + Share.shortDate(Share.todayIso());
+    var p = f.kind === 'pay' ? (s.payDone ? null : { payDone: Share.todayIso() }) : Kakao.fillPatch(s, f, by);
+    if (!p) return prev;
+    Store.updateSite(s.id, p);
+    return prev;
+  }
+  function orderUndo(o) {
+    var s = Store.getSite(o.siteId);
+    if (!s || !o.prev) { toast('이 기기에 그 현장이 없어요'); return; }
+    var p = {}; p[o.prev.key] = o.prev.value;
+    if (o.prev.key !== 'payDone') { var src = Object.assign({}, s.fieldSrc || {}); if (o.prev.src) src[o.prev.key] = o.prev.src; else delete src[o.prev.key]; p.fieldSrc = src; }
+    Store.updateSite(s.id, p);
+    orderPatch(o.id, { state: 'undone' });
+    toast('↩ 되돌렸어요 — ' + o.siteName);
+    renderOrder();
+  }
+  function orderValue(f) {
+    if (f.kind === 'films') return (f.films || []).map(function (x) { return ((x.place || '') + ' ' + x.code).trim(); }).join(', ');
+    if (f.kind === 'pay') return '잔금 받음';
+    return f.value;
+  }
+  function orderPrevText(prev) {
+    if (!prev) return '';
+    if (prev.key === 'films') return (prev.value || []).filter(function (x) { return x && x.code; }).map(function (x) { return ((x.place || '') + ' ' + x.code).trim(); }).join(', ');
+    if (prev.key === 'payDone') return prev.value ? '이미 받음' : '안 받음';
+    return String(prev.value || '');
+  }
+  function sendOrder() {
+    var box = $('orderText'), text = String(box.value || '').trim(), key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    if (!text || orderBusy) return;
+    if (!key) { toast('이 기기는 사장님 열쇠가 없어 업무지시를 보낼 수 없어요'); return; }
+    orderBusy = true;
+    $('btnOrderSend').disabled = true; $('btnOrderSend').textContent = '🤖 판단 중…';
+    var id = 'o' + Date.now().toString(36), at = new Date().toISOString();
+    fetch(ASSIST_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+      body: JSON.stringify({ mode: 'boss', room: '업무지시', client: '', today: Share.todayIso(), recent: [], mine: ['김정헌'],
+        messages: [{ d: Share.todayIso(), t: '', who: '김정헌', text: text }] }) })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (d) {
+          if (!res.ok || !d.ok) throw new Error(d.error || d.message || ('HTTP ' + res.status));
+          return d;
+        });
+      })
+      .then(function (d) {
+        var rows = [];
+        (d.fills || []).forEach(function (f) {
+          var prev = orderApply(f, f.siteId);
+          rows.push({ state: prev ? 'done' : 'nosite', siteId: f.siteId, siteName: f.name, f: f, prev: prev });
+        });
+        (d.pays || []).forEach(function (p) {
+          var f = { kind: 'pay', label: '잔금' }, prev = orderApply(f, p.siteId);
+          rows.push({ state: prev ? 'done' : 'nosite', siteId: p.siteId, siteName: p.name, f: f, prev: prev });
+        });
+        (d.picks || []).forEach(function (f) { rows.push({ state: 'pick', f: f, cands: f.cands || [] }); });
+        (d.missed || []).forEach(function (f) { rows.push({ state: 'missed', f: f }); });
+        if (!rows.length) rows.push({ state: 'none' });
+        orderSave(rows.map(function (r, i) { return Object.assign({ id: id + i, at: at, text: text }, r); }).concat(orderList()));
+        box.value = '';
+        var ok = rows.filter(function (r) { return r.state === 'done'; });
+        toast(ok.length ? '✅ ' + ok.map(function (r) { return r.siteName + ' ' + r.f.label; }).join(', ') + ' 바꿨어요' : '확인할 게 있어요 — 아래 카드를 봐 주세요');
+      })
+      .catch(function (e) { toast('❌ 못 보냈어요 — 인터넷을 확인해 주세요 (' + String(e.message || e).slice(0, 50) + ')'); })
+      .then(function () {
+        orderBusy = false;
+        $('btnOrderSend').disabled = false; $('btnOrderSend').textContent = '📨 지시하기';
+        if (!$('viewOrder').hidden) renderOrder();
+      });
+  }
+  var ORDER_STATE = { done: ['✅', '처리됨', '#dcfce7'], undone: ['↩', '되돌림', '#f1f5f9'], pick: ['❓', '어느 현장?', '#e0e7ff'],
+    missed: ['⚠️', '현장을 못 찾음', '#ffedd5'], nosite: ['⚠️', '이 기기에 없는 현장', '#ffedd5'], none: ['🤔', '넣을 정보 없음', '#f1f5f9'], skip: ['–', '넘김', '#f1f5f9'] };
+  function renderOrder() {
+    var list = $('orderList');
+    list.innerHTML = '';
+    var all = orderList();
+    if (!all.length) { list.appendChild(el2('p', 'sec-empty', '아직 지시가 없어요. 위에 쓰고 [📨 지시하기] — 예: 류춘화 미래타운 세대비번 2222 로 바뀜')); return; }
+    all.forEach(function (o) {
+      var st = ORDER_STATE[o.state] || ORDER_STATE.none;
+      var it = el2('div', 'ap-card ap-mission od-card od-' + o.state);
+      var tile = el2('div', 'ap-tile', st[0]); tile.style.background = st[2];
+      it.appendChild(tile);
+      var bd = el2('div', 'ap-bd');
+      var when = new Date(o.at);
+      bd.appendChild(el2('div', 'ap-kind', st[1] + ' · ' + Share.shortDate(Share.todayIso(when)) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2)));
+      if (o.state === 'done' || o.state === 'undone' || o.state === 'nosite') {
+        var t = el2('div', 'ap-name', o.siteName + ' · ' + o.f.label);
+        if (Store.getSite(o.siteId)) { t.classList.add('ap-link'); t.onclick = function () { go('#site/' + o.siteId); }; }
+        bd.appendChild(t);
+        var was = orderPrevText(o.prev);
+        bd.appendChild(el2('div', 'od-chg', (was ? was + ' → ' : '') + orderValue(o.f)));
+      } else if (o.state === 'pick') {
+        bd.appendChild(el2('div', 'ap-name', o.f.label + ' ' + orderValue(o.f) + ' — 어느 현장인가요?'));
+      } else if (o.state === 'missed') {
+        bd.appendChild(el2('div', 'ap-name', o.f.label + ' ' + orderValue(o.f)));
+        bd.appendChild(el2('div', 'ap-res', '거래처·아파트 이름을 같이 써서 다시 지시해 주세요'));
+      }
+      bd.appendChild(el2('div', 'ap-res ap-quote', '"' + o.text + '"'));
+      if (o.state === 'done' && o.prev) {
+        var u = el2('button', 'ap-undo', '↩ 되돌리기'); u.type = 'button';
+        u.onclick = function () { orderUndo(o); };
+        bd.appendChild(u);
+      }
+      if (o.state === 'pick') {
+        var row = el2('div', 'ap-picks');
+        o.cands.forEach(function (c) {
+          var b = el2('button', 'ap-pick', c.name + ' (' + Share.shortDate(c.date) + ')'); b.type = 'button';
+          b.onclick = function () {
+            var prev = orderApply(o.f, c.id);
+            if (!prev) { toast('이 기기에 그 현장이 없어요'); return; }
+            orderPatch(o.id, { state: 'done', siteId: c.id, siteName: c.name, prev: prev });
+            toast('✅ ' + c.name + ' ' + o.f.label + ' 바꿨어요'); renderOrder();
+          };
+          row.appendChild(b);
+        });
+        var no = el2('button', 'ap-pick no', '다 아님'); no.type = 'button';
+        no.onclick = function () { orderPatch(o.id, { state: 'skip' }); renderOrder(); };
+        row.appendChild(no);
+        bd.appendChild(row);
+      }
+      it.appendChild(bd);
+      list.appendChild(it);
+    });
+  }
+  $('btnOrderSend').onclick = sendOrder;
+  $('btnOrderBack').onclick = function () { go(''); };
+  (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
+    icon: '📝', name: '업무지시', onClick: function () { go('#order'); }
   });
 
   var svcSheet = { siteId: '', id: '', onDone: null };

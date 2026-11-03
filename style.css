@@ -1640,3 +1640,13 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .ap-hint { margin: 12px 16px; font-size: 12.5px; line-height: 1.5; }
 .ap-send { display: flex; gap: 6px; margin: 4px 12px 8px; }
 .ap-send .ap-ib { padding: 11px 2px; font-size: 13px; background: #fff; color: #4338ca; box-shadow: 0 2px 8px rgba(67,56,202,.12); }
+
+/* 📝 업무지시 보드 (2026-11-04) */
+.od-hint { font-size: 13px; font-weight: 700; color: #c7d2fe; margin-bottom: 8px; line-height: 1.4; }
+.od-hero textarea { width: 100%; box-sizing: border-box; border: 0; border-radius: 12px; padding: 10px 12px; font-size: 16px; font-family: inherit; resize: vertical; }
+.od-send { width: 100%; margin-top: 8px; padding: 12px; border: 0; border-radius: 12px; background: #facc15; color: #312e81; font-size: 16px; font-weight: 900; }
+.od-send:disabled { opacity: .7; }
+.od-chg { font-size: 15px; font-weight: 900; color: #16a34a; margin: 2px 0 4px; word-break: break-all; }
+.od-undone .od-chg, .od-skip, .od-none { opacity: .65; }
+.od-undone .od-chg { color: #64748b; text-decoration: line-through; }
+.od-nosite .od-chg { color: #c2410c; }
