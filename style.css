@@ -1650,3 +1650,4 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .od-undone .od-chg, .od-skip, .od-none { opacity: .65; }
 .od-undone .od-chg { color: #64748b; text-decoration: line-through; }
 .od-nosite .od-chg { color: #c2410c; }
+.od-same { color: #0369a1; }

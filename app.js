@@ -2938,23 +2938,40 @@
   function orderList() { try { return JSON.parse(localStorage.getItem(ORDER_KEY) || '[]'); } catch (e) { return []; } }
   function orderSave(list) { try { localStorage.setItem(ORDER_KEY, JSON.stringify(list.slice(0, 100))); } catch (e) { /* 저장소 막힘 */ } }
   function orderPatch(id, patch) { orderSave(orderList().map(function (o) { return o.id === id ? Object.assign({}, o, patch) : o; })); }
-  // 한 칸 바꾸기 — 바꾸기 전 값을 돌려준다 (되돌리기용). 현장이 이 기기에 없으면 null
+  // 작업자 배정 (11/4): add 넣기 / set 이 사람들로 바꾸기 / remove 빼기 — f.date 가 있으면 그날만, 없으면 모든 날.
+  // 바뀌는 게 없으면 null (이미 배정됨). 그 날짜가 현장에 없으면 { nodate }
+  function staffPatch(s, f) {
+    var days = (s.days || []).map(function (d) { return { date: d.date, staff: (d.staff || []).slice() }; });
+    var hit = days.filter(function (d) { return !f.date || d.date === f.date; });
+    if (!hit.length) return { nodate: true };
+    hit.forEach(function (d) {
+      if (f.mode === 'set') d.staff = f.names.slice();
+      else if (f.mode === 'remove') d.staff = d.staff.filter(function (n) { return f.names.indexOf(n) === -1; });
+      else f.names.forEach(function (n) { if (d.staff.indexOf(n) === -1) d.staff.push(n); });
+    });
+    return JSON.stringify(days) === JSON.stringify((s.days || []).map(function (d) { return { date: d.date, staff: d.staff || [] }; })) ? null : { days: days };
+  }
+  // 한 칸 바꾸기 — 바꾸기 전 값을 돌려준다 (되돌리기용). 현장이 이 기기에 없으면 null.
+  // 바뀌는 게 없으면 prev.same (이미 그렇게 돼 있음 — 작업자 이미 배정 등), 날짜가 없으면 prev.nodate
   function orderApply(f, siteId) {
     var s = Store.getSite(siteId);
     if (!s) return null;
-    var key = f.kind === 'films' ? 'films' : f.kind === 'pay' ? 'payDone' : f.field;
+    var key = f.kind === 'films' ? 'films' : f.kind === 'pay' ? 'payDone' : f.kind === 'staff' ? 'days' : f.field;
     var prev = { key: key, value: s[key] == null ? '' : JSON.parse(JSON.stringify(s[key])), src: (s.fieldSrc || {})[key] || '' };
     var by = '업무지시 ' + Share.shortDate(Share.todayIso());
-    var p = f.kind === 'pay' ? (s.payDone ? null : { payDone: Share.todayIso() }) : Kakao.fillPatch(s, f, by);
-    if (!p) return prev;
+    var p = f.kind === 'pay' ? (s.payDone ? null : { payDone: Share.todayIso() })
+      : f.kind === 'staff' ? staffPatch(s, f) : Kakao.fillPatch(s, f, by);
+    if (p && p.nodate) return Object.assign(prev, { nodate: true });
+    if (!p) return Object.assign(prev, { same: true });
     Store.updateSite(s.id, p);
     return prev;
   }
+  function orderStateOf(prev) { return !prev ? 'nosite' : prev.nodate ? 'nodate' : prev.same ? 'same' : 'done'; }
   function orderUndo(o) {
     var s = Store.getSite(o.siteId);
     if (!s || !o.prev) { toast('이 기기에 그 현장이 없어요'); return; }
     var p = {}; p[o.prev.key] = o.prev.value;
-    if (o.prev.key !== 'payDone') { var src = Object.assign({}, s.fieldSrc || {}); if (o.prev.src) src[o.prev.key] = o.prev.src; else delete src[o.prev.key]; p.fieldSrc = src; }
+    if (o.prev.key !== 'payDone' && o.prev.key !== 'days') { var src = Object.assign({}, s.fieldSrc || {}); if (o.prev.src) src[o.prev.key] = o.prev.src; else delete src[o.prev.key]; p.fieldSrc = src; }
     Store.updateSite(s.id, p);
     orderPatch(o.id, { state: 'undone' });
     toast('↩ 되돌렸어요 — ' + o.siteName);
@@ -2963,12 +2980,14 @@
   function orderValue(f) {
     if (f.kind === 'films') return (f.films || []).map(function (x) { return ((x.place || '') + ' ' + x.code).trim(); }).join(', ');
     if (f.kind === 'pay') return '잔금 받음';
+    if (f.kind === 'staff') return (f.mode === 'remove' ? '빼기 ' : f.mode === 'add' ? '+ ' : '') + f.names.join(', ') + (f.date ? ' (' + Share.shortDate(f.date) + ')' : '');
     return f.value;
   }
   function orderPrevText(prev) {
     if (!prev) return '';
     if (prev.key === 'films') return (prev.value || []).filter(function (x) { return x && x.code; }).map(function (x) { return ((x.place || '') + ' ' + x.code).trim(); }).join(', ');
     if (prev.key === 'payDone') return prev.value ? '이미 받음' : '안 받음';
+    if (prev.key === 'days') return (prev.value || []).map(function (d) { return (d.date ? Share.shortDate(d.date) + ' ' : '') + ((d.staff || []).join(',') || '없음'); }).join(' / ');
     return String(prev.value || '');
   }
   function sendOrder() {
@@ -2992,11 +3011,11 @@
         var rows = [];
         (d.fills || []).forEach(function (f) {
           var prev = orderApply(f, f.siteId);
-          rows.push({ state: prev ? 'done' : 'nosite', siteId: f.siteId, siteName: f.name, f: f, prev: prev });
+          rows.push({ state: orderStateOf(prev), siteId: f.siteId, siteName: f.name, f: f, prev: prev });
         });
         (d.pays || []).forEach(function (p) {
           var f = { kind: 'pay', label: '잔금' }, prev = orderApply(f, p.siteId);
-          rows.push({ state: prev ? 'done' : 'nosite', siteId: p.siteId, siteName: p.name, f: f, prev: prev });
+          rows.push({ state: orderStateOf(prev), siteId: p.siteId, siteName: p.name, f: f, prev: prev });
         });
         (d.picks || []).forEach(function (f) { rows.push({ state: 'pick', f: f, cands: f.cands || [] }); });
         (d.missed || []).forEach(function (f) { rows.push({ state: 'missed', f: f }); });
@@ -3004,6 +3023,8 @@
         orderSave(rows.map(function (r, i) { return Object.assign({ id: id + i, at: at, text: text }, r); }).concat(orderList()));
         box.value = '';
         var ok = rows.filter(function (r) { return r.state === 'done'; });
+        var same = rows.filter(function (r) { return r.state === 'same'; });
+        if (!ok.length && same.length) { toast('ℹ️ ' + same.map(function (r) { return r.siteName + ' ' + sameText(r.f); }).join(', ')); return; }
         toast(ok.length ? '✅ ' + ok.map(function (r) { return r.siteName + ' ' + r.f.label; }).join(', ') + ' 바꿨어요' : '확인할 게 있어요 — 아래 카드를 봐 주세요');
       })
       .catch(function (e) { toast('❌ 못 보냈어요 — 인터넷을 확인해 주세요 (' + String(e.message || e).slice(0, 50) + ')'); })
@@ -3014,7 +3035,11 @@
       });
   }
   var ORDER_STATE = { done: ['✅', '처리됨', '#dcfce7'], undone: ['↩', '되돌림', '#f1f5f9'], pick: ['❓', '어느 현장?', '#e0e7ff'],
-    missed: ['⚠️', '현장을 못 찾음', '#ffedd5'], nosite: ['⚠️', '이 기기에 없는 현장', '#ffedd5'], none: ['🤔', '넣을 정보 없음', '#f1f5f9'], skip: ['–', '넘김', '#f1f5f9'] };
+    missed: ['⚠️', '현장을 못 찾음', '#ffedd5'], same: ['ℹ️', '이미 돼 있음', '#e0f2fe'], nodate: ['⚠️', '그 날짜가 현장에 없음', '#ffedd5'], nosite: ['⚠️', '이 기기에 없는 현장', '#ffedd5'], none: ['🤔', '넣을 정보 없음', '#f1f5f9'], skip: ['–', '넘김', '#f1f5f9'] };
+  function sameText(f) {
+    if (f.kind !== 'staff') return '이미 ' + f.label + ' ' + orderValue(f) + ' 그대로예요';
+    return f.mode === 'remove' ? f.names.join(', ') + ' 은(는) 이미 배정돼 있지 않아요' : f.names.join(', ') + ' 이미 배정돼 있어요';
+  }
   function renderOrder() {
     var list = $('orderList');
     list.innerHTML = '';
@@ -3028,7 +3053,13 @@
       var bd = el2('div', 'ap-bd');
       var when = new Date(o.at);
       bd.appendChild(el2('div', 'ap-kind', st[1] + ' · ' + Share.shortDate(Share.todayIso(when)) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2)));
-      if (o.state === 'done' || o.state === 'undone' || o.state === 'nosite') {
+      if (o.state === 'same' || o.state === 'nodate') {
+        var ts = el2('div', 'ap-name', o.siteName + ' · ' + o.f.label);
+        if (Store.getSite(o.siteId)) { ts.classList.add('ap-link'); ts.onclick = function () { go('#site/' + o.siteId); }; }
+        bd.appendChild(ts);
+        bd.appendChild(el2('div', 'od-chg od-same', o.state === 'same' ? sameText(o.f) : Share.shortDate(o.f.date) + ' 은 이 현장 시공 날짜가 아니에요'));
+        if (o.prev && o.prev.key === 'days') bd.appendChild(el2('div', 'ap-res', '지금 배정: ' + orderPrevText(o.prev)));
+      } else if (o.state === 'done' || o.state === 'undone' || o.state === 'nosite') {
         var t = el2('div', 'ap-name', o.siteName + ' · ' + o.f.label);
         if (Store.getSite(o.siteId)) { t.classList.add('ap-link'); t.onclick = function () { go('#site/' + o.siteId); }; }
         bd.appendChild(t);
@@ -3053,8 +3084,8 @@
           b.onclick = function () {
             var prev = orderApply(o.f, c.id);
             if (!prev) { toast('이 기기에 그 현장이 없어요'); return; }
-            orderPatch(o.id, { state: 'done', siteId: c.id, siteName: c.name, prev: prev });
-            toast('✅ ' + c.name + ' ' + o.f.label + ' 바꿨어요'); renderOrder();
+            orderPatch(o.id, { state: orderStateOf(prev), siteId: c.id, siteName: c.name, prev: prev });
+            toast(prev.same ? 'ℹ️ ' + c.name + ' ' + sameText(o.f) : prev.nodate ? '⚠️ 그 날짜가 현장에 없어요' : '✅ ' + c.name + ' ' + o.f.label + ' 바꿨어요'); renderOrder();
           };
           row.appendChild(b);
         });
