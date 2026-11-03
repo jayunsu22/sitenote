@@ -2734,8 +2734,9 @@
   }
   var AP_ACT = { go: '진행해', later: '다음날로 연기', mine: '내가할께', done: '완료' };
   function countPending(d) {
-    if (!d || !d.rep || d.date < Share.todayIso()) return 0;
-    return d.rep.next.filter(function (n) { return !(d.decisions || {})[n.id]; }).length;
+    var inbox = (d && d.inbox || []).length;   // 🤖 능동 비서 카드 (11/4)
+    if (!d || !d.rep || d.date < Share.todayIso()) return inbox;
+    return inbox + d.rep.next.filter(function (n) { return !(d.decisions || {})[n.id]; }).length;
   }
   function refreshApproveCount() {
     if (!ownerKeyOn()) return;
@@ -2759,6 +2760,7 @@
   function paintApprove(d) {
     var body = $('approveBody'); body.innerHTML = '';
     if (d.none || !d.rep) {
+      if ((d.inbox || []).length) { approvePending = countPending(d); apInbox(d, body); }
       body.appendChild(el2('p', 'sec-empty', '아직 업무일정표가 없습니다. 매일 저녁 7시에 만들어집니다.'));
       var mk = el2('button', 'ap-all', '지금 만들어 보기'); mk.type = 'button';
       mk.onclick = function () { mk.disabled = true; reportPost({ action: 'make' }).then(function () { renderApprove(''); }).catch(function () { toast('못 만들었어요'); mk.disabled = false; }); };
@@ -2786,6 +2788,7 @@
     xp.appendChild(fill); hero.appendChild(xp);
     hero.appendChild(el2('div', 'ap-cnt', all - cleared > 0 ? (all - cleared) + '개 남음 — 오늘도 끝까지 가 봅시다 🚀' : '수고하셨습니다! 내일 미션은 저녁 7시에 와요 🙌'));
     body.appendChild(hero);
+    apInbox(d, body);
     // 미션 카드 — 종류 순서대로
     var list = d.rep.next.slice().sort(function (a, b) { return AP_ORDER.indexOf(a.kind) - AP_ORDER.indexOf(b.kind); });
     list.forEach(function (x) { body.appendChild(apItem(x, (d.decisions || {})[x.id] || null, d)); });
@@ -2827,6 +2830,37 @@
       send.appendChild(b);
     });
     body.appendChild(send);
+  }
+  // 🤖 능동 비서 카드 (사장님 11/4): 노트북 카톡 비서가 업체 글에서 받았는데 어느 현장인지 애매한 정보 · '잔금 넣었어요'.
+  // 누르기만: 현장 고르기 → 우편함으로 그 현장 칸에 / 완료표시 → 잔금 받음 / 아님 → 버림 (업무일정표 inbox)
+  function apInbox(d, body) {
+    (d.inbox || []).forEach(function (x) {
+      var it = el2('div', 'ap-card ap-mission ap-ai');
+      var tile = el2('div', 'ap-tile', x.kind === 'pay' ? '💰' : /필름/.test(x.title) ? '🎞' : '🔑');
+      tile.style.background = x.kind === 'pay' ? '#fef9c3' : '#e0e7ff';
+      it.appendChild(tile);
+      var bd = el2('div', 'ap-bd');
+      bd.appendChild(el2('div', 'ap-kind', (x.kind === 'pay' ? '잔금' : '어느 현장?') + ' · 🤖 AI가 받은 정보'));
+      bd.appendChild(el2('div', 'ap-name', x.room + (x.kind === 'pay' ? ' "' + x.title + '"' : ' — ' + x.title)));
+      if (x.quote) bd.appendChild(el2('div', 'ap-res ap-quote', '"' + x.quote + '"'));
+      if (x.kind === 'pay') bd.appendChild(el2('div', 'ap-res', x.name + ' 잔금 받은 걸로 할까요?'));
+      var row = el2('div', 'ap-picks');
+      var btn = function (label, cls, body2, msg) {
+        var b = el2('button', 'ap-pick' + cls, label); b.type = 'button';
+        b.onclick = function () {
+          row.querySelectorAll('button').forEach(function (k) { k.disabled = true; });
+          reportPost(Object.assign({ action: 'inbox', id: x.id }, body2)).then(function () { toast(msg); renderApprove(d.date || ''); })
+            .catch(function (e) { toast('못 했어요 — ' + String(e.message || e).slice(0, 40)); renderApprove(d.date || ''); });
+        };
+        row.appendChild(b);
+      };
+      if (x.kind === 'pay') btn('✔ 완료표시', '', { act: 'done' }, '잔금 받음으로 표시했어요 — 앱을 다시 열면 반영돼요');
+      else (x.cands || []).forEach(function (c) { btn(c.name + ' (' + Share.shortDate(c.date) + ')', '', { act: 'pick', siteId: c.id }, c.name + '에 넣었어요 — 앱을 다시 열면 들어가요'); });
+      btn(x.kind === 'pay' ? '아직 안 들어옴' : '다 아님', ' no', { act: 'skip' }, '넘겼어요');
+      bd.appendChild(row);
+      it.appendChild(bd);
+      body.appendChild(it);
+    });
   }
   function apItem(x, dec, d) {
     var cleared = dec && dec.act === 'done';
