@@ -66,6 +66,21 @@ function runWith(replies, execs, more) {
   t = await runWith([{ ok: true, say: '번호가 없어 못 보냈어요', actions: [] }]);
   assert.strictEqual(t.asked.length, 1);
 
+  // 말로 시킨 때는 문자 한 명이라도 확인 뒤에
+  t = await runWith([{ ok: true, actions: [{ tool: 'send_text', names: ['가'], text: '안녕' }] }, { ok: true, say: '보낼까요?', actions: [] }], null, { confirmSms: true });
+  assert.deepStrictEqual([t.ran.length, t.r.pending.length], [0, 1]);
+
+  // 말 끝 '시작해'
+  assert.deepStrictEqual(B.goWord('미래타운 세대비번 2222 시작해.'), { text: '미래타운 세대비번 2222', go: true });
+  assert.deepStrictEqual(B.goWord('응 시작해요'), { text: '응', go: true });
+  assert.deepStrictEqual(B.goWord('시작 해 주세요'), { text: '', go: true });
+  assert.strictEqual(B.goWord('시작해야 할 현장 어디야').go, false);
+  assert.strictEqual(B.goWord('작업 시작').go, false);
+  assert.strictEqual(B.goWord('개시작해').go, false);
+  // 문자 확인 말
+  assert.deepStrictEqual(['응', '네.', '보내줘', '아니요', '취소', '그래 그런데 내일 보내'].map(B.confirmWord), ['yes', 'yes', 'yes', 'no', 'no', '']);
+  assert.strictEqual(B.speakable('👍 바꿨어요 ⚠️ 하늘 · 푸른'), '바꿨어요 하늘 , 푸른');
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

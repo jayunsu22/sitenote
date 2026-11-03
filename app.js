@@ -3162,21 +3162,31 @@
       return { wait: true, text: '📨 ' + a.names.join(', ') + ' (' + a.names.length + '명)께 보낼 문자\n' + text };
     });
   }
-  function chatSend(text) {
+  function chatSend(text, voice) {
     var box = $('chatText'), value = String(text == null ? box.value : text).trim();
     if (!value || chatBusy) return;
     if (!ownerKeyOn()) { toast('이 기기는 사장님 열쇠가 없어 비서를 쓸 수 없어요'); return; }
-    chatBusy = true;
-    if (text == null) box.value = '';
+    chatMicStop();
+    chatVoice = !!voice;
+    chatSpeak('');
+    if (text == null) { box.value = ''; chatGrow(); }
     chatAdd({ role: 'me', text: value });
+    // 문자 확인을 기다리는 중에 '응'·'아니' 라고 하면 [보내]·[안 보냄] 을 누른 것과 같다
+    var waiting = chatList().slice(-2)[0];
+    if (waiting && waiting.role === 'ai' && (waiting.pending || []).length && BossChat.confirmWord(value)) {
+      chatDecide(waiting, BossChat.confirmWord(value) === 'yes');
+      return;
+    }
+    chatBusy = true;
     renderChat();
     var list = chatList();
     BossChat.run(BossChat.toHistory(list), {
-      ask: chatAsk, exec: chatExec, userText: BossChat.recentUserText(list),
+      ask: chatAsk, exec: chatExec, userText: BossChat.recentUserText(list), confirmSms: chatVoice,
       hasSite: function (id) { return !!Store.getSite(id); }
     }).then(function (r) {
       chatAdd({ role: 'ai', text: r.say, cards: chatPendingCards(r.pending).concat(chatCards(r.results)), chips: r.pending.length ? [] : r.chips, pending: r.pending });
-      if (r.failed && !r.results.length && !box.value) box.value = value;   // 못 보낸 말은 입력칸에 되돌려 다시 보내기 쉽게
+      chatSpeak(r.say);
+      if (r.failed && !r.results.length && !box.value) { box.value = value; chatGrow(); }   // 못 보낸 말은 입력칸에 되돌려 다시 보내기 쉽게
     }).catch(function (e) {
       chatAdd({ role: 'ai', text: '문제가 생겼어요: ' + String(e.message || e).slice(0, 80) });
     }).then(function () {
@@ -3187,14 +3197,16 @@
   // 4명 이상 문자 [보내] / [안 보냄] — AI 를 거치지 않고 앱이 바로
   function chatDecide(m, yes) {
     chatPatch(m.id, { pending: [] });
-    if (!yes) { chatAdd({ role: 'ai', text: '안 보냈어요.' }); renderChat(); return; }
+    if (!yes) { chatAdd({ role: 'ai', text: '안 보냈어요.' }); chatSpeak('안 보냈어요.'); renderChat(); return; }
     chatBusy = true;
     renderChat();
     m.pending.reduce(function (p, a) {
       return p.then(function (rs) { return chatExec(a).then(function (x) { return rs.concat([Object.assign({ tool: a.tool }, x)]); }); });
     }, Promise.resolve([])).then(function (rs) {
       var ok = rs.every(function (r) { return r.ok; });
-      chatAdd({ role: 'ai', text: ok ? '보냈어요.' : '일부를 못 보냈어요. 아래 결과를 봐 주세요.', cards: chatCards(rs) });
+      var said = ok ? '보냈어요.' : '일부를 못 보냈어요. 아래 결과를 봐 주세요.';
+      chatAdd({ role: 'ai', text: said, cards: chatCards(rs) });
+      chatSpeak(said);
     }).catch(function (e) {
       chatAdd({ role: 'ai', text: '보내다 문제가 생겼어요: ' + String(e.message || e).slice(0, 80) });
     }).then(function () { chatBusy = false; if (!$('viewOrder').hidden) renderChat(); });
@@ -3368,30 +3380,76 @@
     });
   }
   $('btnChatSend').onclick = function () { chatSend(); };
-  /* 🎤 말로 하기 (11/4 사장님: 차 안에서) — 크롬 음성인식(한국어). 들은 글을 입력칸에 넣고, 보내기는 사장님이 누른다 (잘못 들은 말로 문자가 나가지 않게) */
-  var chatRec = null;
-  function chatMic() {
-    if (chatRec) { chatRec.stop(); return; }
+  /* 🎤 말로 하기 (11/4 사장님: 차 안에서) — 크롬 음성인식(한국어). 말 끝에 '시작해' 라고 하면 바로 보낸다.
+     잠깐 쉬어도 다시 듣고(두 번 연속 아무 말 없으면 멈춤), 말로 시킨 일의 답은 소리로 읽어 준다.
+     말로 시키면 잘못 들었을 수 있어 문자는 한 명이라도 먼저 묻는다 — '응' 이라고 답하면 나간다 */
+  var chatRec = null, chatMicWant = false, chatVoice = false;
+  function chatGrow() {
+    var box = $('chatText');
+    box.style.height = 'auto';
+    box.style.height = Math.min(box.scrollHeight + 2, Math.round(window.innerHeight * 0.4)) + 'px';
+  }
+  function chatSpeak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var t = BossChat.speakable(text);
+    if (!t || !chatVoice) return;
+    var u = new SpeechSynthesisUtterance(t);
+    u.lang = 'ko-KR';
+    window.speechSynthesis.speak(u);
+  }
+  function chatMicStop() {
+    chatMicWant = false;
+    if (chatRec) chatRec.abort();
+  }
+  function chatListen(quiet) {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { toast('이 브라우저는 음성인식이 안 돼요 — 크롬에서 열어 주세요'); return; }
-    var box = $('chatText'), btn = $('btnChatMic'), base = box.value.trim(), rec = new SR();
+    var box = $('chatText'), btn = $('btnChatMic'), base = box.value.trim(), rec = new SR(), heard = false, go = false;
     rec.lang = 'ko-KR';
     rec.interimResults = true;
     rec.onresult = function (e) {
-      var said = '';
-      for (var i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
+      var said = '', final = false;
+      for (var i = 0; i < e.results.length; i++) { said += e.results[i][0].transcript; if (e.results[i].isFinal) final = true; }
+      heard = true;
       box.value = (base ? base + ' ' : '') + said.trim();
+      chatGrow();
+      if (final && BossChat.goWord(box.value).go) { go = true; chatMicWant = false; rec.stop(); }
     };
     rec.onerror = function (e) {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 › 권한)');
-      else if (e.error === 'no-speech') toast('못 들었어요 — 다시 눌러 말씀해 주세요');
-      else if (e.error !== 'aborted') toast('음성인식이 안 됐어요 (' + e.error + ')');
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { chatMicWant = false; toast('마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 › 권한)'); }
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') { chatMicWant = false; toast('음성인식이 안 됐어요 (' + e.error + ')'); }
     };
-    rec.onend = function () { chatRec = null; btn.classList.remove('on'); btn.textContent = '🎤'; };
+    rec.onend = function () {
+      chatRec = null;
+      if (go) {
+        var g = BossChat.goWord(box.value);
+        box.value = g.text;
+        chatGrow();
+        chatMicOff();
+        if (g.text) chatSend(null, true); else toast('무엇을 시작할까요? 먼저 말씀해 주세요');
+        return;
+      }
+      var left = heard ? 2 : quiet - 1;
+      if (chatMicWant && left > 0) { chatListen(left); return; }   // 잠깐 쉰 것 — 다시 듣는다
+      var stopped = chatMicWant;
+      chatMicWant = false;
+      chatMicOff();
+      if (stopped) toast(box.value.trim() ? '보내려면 "시작해" 라고 하거나 📨 를 눌러 주세요' : '못 들었어요 — 다시 눌러 말씀해 주세요');
+    };
     chatRec = rec;
     btn.classList.add('on'); btn.textContent = '⏹';
-    try { rec.start(); } catch (e) { rec.onend(); toast('음성인식을 시작하지 못했어요'); }
+    try { rec.start(); } catch (e) { chatRec = null; chatMicWant = false; chatMicOff(); toast('음성인식을 시작하지 못했어요'); }
   }
+  function chatMicOff() { var btn = $('btnChatMic'); btn.classList.remove('on'); btn.textContent = '🎤'; }
+  function chatMic() {
+    if (chatRec) { chatMicWant = false; chatRec.stop(); return; }
+    if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) { toast('이 브라우저는 음성인식이 안 돼요 — 크롬에서 열어 주세요'); return; }
+    chatVoice = false;
+    chatSpeak('');
+    chatMicWant = true;
+    chatListen(2);
+  }
+  $('chatText').addEventListener('input', chatGrow);
   $('btnChatMic').hidden = !(window.SpeechRecognition || window.webkitSpeechRecognition);
   $('btnChatMic').onclick = chatMic;
   $('btnOrderBack').onclick = function () { go(''); };

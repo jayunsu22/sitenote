@@ -94,8 +94,26 @@
     return '비서가 할 줄 모르는 일이에요';
   }
   // 받는 사람이 많은 문자는 사장님 확인 뒤에
-  function needsConfirm(a) {
-    return (a.tool === 'send_text' || a.tool === 'send_site_info') && names(a.names).length > CONFIRM_OVER;
+  // 말로 시킨 때(all)는 잘못 들었을 수 있어 문자는 한 명이라도 확인 뒤에 (11/4)
+  function needsConfirm(a, all) {
+    return (a.tool === 'send_text' || a.tool === 'send_site_info') && (all || names(a.names).length > CONFIRM_OVER);
+  }
+  // 말 끝이 '시작해' 면 보내라는 뜻 (사장님 11/4) → { text: 그 말을 뺀 글, go }
+  var GO_WORD = /(^|\s)시작\s*해(\s*(요|줘|주세요))?[\s.!?,]*$/;
+  function goWord(text) {
+    var t = str(text);
+    return GO_WORD.test(t) ? { text: str(t.replace(GO_WORD, '')), go: true } : { text: t, go: false };
+  }
+  // 문자 확인을 기다릴 때 사장님 말 → 'yes' | 'no' | '' (다른 말)
+  function confirmWord(text) {
+    var t = str(text).replace(/[\s.!?,~]/g, '');
+    if (/^(아니|아니요|아니야|아뇨|안돼|안보내|보내지마|취소|취소해|하지마)/.test(t)) return 'no';
+    if (/^(응|어|네|예|그래|ㅇㅇ|좋아|보내|보내줘|보내요|보내주세요)$/.test(t)) return 'yes';
+    return '';
+  }
+  // 소리로 읽을 글 — 이모지·꾸밈은 뺀다
+  function speakable(text) {
+    return str(str(text).replace(/\p{Extended_Pictographic}|️|‍/gu, '').replace(/[·•]/g, ', ').replace(/[ \t]+/g, ' '));
   }
   var CLAIM = /(보냈|바꿨|넣었|저장했|되돌렸|처리했|받음으로)/;
   /* 한 번 말한 것 처리. deps: ask(history) → Promise { ok, say, actions, chips }, exec(action) → Promise { ok, why?, ... }, hasSite(id), userText.
@@ -131,7 +149,7 @@
           return p.then(function (rs) {
             var why = check(a, deps);
             if (why) return rs.concat([{ tool: a.tool, ok: false, why: why }]);
-            if (needsConfirm(a)) {
+            if (needsConfirm(a, deps.confirmSms)) {
               pending.push(a);
               return rs.concat([{ tool: a.tool, ok: false, waiting: true, why: '아직 안 보냄 — 사장님이 [보내] 를 눌러야 나간다' }]);
             }
@@ -166,5 +184,5 @@
   function recentUserText(msgs) {
     return (msgs || []).filter(function (m) { return m.role === 'me'; }).slice(-6).map(function (m) { return m.text; }).join(' ');
   }
-  return { buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
+  return { buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
 });
