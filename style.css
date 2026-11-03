@@ -1415,6 +1415,7 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 
 /* 🗑 지운 현장 (2026-10-28) */
 .trash-toggle { opacity: .8; }
+.blank-toggle { border-color: #ea580c; color: #b4430a; }   /* 🧹 빈 현장 지우기 (2026-11-03) */
 .tr-box { display: flex; flex-direction: column; gap: 8px; }
 .tr-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
 .tr-row b { display: block; font-size: 14px; }

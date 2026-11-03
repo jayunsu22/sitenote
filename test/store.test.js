@@ -1068,6 +1068,43 @@ function reset() {
     assert.strictEqual(Store.getClient(c.id).tabColor, -1, '범위 밖은 기본으로');
   });
 
+  console.log('빈 현장 (2026-11-03)');
+  await test('막 만든 현장은 빈 현장, 무엇이든 적으면 빈 현장이 아니다', () => {
+    reset();
+    const c = Store.addClient('A');
+    const s = Store.addSite(c.id);
+    assert.strictEqual(Store.isBlankSite(Store.getSite(s.id)), true);
+    const cases = [
+      { name: '풍림 203동' }, { memo: '메모' }, { date: '2026-11-10' }, { quoteCode: 'ABC' }, { adminId: 'rec1' },
+      { films: [{ place: '거실', code: 'LG123' }] }, { owners: [{ name: '김', role: '', phone: '' }] },
+      { carReg: { v: '필요', memo: '' } }, { services: [{ id: 'v1', kind: 'as', request: '들뜸' }] },
+      { days: [{ date: '', staff: ['홍길동'] }] }, { startTime: '오전 9시' }
+    ];
+    cases.forEach((patch) => {
+      const t = Store.addSite(c.id);
+      Store.updateSite(t.id, patch);
+      assert.strictEqual(Store.isBlankSite(Store.getSite(t.id)), false, JSON.stringify(patch));
+    });
+    assert.deepStrictEqual(Store.blankSitesOf(c.id).map((x) => x.id), [s.id]);
+  });
+  await test('기본값 칸(시작시간·차단기·부자재)과 숨김·색은 빈 현장으로 친다, 다시 load 해도 같다', () => {
+    reset();
+    const c = Store.addClient('A');
+    const s = Store.addSite(c.id);
+    Store.updateSite(s.id, { hide: true, color: 3 });
+    Store.load();
+    assert.strictEqual(Store.isBlankSite(Store.getSite(s.id)), true);
+  });
+  await test('deleteSite noTrash 는 지운 현장 목록에 안 남긴다', () => {
+    reset();
+    const c = Store.addClient('A');
+    const a = Store.addSite(c.id), b = Store.addSite(c.id);
+    Store.deleteSite(a.id, { noTrash: true });
+    Store.deleteSite(b.id);
+    assert.deepStrictEqual(Store.trashList().map((x) => x.site.id), [b.id]);
+    assert.strictEqual(Store.getSite(a.id), null);
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

@@ -685,11 +685,45 @@
     if (!site) return;
     state.trash = cleanTrash([{ site: JSON.parse(JSON.stringify(site)), at: Date.now() }].concat((state.trash || []).filter(function (t) { return t.site.id !== site.id; })));
   }
-  function deleteSite(id) {
-    toTrash(getSite(id));
+  // opt.noTrash: 빈 현장 저절로 정리 — 지운 현장 목록을 빈 현장으로 채우지 않는다
+  function deleteSite(id, opt) {
+    if (!(opt && opt.noTrash)) toTrash(getSite(id));
     state.sites = state.sites.filter(function (s) { return s.id !== id; });
     commit({ op: 'delete', type: 'site', id: id });
   }
+  /* 빈 현장 (2026-11-03): ＋ 현장 을 눌렀다가 아무것도 안 적고 나오면 이름 없는 현장이 남는다.
+     아무 칸도 안 채웠고 일정·필름·AS·견적·현장업무·할 일 어디에도 안 쓰인 현장만 '빈 현장' 이다.
+     기본값으로 들어가는 칸(작업 시작시간·입구차단기·부자재 목록·색)은 채운 걸로 치지 않는다 */
+  function isBlankSite(s) {
+    if (!s) return false;
+    var t = function (v) { return String(v == null ? '' : v).trim(); };
+    var filled = Share.FIELDS.some(function (f) {
+      var v = s[f.key];
+      if (f.type === 'select') return !!(v && ((t(v.v) && t(v.v) !== '미확인') || t(v.memo)));
+      if (f.type === 'films') return Array.isArray(v) && v.some(function (r) { return r && (t(r.place) || t(r.code)); });
+      if (f.type === 'contacts') return Array.isArray(v) && v.some(function (r) { return r && (t(r.name) || t(r.phone) || t(r.role)); });
+      if (f.key === 'startTime' && t(v) === Share.DEFAULT_START_TIME) return false;
+      if (f.key === 'barrier' && t(v) === Share.DEFAULT_BARRIER) return false;
+      return !!t(v);
+    });
+    if (filled) return false;
+    if ((s.days || []).some(function (d) { return d && (t(d.date) || (d.staff || []).length); })) return false;
+    if ((s.services || []).length || t(s.quoteCode) || t(s.adminId)) return false;
+    if ((s.supplies || []).some(function (r) { return r && r.ready; })) return false;
+    if (Number(s.needStaff) > 0) return false;
+    var r = s.review || {};
+    if ((r.tags || []).length || Object.keys(r.answers || {}).some(function (k) { return t(r.answers[k]); })) return false;
+    var si = s.silicone || {};
+    if (si.who || (si.colors || []).length) return false;
+    if ((s.settleManual || []).length || Object.keys(s.settleLog || {}).length || Object.keys(s.extraDone || {}).length) return false;
+    if (Object.keys(s.checks || {}).some(function (k) { return !!s.checks[k]; })) return false;
+    var used = (state.tasks || []).some(function (k) { return k && k.link && (k.link.id === s.id || k.link.siteId === s.id); });
+    return !used;
+  }
+  function blankSitesOf(clientId) {
+    return state.sites.filter(function (s) { return s.clientId === clientId && isBlankSite(s); });
+  }
+
   function trashList() { return (state.trash || []).slice(); }
   // 되살리기: 거래처가 없어졌으면 '되살린 현장' 거래처로. 숨김도 풀어서 바로 목록에 보이게
   function restoreSite(id, fromServer) {
@@ -1014,7 +1048,7 @@
     clients: clients, getClient: getClient, addClient: addClient, updateClient: updateClient,
     renameClient: renameClient, reorderClients: reorderClients, deleteClient: deleteClient,
     trashList: trashList, restoreSite: restoreSite, missingFromServer: missingFromServer,
-    getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite,
+    getSite: getSite, sitesOf: sitesOf, addSite: addSite, updateSite: updateSite, deleteSite: deleteSite, isBlankSite: isBlankSite, blankSitesOf: blankSitesOf,
     setReviewAnswer: setReviewAnswer, toggleReviewTag: toggleReviewTag,
     renameReviewQuestion: renameReviewQuestion, moveReviewQuestion: moveReviewQuestion,
     addStaff: addStaff, removeStaff: removeStaff, setDays: setDays, addDay: addDay, removeDay: removeDay, setDayDate: setDayDate,

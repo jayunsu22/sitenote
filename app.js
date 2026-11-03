@@ -81,10 +81,22 @@
   }
 
   // ---------- 라우팅 ----------
+  /* 빈 현장 저절로 정리 (2026-11-03): ＋ 현장 으로 막 만든 현장을 아무것도 안 적고 나오면 지운다.
+     이번에 만든 현장만 본다 (예전부터 있던 빈 현장은 목록 아래 [🧹 빈 현장 지우기] 로) */
+  var freshSites = {};
+  function markFreshSite(id) { freshSites[id] = true; }
+  function dropIfBlank(id) {
+    if (!freshSites[id]) return;
+    delete freshSites[id];
+    var s = Store.getSite(id);
+    if (s && Store.isBlankSite(s)) { Store.deleteSite(id, { noTrash: true }); toast('아무것도 안 적은 새 현장은 지웠습니다'); }
+  }
+
   function route() {
     var h = location.hash || '';
     // #site/현장id 또는 #site/현장id/탭 (2026-11-01: 텔레그램 필름 주문 알림이 #site/…/film 으로 필름 탭을 바로 연다)
     var m = /^#site\/([^/]+)(?:\/(\w+))?$/.exec(h);
+    if (currentSiteId && (!m || m[1] !== currentSiteId)) dropIfBlank(currentSiteId);
     if (m && Store.getSite(m[1])) {
       currentSiteId = m[1];
       if (m[2] && SITE_TABS.some(function (t) { return t.key === m[2]; })) { siteTab = m[2]; siteTabFor = m[1]; }
@@ -533,6 +545,22 @@
       tg.onclick = function () { showHidden = !showHidden; renderCards(); };
       if (showHidden) wrap.insertBefore(tg, wrap.children[sites.length] || null); else wrap.appendChild(tg);
     }
+    // 🧹 빈 현장 한 번에 지우기 (2026-11-03) — 이름도 내용도 없는 현장. 지운 현장에서 되살릴 수 있다
+    var blanks = Store.blankSitesOf(currentClientId);
+    if (blanks.length) {
+      var bk = document.createElement('button'); bk.type = 'button'; bk.className = 'hidden-toggle blank-toggle';
+      bk.textContent = '🧹 아무것도 안 적은 빈 현장 ' + blanks.length + '곳 지우기';
+      bk.onclick = function () {
+        var now = Store.blankSitesOf(currentClientId);
+        if (!now.length) { renderCards(); return; }
+        modalConfirm('빈 현장 지우기', '이름도 내용도 없는 현장 ' + now.length + '곳을 지웁니다. 일정·필름·AS·견적이 하나라도 있는 현장은 지우지 않습니다. 잘못 지웠으면 🗑 지운 현장에서 되살릴 수 있습니다.', '지우기', true).then(function (ok) {
+          if (!ok) return;
+          now.forEach(function (x) { Store.deleteSite(x.id); });
+          renderCards(); toast('빈 현장 ' + now.length + '곳을 지웠습니다');
+        });
+      };
+      wrap.appendChild(bk);
+    }
     var tr = document.createElement('button'); tr.type = 'button'; tr.className = 'hidden-toggle trash-toggle';
     var tn = Store.trashList().length;
     tr.textContent = '🗑 지운 현장' + (tn ? ' ' + tn + '곳' : '') + ' · 되살리기';
@@ -581,6 +609,7 @@
   $('btnAddSite').onclick = function () {
     if (!currentClientId) return;
     var s = Store.addSite(currentClientId);
+    markFreshSite(s.id);
     go('#site/' + s.id);
   };
   $('btnSettings').onclick = function () { go('#settings'); };
@@ -1482,6 +1511,7 @@
   function closeNewSiteSheet() { $('newSiteSheet').hidden = true; }
   function createSiteOn(clientId, iso) {
     var s = Store.addSite(clientId);
+    markFreshSite(s.id);
     Store.updateSite(s.id, { date: iso });
     pickedDate = '';
     go('#site/' + s.id);
