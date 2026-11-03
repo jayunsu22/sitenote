@@ -3368,6 +3368,32 @@
     });
   }
   $('btnChatSend').onclick = function () { chatSend(); };
+  /* 🎤 말로 하기 (11/4 사장님: 차 안에서) — 크롬 음성인식(한국어). 들은 글을 입력칸에 넣고, 보내기는 사장님이 누른다 (잘못 들은 말로 문자가 나가지 않게) */
+  var chatRec = null;
+  function chatMic() {
+    if (chatRec) { chatRec.stop(); return; }
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast('이 브라우저는 음성인식이 안 돼요 — 크롬에서 열어 주세요'); return; }
+    var box = $('chatText'), btn = $('btnChatMic'), base = box.value.trim(), rec = new SR();
+    rec.lang = 'ko-KR';
+    rec.interimResults = true;
+    rec.onresult = function (e) {
+      var said = '';
+      for (var i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
+      box.value = (base ? base + ' ' : '') + said.trim();
+    };
+    rec.onerror = function (e) {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 › 권한)');
+      else if (e.error === 'no-speech') toast('못 들었어요 — 다시 눌러 말씀해 주세요');
+      else if (e.error !== 'aborted') toast('음성인식이 안 됐어요 (' + e.error + ')');
+    };
+    rec.onend = function () { chatRec = null; btn.classList.remove('on'); btn.textContent = '🎤'; };
+    chatRec = rec;
+    btn.classList.add('on'); btn.textContent = '⏹';
+    try { rec.start(); } catch (e) { rec.onend(); toast('음성인식을 시작하지 못했어요'); }
+  }
+  $('btnChatMic').hidden = !(window.SpeechRecognition || window.webkitSpeechRecognition);
+  $('btnChatMic').onclick = chatMic;
   $('btnOrderBack').onclick = function () { go(''); };
   (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
     icon: '📝', name: '업무지시', onClick: function () { go('#order'); }
