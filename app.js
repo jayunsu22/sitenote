@@ -3125,7 +3125,7 @@
     var t = el2('div', 'ap-tile od-sec');
     t.innerHTML = secretarySvg(key);
     t.appendChild(el2('span', 'od-badge', c.badge));
-    t.title = c.role + ' ' + c.name;
+    t.title = c.role;
     return t;
   }
   var ORDER_STATE = { done: ['✅', '처리됨', '#dcfce7'], undone: ['↩', '되돌림', '#f1f5f9'], pick: ['❓', '어느 현장?', '#e0e7ff'],
@@ -3146,7 +3146,7 @@
       it.appendChild(secretaryTile(sk));
       var bd = el2('div', 'ap-bd');
       var when = new Date(o.at);
-      bd.appendChild(el2('div', 'ap-kind', st[0] + ' ' + st[1] + ' · ' + SECRETARY[sk].role + ' ' + SECRETARY[sk].name + ' · ' + Share.shortDate(Share.todayIso(when)) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2)));
+      bd.appendChild(el2('div', 'ap-kind', st[0] + ' ' + st[1] + ' · ' + Share.shortDate(Share.todayIso(when)) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2)));
       if (o.state === 'same' || o.state === 'nodate') {
         var ts = el2('div', 'ap-name', o.siteName + ' · ' + o.f.label);
         if (Store.getSite(o.siteId)) { ts.classList.add('ap-link'); ts.onclick = function () { go('#site/' + o.siteId); }; }
