@@ -108,6 +108,11 @@ function runWith(replies, execs, more) {
   t = await runWith([{ ok: true, actions: [{ tool: 'send_kakao', client: '가', text: 'A' }] }, { ok: true, actions: [{ tool: 'send_kakao', client: '가', text: 'B' }] }, { ok: true, say: '보낼까요?', actions: [] }], null, { confirmSms: true });
   assert.strictEqual(t.r.pending.length, 1);
 
+  // 개인고객 이름으로 찾기·보기 (번호는 안 넘김)
+  const pc = B.buildContext({ today: '2026-11-04', sites: [{ id: 's1', name: '하늘', date: '2026-11-05', owners: [{ name: '이다라', phone: '010-0000-0002' }] }], settings: {} });
+  assert.deepStrictEqual(pc.sites[0].customer, ['이다라']);
+  assert.deepStrictEqual(B.findSites([{ id: 's1', name: '하늘', owners: [{ name: '이다라' }] }], [], '이다라').map((s) => s.id), ['s1']);
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

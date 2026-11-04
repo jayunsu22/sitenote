@@ -72,6 +72,7 @@
   function siteView(s, clients) {
     return {
       id: s.id, client: (clients && clients[s.clientId]) || '', name: [str(s.name), str(s.unit)].filter(Boolean).join(' '), date: str(s.date).slice(0, 10),
+      customer: names((Array.isArray(s.owners) ? s.owners : []).map(function (r) { return r && r.name; })),   // 개인고객 이름 (번호는 안 보냄)
       pwLobby: str(s.pwLobby), pwUnit: str(s.pwUnit), toilet: str(s.toilet), payDone: !!s.payDone,
       films: (Array.isArray(s.films) ? s.films : []).filter(function (x) { return x && str(x.code); }).map(function (x) { return (str(x.place) + ' ' + str(x.code)).trim(); }),
       days: (Array.isArray(s.days) ? s.days : []).map(function (d) { return { date: str(d && d.date), staff: names(d && d.staff) }; })
@@ -86,7 +87,7 @@
     if (!words.length) return [];
     return (sites || []).filter(function (s) {
       if (!s.id || s.hide) return false;
-      var hay = squash([map[s.clientId], s.name, s.unit].join(' '));
+      var hay = squash([map[s.clientId], s.name, s.unit].concat((Array.isArray(s.owners) ? s.owners : []).map(function (r) { return r && r.name; })).join(' '));
       return words.every(function (w) { return hay.indexOf(w) !== -1; });
     }).slice(0, 10).map(function (s) { return siteView(s, map); });
   }

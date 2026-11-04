@@ -1750,3 +1750,25 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .bx-hit { padding: 0; overflow: hidden; }
 .bx-hit .bx-row { border-top: 0; }
 .bx-site { display: block; width: 100%; padding: 8px 12px; border: 0; border-top: 1px solid var(--border); background: #f8fafc; text-align: left; font: inherit; font-size: 13.5px; color: var(--text); }
+
+/* 👤 개인고객 (2026-11-05) */
+.pc-bar { margin-bottom: 8px; }
+.pc-search { width: 100%; box-sizing: border-box; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; font-size: 15px; font-family: inherit; background: #fff; }
+.pc-chips { background: none; border: 0; padding: 8px 0 0; }
+.pc-who { margin-bottom: 2px; }
+.pc-src { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 7px; background: #fff; color: #7c3aed; font-size: 12px; font-weight: 800; vertical-align: middle; }
+.pc-where { font-size: 14px; font-weight: 700; margin-bottom: 5px; word-break: keep-all; }
+.pc-l { display: block; font-size: 12.5px; font-weight: 800; color: #475569; margin: 10px 0 3px; }
+.pc-in { width: 100%; box-sizing: border-box; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; font-size: 16px; font-family: inherit; background: #fff; }
+.pc-pick { display: flex; gap: 5px; }
+.pc-opt { flex: 1; padding: 8px 0; border: 2px solid #cbd5e1; border-radius: 10px; background: #fff; color: #475569; font-size: 14px; font-weight: 700; }
+.pc-opt.on { border-color: #7c3aed; color: #7c3aed; background: #f5f3ff; }
+.pc-hit { margin-top: 6px; padding: 8px 10px; border: 1.5px solid #c7d2fe; border-radius: 10px; background: #eef2ff; font-size: 13px; }
+.pc-hitrow { display: block; width: 100%; margin-top: 4px; padding: 0; border: 0; background: none; color: #312e81; font-size: 13px; text-align: left; }
+.pc-card { background: var(--card); padding: 12px 14px; margin-bottom: 8px; }
+.pc-ct { font-size: 15px; font-weight: 900; }
+.pc-links { display: flex; gap: 6px; margin-top: 8px; }
+.pc-link { flex: 1; padding: 9px 0; border-radius: 10px; background: #eef2ff; color: #312e81; font-size: 14px; font-weight: 800; text-align: center; text-decoration: none; }
+.pc-ask { margin-top: 12px; padding: 10px 11px; border: 1.5px dashed #fdba74; border-radius: 12px; background: #fff7ed; font-size: 14px; }
+.pc-askbtn { display: block; width: 100%; margin-top: 8px; padding: 10px 0; border: 0; border-radius: 10px; background: #fde68a; color: #78350f; font-size: 14px; font-weight: 800; }
+.pc-move { margin: 4px 0; }

@@ -249,7 +249,7 @@
     });
   }
   $('btnAddClient').onclick = function () {
-    modalPrompt('거래처 추가', '', '예: 피케이디자인').then(function (v) {
+    modalPrompt('거래처 추가', '', '예: 피케이디자인 (1회성 고객은 👤 개인고객 탭에)').then(function (v) {
       if (v == null || !v.trim()) return;
       var c = Store.addClient(v); selectClient(c.id);
     });
@@ -520,6 +520,187 @@
     if (!lines.length && s.memo && s.memo.trim()) lines.push(s.memo.trim().split('\n')[0]);
     return lines;
   }
+  /* ---------- 👤 개인고객 탭 (2026-11-05 사장님) ----------
+     블로그·소개로 오는 1회성 고객. 고객 이름이 먼저 보이고, 끝난 현장(시공 지남 + 잔금 받음)은 접어 둔다. 설계 songil docs/superpowers/specs/2026-11-05-개인고객-design.md */
+  var pvFilter = 'open', pvQuery = '';
+  function currentIsPrivate() { return Share.isPrivateClient(Store.getClient(currentClientId)); }
+  function pvOrder(a, b) { return (a.date || '9999') < (b.date || '9999') ? -1 : 1; }
+  function renderPrivateCards(wrap, all) {
+    var bar = el2('div', 'pc-bar');
+    var q = el2('input', 'pc-search');
+    q.type = 'search'; q.placeholder = '🔍 이름·전화번호·아파트로 찾기'; q.value = pvQuery; q.autocomplete = 'off';
+    bar.appendChild(q);
+    var chips = el2('div', 'wl-chips pc-chips');
+    bar.appendChild(chips);
+    var list = el2('div', 'pc-list');
+    wrap.appendChild(bar);
+    wrap.appendChild(list);
+    var paint = function () {
+      var today = Share.todayIso();
+      var visible = all.filter(function (s) { return !s.hide; });
+      var open = visible.filter(function (s) { return !Share.privateDone(s, today); }).sort(pvOrder);
+      var done = visible.filter(function (s) { return Share.privateDone(s, today); }).sort(function (a, b) { return pvOrder(b, a); });
+      chips.innerHTML = '';
+      [['open', '진행 ' + open.length], ['done', '끝남 ' + done.length], ['블로그', '블로그'], ['소개', '소개']].forEach(function (c) {
+        var b = el2('button', 'wl-chip' + (pvFilter === c[0] ? ' on' : ''), c[1]); b.type = 'button';
+        b.onclick = function () { pvFilter = c[0]; paint(); };
+        chips.appendChild(b);
+      });
+      list.innerHTML = '';
+      var rows = pvQuery.trim() ? visible.filter(function (s) { return Share.privateMatch(s, pvQuery); }).sort(pvOrder)
+        : pvFilter === 'open' ? open : pvFilter === 'done' ? done : visible.filter(function (s) { return s.source === pvFilter; }).sort(pvOrder);
+      if (!rows.length) list.appendChild(el2('p', 'sec-empty', pvQuery.trim() ? '찾는 고객이 없어요.' : pvFilter === 'open' ? '진행 중인 고객이 없어요. 아래 [＋ 고객] 으로 넣어 주세요.' : '해당하는 고객이 없어요.'));
+      rows.forEach(function (s) {
+        var c = Share.privateCustomer(s), card = el2('div', 'card color-' + (s.color || 0));
+        var t = el2('h3', 'card-title pc-who', c.name ? c.name + ' 고객님' : Share.titleLine(s));
+        if (s.source) t.appendChild(el2('span', 'pc-src', s.source + (s.sourceBy ? ' · ' + s.sourceBy : '')));
+        card.appendChild(t);
+        if (c.name) card.appendChild(el2('div', 'pc-where', Share.titleLine(s)));
+        cardSummary(s).forEach(function (l) { card.appendChild(el2('div', 'card-line', l)); });
+        if (c.phone) card.appendChild(el2('div', 'card-line', '📞 ' + c.phone));
+        card.onclick = function () { go('#site/' + s.id); };
+        list.appendChild(card);
+      });
+      if (pvFilter === 'open' && !pvQuery.trim() && done.length) {
+        var fold = el2('button', 'hidden-toggle', '▶ 끝난 현장 ' + done.length + '곳'); fold.type = 'button';
+        fold.onclick = function () { pvFilter = 'done'; paint(); };
+        list.appendChild(fold);
+      }
+    };
+    q.addEventListener('input', function () { pvQuery = q.value; paint(); });
+    paint();
+  }
+  // ＋ 고객: 이름·연락처·경로·현장만. 전에 시공한 번호면 알려 준다
+  function openNewCustomer() {
+    var src = '';
+    openModal('＋ 새 고객',
+      '<label class="pc-l">고객 이름</label><input id="pvName" class="pc-in" autocomplete="off">' +
+      '<label class="pc-l">연락처</label><input id="pvPhone" class="pc-in" type="tel" inputmode="tel" autocomplete="off"><div id="pvHit"></div>' +
+      '<label class="pc-l">어디서 왔나요?</label><div class="pc-pick" id="pvSrc"></div>' +
+      '<label class="pc-l">누구 소개인가요? (선택)</label><input id="pvBy" class="pc-in" autocomplete="off">' +
+      '<label class="pc-l">현장 (아파트·동호수)</label><input id="pvSite" class="pc-in" autocomplete="off">',
+      [{ label: '닫기', onClick: closeModal }, { label: '이 고객 현장 만들기', cls: 'primary', onClick: function () {
+        var name = $('pvName').value.trim(), phone = $('pvPhone').value.trim(), place = $('pvSite').value.trim();
+        if (!name && !place) { toast('고객 이름이나 현장을 적어 주세요'); return; }
+        var s = Store.addSite(currentClientId);
+        Store.updateSite(s.id, { name: place || name, owners: (name || phone) ? [{ name: name, role: '고객', phone: phone }] : [], source: src, sourceBy: $('pvBy').value.trim() });
+        closeModal();
+        pvFilter = 'open'; pvQuery = '';
+        go('#site/' + s.id);
+      } }]);
+    var pick = $('pvSrc');
+    Share.PRIVATE_SOURCES.forEach(function (v) {
+      var b = el2('button', 'pc-opt', v); b.type = 'button';
+      b.onclick = function () { src = src === v ? '' : v; pick.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x.textContent === src); }); };
+      pick.appendChild(b);
+    });
+    $('pvPhone').addEventListener('input', function () {
+      var hit = Share.sitesByPhone(state.sites, this.value, ''), box = $('pvHit');
+      box.innerHTML = '';
+      if (!hit.length) return;
+      var d = el2('div', 'pc-hit');
+      d.appendChild(el2('b', '', '🔁 전에 시공한 고객이에요'));
+      hit.slice(0, 3).forEach(function (s) {
+        var a = el2('button', 'pc-hitrow', Share.titleLine(s) + (s.date ? ' · ' + Share.shortDate(s.date) : '') + ' →'); a.type = 'button';
+        a.onclick = function () { closeModal(); go('#site/' + s.id); };
+        d.appendChild(a);
+      });
+      box.appendChild(d);
+    });
+  }
+  // 현장 화면 위 고객 칸 — 이름·연락처·경로, 전화·문자, 시공 1주 전 못 받은 정보를 문자로
+  function renderCustomerCard(box, siteId) {
+    var s = Store.getSite(siteId);
+    box.className = 'sec pc-card';
+    box.innerHTML = '';
+    var rows = (s.owners || []).map(function (r) { return Object.assign({}, r); });
+    if (!rows.length) rows = [{ name: '', role: '고객', phone: '' }];
+    var line = function (key, label, type) {
+      box.appendChild(el2('label', 'pc-l', label));
+      var i = el2('input', 'pc-in'); i.type = type || 'text'; i.value = rows[0][key] || ''; i.autocomplete = 'off';
+      if (type === 'tel') i.inputMode = 'tel';
+      i.addEventListener('input', function () { rows[0][key] = i.value; Store.updateSite(siteId, { owners: rows.map(function (r) { return Object.assign({}, r); }) }); paintLinks(); });
+      box.appendChild(i);
+    };
+    box.appendChild(el2('div', 'pc-ct', '👤 고객'));
+    line('name', '이름');
+    line('phone', '연락처', 'tel');
+    var links = el2('div', 'pc-links');
+    box.appendChild(links);
+    var paintLinks = function () {
+      links.innerHTML = '';
+      var d = Share.phoneDigits(rows[0].phone);
+      if (d.length < 9) return;
+      [['📞 전화', 'tel:'], ['💬 문자', 'sms:']].forEach(function (x) {
+        var a = el2('a', 'pc-link', x[0]); a.href = x[1] + d;
+        links.appendChild(a);
+      });
+    };
+    paintLinks();
+    box.appendChild(el2('label', 'pc-l', '어디서 왔나요?'));
+    var pick = el2('div', 'pc-pick');
+    Share.PRIVATE_SOURCES.forEach(function (v) {
+      var b = el2('button', 'pc-opt' + (s.source === v ? ' on' : ''), v); b.type = 'button';
+      b.onclick = function () {
+        var cur = (Store.getSite(siteId) || {}).source === v ? '' : v;
+        Store.updateSite(siteId, { source: cur });
+        pick.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x.textContent === cur); });
+      };
+      pick.appendChild(b);
+    });
+    box.appendChild(pick);
+    box.appendChild(el2('label', 'pc-l', '누구 소개인가요? (선택)'));
+    var by = el2('input', 'pc-in'); by.value = s.sourceBy || ''; by.autocomplete = 'off';
+    by.addEventListener('input', function () { Store.updateSite(siteId, { sourceBy: by.value }); });
+    box.appendChild(by);
+    // 시공 1주 전, 못 받은 정보 — 업체방이 없으니 문자로
+    var today = Share.todayIso();
+    if (s.date && s.date >= today && s.date <= Share.addDays(today, 7)) {
+      var keys = ['pwLobby', 'pwUnit', 'parking', 'toilet'].filter(function (k) { return Share.isEmpty(s, k); });
+      if (keys.length) {
+        var ask = el2('div', 'pc-ask');
+        ask.appendChild(el2('b', '', '❓ 시공 전 못 받은 정보'));
+        ask.appendChild(el2('div', 'kk-v', keys.map(function (k) { return Kakao.FIELD_LABEL[k]; }).join(' · ')));
+        var q = el2('button', 'pc-askbtn', '📨 문자로 물어보기'); q.type = 'button';
+        q.onclick = function () { openCustomerAsk(siteId, keys); };
+        ask.appendChild(q);
+        box.appendChild(ask);
+      }
+    }
+  }
+  function openCustomerAsk(siteId, keys) {
+    var s = Store.getSite(siteId), c = Share.privateCustomer(s), phone = Share.phoneDigits(c.phone);
+    if (phone.length < 9) { toast('고객 연락처를 먼저 적어 주세요'); return; }
+    var text = '안녕하세요 섬세한손길입니다 🙂\n' + (Share.buildQuestion(s, keys, state.settings.questions) || '');
+    openModal('📨 ' + (c.name || '고객') + '님께 문자', '<p class="hint">사장님 폰으로 보냅니다. 답은 앱에 저절로 안 들어가요 — 답이 오면 칸에 적거나 🤖 비서에게 말해 주세요.</p><textarea id="pvAsk" rows="8" class="pc-in" data-no-stamp></textarea>', [
+      { label: '닫기', onClick: closeModal },
+      { label: '📨 보내기', cls: 'primary', onClick: function () {
+        var v = $('pvAsk').value.trim(), key = '';
+        if (!v) return;
+        try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+        closeModal();
+        toast('보내는 중…');
+        fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+          body: JSON.stringify({ siteId: s.id, name: Share.titleLine(s), text: v, sendTo: { label: c.name || '고객', phone: phone } }) })
+          .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok || !d.ok) throw new Error(d.error || 'HTTP ' + res.status); }); })
+          .then(function () { toast('✅ 문자를 보냈어요'); workLog([{ src: 'me', kind: 'sms', title: (c.name || '고객') + '님께 정보 묻는 문자', detail: Share.titleLine(s), siteId: s.id }]); })
+          .catch(function (e) { toast('❌ 못 보냈어요 — 폰의 SMS Gateway 를 확인해 주세요 (' + String(e.message || e).slice(0, 60) + ')'); });
+      } }]);
+    $('pvAsk').value = text;
+  }
+  // 🔀 다른 거래처로 옮기기 — 거래처로 등록했던 개인고객을 개인고객 탭으로 (반대도)
+  function moveSiteToClient(siteId) {
+    var s = Store.getSite(siteId);
+    var items = Store.clients().filter(function (c) { return c.id !== s.clientId; }).map(function (c) { return { label: (Share.isPrivateClient(c) ? '👤 ' : '') + c.name, value: c.id }; });
+    if (!items.length) { toast('옮길 다른 거래처가 없어요'); return; }
+    modalSheet('🔀 어느 거래처로 옮길까요?', items).then(function (id) {
+      if (!id) return;
+      Store.updateSite(siteId, { clientId: id });
+      currentClientId = id;
+      toast('옮겼어요 — ' + Store.getClient(id).name);
+      renderSite();
+    });
+  }
   function renderCards() {
     var wrap = $('cards'); wrap.innerHTML = '';
     var empty = $('emptyState');
@@ -528,7 +709,10 @@
       $('btnAddSite').hidden = true; return;
     }
     $('btnAddSite').hidden = false;
+    var isPrivate = currentIsPrivate();
+    $('btnAddSite').textContent = isPrivate ? '＋ 고객' : '＋ 현장';
     var all = Store.sitesOf(currentClientId);
+    if (isPrivate) { empty.hidden = true; renderPrivateCards(wrap, all); cardsFooter(wrap, all.filter(function (s) { return s.hide; })); return; }
     var sites = all.filter(function (s) { return !s.hide; });
     var hid = all.filter(function (s) { return s.hide; });
     empty.hidden = sites.length > 0;
@@ -547,6 +731,16 @@
       tg.textContent = (showHidden ? '▲ 숨긴 현장 접기' : '🙈 숨긴 현장 ' + hid.length + '곳 보기');
       tg.onclick = function () { showHidden = !showHidden; renderCards(); };
       if (showHidden) wrap.insertBefore(tg, wrap.children[sites.length] || null); else wrap.appendChild(tg);
+    }
+    cardsFooter(wrap);
+  }
+  function cardsFooter(wrap, hid) {
+    if (hid && hid.length) {
+      var tg = document.createElement('button'); tg.type = 'button'; tg.className = 'hidden-toggle';
+      tg.textContent = showHidden ? '▲ 숨긴 현장 접기' : '🙈 숨긴 현장 ' + hid.length + '곳 보기';
+      tg.onclick = function () { showHidden = !showHidden; renderCards(); };
+      wrap.appendChild(tg);
+      if (showHidden) hid.forEach(function (s) { var c = el2('div', 'card is-hidden color-' + (s.color || 0), Share.titleLine(s)); c.onclick = function () { go('#site/' + s.id); }; wrap.appendChild(c); });
     }
     // 🧹 빈 현장 한 번에 지우기 (2026-11-03) — 이름도 내용도 없는 현장. 지운 현장에서 되살릴 수 있다
     var blanks = Store.blankSitesOf(currentClientId);
@@ -611,13 +805,20 @@
   var showHidden = false;
   $('btnAddSite').onclick = function () {
     if (!currentClientId) return;
+    if (currentIsPrivate()) { openNewCustomer(); return; }
     var s = Store.addSite(currentClientId);
     markFreshSite(s.id);
     go('#site/' + s.id);
   };
   $('btnSettings').onclick = function () { go('#settings'); };
 
+  function ensurePrivateTab() {
+    if (state.settings.privateTabMade || !Store.clients().length) return;
+    if (!Store.clients().some(Share.isPrivateClient)) Store.addClient(Share.PRIVATE_NAME);
+    Store.setSettings({ privateTabMade: true });
+  }
   function renderMain() {
+    ensurePrivateTab();
     ensureCurrentClient();
     renderTabs(); renderFixed(); renderKakao($('kakaoWrap'), currentClientId); TaskUI.renderClientNotes($('notesWrap'), currentClientId); QuoteRequests.render($('qreqWrap'), currentClientId); renderCards(); renderSyncBadge();
   }
@@ -1546,6 +1747,10 @@
     if (siteTabFor !== s.id) { siteTab = 'info'; siteTabFor = s.id; }
     var head = document.createElement('div'); head.className = 'site-head'; head.id = 'siteHead';
     wrap.appendChild(head);
+    if (Share.isPrivateClient(Store.getClient(s.clientId))) {   // 👤 개인고객: 고객 칸을 맨 위에
+      var cust = document.createElement('div'); wrap.appendChild(cust);
+      renderCustomerCard(cust, s.id);
+    }
     var bar = document.createElement('div'); bar.className = 'site-tabs'; bar.id = 'siteTabs';
     SITE_TABS.forEach(function (t) {
       var b = document.createElement('button'); b.type = 'button';
@@ -1568,6 +1773,7 @@
       var pane = TAB_OF_FIELD[f.key] || 'info';
       if (f.key === 'films') sec('film', 'stageSec', renderStageSection);   // 필름 단계 띠는 필름 줄 바로 위
       if (f.key === 'memo') sec('review', 'settleSec', renderSettleSection);   // 정산 내역은 메모 바로 위 (2026-10-26)
+      if (f.key === 'owners') sec('info', '', function (box) { var mv = el2('button', 'hidden-toggle pc-move', '🔀 다른 거래처로 옮기기'); mv.type = 'button'; mv.onclick = function () { moveSiteToClient(s.id); }; box.appendChild(mv); });
       panes[pane].appendChild(fieldRow(s, f));
       if (f.key === 'date') {                                                // 시공날짜 바로 아래 날짜별 인원
         sec('staff', 'daysSec', renderDaysSection);
@@ -6578,6 +6784,7 @@
       });
   }
   function renderKakao(wrap, clientId) {
+    if (Share.isPrivateClient(Store.getClient(clientId))) { wrap.innerHTML = ''; return; }
     if (!wrap) return;
     var c = Store.getClient(clientId);
     wrap.innerHTML = ''; wrap.hidden = !c;

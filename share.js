@@ -1758,6 +1758,41 @@
      act: 'film' = 필름 발주(진행해 → 담당자 골라 9시 문자), 'crew' = 인원 모집(9시 시작), '' = 확인만.
      설계 songil docs/superpowers/specs/2026-11-03-결재함-design.md */
   var REPORT_ASK_DAYS = 7, REPORT_PAY_DAYS = 14;
+  // 입금 기록이 하나라도 있나 (정산 내역)
+  function sitePaidAny(s) {
+    return Object.keys(s.settleLog || {}).some(function (k) { return str((s.settleLog[k] || {}).입금일); }) ||
+      splitSettleManual(s.settleManual).some(function (m) { return m.종류 === '입금'; });
+  }
+  /* 👤 개인고객 (2026-11-04 사장님: 블로그·소개로 오는 1회성 고객) — 고객마다 거래처를 만들지 않고 '개인고객' 탭 하나에 현장으로 넣는다.
+     고객 이름·연락처는 발주처 담당자 첫 줄(owners[0]), 경로는 site.source('블로그'|'소개'|'기타')·sourceBy. 설계 songil docs/superpowers/specs/2026-11-05-개인고객-design.md */
+  var PRIVATE_NAME = '개인고객', PRIVATE_SOURCES = ['블로그', '소개', '기타'];
+  function isPrivateClient(c) { return !!c && str(c.name).replace(/\s+/g, '') === PRIVATE_NAME; }
+  function privateCustomer(s) { return ownerRows(s && s.owners)[0] || { name: '', phone: '' }; }
+  // 끝남 = 시공이 지났고 잔금까지 받음. 잔금을 안 받았으면 계속 진행 목록에 둔다
+  function privateDone(s, today) {
+    var ds = daysOf(s).map(function (d) { return str(d.date); }).filter(isIsoDate).sort();
+    var end = ds[ds.length - 1] || (isIsoDate(str(s.date)) ? str(s.date) : '');
+    return !!end && end < today && (!!str(s.payDone) || sitePaidAny(s));
+  }
+  // 이름·전화번호·아파트로 찾기 — 낱말이 모두 들어 있으면
+  function privateMatch(s, query) {
+    var squash = function (v) { return str(v).replace(/\s+/g, '').toLowerCase(); };
+    var owners = ownerRows(s.owners);
+    var hay = squash(titleLine(s) + ' ' + owners.map(function (r) { return r.name; }).join(' '));
+    var nums = owners.map(function (r) { return phoneDigits(r.phone); }).join(' ');
+    return str(query).split(/\s+/).filter(Boolean).every(function (w) {
+      var d = phoneDigits(w).replace(/\+/g, '');
+      return hay.indexOf(squash(w)) !== -1 || (d.length >= 3 && nums.indexOf(d) !== -1);
+    });
+  }
+  // 이 번호로 전에 한 현장 (최근 것부터) — '전에 시공한 고객이에요'
+  function sitesByPhone(sites, phone, exceptId) {
+    var d = phoneDigits(phone);
+    if (d.length < 9) return [];
+    return (sites || []).filter(function (s) {
+      return s.id !== exceptId && ownerRows(s.owners).some(function (r) { return phoneDigits(r.phone) === d; });
+    }).sort(function (a, b) { return str(a.date) < str(b.date) ? 1 : -1; });
+  }
   function dailyReport(sites, settings, tasks, today) {
     settings = settings || {};
     var tomorrow = addDays(today, 1), done = [], next = [];
@@ -1792,9 +1827,7 @@
       var ds = daysOf(s).map(function (d) { return str(d.date); }).filter(isIsoDate).sort();
       var end = ds[ds.length - 1];
       if (end && !str(s.payDone) && dayDiff(end, tomorrow) >= 1 && dayDiff(end, tomorrow) <= REPORT_PAY_DAYS) {
-        var any = Object.keys(s.settleLog || {}).some(function (k) { return str((s.settleLog[k] || {}).입금일); }) ||
-          splitSettleManual(s.settleManual).some(function (m) { return m.종류 === '입금'; });
-        if (!any) next.push({ id: 'pay:' + s.id, kind: 'pay', title: name + ' 잔금 받기', res: '시공 끝 ' + shortDate(end) + ' · 입금 기록 없음', siteId: s.id, act: '' });
+        if (!sitePaidAny(s)) next.push({ id: 'pay:' + s.id, kind: 'pay', title: name + ' 잔금 받기', res: '시공 끝 ' + shortDate(end) + ' · 입금 기록 없음', siteId: s.id, act: '' });
       }
     });
     // 내일 — 앱 자동 할 일과 같은 기준 (필름 발주·인원 모집·실리콘·자재·차 보충·대기 인원 배정)
@@ -2451,6 +2484,7 @@
     manwon: manwon, parseManwon: parseManwon, wonText: wonText,
     heldOpen: heldOpen,
     ownerRows: ownerRows,
+    isPrivateClient: isPrivateClient, privateCustomer: privateCustomer, privateDone: privateDone, privateMatch: privateMatch, sitesByPhone: sitesByPhone, PRIVATE_NAME: PRIVATE_NAME, PRIVATE_SOURCES: PRIVATE_SOURCES,
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     dayPlanOf: dayPlanOf,
