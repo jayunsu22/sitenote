@@ -11,6 +11,7 @@
 
   // ---------- 공용 UI ----------
   var toastTimer = null;
+  window.toast = function (m) { toast(m); };   // 🎤 음성 입력(voice.js)이 알림에 쓴다
   function toast(msg) {
     var t = $('toast');
     t.textContent = msg; t.classList.add('show');
