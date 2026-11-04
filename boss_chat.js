@@ -12,7 +12,35 @@
   var digits = function (v) { return str(v).replace(/[^0-9]/g, ''); };
   var names = function (v) { return (Array.isArray(v) ? v : []).map(str).filter(Boolean).filter(function (n, i, a) { return a.indexOf(n) === i; }); };
 
-  // AI 에게 줄 지금 앱 상태 — 고객 번호는 넣지 않는다. 팀원은 번호 대신 있고 없고만
+  /* 📇 업체 연락처 (11/4 사장님: '지인인테리어 사장님한테 문자 보내' 가 '팀원만 된다' 고 막혔던 것).
+     거래처 담당자(client.contacts)와 현장 발주처 담당자(site.owners, 앞뒤 기간 현장) → [{ name: '지인인테리어 김사장', phone }].
+     name 은 AI 가 send_text names 에 그대로 쓰는 이름표. AI 에게는 번호 대신 있고 없고만 준다 */
+  function contactBook(o) {
+    var out = [], seen = {};
+    var add = function (label, phone, extra) {
+      label = str(label).replace(/\s+/g, ' ');
+      if (!label || seen[label]) return;
+      seen[label] = true;
+      out.push(Object.assign({ name: label, phone: digits(phone) }, extra || {}));
+    };
+    (o.clients || []).forEach(function (c) {
+      (c.contacts || []).forEach(function (ct) {
+        if (!ct || (!str(ct.name) && !digits(ct.phone))) return;
+        add(str(c.name) + ' ' + (str(ct.name) || '담당자'), ct.phone, { client: str(c.name), kind: '업체' });
+      });
+    });
+    var clients = {};
+    (o.clients || []).forEach(function (c) { clients[c.id] = c.name; });
+    (o.sites || []).forEach(function (s) {
+      if (!s || !s.id || s.hide) return;
+      (Array.isArray(s.owners) ? s.owners : []).forEach(function (w) {
+        if (!w || (!str(w.name) && !digits(w.phone))) return;
+        add(str(s.name) + ' ' + (str(w.name) || str(w.role) || '발주처'), w.phone, { client: str(clients[s.clientId]), kind: '발주처' + (str(w.role) ? '·' + str(w.role) : ''), siteId: s.id });
+      });
+    });
+    return out;
+  }
+  // AI 에게 줄 지금 앱 상태 — 고객 번호는 넣지 않는다. 팀원·업체 연락처는 번호 대신 있고 없고만
   function buildContext(o) {
     var today = o.today, clients = {};
     (o.clients || []).forEach(function (c) { clients[c.id] = c.name; });
@@ -29,6 +57,11 @@
     });
     return {
       today: today, sites: sites, team: team,
+      // 업체 연락처: 거래처 담당자 전부 + 위 현장들의 발주처 담당자 (번호 대신 있고 없고만)
+      contacts: contactBook({ clients: o.clients, sites: (o.sites || []).filter(function (s) { return sites.some(function (v) { return v.id === s.id; }); }) })
+        .slice(0, 120).map(function (c) { return { name: c.name, client: c.client, kind: c.kind, phone: !!c.phone }; }),
+      // 연락처를 하나도 안 적은 거래처 — '번호가 없다' 고 말하게
+      noContact: (o.clients || []).filter(function (c) { return !(c.contacts || []).some(function (ct) { return ct && digits(ct.phone); }); }).map(function (c) { return str(c.name); }).filter(Boolean).slice(0, 80),
       todo: (o.todo || []).slice(0, 40).map(function (t) { return { kind: t.kind, title: t.title, res: t.res || '', siteId: t.siteId || '' }; }),
       tasks: (o.tasks || []).filter(function (t) { return !t.done; }).slice(0, 30).map(function (t) { return { title: t.title, date: t.date || '' }; }),
       undo: (o.undo || []).slice(0, 10)
@@ -208,5 +241,5 @@
   function recentUserText(msgs) {
     return (msgs || []).filter(function (m) { return m.role === 'me'; }).slice(-6).map(function (m) { return m.text; }).join(' ');
   }
-  return { buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
+  return { contactBook: contactBook, buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
 });

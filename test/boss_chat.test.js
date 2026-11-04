@@ -117,5 +117,18 @@ function runWith(replies, execs, more) {
   const h = B.toHistory([{ role: 'me', text: '바꿔' }, { role: 'ai', text: '했어요', cards: [{ ok: true, text: '세대 비번', undoId: 'u1' }] }]);
   assert.strictEqual(h[1].role, 'assistant');
   assert.ok(h[1].text.includes('undoId u1'));
-  console.log('boss_chat ok');
+  // 📇 업체 연락처 (11/4): 거래처 담당자 + 현장 발주처 담당자 → 이름표, AI 에게는 번호 대신 있고 없고만
+(function () {
+  var o = { today: '2026-11-04', settings: { team: ['윤인재'], people: {} },
+    clients: [{ id: 'c1', name: '지인인테리어', contacts: [{ name: '김사장', phone: '010-1234-5678' }, { name: '', phone: '' }] }, { id: 'c2', name: '빈업체', contacts: [] }],
+    sites: [{ id: 's1', clientId: 'c1', name: '벨루가 1층', date: '2026-11-07', owners: [{ name: '', role: '현장소장', phone: '01099998888' }] }] };
+  var book = B.contactBook(o);
+  assert.deepStrictEqual(book.map(function (c) { return [c.name, c.phone]; }), [['지인인테리어 김사장', '01012345678'], ['벨루가 1층 현장소장', '01099998888']]);
+  var ctx = B.buildContext(o);
+  assert.deepStrictEqual(ctx.contacts[0], { name: '지인인테리어 김사장', client: '지인인테리어', kind: '업체', phone: true });
+  assert.ok(JSON.stringify(ctx).indexOf('1234') === -1, '번호는 AI 에게 안 감');
+  assert.deepStrictEqual(ctx.noContact, ['빈업체']);
+  assert.strictEqual(B.check({ tool: 'send_text', names: ['지인인테리어 김사장'], text: '토요일 현장 필름 번호 알려주세요' }, { hasSite: function () { return false; } }), '');
+})();
+console.log('boss_chat ok');
 })().catch((e) => { console.error(e); process.exit(1); });

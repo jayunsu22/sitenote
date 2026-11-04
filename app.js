@@ -2978,6 +2978,13 @@
     return cut === -1 ? text + '\n📍 주소: ' + addr : text.slice(0, cut) + '\n📍 주소: ' + addr + text.slice(cut);
   }
   function workerPhone(name) { var p = (state.settings.people || {})[name]; return Share.phoneDigits((p && p.phone) || ''); }
+  // 받는 사람 번호: 팀원 연락처 → 없으면 업체 연락처(거래처 담당자·현장 발주처 담당자, '지인인테리어 김사장') (11/4)
+  function anyPhone(name) {
+    var p = workerPhone(name);
+    if (p) return p;
+    var hit = BossChat.contactBook({ clients: state.clients, sites: state.sites }).filter(function (c) { return c.name === String(name || '').replace(/\s+/g, ' ').trim(); })[0];
+    return hit ? Share.phoneDigits(hit.phone) : '';
+  }
   function sendWorkerInfo(siteId, names) {
     var s = Store.getSite(siteId);
     if (!s) return Promise.resolve([]);
@@ -2988,8 +2995,8 @@
     var key = '';
     try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
     return Promise.all(names.map(function (n) {
-      var phone = workerPhone(n);
-      if (!phone) return { name: n, ok: false, why: '번호 없음 (설정 › 팀원 연락처)' };
+      var phone = anyPhone(n);
+      if (!phone) return { name: n, ok: false, why: '번호 없음 (설정 › 팀원 연락처 또는 거래처 연락처)' };
       return fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
         body: JSON.stringify({ siteId: siteId, name: title, text: text, sendTo: { label: n, phone: phone } }) })
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
@@ -3097,6 +3104,8 @@
       logs: [{ kind: f.kind === 'staff' ? 'crew' : 'site', title: line, detail: name, siteId: siteId }] };
   }
   // 문자 (사장님 폰). 사람마다 결과 카드 하나
+  // '사장님' 처럼 이미 님이 붙은 이름에 또 붙이지 않는다 ('사장님님께', 11/4)
+  function nim(n) { n = String(n || ''); return /님$/.test(n) ? n : n + '님'; }
   function chatSms(siteId, names, text, what) {
     var s = siteId ? Store.getSite(siteId) : null;
     return smsTo(s ? s.id : '-', s ? Share.titleLine(s) : '비서 문자', text, names).then(function (rs) {
@@ -3104,11 +3113,11 @@
         ok: rs.every(function (r) { return r.ok; }),
         partial: rs.some(function (r) { return r.ok; }),   // 일부만 나감 — 안 나간 걸로 말하면 안 된다
         people: rs.map(function (r) { return { name: r.name, ok: r.ok, why: r.why || '' }; }),
-        cards: rs.map(function (r) { return r.ok ? { ok: true, text: '📨 ' + r.name + '님께 ' + what + ' 보냄' } : { ok: false, text: '⚠️ ' + r.name + ': ' + r.why }; }),
+        cards: rs.map(function (r) { return r.ok ? { ok: true, text: '📨 ' + nim(r.name) + '께 ' + what + ' 보냄' } : { ok: false, text: '⚠️ ' + r.name + ': ' + r.why }; }),
         logs: rs.map(function (r) {
           var where = s ? Share.titleLine(s) : '';
-          return r.ok ? { kind: 'sms', title: r.name + '님께 ' + what, detail: where, siteId: s ? s.id : '' }
-            : { kind: 'sms', title: r.name + '님 문자 못 보냄', detail: r.why, siteId: s ? s.id : '', state: 'need' };
+          return r.ok ? { kind: 'sms', title: nim(r.name) + '께 ' + what, detail: where, siteId: s ? s.id : '' }
+            : { kind: 'sms', title: nim(r.name) + ' 문자 못 보냄', detail: r.why, siteId: s ? s.id : '', state: 'need' };
         })
       };
     });
