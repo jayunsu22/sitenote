@@ -117,6 +117,10 @@ function runWith(replies, execs, more) {
   assert.strictEqual(B.buildContext({ today: '2026-11-04', sites: [{ id: 's1', date: '2026-11-05', kakaoRoom: '이다라 고객님' }], settings: {} }).sites[0].kakaoRoom, '이다라 고객님');
   assert.deepStrictEqual(B.findSites([{ id: 's1', name: '하늘', owners: [{ name: '이다라' }] }], [], '이다라').map((s) => s.id), ['s1']);
 
+  // 날짜 미정: 개인고객은 보고, 거래처 현장은 안 봄
+  const nd = B.buildContext({ today: '2026-11-04', clients: [{ id: 'p', name: '개인고객' }, { id: 'c', name: '가나' }], sites: [{ id: 'a', clientId: 'p', name: '시험' }, { id: 'b', clientId: 'c', name: '거래처' }], settings: {} });
+  assert.deepStrictEqual(nd.sites.map((s) => s.id), ['a']);
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

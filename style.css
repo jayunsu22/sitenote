@@ -1778,3 +1778,10 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .pc-kline.ok { background: #f0fdf4; border: 1px solid #bbf7d0; }
 .pc-kline.wait { background: #eef2ff; border: 1px solid #c7d2fe; }
 .pc-kline.bad { background: #fff7ed; border: 1px solid #fed7aa; }
+
+/* 🤖 비서: 버전·글 복사 (2026-11-05) */
+.ch-ver { font-size: 12px; font-weight: 700; color: #94a3b8; margin-left: 4px; }
+.ch-copyable { position: relative; }
+.ch-copy { display: none; margin-top: 6px; padding: 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; font-size: 12px; font-weight: 800; }
+.ch-copyable.ch-copy-on > .ch-copy { display: block; }
+@media (hover: hover) { .ch-copyable:hover > .ch-copy { display: block; } }

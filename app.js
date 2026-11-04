@@ -111,7 +111,7 @@
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
-    if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); chatAutoOn(); return; }   // 📝 업무지시 보드 (2026-11-04)
+    if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); chatAutoOff(); chatMicOff(); return; }   // 📝 업무지시 보드 (2026-11-04)
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
@@ -3603,12 +3603,13 @@
     }).then(function () {
       chatBusy = false;
       if (!$('viewOrder').hidden) renderChat();
+      if (chatAuto) chatAutoListen(500);   // 읽는 중이면 다 읽은 뒤에 (chatAutoOk)
     });
   }
   // 4명 이상 문자 [보내] / [안 보냄] — AI 를 거치지 않고 앱이 바로
   function chatDecide(m, yes) {
     chatPatch(m.id, { pending: [] });
-    if (!yes) { chatAdd({ role: 'ai', text: '안 보냈어요.' }); chatSpeak('안 보냈어요.'); renderChat(); return; }
+    if (!yes) { chatAdd({ role: 'ai', text: '안 보냈어요.' }); chatSpeak('안 보냈어요.'); renderChat(); if (chatAuto) chatAutoListen(500); return; }
     chatBusy = true;
     renderChat();
     m.pending.reduce(function (p, a) {
@@ -3622,7 +3623,7 @@
       workLog(BossChat.logItems(rs));
     }).catch(function (e) {
       chatAdd({ role: 'ai', text: '보내다 문제가 생겼어요: ' + String(e.message || e).slice(0, 80) });
-    }).then(function () { chatBusy = false; if (!$('viewOrder').hidden) renderChat(); });
+    }).then(function () { chatBusy = false; if (!$('viewOrder').hidden) renderChat(); if (chatAuto) chatAutoListen(500); });
   }
   function renderChat() {
     var old = orderList(), hist = $('chatOld');
@@ -3633,8 +3634,9 @@
     var list = chatList();
     if (!list.length) body.appendChild(chatBubble('무엇을 도와드릴까요? 편하게 말씀해 주세요.\n예: 류춘화 현장 작업자 전체에게 주소 문자 보내줘 / 이번주 잔금 안 받은 현장 어디야?'));
     list.forEach(function (m, i) {
-      if (m.role === 'me') { var me = el2('div', 'ch-me'); me.appendChild(el2('span', '', m.text)); body.appendChild(me); body.appendChild(el2('div', 'ch-time me', chatTime(m.at))); return; }
+      if (m.role === 'me') { var me = el2('div', 'ch-me'); var mine = el2('span', '', m.text); chatCopyBtn(mine, m.text); me.appendChild(mine); body.appendChild(me); body.appendChild(el2('div', 'ch-time me', chatTime(m.at))); return; }
       var row = chatBubble(m.text), bub = row.querySelector('.ch-bub');
+      chatCopyBtn(bub, [m.text].concat((m.cards || []).map(function (c) { return c.text; })).filter(Boolean).join('\n'));
       (m.cards || []).forEach(function (c) {
         var card = el2('div', 'ch-card' + (c.wait || c.sending ? ' wait' : c.ok ? '' : ' bad') + (c.undone ? ' undone' : ''), c.text);
         bub.appendChild(card);
@@ -3770,6 +3772,19 @@
   }
   $('tabChat').onclick = function () { wlTab(false); };
   $('tabLog').onclick = function () { wlTab(true); };
+  // 📋 글 복사 (11/5): PC 는 마우스를 올리면, 폰은 글을 누르면 복사 버튼이 나온다
+  function chatCopyBtn(el, text) {
+    el.classList.add('ch-copyable');
+    var b = el2('button', 'ch-copy', '📋 복사'); b.type = 'button';
+    b.onclick = function (e) { e.stopPropagation(); copyText(text, '복사했어요'); el.classList.remove('ch-copy-on'); };
+    el.appendChild(b);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('button')) return;
+      var was = el.classList.contains('ch-copy-on');
+      document.querySelectorAll('.ch-copy-on').forEach(function (x) { x.classList.remove('ch-copy-on'); });
+      if (!was) el.classList.add('ch-copy-on');
+    });
+  }
   function chatBubble(text) {
     var row = el2('div', 'ch-ai');
     row.appendChild(el2('div', 'ch-av', '🤖'));
@@ -3892,13 +3907,18 @@
     });
   }
   $('btnChatSend').onclick = function () { chatSend(); };
+  // 비서 옆 버전 (11/5) — 앱을 다시 받았는지 눈으로 확인
+  (function () {
+    var sc = document.querySelector('script[src*="app.js"]'), m = sc && /[?&]v=\d{4}(\w+)/.exec(sc.getAttribute('src'));
+    if (m) $('chatVer').textContent = 'v' + m[1];
+  })();
   /* 🎤 말로 하기 (11/4 사장님: 차 안에서) — 크롬 음성인식(한국어). 말 끝에 '시작해' 라고 하면 바로 보낸다.
      잠깐 쉬어도 다시 듣고(두 번 연속 아무 말 없으면 멈춤), 말로 시킨 일의 답은 소리로 읽어 준다.
      말로 시키면 잘못 들었을 수 있어 문자는 한 명이라도 먼저 묻는다 — '응' 이라고 답하면 나간다 */
   var chatRec = null, chatMicWant = false, chatVoice = false;
-  /* 🎤 열면 바로 듣기 (11/4 사장님: 운전 중 손 안 대고) — 비서 화면을 열면 마이크가 저절로 켜지고,
-     말로 시킨 일에 비서가 소리로 답한 뒤에도 다시 저절로 듣는다. ⏹ 를 누르면 이번엔 그만 (다시 🎤 누르면 다시 켜짐).
-     업무 내역 탭·다른 화면·앱을 내리면 끈다. 말한 뒤 '시작해' 라고 해야 보낸다 (그대로). */
+  /* 🎤 한 번 누르면 끌 때까지 계속 듣기 (11/5 사장님: 열 때는 꺼진 채로) — 말이 없어도, 시킨 일을 하고 답을 읽은 뒤에도 다시 듣는다.
+     ⏹ 를 누르면 그만. 읽는 동안·일하는 동안은 안 듣는다 (자기 목소리를 듣지 않게). 업무 내역 탭·앱을 내리면 잠시 쉰다.
+     말한 뒤 '시작해' 라고 해야 보낸다 (그대로). */
   var chatAuto = false, chatAutoT = 0;
   function chatAutoOk() {
     return chatAuto && !chatRec && !chatBusy && !$('viewOrder').hidden && !$('chatPane').hidden && !document.hidden && ownerKeyOn() &&
@@ -3912,7 +3932,6 @@
       chatListen(2);
     }, delay || 0);
   }
-  function chatAutoOn() { chatAuto = true; chatAutoListen(700); }
   function chatAutoOff() { chatAuto = false; clearTimeout(chatAutoT); if (chatRec) chatMicStop(); }
   function chatGrow() {
     var box = $('chatText');
@@ -3924,11 +3943,11 @@
     window.speechSynthesis.cancel();
     var t = BossChat.speakable(text);
     if (!chatVoice) return;   // 글로 시킨 일은 읽지도, 다시 듣지도 않는다
-    if (!t) { if (chatAuto) chatAutoListen(500); return; }
+    if (!t) return;
     var u = new SpeechSynthesisUtterance(t);
     u.lang = 'ko-KR';
     // 다 읽은 뒤 다시 듣는다 (자기 목소리를 듣지 않게 읽는 동안은 안 들음)
-    u.onend = function () { if (chatAuto) chatAutoListen(400); };
+    u.onend = u.onerror = function () { if (chatAuto) chatAutoListen(400); };
     window.speechSynthesis.speak(u);
   }
   function chatMicStop() {
@@ -3949,8 +3968,8 @@
       if (final && BossChat.goWord(box.value).go) { go = true; chatMicWant = false; rec.stop(); }
     };
     rec.onerror = function (e) {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { chatMicWant = false; toast('마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 › 권한)'); }
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') { chatMicWant = false; toast('음성인식이 안 됐어요 (' + e.error + ')'); }
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { chatMicWant = false; chatAuto = false; toast('마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 › 권한)'); }
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') { chatMicWant = false; chatAuto = false; toast('음성인식이 안 됐어요 (' + e.error + ')'); }
     };
     rec.onend = function () {
       chatRec = null;
@@ -3962,6 +3981,7 @@
         if (g.text) chatSend(null, true); else toast('무엇을 시작할까요? 먼저 말씀해 주세요');
         return;
       }
+      if (chatMicWant && chatAuto) { chatMicWant = false; chatAutoListen(300); return; }   // 🎤 켜 둔 동안은 말이 없어도 계속
       var left = heard ? 2 : quiet - 1;
       if (chatMicWant && left > 0) { chatListen(left); return; }   // 잠깐 쉰 것 — 다시 듣는다
       var stopped = chatMicWant;
@@ -3973,9 +3993,14 @@
     btn.classList.add('on'); btn.textContent = '⏹';
     try { rec.start(); } catch (e) { chatRec = null; chatMicWant = false; chatMicOff(); toast('음성인식을 시작하지 못했어요'); }
   }
-  function chatMicOff() { var btn = $('btnChatMic'); btn.classList.remove('on'); btn.textContent = '🎤'; }
+  function chatMicOff() { if (chatAuto) return; var btn = $('btnChatMic'); btn.classList.remove('on'); btn.textContent = '🎤'; }   // 켜 둔 동안은 쉬는 사이에도 ⏹
   function chatMic() {
-    if (chatRec) { chatMicWant = false; chatAuto = false; chatRec.stop(); return; }   // ⏹ = 이번엔 그만 듣기
+    if (chatRec || chatAuto) {   // ⏹ = 그만 듣기
+      chatMicWant = false; chatAuto = false; clearTimeout(chatAutoT);
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (chatRec) chatRec.stop(); else chatMicOff();
+      return;
+    }
     chatAuto = true;
     if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) { toast('이 브라우저는 음성인식이 안 돼요 — 크롬에서 열어 주세요'); return; }
     chatVoice = false;

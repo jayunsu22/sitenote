@@ -47,8 +47,13 @@
     var gap = function (d) { return Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5); };
     var sites = (o.sites || []).filter(function (s) {
       var d = str(s.date).slice(0, 10);
-      return s.id && !s.hide && d && gap(d) >= -45 && gap(d) <= 60;
-    }).sort(function (a, b) { return Math.abs(gap(str(a.date).slice(0, 10))) - Math.abs(gap(str(b.date).slice(0, 10))); }).slice(0, 60).map(function (s) {
+      if (!s.id || s.hide) return false;
+      if (!d) return str(clients[s.clientId]).replace(/\s+/g, '') === '개인고객';   // 날짜 미정 개인고객도 본다 (11/5)
+      return gap(d) >= -45 && gap(d) <= 60;
+    }).sort(function (a, b) {
+      var far = function (s) { var d = str(s.date).slice(0, 10); return d ? Math.abs(gap(d)) : 0; };
+      return far(a) - far(b);
+    }).slice(0, 60).map(function (s) {
       return siteView(s, clients);
     });
     var people = (o.settings && o.settings.people) || {};
