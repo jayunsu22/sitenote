@@ -3787,7 +3787,8 @@
   }
   function chatBubble(text) {
     var row = el2('div', 'ch-ai');
-    row.appendChild(el2('div', 'ch-av', '🤖'));
+    var av = el2('div', 'ch-av'), face = el2('img'); face.src = 'assistant_face.jpg'; face.alt = ''; av.appendChild(face);   // 1분 간편견적의 AI 견적비서 (11/5)
+    row.appendChild(av);
     row.appendChild(el2('div', 'ch-bub', text));
     return row;
   }

@@ -1780,6 +1780,8 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .pc-kline.bad { background: #fff7ed; border: 1px solid #fed7aa; }
 
 /* 🤖 비서: 버전·글 복사 (2026-11-05) */
+.ch-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.ch-title-av { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; vertical-align: -6px; }
 .ch-ver { font-size: 12px; font-weight: 700; color: #94a3b8; margin-left: 4px; }
 .ch-copyable { position: relative; }
 .ch-copy { display: none; margin-top: 6px; padding: 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; font-size: 12px; font-weight: 800; }
