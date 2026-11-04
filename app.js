@@ -3108,6 +3108,59 @@
   /* 📨 문자가 폰에서 실제로 나갔나 (11/4): 앱 → n8n → SMS Gateway 서버 → 사장님 폰 → 문자. 서버가 받은 것(Pending)과
      폰이 보낸 것(Sent·Delivered)이 다르다. 카드는 진짜 상태로: 보내는 중 → 보냄/도착 · 2분 넘게 폰이 못 받으면 알려 준다.
      상태는 n8n 문자_상태(sms-status) 로 10초마다, 30분까지 본다 */
+  /* 💬 카톡 보내기 (11/4 사장님: 문자는 가는데 왜 카톡은 안 돼) — 카톡은 노트북(카톡 읽기)만 보낼 수 있다.
+     앱 → n8n 카톡_보내기(kakao-send) 에 맡김 → 노트북이 30초~1분 안에 가져가 그 방에 보냄 → 결과를 n8n 에 → 앱 카드가 바뀜 */
+  var KAKAO_SEND_URL = 'https://primary-production-a6fa.up.railway.app/webhook/kakao-send';
+  function kakaoPost(body) {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    return fetch(KAKAO_SEND_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key }, body: JSON.stringify(body) })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok || !d.ok) throw new Error(d.error || 'HTTP ' + res.status); return d; }); });
+  }
+  function kakaoCard(x) {
+    var where = (x.room || x.client) + ' 방', c = { ok: x.state !== 'failed', kakao: x, sending: false };
+    var min = Math.floor((Date.now() - x.at) / 60000);
+    if (x.state === 'sent') c.text = '💬 ' + where + '에 카톡 보냄' + (x.doneAt ? ' (' + chatTime(x.doneAt) + ')' : '');
+    else if (x.state === 'failed') c.text = '⚠️ ' + where + ' 카톡 못 보냄 — ' + (x.why || '이유 모름') + ' (텔레그램에 글을 보냈어요)';
+    else if (x.stale || (x.state === 'wait' && min >= 3)) { c.text = '⏳ ' + where + ' 카톡 — 노트북이 아직 안 가져갔어요 (' + min + '분째). 노트북 카톡 읽기 프로그램이 켜져 있는지 봐 주세요'; c.sending = true; }
+    else { c.text = '💬 ' + where + '에 카톡 보내는 중… (노트북이 보내면 바뀌어요)'; c.sending = true; }
+    return c;
+  }
+  function chatKakao(a) {
+    var id = 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var text = String(a.text).trim().slice(0, 1500), client = String(a.client || '').trim(), room = String(a.room || '').trim();
+    return kakaoPost({ action: 'add', id: id, client: client, room: room, text: text }).then(function () {
+      return { ok: true, state: 'wait', cards: [kakaoCard({ id: id, client: client, room: room, at: Date.now(), state: 'wait' })],
+        logs: [{ kind: 'reply', title: (room || client) + ' 방 카톡 맡김', detail: text }] };
+    }).catch(function (e) { return { ok: false, why: '카톡을 못 맡겼어요 (' + String(e.message || e).slice(0, 60) + ')' }; });
+  }
+  var kakaoWatchT = 0, kakaoWatchBusy = false;
+  function kakaoWatch() {
+    clearTimeout(kakaoWatchT);
+    var ids = [];
+    chatList().forEach(function (m) { (m.cards || []).forEach(function (c) { if (c.kakao && (c.kakao.state === 'wait' || c.kakao.state === 'taken') && Date.now() - c.kakao.at < 60 * 60000) ids.push(c.kakao.id); }); });
+    if (!ids.length || kakaoWatchBusy) return;
+    kakaoWatchBusy = true;
+    kakaoPost({ action: 'status', ids: ids.slice(0, 30) }).then(function (d) {
+      var st = {};
+      (d.items || []).forEach(function (x) { st[x.id] = x; });
+      var cur = chatList();
+      cur.forEach(function (m) {
+        m.cards = (m.cards || []).map(function (c) {
+          if (!c.kakao) return c;
+          var x = st[c.kakao.id], k = Object.assign({}, c.kakao);
+          if (x && x.state && x.state !== 'unknown') {
+            if (x.state !== k.state && (x.state === 'sent' || x.state === 'failed')) k.doneAt = Date.now();
+            k.state = x.state; k.why = x.why || ''; k.stale = !!x.stale;
+            if (x.room) k.room = x.room;
+          }
+          return Object.assign({}, c, kakaoCard(k));
+        });
+      });
+      chatSave(cur);
+      if (!$('viewOrder').hidden) renderChat();
+    }).catch(function () { /* 다음에 */ }).then(function () { kakaoWatchBusy = false; kakaoWatchT = setTimeout(kakaoWatch, 10000); });
+  }
   var SMS_STATUS_URL = 'https://primary-production-a6fa.up.railway.app/webhook/sms-status';
   var SMS_DONE = { Sent: 1, Delivered: 1, Failed: 1 };
   function smsCard(x) {
@@ -3183,6 +3236,7 @@
     if (a.tool === 'set_staff') return Promise.resolve(chatApply({ kind: 'staff', names: a.names, mode: a.mode, date: /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : '', label: '작업자' }, a.siteId, '👷'));
     if (a.tool === 'send_site_info') return chatSms(a.siteId, a.names, workerInfoText(Store.getSite(a.siteId)), '현장 정보 문자');
     if (a.tool === 'send_text') return chatSms(a.siteId, a.names, String(a.text).trim().slice(0, 1500), '문자');
+    if (a.tool === 'send_kakao') return chatKakao(a);
     if (a.tool === 'save_phone') {
       var old = ((state.settings.people || {})[a.name] || {}).phone || '';
       Store.setSettings({ people: Share.mergePerson(state.settings.people, a.name, { phone: a.phone }) });
@@ -3230,6 +3284,7 @@
   }
   function chatPendingCards(pending) {
     return pending.map(function (a) {
+      if (a.tool === 'send_kakao') return { wait: true, text: '💬 ' + (a.room || a.client) + ' 방에 보낼 카톡\n' + a.text };
       var text = a.tool === 'send_text' ? a.text : workerInfoText(Store.getSite(a.siteId));
       return { wait: true, text: '📨 ' + a.names.join(', ') + ' (' + a.names.length + '명)께 보낼 문자\n' + text };
     });
@@ -3277,7 +3332,8 @@
       return p.then(function (rs) { return chatExec(a).then(function (x) { return rs.concat([Object.assign({ tool: a.tool }, x)]); }); });
     }, Promise.resolve([])).then(function (rs) {
       var ok = rs.every(function (r) { return r.ok; });
-      var said = ok ? '보냈어요.' : '일부를 못 보냈어요. 아래 결과를 봐 주세요.';
+      var kk = m.pending.some(function (a) { return a.tool === 'send_kakao'; });
+      var said = !ok ? '일부를 못 보냈어요. 아래 결과를 봐 주세요.' : kk ? '노트북에 카톡 보내기를 맡겼어요. 보내지면 카드가 바뀌어요.' : '보냈어요.';
       chatAdd({ role: 'ai', text: said, cards: chatCards(rs) });
       chatSpeak(said);
       workLog(BossChat.logItems(rs));
@@ -3331,6 +3387,7 @@
     });
     if (chatBusy) body.appendChild(chatBubble('생각하는 중…'));
     if (!smsWatchBusy) { clearTimeout(smsWatchT); smsWatchT = setTimeout(smsWatch, 3000); }
+    if (!kakaoWatchBusy) { clearTimeout(kakaoWatchT); kakaoWatchT = setTimeout(kakaoWatch, 3000); }
     $('btnChatSend').disabled = chatBusy;
     body.scrollIntoView(false);
     window.scrollTo(0, document.documentElement.scrollHeight);

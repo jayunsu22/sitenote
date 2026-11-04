@@ -57,6 +57,8 @@
     });
     return {
       today: today, sites: sites, team: team,
+      // 💬 카톡 보낼 수 있는 거래처 (방은 노트북이 거래처 이름으로 찾는다)
+      kakaoClients: (o.clients || []).map(function (c) { return str(c.name); }).filter(Boolean).slice(0, 120),
       // 업체 연락처: 거래처 담당자 전부 + 위 현장들의 발주처 담당자 (번호 대신 있고 없고만)
       contacts: contactBook({ clients: o.clients, sites: (o.sites || []).filter(function (s) { return sites.some(function (v) { return v.id === s.id; }); }) })
         .slice(0, 120).map(function (c) { return { name: c.name, client: c.client, kind: c.kind, phone: !!c.phone }; }),
@@ -115,6 +117,11 @@
       if (!names(a.names).length) return '받을 사람이 없어요';
       return str(a.text) ? '' : '보낼 글이 없어요';
     }
+    // 💬 카톡 (11/4): 노트북(카톡 읽기)이 그 업체 방에 보낸다. client = 거래처 이름(방은 노트북이 찾음) 또는 room = 방 이름
+    if (t === 'send_kakao') {
+      if (!str(a.client) && !str(a.room)) return '어느 방에 보낼지 모르겠어요';
+      return str(a.text) ? '' : '보낼 글이 없어요';
+    }
     if (t === 'save_phone') {
       var d = digits(a.phone);
       if (!str(a.name) || d.length < 9) return '이름이나 번호가 없어요';
@@ -129,6 +136,7 @@
   // 받는 사람이 많은 문자는 사장님 확인 뒤에
   // 말로 시킨 때(all)는 잘못 들었을 수 있어 문자는 한 명이라도 확인 뒤에 (11/4)
   function needsConfirm(a, all) {
+    if (a.tool === 'send_kakao') return !!all;
     return (a.tool === 'send_text' || a.tool === 'send_site_info') && (all || names(a.names).length > CONFIRM_OVER);
   }
   // 말 끝이 '시작해' 면 보내라는 뜻 (사장님 11/4) → { text: 그 말을 뺀 글, go }
@@ -203,7 +211,7 @@
   }
   function forAi(x) {
     var o = {};
-    ['tool', 'ok', 'partial', 'why', 'waiting', 'text', 'data', 'people', 'undoId', 'same'].forEach(function (k) { if (x[k] !== undefined && x[k] !== '') o[k] = x[k]; });
+    ['tool', 'ok', 'partial', 'why', 'waiting', 'text', 'data', 'people', 'undoId', 'same', 'state'].forEach(function (k) { if (x[k] !== undefined && x[k] !== '') o[k] = x[k]; });
     return o;
   }
   // 📋 업무 내역: 시킨 일의 실제 결과 → 내역 줄 (비번 값 없음). 실패 중 사장님이 봐야 할 것(문자)은 state need

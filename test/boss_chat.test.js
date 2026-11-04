@@ -131,4 +131,9 @@ function runWith(replies, execs, more) {
   assert.strictEqual(B.check({ tool: 'send_text', names: ['지인인테리어 김사장'], text: '토요일 현장 필름 번호 알려주세요' }, { hasSite: function () { return false; } }), '');
 })();
 console.log('boss_chat ok');
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => { console.error(e); process.exit(1); });  // 💬 카톡 (11/4): 거래처나 방 + 글, 말로 시키면 먼저 묻기
+  assert.strictEqual(B.check({ tool: 'send_kakao', client: '류춘화', text: '좋은 하루 되세요' }, { hasSite: () => false }), '');
+  assert.ok(B.check({ tool: 'send_kakao', text: '좋은 하루' }, { hasSite: () => false }));
+  assert.strictEqual(B.needsConfirm({ tool: 'send_kakao', client: '류춘화', text: 'x' }, false), false);
+  assert.strictEqual(B.needsConfirm({ tool: 'send_kakao', client: '류춘화', text: 'x' }, true), true);
+
