@@ -140,6 +140,7 @@
     s.settleManual = Share.splitSettleManual(Array.isArray(s.settleManual) ? s.settleManual.filter(isObj) : []);
     s.hide = !!s.hide;   // 숨긴 현장 (2026-10-24) — 메인 목록에서만 뺀다. 일정·기록은 그대로
     s.services = normalizeServices(s.services);
+    s.filmBox = Share.normalizeFilmBox(s.filmBox);   // AS 필름 박스 (2026-10-31)
     s.review = Share.normalizeReview(s.review);
     // 업체 확인 질문의 답 { 질문id: { v: 답, src: '방 날짜' } } (2026-11-01)
     s.checks = (s.checks && typeof s.checks === 'object' && !Array.isArray(s.checks)) ? s.checks : {};

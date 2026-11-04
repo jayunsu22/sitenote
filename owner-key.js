@@ -39,7 +39,9 @@
     // 인원 모집 문자 (2026-11-01, n8n 인원모집) — 시작·진행 상황·멈추기
     'crew-recruit',
     // 📋 결재함 · 업무일정표 (2026-11-03, n8n 업무일정표)
-    'report'
+    'report',
+    // 현장 › 필름 › 📦 AS 박스 사진 글씨 읽기 (2026-10-31, n8n 현장관리_필름라벨)
+    'film-label-read'
   ].forEach(function (p) { OWNER_PATHS[p] = true; });
 
   function readKey() { try { return localStorage.getItem(KEY_NAME) || ''; } catch (e) { return ''; } }

@@ -1,0 +1,162 @@
+{
+  "name": "현장관리_필름라벨",
+  "nodes": [
+    {
+      "id": "w",
+      "name": "받은사진",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "6f1d2c8a-3b47-4e0f-9a52-7c1e4b8d0f31",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "film-label-read",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Tm4pgTszEk1zUiQ8",
+          "name": "사장님 열쇠"
+        }
+      }
+    },
+    {
+      "id": "p",
+      "name": "프롬프트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 현장관리_필름라벨 › 프롬프트: AS 박스에 넣는 필름 롤 사진에서 테이프 글씨('ps010 300x2450')를 Gemini 에게 읽힌다.\n// 받는 것: { photos: [{ mime, data(base64) }] } — 한 롤씩 찍은 여러 장이어도, 여러 롤을 한 장에 찍어도 된다.\nconst b = $input.first().json.body || {};\nconst photos = (Array.isArray(b.photos) ? b.photos : []).filter((p) => p && p.data).slice(0, 8);\nif (!photos.length) throw new Error('photos 가 필요합니다');\n\nconst 글 = [\n  '인테리어 필름 롤 사진이다. 롤마다 테이프(마스킹테이프 등)에 손글씨로 \"필름번호 폭x길이\" 가 적혀 있다.',\n  '예: \"ps010 300x2450\" → 번호 PS010, 폭 300, 길이 2450 (mm).',\n  '',\n  '할 일: 사진에 보이는 테이프 글씨를 롤마다 하나씩 모두 읽는다.',\n  '- 번호는 적힌 그대로(영문은 대문자로). 하이픈이 있으면 둔다. 한글 이름이 적혀 있으면 그것도 번호에 포함.',\n  '- 폭·길이는 숫자만. \"x\" 앞이 폭, 뒤가 길이. 안 보이거나 안 적혀 있으면 0.',\n  '- 같은 롤이 여러 사진에 나오면 한 번만.',\n  '- 테이프 글씨가 아닌 것(필름 겉면 무늬, 상자 인쇄 글씨)은 읽지 않는다.',\n  '- 글씨가 흐려 확실하지 않은 글자는 가장 그럴듯하게 읽되, 번호 자체가 안 보이면 그 롤은 뺀다.',\n  '',\n  '답은 JSON 하나만: {\"labels\": [{\"code\": \"PS010\", \"w\": 300, \"l\": 2450}, ...]}',\n].join('\\n');\n\nconst parts = [{ text: 글 }];\nphotos.forEach((p, i) => {\n  parts.push({ text: '사진' + (i + 1) + ':' });\n  parts.push({ inline_data: { mime_type: p.mime || 'image/jpeg', data: p.data } });\n});\nreturn [{ json: {\n  gemini: { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } },\n} }];\n"
+      }
+    },
+    {
+      "id": "g",
+      "name": "Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "continueOnFail": true,
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.gemini) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "DVT2g7GvXhSY4Y4b",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "id": "c",
+      "name": "결과정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// 현장관리_필름라벨 › 결과정리: Gemini 답을 { labels: [{ code, w, l }], error } 로. 번호 없는 줄·같은 번호는 뺀다.\nconst r = $input.first().json || {};\nlet 답 = {};\ntry {\n  const t = (((r.candidates || [])[0] || {}).content || {}).parts || [];\n  답 = JSON.parse((t[0] && t[0].text) || '{}');\n} catch (e) { 답 = {}; }\nconst seen = new Set();\nconst labels = [];\n(Array.isArray(답.labels) ? 답.labels : []).forEach((x) => {\n  const code = String((x && x.code) || '').trim().toUpperCase().slice(0, 40);\n  const key = code.replace(/[\\s\\-_.]/g, '');\n  if (!key || seen.has(key)) return;\n  seen.add(key);\n  const n = (v) => { const k = Math.round(Number(String(v == null ? '' : v).replace(/[^\\d.]/g, '')) || 0); return k > 0 && k < 100000 ? k : 0; };\n  labels.push({ code, w: n(x.w), l: n(x.l) });\n});\nreturn [{ json: { labels, error: r.error ? String(r.error.message || r.error) : '' } }];\n"
+      }
+    },
+    {
+      "id": "r",
+      "name": "응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "받은사진": {
+      "main": [
+        [
+          {
+            "node": "프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프롬프트": {
+      "main": [
+        [
+          {
+            "node": "Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "main": [
+        [
+          {
+            "node": "결과정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "결과정리": {
+      "main": [
+        [
+          {
+            "node": "응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none"
+  }
+}
