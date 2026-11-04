@@ -625,6 +625,10 @@
     box.appendChild(el2('div', 'pc-ct', '👤 고객'));
     line('name', '이름');
     line('phone', '연락처', 'tel');
+    box.appendChild(el2('label', 'pc-l', '카톡방 이름 (카톡에 보이는 그대로)'));
+    var kr = el2('input', 'pc-in'); kr.value = s.kakaoRoom || ''; kr.autocomplete = 'off'; kr.placeholder = '비워 두면 고객 이름으로 찾아요';
+    kr.addEventListener('input', function () { Store.updateSite(siteId, { kakaoRoom: kr.value }); });
+    box.appendChild(kr);
     var links = el2('div', 'pc-links');
     box.appendChild(links);
     var paintLinks = function () {
@@ -661,12 +665,68 @@
         var ask = el2('div', 'pc-ask');
         ask.appendChild(el2('b', '', '❓ 시공 전 못 받은 정보'));
         ask.appendChild(el2('div', 'kk-v', keys.map(function (k) { return Kakao.FIELD_LABEL[k]; }).join(' · ')));
-        var q = el2('button', 'pc-askbtn', '📨 문자로 물어보기'); q.type = 'button';
+        var row = el2('div', 'pc-links');
+        var q = el2('button', 'pc-askbtn', '📨 문자로'); q.type = 'button';
         q.onclick = function () { openCustomerAsk(siteId, keys); };
-        ask.appendChild(q);
+        var kk = el2('button', 'pc-askbtn kk', '💬 카톡으로'); kk.type = 'button';
+        kk.onclick = function () { openCustomerKakao(siteId, keys, stat); };
+        row.appendChild(q); row.appendChild(kk);
+        ask.appendChild(row);
         box.appendChild(ask);
       }
     }
+    var stat = el2('div', 'pc-kstat');
+    box.appendChild(stat);
+    customerKakaoWatch(siteId, stat);
+  }
+  // 💬 고객 카톡 (11/5): 노트북이 그 방에 보내고(이름이 정확히 같은 방만), 시공일까지 답장을 지켜본다. 결과는 site.kakaoLast
+  function customerRoom(s) { return String(s.kakaoRoom || '').trim() || String(Share.privateCustomer(s).name || '').trim(); }
+  function customerKakaoPaint(el, x) {
+    el.innerHTML = '';
+    if (!x) return;
+    var c = kakaoCard(x);
+    el.appendChild(el2('div', 'pc-kline ' + (x.state === 'sent' ? 'ok' : c.ok && !x.stale ? 'wait' : 'bad'), c.text + (x.state === 'sent' ? '\n이 방 답장을 시공일까지 지켜봅니다' : '')));
+  }
+  var customerKakaoT = 0;
+  function customerKakaoWatch(siteId, el) {
+    clearTimeout(customerKakaoT);
+    var s = Store.getSite(siteId), x = s && s.kakaoLast;
+    if (!x) return;
+    customerKakaoPaint(el, x);
+    if ((x.state !== 'wait' && x.state !== 'taken') || Date.now() - x.at > 60 * 60000) return;
+    customerKakaoT = setTimeout(function () {
+      if (!document.body.contains(el)) return;
+      kakaoPost({ action: 'status', ids: [x.id] }).then(function (d) {
+        var v = (d.items || [])[0];
+        if (v && v.state && v.state !== 'unknown') {
+          var k = Object.assign({}, x, { state: v.state, why: v.why || '', stale: !!v.stale });
+          if (v.state === 'sent' || v.state === 'failed') k.doneAt = Date.now();
+          Store.updateSite(siteId, { kakaoLast: k });
+        }
+      }).catch(function () { /* 다음에 */ }).then(function () { if (document.body.contains(el)) customerKakaoWatch(siteId, el); });
+    }, 10000);
+  }
+  function openCustomerKakao(siteId, keys, stat) {
+    var s = Store.getSite(siteId), c = Share.privateCustomer(s), room = customerRoom(s);
+    if (!room) { toast('고객 이름이나 카톡방 이름을 먼저 적어 주세요'); return; }
+    var text = '안녕하세요 섬세한손길입니다 🙂\n' + (Share.buildQuestion(s, keys, state.settings.questions) || '');
+    openModal('💬 ' + room + ' 방에 카톡', '<p class="hint">노트북이 이름이 정확히 같은 방을 찾아 보냅니다. 노트북이 꺼져 있으면 30분 뒤 취소돼요.</p><textarea id="pcKk" rows="8" class="pc-in" data-no-stamp></textarea>', [
+      { label: '닫기', onClick: closeModal },
+      { label: '💬 보내기', cls: 'primary', onClick: function () {
+        var v = $('pcKk').value.trim();
+        if (!v) return;
+        closeModal();
+        var id = 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        var days = (s.days || []).map(function (d) { return d.date; }).filter(Boolean).sort();
+        var until = days[days.length - 1] || s.date || '';
+        kakaoPost({ action: 'add', id: id, room: room, client: '', text: v, watch: { siteId: s.id, name: Share.titleLine(s), until: until, keys: keys } }).then(function () {
+          Store.updateSite(siteId, { kakaoLast: { id: id, room: room, client: '', at: Date.now(), state: 'wait' } });
+          toast('💬 노트북에 맡겼어요');
+          workLog([{ src: 'me', kind: 'reply', title: room + ' 방 카톡 맡김', detail: (c.name || '') + ' 정보 묻기', siteId: s.id }]);
+          if (document.body.contains(stat)) customerKakaoWatch(siteId, stat);
+        }).catch(function (e) { toast('❌ 못 맡겼어요 — 인터넷을 확인해 주세요 (' + String(e.message || e).slice(0, 60) + ')'); });
+      } }]);
+    $('pcKk').value = text;
   }
   function openCustomerAsk(siteId, keys) {
     var s = Store.getSite(siteId), c = Share.privateCustomer(s), phone = Share.phoneDigits(c.phone);
