@@ -3001,7 +3001,7 @@
       return fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
         body: JSON.stringify({ siteId: siteId, name: title, text: text, sendTo: { label: n, phone: phone } }) })
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
-          return { name: n, ok: res.ok && !!d.ok, why: d.error || (res.ok ? '' : 'HTTP ' + res.status) }; }); })
+          return { name: n, ok: res.ok && !!d.ok, why: d.error || (res.ok ? '' : 'HTTP ' + res.status), id: d.id || '', state: d.state || '' }; }); })
         .catch(function (e) { return { name: n, ok: false, why: String(e.message || e).slice(0, 60) }; });
     }));
   }
@@ -3105,6 +3105,58 @@
       logs: [{ kind: f.kind === 'staff' ? 'crew' : 'site', title: line, detail: name, siteId: siteId }] };
   }
   // 문자 (사장님 폰). 사람마다 결과 카드 하나
+  /* 📨 문자가 폰에서 실제로 나갔나 (11/4): 앱 → n8n → SMS Gateway 서버 → 사장님 폰 → 문자. 서버가 받은 것(Pending)과
+     폰이 보낸 것(Sent·Delivered)이 다르다. 카드는 진짜 상태로: 보내는 중 → 보냄/도착 · 2분 넘게 폰이 못 받으면 알려 준다.
+     상태는 n8n 문자_상태(sms-status) 로 10초마다, 30분까지 본다 */
+  var SMS_STATUS_URL = 'https://primary-production-a6fa.up.railway.app/webhook/sms-status';
+  var SMS_DONE = { Sent: 1, Delivered: 1, Failed: 1 };
+  function smsCard(x) {
+    var who = nim(x.name) + '께 ' + x.what, c = { ok: x.state !== 'Failed', sms: x, sending: false };
+    var min = Math.floor((Date.now() - x.at) / 60000);
+    if (x.state === 'Delivered') c.text = '📨 ' + who + ' 보냄 · 받는 폰에 도착 ✓' + (x.doneAt ? ' (' + chatTime(x.doneAt) + ')' : '');
+    else if (x.state === 'Sent') c.text = '📨 ' + who + ' 보냄 · 폰에서 나감' + (x.doneAt ? ' (' + chatTime(x.doneAt) + ')' : '');
+    else if (x.state === 'Failed') c.text = '⚠️ ' + x.name + ': 폰에서 못 보냈어요' + (x.error ? ' (' + x.error + ')' : '');
+    else if (!x.id) c.text = '📨 ' + who + ' 보냄';   // 예전 기록 (상태 모름)
+    else if (min >= 2) { c.text = '⏳ ' + who + ' — 폰이 아직 못 받았어요 (' + min + '분째). 폰의 SMS Gateway 앱이 켜져 있는지 봐 주세요'; c.sending = true; }
+    else { c.text = '📨 ' + who + ' 보내는 중… (폰에서 나가면 바뀌어요)'; c.sending = true; }
+    return c;
+  }
+  var smsWatchT = 0, smsWatchBusy = false;
+  function smsWatch() {
+    clearTimeout(smsWatchT);
+    var list = chatList(), ids = [];
+    list.forEach(function (m) { (m.cards || []).forEach(function (c) { if (c.sms && c.sms.id && !SMS_DONE[c.sms.state] && Date.now() - c.sms.at < 30 * 60000) ids.push(c.sms.id); }); });
+    if (!ids.length || smsWatchBusy) return;
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    smsWatchBusy = true;
+    fetch(SMS_STATUS_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key }, body: JSON.stringify({ ids: ids.slice(0, 20) }) })
+      .then(function (res) { return res.json(); })
+      .then(function (d) {
+        var st = {};
+        (d.items || []).forEach(function (x) { st[x.id] = x; });
+        var cur = chatList();
+        cur.forEach(function (m) {
+          m.cards = (m.cards || []).map(function (c) {
+            if (!c.sms || !st[c.sms.id]) return c.sms ? smsCard(c.sms) : c;
+            var x = st[c.sms.id], sms = Object.assign({}, c.sms);
+            if (x.state && x.state !== 'Unknown' && x.state !== sms.state) { sms.state = x.state; if (SMS_DONE[x.state]) sms.doneAt = Date.now(); }
+            if (x.error) sms.error = x.error;
+            if (sms.state === 'Failed' && c.sms.state !== 'Failed') workLog([{ kind: 'sms', title: sms.name + '님 문자 못 보냄', detail: sms.error || '폰에서 실패', state: 'need' }]);
+            return Object.assign({}, c, smsCard(sms));
+          });
+        });
+        chatSave(cur);
+        if (!$('viewOrder').hidden) renderChat();
+      })
+      .catch(function () { /* 다음에 다시 */ })
+      .then(function () { smsWatchBusy = false; smsWatchT = setTimeout(smsWatch, 10000); });
+  }
+  function chatTime(at) {
+    if (!at) return '';
+    var d = new Date(at), today = Share.todayIso() === Share.todayIso(d);
+    return (today ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ') + (d.getHours() < 12 ? '오전 ' : '오후 ') + ((d.getHours() % 12) || 12) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
   // '사장님' 처럼 이미 님이 붙은 이름에 또 붙이지 않는다 ('사장님님께', 11/4)
   function nim(n) { n = String(n || ''); return /님$/.test(n) ? n : n + '님'; }
   function chatSms(siteId, names, text, what) {
@@ -3113,8 +3165,9 @@
       return {
         ok: rs.every(function (r) { return r.ok; }),
         partial: rs.some(function (r) { return r.ok; }),   // 일부만 나감 — 안 나간 걸로 말하면 안 된다
-        people: rs.map(function (r) { return { name: r.name, ok: r.ok, why: r.why || '' }; }),
-        cards: rs.map(function (r) { return r.ok ? { ok: true, text: '📨 ' + nim(r.name) + '께 ' + what + ' 보냄' } : { ok: false, text: '⚠️ ' + r.name + ': ' + r.why }; }),
+        // state Pending = 폰이 아직 안 받음 (사장님 11/4: 보냈다는데 엄청 늦게 옴) — 카드는 폰에서 실제로 나갈 때까지 '보내는 중'
+        people: rs.map(function (r) { return { name: r.name, ok: r.ok, why: r.why || '', state: r.state || '' }; }),
+        cards: rs.map(function (r) { return r.ok ? smsCard({ id: r.id, name: r.name, what: what, at: Date.now(), state: r.state || 'Pending' }) : { ok: false, text: '⚠️ ' + r.name + ': ' + r.why }; }),
         logs: rs.map(function (r) {
           var where = s ? Share.titleLine(s) : '';
           return r.ok ? { kind: 'sms', title: nim(r.name) + '께 ' + what, detail: where, siteId: s ? s.id : '' }
@@ -3241,10 +3294,10 @@
     var list = chatList();
     if (!list.length) body.appendChild(chatBubble('무엇을 도와드릴까요? 편하게 말씀해 주세요.\n예: 류춘화 현장 작업자 전체에게 주소 문자 보내줘 / 이번주 잔금 안 받은 현장 어디야?'));
     list.forEach(function (m, i) {
-      if (m.role === 'me') { var me = el2('div', 'ch-me'); me.appendChild(el2('span', '', m.text)); body.appendChild(me); return; }
+      if (m.role === 'me') { var me = el2('div', 'ch-me'); me.appendChild(el2('span', '', m.text)); body.appendChild(me); body.appendChild(el2('div', 'ch-time me', chatTime(m.at))); return; }
       var row = chatBubble(m.text), bub = row.querySelector('.ch-bub');
       (m.cards || []).forEach(function (c) {
-        var card = el2('div', 'ch-card' + (c.wait ? ' wait' : c.ok ? '' : ' bad') + (c.undone ? ' undone' : ''), c.text);
+        var card = el2('div', 'ch-card' + (c.wait || c.sending ? ' wait' : c.ok ? '' : ' bad') + (c.undone ? ' undone' : ''), c.text);
         bub.appendChild(card);
         if (c.undoId && !c.undone) {
           var u = el2('button', 'ap-undo', '↩ 되돌리기'); u.type = 'button';
@@ -3274,8 +3327,10 @@
         if (chips.children.length) bub.appendChild(chips);
       }
       body.appendChild(row);
+      body.appendChild(el2('div', 'ch-time', chatTime(m.at)));
     });
     if (chatBusy) body.appendChild(chatBubble('생각하는 중…'));
+    if (!smsWatchBusy) { clearTimeout(smsWatchT); smsWatchT = setTimeout(smsWatch, 3000); }
     $('btnChatSend').disabled = chatBusy;
     body.scrollIntoView(false);
     window.scrollTo(0, document.documentElement.scrollHeight);

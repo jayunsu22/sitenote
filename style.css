@@ -1712,3 +1712,6 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .voice-btn.on { background: #dc2626; animation: voicePulse 1.2s infinite; }
 @keyframes voicePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.5); } 50% { box-shadow: 0 0 0 12px rgba(220,38,38,0); } }
 .voice-bubble { position: fixed; z-index: 9998; background: rgba(15,23,42,.88); color: #fff; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; max-width: calc(100vw - 100px); }
+/* 🤖 비서 대화 시간 (11/4) */
+.ch-time { font-size: 11px; color: #94a3b8; margin: 2px 0 8px 52px; }
+.ch-time.me { text-align: right; margin: 2px 4px 8px 0; }
