@@ -89,6 +89,25 @@ function runWith(replies, execs, more) {
   assert.deepStrictEqual(olds.map((x) => x.title), ['세대 비번 바꿈', '하늘 세대 비번', '마바님께 문자 보냄']);
   assert.ok(!JSON.stringify(olds).includes('7777'));
 
+  // 11/5 실제 일: 한 줄 시켰는데 AI 가 글만 바꿔 카톡을 3번 — 한 번만 나가고, AI 에게 이미 했다고 알림
+  t = await runWith([
+    { ok: true, actions: [{ tool: 'send_kakao', client: '가', room: '', text: '일정 A' }] },
+    { ok: true, actions: [{ tool: 'send_kakao', client: '가', room: '가', text: '일정 B' }] },
+    { ok: true, actions: [{ tool: 'send_kakao', client: '가', room: '가', text: '일정 C' }] },
+    { ok: true, say: '곧 보내요', actions: [] }]);
+  assert.deepStrictEqual(t.ran.map((a) => a.text), ['일정 A']);
+  assert.strictEqual(t.r.say, '곧 보내요');
+  assert.ok(t.r.results[1].same && t.r.results[2].same);
+  // 다른 방은 나감, 한 답 안의 서로 다른 글은 나감
+  t = await runWith([{ ok: true, actions: [{ tool: 'send_kakao', client: '가', text: '1' }, { tool: 'send_kakao', client: '나', text: '2' }, { tool: 'send_kakao', client: '가', text: '3' }] }, { ok: true, say: '끝', actions: [] }]);
+  assert.strictEqual(t.ran.length, 3);
+  // 문자: 이미 보낸 사람은 빼고 새 사람에게만
+  t = await runWith([{ ok: true, actions: [{ tool: 'send_text', names: ['가'], text: '1' }] }, { ok: true, actions: [{ tool: 'send_text', names: ['가', '나'], text: '2' }] }, { ok: true, say: '끝', actions: [] }]);
+  assert.deepStrictEqual(t.ran.map((a) => a.names), [['가'], ['나']]);
+  // 확인을 기다리는 말로 시킨 카톡도 하나만
+  t = await runWith([{ ok: true, actions: [{ tool: 'send_kakao', client: '가', text: 'A' }] }, { ok: true, actions: [{ tool: 'send_kakao', client: '가', text: 'B' }] }, { ok: true, say: '보낼까요?', actions: [] }], null, { confirmSms: true });
+  assert.strictEqual(t.r.pending.length, 1);
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

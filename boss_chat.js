@@ -156,11 +156,19 @@
   function speakable(text) {
     return str(str(text).replace(/\p{Extended_Pictographic}|️|‍/gu, '').replace(/[·•]/g, ', ').replace(/[ \t]+/g, ' '));
   }
+  // 밖으로 나가는 일의 받는 곳 — 한 번 말에 같은 곳으로 두 번 안 나가게 (11/5: 한 줄 시켰는데 글만 바꿔 카톡 3번 나감)
+  function outKeys(a) {
+    var norm = function (v) { return str(v).replace(/\s+/g, '').toLowerCase(); };
+    if (a.tool === 'send_kakao') return ['kakao:' + norm(a.room || a.client)];
+    if (a.tool === 'send_text') return names(a.names).map(function (n) { return 'text:' + norm(n); });
+    if (a.tool === 'send_site_info') return names(a.names).map(function (n) { return 'info:' + str(a.siteId) + ':' + norm(n); });
+    return [];
+  }
   var CLAIM = /(보냈|바꿨|넣었|저장했|되돌렸|처리했|받음으로)/;
   /* 한 번 말한 것 처리. deps: ask(history) → Promise { ok, say, actions, chips }, exec(action) → Promise { ok, why?, ... }, hasSite(id), userText.
      돌려줌 { say, chips, results, pending, failed } — failed 면 AI 답을 못 받음 (results 는 이미 한 일) */
   function run(history, deps) {
-    var extra = [], results = [], pending = [], seen = {}, step = 0, retried = false;
+    var extra = [], results = [], pending = [], seen = {}, gone = {}, step = 0, retried = false;
     function done(say, chips, failed) { return { say: say, chips: chips || [], results: results, pending: pending, failed: !!failed }; }
     function loop() {
       return deps.ask(history.concat(extra)).then(function (r) {
@@ -186,10 +194,19 @@
         }
         if (step >= MAX_STEPS) return done((str(r.say) ? str(r.say) + '\n' : '') + '(한 번에 너무 많아 여기까지만 처리했어요. 남은 건 다시 말씀해 주세요.)', r.chips);
         step++;
+        var later = [];
         return acts.reduce(function (p, a) {
           return p.then(function (rs) {
             var why = check(a, deps);
             if (why) return rs.concat([{ tool: a.tool, ok: false, why: why }]);
+            // 앞 단계에서 이미 내보낸 곳 — 글이 달라도 다시 안 보낸다. 받는 사람이 일부만 겹치면 안 겹친 사람에게만
+            var keys = outKeys(a);
+            if (keys.length) {
+              var fresh = keys.filter(function (k) { return !gone[k]; });
+              if (!fresh.length) return rs.concat([{ tool: a.tool, ok: true, same: true, why: '이미 맡긴 일이라 또 보내지 않았다. 다시 넣지 말고 사장님께 결과만 말하라' }]);
+              if (a.names && fresh.length < keys.length) a = Object.assign({}, a, { names: names(a.names).filter(function (n, i) { return !gone[keys[i]]; }) });
+              later = later.concat(fresh);
+            }
             if (needsConfirm(a, deps.confirmSms)) {
               pending.push(a);
               return rs.concat([{ tool: a.tool, ok: false, waiting: true, why: '아직 안 보냄 — 사장님이 [보내] 를 눌러야 나간다' }]);
@@ -198,6 +215,7 @@
               .then(function (x) { return rs.concat([Object.assign({ tool: a.tool }, x)]); });
           });
         }, Promise.resolve([])).then(function (rs) {
+          later.forEach(function (k) { gone[k] = true; });
           results = results.concat(rs);
           extra = extra.concat([{ role: 'tool', text: '[앱 실행 결과] ' + JSON.stringify(rs.map(forAi)) }]);
           return loop();
