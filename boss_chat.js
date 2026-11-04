@@ -73,6 +73,7 @@
     return {
       id: s.id, client: (clients && clients[s.clientId]) || '', name: [str(s.name), str(s.unit)].filter(Boolean).join(' '), date: str(s.date).slice(0, 10),
       customer: names((Array.isArray(s.owners) ? s.owners : []).map(function (r) { return r && r.name; })),   // 개인고객 이름 (번호는 안 보냄)
+      kakaoRoom: str(s.kakaoRoom),   // 개인고객 카톡방 이름 (11/5)
       pwLobby: str(s.pwLobby), pwUnit: str(s.pwUnit), toilet: str(s.toilet), payDone: !!s.payDone,
       films: (Array.isArray(s.films) ? s.films : []).filter(function (x) { return x && str(x.code); }).map(function (x) { return (str(x.place) + ' ' + str(x.code)).trim(); }),
       days: (Array.isArray(s.days) ? s.days : []).map(function (d) { return { date: str(d && d.date), staff: names(d && d.staff) }; })
@@ -120,7 +121,7 @@
     }
     // 💬 카톡 (11/4): 노트북(카톡 읽기)이 그 업체 방에 보낸다. client = 거래처 이름(방은 노트북이 찾음) 또는 room = 방 이름
     if (t === 'send_kakao') {
-      if (!str(a.client) && !str(a.room)) return '어느 방에 보낼지 모르겠어요';
+      if (!str(a.client) && !str(a.room) && !str(a.siteId)) return '어느 방에 보낼지 모르겠어요';
       return str(a.text) ? '' : '보낼 글이 없어요';
     }
     if (t === 'save_phone') {
@@ -160,7 +161,7 @@
   // 밖으로 나가는 일의 받는 곳 — 한 번 말에 같은 곳으로 두 번 안 나가게 (11/5: 한 줄 시켰는데 글만 바꿔 카톡 3번 나감)
   function outKeys(a) {
     var norm = function (v) { return str(v).replace(/\s+/g, '').toLowerCase(); };
-    if (a.tool === 'send_kakao') return ['kakao:' + norm(a.room || a.client)];
+    if (a.tool === 'send_kakao') return ['kakao:' + norm(a.room || a.client || a.siteId)];
     if (a.tool === 'send_text') return names(a.names).map(function (n) { return 'text:' + norm(n); });
     if (a.tool === 'send_site_info') return names(a.names).map(function (n) { return 'info:' + str(a.siteId) + ':' + norm(n); });
     return [];

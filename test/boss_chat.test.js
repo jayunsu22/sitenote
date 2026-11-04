@@ -98,6 +98,9 @@ function runWith(replies, execs, more) {
   assert.deepStrictEqual(t.ran.map((a) => a.text), ['일정 A']);
   assert.strictEqual(t.r.say, '곧 보내요');
   assert.ok(t.r.results[1].same && t.r.results[2].same);
+  // 개인고객: 현장만 알려 줘도 나감 (방은 앱이 정함), 같은 현장은 한 번만
+  t = await runWith([{ ok: true, actions: [{ tool: 'send_kakao', siteId: 's1', text: 'A' }] }, { ok: true, actions: [{ tool: 'send_kakao', siteId: 's1', text: 'B' }] }, { ok: true, say: '끝', actions: [] }]);
+  assert.deepStrictEqual(t.ran.map((a) => a.text), ['A']);
   // 다른 방은 나감, 한 답 안의 서로 다른 글은 나감
   t = await runWith([{ ok: true, actions: [{ tool: 'send_kakao', client: '가', text: '1' }, { tool: 'send_kakao', client: '나', text: '2' }, { tool: 'send_kakao', client: '가', text: '3' }] }, { ok: true, say: '끝', actions: [] }]);
   assert.strictEqual(t.ran.length, 3);
@@ -111,6 +114,7 @@ function runWith(replies, execs, more) {
   // 개인고객 이름으로 찾기·보기 (번호는 안 넘김)
   const pc = B.buildContext({ today: '2026-11-04', sites: [{ id: 's1', name: '하늘', date: '2026-11-05', owners: [{ name: '이다라', phone: '010-0000-0002' }] }], settings: {} });
   assert.deepStrictEqual(pc.sites[0].customer, ['이다라']);
+  assert.strictEqual(B.buildContext({ today: '2026-11-04', sites: [{ id: 's1', date: '2026-11-05', kakaoRoom: '이다라 고객님' }], settings: {} }).sites[0].kakaoRoom, '이다라 고객님');
   assert.deepStrictEqual(B.findSites([{ id: 's1', name: '하늘', owners: [{ name: '이다라' }] }], [], '이다라').map((s) => s.id), ['s1']);
 
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함

@@ -3403,7 +3403,16 @@
   function chatKakao(a) {
     var id = 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var text = String(a.text).trim().slice(0, 1500), client = String(a.client || '').trim(), room = String(a.room || '').trim();
-    return kakaoPost({ action: 'add', id: id, client: client, room: room, text: text }).then(function () {
+    // 👤 개인고객 현장이면 그 고객 방으로, 이름이 정확히 같은 방에만, 답장은 시공일까지 지켜본다 (11/5)
+    var site = a.siteId ? Store.getSite(a.siteId) : null, watch = null;
+    if (site && Share.isPrivateClient(Store.getClient(site.clientId))) {
+      room = room || customerRoom(site);
+      if (!room) return Promise.resolve({ ok: false, why: '고객 이름이나 카톡방 이름이 없어요' });
+      client = '';
+      var days = (site.days || []).map(function (d) { return d.date; }).filter(Boolean).sort();
+      watch = { siteId: site.id, name: Share.titleLine(site), until: days[days.length - 1] || site.date || '', keys: ['pwLobby', 'pwUnit', 'toilet'].filter(function (k) { return Share.isEmpty(site, k); }) };
+    }
+    return kakaoPost({ action: 'add', id: id, client: client, room: room, text: text, watch: watch }).then(function () {
       return { ok: true, state: 'wait', cards: [kakaoCard({ id: id, client: client, room: room, at: Date.now(), state: 'wait' })],
         logs: [{ kind: 'reply', title: (room || client) + ' 방 카톡 맡김', detail: text }] };
     }).catch(function (e) { return { ok: false, why: '카톡을 못 맡겼어요 (' + String(e.message || e).slice(0, 60) + ')' }; });
@@ -3558,7 +3567,7 @@
   }
   function chatPendingCards(pending) {
     return pending.map(function (a) {
-      if (a.tool === 'send_kakao') return { wait: true, text: '💬 ' + (a.room || a.client) + ' 방에 보낼 카톡\n' + a.text };
+      if (a.tool === 'send_kakao') return { wait: true, text: '💬 ' + (a.room || a.client || customerRoom(Store.getSite(a.siteId) || {})) + ' 방에 보낼 카톡\n' + a.text };
       var text = a.tool === 'send_text' ? a.text : workerInfoText(Store.getSite(a.siteId));
       return { wait: true, text: '📨 ' + a.names.join(', ') + ' (' + a.names.length + '명)께 보낼 문자\n' + text };
     });
