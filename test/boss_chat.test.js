@@ -121,6 +121,10 @@ function runWith(replies, execs, more) {
   const nd = B.buildContext({ today: '2026-11-04', clients: [{ id: 'p', name: '개인고객' }, { id: 'c', name: '가나' }], sites: [{ id: 'a', clientId: 'p', name: '시험' }, { id: 'b', clientId: 'c', name: '거래처' }], settings: {} });
   assert.deepStrictEqual(nd.sites.map((s) => s.id), ['a']);
 
+  // 거래처 카톡방: 담당자 칸 + 카톡 정리, 겹치면 하나
+  assert.deepStrictEqual(B.clientRooms({ contacts: [{ name: '실장', kakaoRoom: '봄애실장님' }, { name: '대리' }], kakaoRooms: ['봄애대리님', '봄애실장님'] }), ['봄애실장님', '봄애대리님']);
+  assert.deepStrictEqual(B.buildContext({ today: '2026-11-04', clients: [{ id: 'c', name: '봄애', contacts: [{ kakaoRoom: '봄애실장님' }] }, { id: 'd', name: '방없음' }], settings: {} }).kakaoRooms, [{ client: '봄애', rooms: ['봄애실장님'] }]);
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

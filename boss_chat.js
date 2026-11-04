@@ -64,6 +64,7 @@
       today: today, sites: sites, team: team,
       // 💬 카톡 보낼 수 있는 거래처 (방은 노트북이 거래처 이름으로 찾는다)
       kakaoClients: (o.clients || []).map(function (c) { return str(c.name); }).filter(Boolean).slice(0, 120),
+      kakaoRooms: (o.clients || []).map(function (c) { return { client: str(c.name), rooms: clientRooms(c) }; }).filter(function (x) { return x.rooms.length; }).slice(0, 120),
       // 업체 연락처: 거래처 담당자 전부 + 위 현장들의 발주처 담당자 (번호 대신 있고 없고만)
       contacts: contactBook({ clients: o.clients, sites: (o.sites || []).filter(function (s) { return sites.some(function (v) { return v.id === s.id; }); }) })
         .slice(0, 120).map(function (c) { return { name: c.name, client: c.client, kind: c.kind, phone: !!c.phone }; }),
@@ -98,6 +99,10 @@
     }).slice(0, 10).map(function (s) { return siteView(s, map); });
   }
 
+  // 거래처 카톡방 (11/5): 담당자마다 적은 방 + 카톡 정리로 연결된 방. 앞의 것이 먼저
+  function clientRooms(c) {
+    return names(((c && c.contacts) || []).map(function (ct) { return ct && ct.kakaoRoom; }).concat((c && c.kakaoRooms) || []));
+  }
   // 할 일 하나 검사 — 실행 전에 앱이 직접 막는 것. userText = 사장님이 최근에 쓴 글
   function check(a, o) {
     var t = a && a.tool;
@@ -274,5 +279,5 @@
   function recentUserText(msgs) {
     return (msgs || []).filter(function (m) { return m.role === 'me'; }).slice(-6).map(function (m) { return m.text; }).join(' ');
   }
-  return { contactBook: contactBook, buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
+  return { contactBook: contactBook, buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, clientRooms: clientRooms, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
 });

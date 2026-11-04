@@ -288,17 +288,21 @@
         '<button class="cp" title="이름·연락처 복사">📋</button>' +
         '<a class="tel' + (tel ? '' : ' disabled') + '" href="' + esc(Share.telHref(tel)) + '" title="전화걸기">📞</a>' +
         '<a class="sms' + (tel ? '' : ' disabled') + '" href="' + esc(smsHref(tel)) + '" title="문자 보내기">💬</a>' +
-        '<button class="x" title="삭제">×</button>';
+        '<button class="x" title="삭제">×</button>' +
+        '<input type="text" class="room" placeholder="카톡방 이름 (카톡에 보이는 그대로)" value="' + esc(ct.kakaoRoom || '') + '" autocomplete="off">';
       var save = function () {
         var contacts = c.contacts.slice();
-        contacts[i] = { name: row.querySelector('.name').value, phone: row.querySelector('.phone').value };
-        Store.updateClient(c.id, { contacts: contacts });
+        contacts[i] = { name: row.querySelector('.name').value, phone: row.querySelector('.phone').value, kakaoRoom: row.querySelector('.room').value.trim() };
+        c = Store.updateClient(c.id, { contacts: contacts }) || Store.getClient(c.id);
+        paintClientRooms(Store.getClient(c.id));
+        roomsPush();
         var t = (contacts[i].phone || '').replace(/[^0-9+]/g, '');
         var a = row.querySelector('a.tel'); a.href = Share.telHref(t); a.classList.toggle('disabled', !t);
         var m = row.querySelector('a.sms'); m.href = smsHref(t); m.classList.toggle('disabled', !t);
       };
       row.querySelector('.name').addEventListener('input', save);
       row.querySelector('.phone').addEventListener('input', save);
+      row.querySelector('.room').addEventListener('input', save);
       /* 담당자를 다른 사람에게 알려줄 때 쓴다 — '룩스디자인 실장 010-7132-3491'.
          칸에 적힌 값을 그대로 읽는다. 저장을 안 눌렀어도 방금 고친 게 복사돼야 한다. */
       row.querySelector('.cp').onclick = function () {
@@ -314,7 +318,44 @@
       };
       wrap.appendChild(row);
     });
+    var rb = el2('div', 'room-list'); rb.id = 'clientRooms';
+    wrap.appendChild(rb);
+    paintClientRooms(c);
   }
+  /* 💬 연결된 카톡방 (2026-11-05 사장님) — 담당자 아래 적은 방 · 카톡 정리로 연결된 방 · 노트북 설정(config client_rooms)에 있는 방.
+     앱과 노트북이 서로 알려 준다 (n8n 카톡_보내기 rooms): 앱에 적은 방은 노트북이 빈칸 묻기·답장 읽기에도 쓴다 */
+  var laptopRooms = {}, roomsPushT = 0;
+  function paintClientRooms(c) {
+    var box = $('clientRooms');
+    if (!box || !c) return;
+    box.innerHTML = '';
+    var typed = BossChat.clientRooms({ contacts: c.contacts }), pasted = BossChat.clientRooms({ kakaoRooms: c.kakaoRooms });
+    var lap = [].concat(laptopRooms[c.name] || []);
+    var rows = [];
+    typed.concat(pasted, lap).forEach(function (n) { if (n && rows.indexOf(n) === -1) rows.push(n); });
+    if (!rows.length) return;
+    box.appendChild(el2('div', 'room-h', '💬 연결된 카톡방'));
+    rows.forEach(function (n) {
+      var tags = [];
+      if (pasted.indexOf(n) !== -1) tags.push('카톡 정리');
+      if (lap.indexOf(n) !== -1) tags.push('노트북');
+      var chip = el2('span', 'room-chip', n);
+      if (tags.length) chip.appendChild(el2('small', '', tags.join('·')));
+      box.appendChild(chip);
+    });
+  }
+  // 앱이 아는 방을 노트북에 알려 주고, 노트북 설정에 있는 방을 받아 온다
+  function roomsSync() {
+    if (!ownerKeyOn()) return;
+    var rooms = {};
+    // 사장님이 담당자 아래 직접 적은 방만 — 노트북이 지켜보고 답도 하는 방이라, 카톡 정리로 저절로 생긴 방은 안 보낸다
+    Store.clients().forEach(function (c) { var r = BossChat.clientRooms({ contacts: c.contacts }); if (r.length) rooms[c.name] = r; });
+    kakaoPost({ action: 'rooms', side: 'app', rooms: rooms }).then(function (d) {
+      laptopRooms = d.rooms || {};
+      paintClientRooms(Store.getClient(currentClientId));
+    }).catch(function () { /* 다음에 */ });
+  }
+  function roomsPush() { clearTimeout(roomsPushT); roomsPushT = setTimeout(roomsSync, 2000); }
   $('btnAddContact').onclick = function () {
     var c = Store.getClient(currentClientId); if (!c) return;
     Store.updateClient(c.id, { contacts: (c.contacts || []).concat([{ name: '', phone: '' }]) });
@@ -3411,6 +3452,10 @@
       client = '';
       var days = (site.days || []).map(function (d) { return d.date; }).filter(Boolean).sort();
       watch = { siteId: site.id, name: Share.titleLine(site), until: days[days.length - 1] || site.date || '', keys: ['pwLobby', 'pwUnit', 'toilet'].filter(function (k) { return Share.isEmpty(site, k); }) };
+    }
+    if (!room && client) {   // 거래처에 적어 둔 방이 있으면 그 방으로 (없으면 노트북이 이름으로 찾는다)
+      var kc = Store.clients().filter(function (c) { return c.name === client; })[0];
+      if (kc) room = BossChat.clientRooms(kc)[0] || '';
     }
     return kakaoPost({ action: 'add', id: id, client: client, room: room, text: text, watch: watch }).then(function () {
       return { ok: true, state: 'wait', cards: [kakaoCard({ id: id, client: client, room: room, at: Date.now(), state: 'wait' })],
@@ -7095,6 +7140,7 @@
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
   takeFills();
   refreshApproveCount();
+  roomsSync();
   handleAdminLinkHash();
   scheduleAdminSync();   // 앱을 열 때 맞출 게 남은 연결 현장이 있으면 한 번 더
   // 첫 진입: 해시가 없고 마지막에 일정 화면을 봤으면 일정으로 시작

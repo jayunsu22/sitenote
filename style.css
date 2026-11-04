@@ -1787,3 +1787,10 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .ch-copy { display: none; margin-top: 6px; padding: 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #fff; color: #475569; font-size: 12px; font-weight: 800; }
 .ch-copyable.ch-copy-on > .ch-copy { display: block; }
 @media (hover: hover) { .ch-copyable:hover > .ch-copy { display: block; } }
+
+/* 💬 거래처 카톡방 (2026-11-05) */
+.contact-row input.room { flex: 1 1 100%; }
+.room-list { margin: 8px 0 2px; }
+.room-h { font-size: 12.5px; font-weight: 800; color: #475569; margin-bottom: 4px; }
+.room-chip { display: inline-block; margin: 0 5px 5px 0; padding: 4px 10px; border-radius: 99px; background: #fef9c3; color: #3c1e1e; font-size: 13px; font-weight: 700; }
+.room-chip small { margin-left: 5px; color: #92400e; font-size: 11px; font-weight: 700; }
