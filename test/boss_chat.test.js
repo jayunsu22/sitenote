@@ -125,6 +125,8 @@ function runWith(replies, execs, more) {
   assert.deepStrictEqual(B.clientRooms({ contacts: [{ name: '실장', kakaoRoom: '봄애실장님' }, { name: '대리' }], kakaoRooms: ['봄애대리님', '봄애실장님'] }), ['봄애실장님', '봄애대리님']);
   assert.deepStrictEqual(B.buildContext({ today: '2026-11-04', clients: [{ id: 'c', name: '봄애', contacts: [{ kakaoRoom: '봄애실장님' }] }, { id: 'd', name: '방없음' }], settings: {} }).kakaoRooms, [{ client: '봄애', rooms: ['봄애실장님'] }]);
 
+  assert.deepStrictEqual(B.clientRooms({ kakaoRooms: ['가', '나'], kakaoRoomsOff: ['가'] }), ['나']);
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

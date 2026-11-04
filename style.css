@@ -1793,4 +1793,5 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .room-list { margin: 8px 0 2px; }
 .room-h { font-size: 12.5px; font-weight: 800; color: #475569; margin-bottom: 4px; }
 .room-chip { display: inline-block; margin: 0 5px 5px 0; padding: 4px 10px; border-radius: 99px; background: #fef9c3; color: #3c1e1e; font-size: 13px; font-weight: 700; }
+.room-x { margin-left: 6px; padding: 0 2px; border: 0; background: none; color: #92400e; font-size: 13px; font-weight: 900; }
 .room-chip small { margin-left: 5px; color: #92400e; font-size: 11px; font-weight: 700; }

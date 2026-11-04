@@ -293,7 +293,9 @@
       var save = function () {
         var contacts = c.contacts.slice();
         contacts[i] = { name: row.querySelector('.name').value, phone: row.querySelector('.phone').value, kakaoRoom: row.querySelector('.room').value.trim() };
-        c = Store.updateClient(c.id, { contacts: contacts }) || Store.getClient(c.id);
+        // 직접 적으면 ✕ 로 뺐던 방도 다시 살린다
+        var offNow = (c.kakaoRoomsOff || []).filter(function (n) { return n !== contacts[i].kakaoRoom; });
+        c = Store.updateClient(c.id, { contacts: contacts, kakaoRoomsOff: offNow }) || Store.getClient(c.id);
         paintClientRooms(Store.getClient(c.id));
         roomsPush();
         var t = (contacts[i].phone || '').replace(/[^0-9+]/g, '');
@@ -329,8 +331,9 @@
     var box = $('clientRooms');
     if (!box || !c) return;
     box.innerHTML = '';
+    var off = c.kakaoRoomsOff || [];
     var typed = BossChat.clientRooms({ contacts: c.contacts }), pasted = BossChat.clientRooms({ kakaoRooms: c.kakaoRooms });
-    var lap = [].concat(laptopRooms[c.name] || []);
+    var lap = [].concat(laptopRooms[c.name] || []).filter(function (n) { return off.indexOf(n) === -1; });
     var rows = [];
     typed.concat(pasted, lap).forEach(function (n) { if (n && rows.indexOf(n) === -1) rows.push(n); });
     if (!rows.length) return;
@@ -341,16 +344,36 @@
       if (lap.indexOf(n) !== -1) tags.push('노트북');
       var chip = el2('span', 'room-chip', n);
       if (tags.length) chip.appendChild(el2('small', '', tags.join('·')));
+      var del = el2('button', 'room-x', '✕'); del.type = 'button'; del.title = '이 방 빼기';
+      del.onclick = function () { removeClientRoom(c.id, n); };
+      chip.appendChild(del);
       box.appendChild(chip);
+    });
+  }
+  // ✕ 방 빼기: 담당자 칸·카톡 정리 목록에서 지우고, 노트북 설정에 있는 방은 kakaoRoomsOff 로 — 노트북이 지켜보기·보내기에 안 쓴다 (설정 파일은 그대로)
+  function removeClientRoom(clientId, room) {
+    modalConfirm('카톡방 빼기', '"' + room + '" 방을 뺄까요?\n\n비서가 이 방을 안 쓰고, 노트북도 이 방을 지켜보지 않습니다. 카톡방 자체는 그대로입니다. 담당자 아래에 이름을 다시 적으면 되살아납니다.', '빼기', true).then(function (ok) {
+      if (!ok) return;
+      var c = Store.getClient(clientId);
+      if (!c) return;
+      var contacts = (c.contacts || []).map(function (ct) { return ct && ct.kakaoRoom === room ? Object.assign({}, ct, { kakaoRoom: '' }) : ct; });
+      var pasted = (c.kakaoRooms || []).filter(function (n) { return n !== room; });
+      var off = (c.kakaoRoomsOff || []).filter(function (n) { return n !== room; });
+      if ([].concat(laptopRooms[c.name] || []).indexOf(room) !== -1) off.push(room);
+      Store.updateClient(clientId, { contacts: contacts, kakaoRooms: pasted, kakaoRoomsOff: off });
+      renderContacts(Store.getClient(clientId));
+      toast('뺐어요 — ' + room);
+      roomsSync();
     });
   }
   // 앱이 아는 방을 노트북에 알려 주고, 노트북 설정에 있는 방을 받아 온다
   function roomsSync() {
     if (!ownerKeyOn()) return;
-    var rooms = {};
+    var rooms = {}, offRooms = {};
+    Store.clients().forEach(function (c) { if ((c.kakaoRoomsOff || []).length) offRooms[c.name] = c.kakaoRoomsOff; });
     // 사장님이 담당자 아래 직접 적은 방만 — 노트북이 지켜보고 답도 하는 방이라, 카톡 정리로 저절로 생긴 방은 안 보낸다
     Store.clients().forEach(function (c) { var r = BossChat.clientRooms({ contacts: c.contacts }); if (r.length) rooms[c.name] = r; });
-    kakaoPost({ action: 'rooms', side: 'app', rooms: rooms }).then(function (d) {
+    kakaoPost({ action: 'rooms', side: 'app', rooms: rooms, off: offRooms }).then(function (d) {
       laptopRooms = d.rooms || {};
       paintClientRooms(Store.getClient(currentClientId));
     }).catch(function () { /* 다음에 */ });

@@ -101,7 +101,8 @@
 
   // 거래처 카톡방 (11/5): 담당자마다 적은 방 + 카톡 정리로 연결된 방. 앞의 것이 먼저
   function clientRooms(c) {
-    return names(((c && c.contacts) || []).map(function (ct) { return ct && ct.kakaoRoom; }).concat((c && c.kakaoRooms) || []));
+    var off = (c && c.kakaoRoomsOff) || [];   // ✕ 로 뺀 방
+    return names(((c && c.contacts) || []).map(function (ct) { return ct && ct.kakaoRoom; }).concat((c && c.kakaoRooms) || [])).filter(function (n) { return off.indexOf(n) === -1; });
   }
   // 할 일 하나 검사 — 실행 전에 앱이 직접 막는 것. userText = 사장님이 최근에 쓴 글
   function check(a, o) {
