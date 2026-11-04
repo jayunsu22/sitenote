@@ -111,13 +111,14 @@
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
-    if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); return; }   // 📝 업무지시 보드 (2026-11-04)
+    if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); chatAutoOn(); return; }   // 📝 업무지시 보드 (2026-11-04)
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
     showView('viewMain'); renderMain();
   }
   function showView(id) {
+    if (id !== 'viewOrder' && typeof chatAutoOff === 'function') chatAutoOff();   // 비서 화면을 나가면 마이크 끔
     ['viewMain', 'viewSite', 'viewSettings', 'viewSchedule', 'viewReviews', 'viewApprove', 'viewOrder'].forEach(function (v) { $(v).hidden = v !== id; });
     window.scrollTo(0, 0);
   }
@@ -3432,6 +3433,7 @@
     $('chatPane').hidden = on; $('logPane').hidden = !on;
     $('tabChat').classList.toggle('on', !on); $('tabLog').classList.toggle('on', on);
     if (on) renderWorkLog(true); else renderChat();
+    if (on) { clearTimeout(chatAutoT); if (chatRec) chatMicStop(); } else if (chatAuto) chatAutoListen(500);   // 🎤 업무 내역에선 안 들음
   }
   function renderWorkLog(load) {
     var box = $('logList');
@@ -3619,6 +3621,24 @@
      잠깐 쉬어도 다시 듣고(두 번 연속 아무 말 없으면 멈춤), 말로 시킨 일의 답은 소리로 읽어 준다.
      말로 시키면 잘못 들었을 수 있어 문자는 한 명이라도 먼저 묻는다 — '응' 이라고 답하면 나간다 */
   var chatRec = null, chatMicWant = false, chatVoice = false;
+  /* 🎤 열면 바로 듣기 (11/4 사장님: 운전 중 손 안 대고) — 비서 화면을 열면 마이크가 저절로 켜지고,
+     말로 시킨 일에 비서가 소리로 답한 뒤에도 다시 저절로 듣는다. ⏹ 를 누르면 이번엔 그만 (다시 🎤 누르면 다시 켜짐).
+     업무 내역 탭·다른 화면·앱을 내리면 끈다. 말한 뒤 '시작해' 라고 해야 보낸다 (그대로). */
+  var chatAuto = false, chatAutoT = 0;
+  function chatAutoOk() {
+    return chatAuto && !chatRec && !chatBusy && !$('viewOrder').hidden && !$('chatPane').hidden && !document.hidden && ownerKeyOn() &&
+      !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !(window.speechSynthesis && window.speechSynthesis.speaking);
+  }
+  function chatAutoListen(delay) {
+    clearTimeout(chatAutoT);
+    chatAutoT = setTimeout(function () {
+      if (!chatAutoOk()) return;
+      chatMicWant = true;
+      chatListen(2);
+    }, delay || 0);
+  }
+  function chatAutoOn() { chatAuto = true; chatAutoListen(700); }
+  function chatAutoOff() { chatAuto = false; clearTimeout(chatAutoT); if (chatRec) chatMicStop(); }
   function chatGrow() {
     var box = $('chatText');
     box.style.height = 'auto';
@@ -3628,9 +3648,12 @@
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     var t = BossChat.speakable(text);
-    if (!t || !chatVoice) return;
+    if (!chatVoice) return;   // 글로 시킨 일은 읽지도, 다시 듣지도 않는다
+    if (!t) { if (chatAuto) chatAutoListen(500); return; }
     var u = new SpeechSynthesisUtterance(t);
     u.lang = 'ko-KR';
+    // 다 읽은 뒤 다시 듣는다 (자기 목소리를 듣지 않게 읽는 동안은 안 들음)
+    u.onend = function () { if (chatAuto) chatAutoListen(400); };
     window.speechSynthesis.speak(u);
   }
   function chatMicStop() {
@@ -3677,7 +3700,8 @@
   }
   function chatMicOff() { var btn = $('btnChatMic'); btn.classList.remove('on'); btn.textContent = '🎤'; }
   function chatMic() {
-    if (chatRec) { chatMicWant = false; chatRec.stop(); return; }
+    if (chatRec) { chatMicWant = false; chatAuto = false; chatRec.stop(); return; }   // ⏹ = 이번엔 그만 듣기
+    chatAuto = true;
     if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) { toast('이 브라우저는 음성인식이 안 돼요 — 크롬에서 열어 주세요'); return; }
     chatVoice = false;
     chatSpeak('');
@@ -6758,6 +6782,11 @@
     }).catch(function () { /* 다음에 다시 */ }).then(function () { fillBusy = false; });
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { takeFills(); refreshApproveCount(); } });
+  // 🎤 앱을 내리면 마이크 끔, 다시 열면 비서 화면이면 다시 듣기 (11/4)
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { clearTimeout(chatAutoT); if (chatRec) chatMicStop(); }
+    else if (chatAuto && !$('viewOrder').hidden) chatAutoListen(700);
+  });
   setInterval(function () { if (!document.hidden) takeFills(); }, 5 * 60 * 1000);
 
   // ---------- 시작 ----------
