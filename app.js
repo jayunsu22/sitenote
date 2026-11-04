@@ -3121,7 +3121,8 @@
     var where = (x.room || x.client) + ' 방', c = { ok: x.state !== 'failed', kakao: x, sending: false };
     var min = Math.floor((Date.now() - x.at) / 60000);
     if (x.state === 'sent') c.text = '💬 ' + where + '에 카톡 보냄' + (x.doneAt ? ' (' + chatTime(x.doneAt) + ')' : '');
-    else if (x.state === 'failed') c.text = '⚠️ ' + where + ' 카톡 못 보냄 — ' + (x.why || '이유 모름') + ' (텔레그램에 글을 보냈어요)';
+    // 30분 지나 안 보낸 것(노트북 꺼짐)은 텔레그램으로도 안 갔다 — 노트북이 보내다 실패한 것만 텔레그램에 글이 있다
+    else if (x.state === 'failed') c.text = '⚠️ ' + where + ' 카톡 못 보냄 — ' + (x.why || '이유 모름') + (/30분/.test(x.why || '') ? ' 필요하면 다시 시켜 주세요' : ' (텔레그램에 글을 보냈어요)');
     else if (x.stale || (x.state === 'wait' && min >= 3)) { c.text = '⏳ ' + where + ' 카톡 — 노트북이 아직 안 가져갔어요 (' + min + '분째). 노트북 카톡 읽기 프로그램이 켜져 있는지 봐 주세요'; c.sending = true; }
     else { c.text = '💬 ' + where + '에 카톡 보내는 중… (노트북이 보내면 바뀌어요)'; c.sending = true; }
     return c;
