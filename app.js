@@ -3264,6 +3264,12 @@
     if (x.res) bd.appendChild(el2('div', 'ap-res', x.res));
     // ❓ 출입정보 질문: 누구에게·카톡/문자 (11/5) — [진행해] 로 고른 것, 아니면 정해 둔 것
     if (x.kind === 'ask') {
+      // 노트북·결재함이 이미 물었으면 (11/6, 업무일정표 asked) — 누가·언제
+      var was = d && d.asked && d.asked[x.siteId];
+      if (was && Date.now() - (was.at || 0) < 7 * 864e5) {
+        bd.appendChild(el2('div', 'ap-res ap-asked', '✔ 이미 물어봄 · ' + (was.by === '결재함' ? '결재함' : '노트북') + ' ' + (was.via === 'sms' ? '📨 문자' : '💬 카톡') +
+          (was.who ? ' (' + was.who + ')' : '') + ' · ' + Share.shortDate(Share.todayIso(new Date(was.at))) + ' — 답을 기다리는 중'));
+      }
       var who = dec && dec.to ? Share.askWho(dec.to) : Share.askWho(askTargetOf(x.siteId));
       bd.appendChild(el2('div', 'ap-res ap-who', who ? '→ ' + who + (dec && dec.to ? '' : ' (진행해를 누르면 바꿀 수 있어요)') : '→ 물어볼 담당자가 없어요 — 거래처 담당자를 적어 주세요'));
     }
@@ -4189,6 +4195,16 @@
   (function () {
     var sc = document.querySelector('script[src*="app.js"]'), m = sc && /[?&]v=\d{4}(\w+)/.exec(sc.getAttribute('src'));
     if (m) $('chatVer').textContent = 'v' + m[1];
+    // 모든 화면 제목 옆에도 (11/6 사장님: 업데이트됐는지 확인) — 메인·일정·결재함·후기·설정
+    if (m) document.querySelectorAll('.topbar-title:not(.sr-only)').forEach(function (h) {
+      if (h.querySelector('#chatVer') || h.querySelector('.app-ver')) return;
+      // 긴 제목은 글만 줄이고(…) 버전은 늘 보이게
+      var txt = el2('span', 'ttl-txt');
+      while (h.firstChild) txt.appendChild(h.firstChild);
+      h.appendChild(txt);
+      h.classList.add('has-ver');
+      h.appendChild(el2('small', 'ch-ver app-ver', 'v' + m[1]));
+    });
   })();
   /* 🎤 말로 하기 (11/4 사장님: 차 안에서) — 크롬 음성인식(한국어). 말 끝에 '시작해' 라고 하면 바로 보낸다.
      잠깐 쉬어도 다시 듣고(두 번 연속 아무 말 없으면 멈춤), 말로 시킨 일의 답은 소리로 읽어 준다.

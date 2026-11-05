@@ -1815,3 +1815,9 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .ask-via.on { background: #e0e7ff; border-color: #6366f1; color: #3730a3; }
 .ask-ctl .owner-room { flex: 1 1 140px; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
 .ap-who { color: #4338ca; font-weight: 800; margin-top: 2px; }
+.ap-asked { color: #15803d; font-weight: 800; }
+.app-ver { font-size: 11px; vertical-align: middle; }
+.topbar-title.has-ver { display: flex; align-items: baseline; min-width: 0; }
+.topbar-title-center.has-ver { justify-content: center; }
+.topbar-title.has-ver .ttl-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-title.has-ver .app-ver { flex: none; }
