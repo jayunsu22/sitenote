@@ -3485,6 +3485,21 @@
         logs: [{ kind: 'reply', title: (room || client) + ' 방 카톡 맡김', detail: text }] };
     }).catch(function (e) { return { ok: false, why: '카톡을 못 맡겼어요 (' + String(e.message || e).slice(0, 60) + ')' }; });
   }
+  // 업체에 현장 빈칸 묻기 (11/5): 비서가 글을 지어 쓰지 않고, 텔레그램 [시작해] 와 똑같은 번호 매긴 질문 — 빈칸·업체 확인 질문·답 읽어 칸에 넣기·3시간 뒤 다시 묻기까지 노트북이 그대로
+  function chatAskSite(a) {
+    var s = Store.getSite(a.siteId), c = s && Store.getClient(s.clientId);
+    if (!s || !c) return Promise.resolve({ ok: false, why: '그 현장을 못 찾았어요' });
+    if (Share.isPrivateClient(c)) return Promise.resolve({ ok: false, why: '개인고객은 현장 화면의 [카톡으로]·[문자로] 로 물어봐 주세요' });
+    if (!s.date) return Promise.resolve({ ok: false, why: '시공 날짜가 없어요. 날짜를 먼저 넣어 주세요' });
+    var items = Share.siteAskItems(s, state.settings);
+    if (!items.missing.length && !items.checks.length) return Promise.resolve({ ok: true, same: true, text: 'ℹ️ ' + Share.titleLine(s) + ': 물어볼 것이 없어요' });
+    var id = 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), room = BossChat.clientRooms(c)[0] || '';
+    return kakaoPost({ action: 'add', id: id, client: c.name, room: room, text: '빈칸 묻기: ' + Share.titleLine(s),
+      ask: { id: s.id, client: c.name, name: Share.titleLine(s), date: s.date, missing: items.missing, checks: items.checks } }).then(function () {
+      return { ok: true, state: 'wait', cards: [kakaoCard({ id: id, client: c.name, room: room, at: Date.now(), state: 'wait' })],
+        logs: [{ kind: 'reply', title: (room || c.name) + ' 방에 빈칸 묻기 맡김', detail: Share.titleLine(s), siteId: s.id }] };
+    }).catch(function (e) { return { ok: false, why: '못 맡겼어요 (' + String(e.message || e).slice(0, 60) + ')' }; });
+  }
   var kakaoWatchT = 0, kakaoWatchBusy = false;
   function kakaoWatch() {
     clearTimeout(kakaoWatchT);
@@ -3588,6 +3603,7 @@
     if (a.tool === 'send_site_info') return chatSms(a.siteId, a.names, workerInfoText(Store.getSite(a.siteId)), '현장 정보 문자');
     if (a.tool === 'send_text') return chatSms(a.siteId, a.names, String(a.text).trim().slice(0, 1500), '문자');
     if (a.tool === 'send_kakao') return chatKakao(a);
+    if (a.tool === 'ask_site') return chatAskSite(a);
     if (a.tool === 'save_phone') {
       var old = ((state.settings.people || {})[a.name] || {}).phone || '';
       Store.setSettings({ people: Share.mergePerson(state.settings.people, a.name, { phone: a.phone }) });
@@ -3635,6 +3651,7 @@
   }
   function chatPendingCards(pending) {
     return pending.map(function (a) {
+      if (a.tool === 'ask_site') { var as = Store.getSite(a.siteId); return { wait: true, text: '💬 ' + (as ? Share.titleLine(as) : '') + ' — 업체 방에 빈칸·업체 확인 질문 보내기' }; }
       if (a.tool === 'send_kakao') return { wait: true, text: '💬 ' + (a.room || a.client || customerRoom(Store.getSite(a.siteId) || {})) + ' 방에 보낼 카톡\n' + a.text };
       var text = a.tool === 'send_text' ? a.text : workerInfoText(Store.getSite(a.siteId));
       return { wait: true, text: '📨 ' + a.names.join(', ') + ' (' + a.names.length + '명)께 보낼 문자\n' + text };

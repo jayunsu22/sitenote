@@ -127,6 +127,12 @@ function runWith(replies, execs, more) {
 
   assert.deepStrictEqual(B.clientRooms({ kakaoRooms: ['가', '나'], kakaoRoomsOff: ['가'] }), ['나']);
 
+  // 빈칸 묻기: 한 번 말에 한 번만, 말로 시키면 확인
+  t = await runWith([{ ok: true, actions: [{ tool: 'ask_site', siteId: 's1' }] }, { ok: true, actions: [{ tool: 'ask_site', siteId: 's1' }] }, { ok: true, say: '맡겼어요', actions: [] }]);
+  assert.strictEqual(t.ran.length, 1);
+  assert.strictEqual(B.needsConfirm({ tool: 'ask_site' }, true), true);
+  assert.ok(B.check({ tool: 'ask_site', siteId: 'zz' }, { hasSite: () => false }));
+
   // AI 연결 실패: 처음이면 아무것도 안 함, 실행 뒤면 결과는 남기고 다시 실행 안 함
   t = await runWith([new Error('네트워크')]);
   assert.strictEqual(t.r.failed, true);

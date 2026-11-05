@@ -135,6 +135,7 @@
       if (!str(a.client) && !str(a.room) && !str(a.siteId)) return '어느 방에 보낼지 모르겠어요';
       return str(a.text) ? '' : '보낼 글이 없어요';
     }
+    if (t === 'ask_site') return site() ? '' : '그 현장을 못 찾았어요';
     if (t === 'save_phone') {
       var d = digits(a.phone);
       if (!str(a.name) || d.length < 9) return '이름이나 번호가 없어요';
@@ -149,7 +150,7 @@
   // 받는 사람이 많은 문자는 사장님 확인 뒤에
   // 말로 시킨 때(all)는 잘못 들었을 수 있어 문자는 한 명이라도 확인 뒤에 (11/4)
   function needsConfirm(a, all) {
-    if (a.tool === 'send_kakao') return !!all;
+    if (a.tool === 'send_kakao' || a.tool === 'ask_site') return !!all;
     return (a.tool === 'send_text' || a.tool === 'send_site_info') && (all || names(a.names).length > CONFIRM_OVER);
   }
   // 말 끝이 '시작해' 면 보내라는 뜻 (사장님 11/4) → { text: 그 말을 뺀 글, go }
@@ -173,6 +174,7 @@
   function outKeys(a) {
     var norm = function (v) { return str(v).replace(/\s+/g, '').toLowerCase(); };
     if (a.tool === 'send_kakao') return ['kakao:' + norm(a.room || a.client || a.siteId)];
+    if (a.tool === 'ask_site') return ['ask:' + str(a.siteId)];
     if (a.tool === 'send_text') return names(a.names).map(function (n) { return 'text:' + norm(n); });
     if (a.tool === 'send_site_info') return names(a.names).map(function (n) { return 'info:' + str(a.siteId) + ':' + norm(n); });
     return [];

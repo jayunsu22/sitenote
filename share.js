@@ -1758,6 +1758,17 @@
      act: 'film' = 필름 발주(진행해 → 담당자 골라 9시 문자), 'crew' = 인원 모집(9시 시작), '' = 확인만.
      설계 songil docs/superpowers/specs/2026-11-03-결재함-design.md */
   var REPORT_ASK_DAYS = 7, REPORT_PAY_DAYS = 14;
+  // 업체에 물어볼 것 (n8n 빈칸고르기와 같은 기준): 비번·화장실·필름 빈칸 + 안 답한 업체 확인 질문 → 노트북 gaps.run_ask 가 번호를 매겨 보낸다
+  function siteAskItems(s, settings) {
+    var missing = ['pwLobby', 'pwUnit', 'toilet'].filter(function (k) { return !str(s[k]); });
+    if (!(Array.isArray(s.films) && s.films.some(function (x) { return x && str(x.code); }))) missing.push('films');
+    var checks = normalizeChecks((settings || {}).checks).filter(function (c) {
+      if (c.off || !str(c.id) || !str(c.text)) return false;
+      var a = (s.checks || {})[c.id];
+      return !(a && typeof a === 'object' && a.skip) && !str(a && typeof a === 'object' ? a.v : a);
+    }).map(function (c) { return { id: c.id, text: c.text, ok: !!c.ok }; });
+    return { missing: missing, checks: checks };
+  }
   // 입금 기록이 하나라도 있나 (정산 내역)
   function sitePaidAny(s) {
     return Object.keys(s.settleLog || {}).some(function (k) { return str((s.settleLog[k] || {}).입금일); }) ||
@@ -2484,7 +2495,7 @@
     manwon: manwon, parseManwon: parseManwon, wonText: wonText,
     heldOpen: heldOpen,
     ownerRows: ownerRows,
-    isPrivateClient: isPrivateClient, privateCustomer: privateCustomer, privateDone: privateDone, privateMatch: privateMatch, sitesByPhone: sitesByPhone, PRIVATE_NAME: PRIVATE_NAME, PRIVATE_SOURCES: PRIVATE_SOURCES,
+    siteAskItems: siteAskItems, isPrivateClient: isPrivateClient, privateCustomer: privateCustomer, privateDone: privateDone, privateMatch: privateMatch, sitesByPhone: sitesByPhone, PRIVATE_NAME: PRIVATE_NAME, PRIVATE_SOURCES: PRIVATE_SOURCES,
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     dayPlanOf: dayPlanOf,
