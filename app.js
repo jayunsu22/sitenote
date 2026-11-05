@@ -3398,7 +3398,7 @@
     if (!s) return null;
     var key = f.kind === 'films' ? 'films' : f.kind === 'pay' ? 'payDone' : f.kind === 'staff' ? 'days' : f.field;
     var prev = { key: key, value: s[key] == null ? '' : JSON.parse(JSON.stringify(s[key])), src: (s.fieldSrc || {})[key] || '' };
-    var by = '업무지시 ' + Share.shortDate(Share.todayIso());
+    var by = '업무비서 ' + Share.shortDate(Share.todayIso());
     var p = f.kind === 'pay' ? (s.payDone ? null : { payDone: Share.todayIso() })
       : f.kind === 'staff' ? staffPatch(s, f) : Kakao.fillPatch(s, f, by);
     if (p && p.nodate) return Object.assign(prev, { nodate: true });
@@ -4237,7 +4237,7 @@
   $('btnChatMic').onclick = chatMic;
   $('btnOrderBack').onclick = function () { go(''); };
   (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
-    icon: '📝', name: '업무지시', onClick: function () { go('#order'); }
+    icon: '📝', name: '업무비서', onClick: function () { go('#order'); }
   });
 
   var svcSheet = { siteId: '', id: '', onDone: null };
