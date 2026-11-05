@@ -234,6 +234,7 @@
       result: String(raw.result || ''),
       createdAt: Number(raw.createdAt) || 0,
       updatedAt: Number(raw.updatedAt) || 0,
+      fromVendor: !!raw.fromVendor,   // 업체가 카톡으로 부탁한 일 (11/5) — 끝낼 때까지 업무일정표에
       order: Math.max(0, Math.floor(Number(raw.order) || 0))   // 그날 안 순서 (0 = 안 정함, 2026-10-24)
     };
   }

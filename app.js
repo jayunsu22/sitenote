@@ -2403,6 +2403,16 @@
     var strip = document.createElement('div'); strip.className = 'stage-strip stage-strip-lg';
     renderStageStrip(strip, s, { onPick: function (k) { Store.setFilmStage(siteId, k); renderStageSection(box, siteId); } });
     box.appendChild(strip);
+    // 🚚 업체가 필름을 가져다주는 현장 (2026-11-05)
+    var fvBtn = document.createElement('button'); fvBtn.type = 'button'; fvBtn.className = 'fv-sitetog' + (s.filmVendor ? ' on' : '');
+    fvBtn.textContent = (s.filmVendor ? '☑' : '☐') + ' 🚚 업체가 필름을 가져옴';
+    fvBtn.onclick = function () {
+      var on = !s.filmVendor;
+      Store.updateSite(siteId, Share.filmVendorPatch(s, on));
+      toast(on ? '🚚 주문 알림을 끕니다 — 전날 업체에 한 번 확인해요' : '직접 주문하는 현장으로 되돌렸어요');
+      renderStageSection(box, siteId);
+    };
+    box.appendChild(fvBtn);
   }
 
   // ---------- 일정·인원 / 부자재 (현장 상세 + 일정 화면 공용 조각) ----------
@@ -3056,7 +3066,7 @@
   $('btnReviewsBack').onclick = function () { go(''); };
 
   /* ---------- 📋 결재함 (2026-11-03 사장님, 목업 A안 + C안 카톡) ----------
-     n8n 업무일정표가 저녁 7시에 만든 '내일 업무일정표' (카톡 김정헌방 링크 #approve/날짜 로도 열림).
+     n8n 업무일정표가 오후 5시에 만든 '내일 업무일정표' (카톡 김정헌방 링크 #approve/날짜 로도 열림).
      항목마다 [진행해] [다음날로 연기] [내가할께] — 안 누르면 지금처럼. 필름 발주 [진행해]는 거래처·담당자를 고른다
      → 다음 날 9시 그 담당자에게 주문 문자. 인원 모집 [진행해] → 9시 여러 날 모집 시작. [내가할께] → 9시 그날 할 일로.
      설계 songil docs/superpowers/specs/2026-11-03-결재함-design.md */
@@ -3091,16 +3101,16 @@
   }
   // 결재함 업무 종류 — 순서·아이콘·이름, 버튼 4개
   var AP_ORDER = ['film', 'crew', 'ask', 'as', 'pay', 'task', 'silicone', 'supply', 'stock', 'hold'];
-  var AP_ICON = { film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
-  var AP_TITLE = { film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
+  var AP_ICON = { review: '⭐', film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
+  var AP_TITLE = { review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
   var AP_BTN = [['go', '▶', '진행해'], ['later', '⏭', '연기'], ['mine', '✋', '내가할께'], ['done', '✔', '완료']];
   // 3안 '오늘의 미션' (사장님 11/3: 산뜻하고 일할 맛 나게) — 남색 머리 + 경험치 막대, 큰 아이콘 미션 카드, 끝내면 CLEAR
-  var AP_TILE = { film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
+  var AP_TILE = { review: '#fef9c3', film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
   function paintApprove(d) {
     var body = $('approveBody'); body.innerHTML = '';
     if (d.none || !d.rep) {
       if ((d.inbox || []).length) { approvePending = countPending(d); apInbox(d, body); }
-      body.appendChild(el2('p', 'sec-empty', '아직 업무일정표가 없습니다. 매일 저녁 7시에 만들어집니다.'));
+      body.appendChild(el2('p', 'sec-empty', '아직 업무일정표가 없습니다. 매일 오후 5시에 만들어집니다.'));
       var mk = el2('button', 'ap-all', '지금 만들어 보기'); mk.type = 'button';
       mk.onclick = function () { mk.disabled = true; reportPost({ action: 'make' }).then(function () { renderApprove(''); }).catch(function () { toast('못 만들었어요'); mk.disabled = false; }); };
       body.appendChild(mk);
@@ -3307,14 +3317,7 @@
   /* 👷 작업자가 바뀌면 그 사람에게 현장 기본정보 문자 (11/4 사장님: 작업자가 바뀌면 현장주소는 당연히 보내야).
      팀원 공유 문구(고객·발주처 번호는 빼고) + 📍 주소. 번호는 설정 › 팀원 연락처(people). 사장님 폰(SMS Gateway)으로 —
      필름 📨 바로 주문과 같은 길(n8n 카톡_버튼 film-order sendTo). 지시에 '문자·보내' 가 있으면 묻지 않고 바로 */
-  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo'];
-  function workerInfoText(s) {
-    var keys = Share.FIELDS.map(function (f) { return f.key; }).filter(function (k) { return WORKER_SHARE_SKIP.indexOf(k) === -1; });
-    var text = Share.buildShare(s, keys.concat([Share.WORKER_KEY]));
-    var addr = Share.navAddress(s), cut = text.indexOf('\n');
-    if (!addr) return text;
-    return cut === -1 ? text + '\n📍 주소: ' + addr : text.slice(0, cut) + '\n📍 주소: ' + addr + text.slice(cut);
-  }
+  function workerInfoText(s) { return Share.workerInfoText(s); }
   function workerPhone(name) { var p = (state.settings.people || {})[name]; return Share.phoneDigits((p && p.phone) || ''); }
   // 받는 사람 번호: 팀원 연락처 → 없으면 업체 연락처(거래처 담당자·현장 발주처 담당자, '지인인테리어 김사장') (11/4)
   function anyPhone(name) {
@@ -3600,6 +3603,12 @@
     if (a.tool === 'set_field') return Promise.resolve(chatApply({ kind: 'field', field: a.field, value: String(a.value).trim(), label: CHAT_LABEL[a.field] }, a.siteId, a.field === 'toilet' ? '🚻' : '🔑'));
     if (a.tool === 'set_films') return Promise.resolve(chatApply({ kind: 'films', films: a.films.filter(function (x) { return x && x.code; }), label: '필름' }, a.siteId, '🎞'));
     if (a.tool === 'mark_paid') return Promise.resolve(chatApply({ kind: 'pay', label: '잔금' }, a.siteId, '💰'));
+    if (a.tool === 'set_film_vendor') {
+      var fvs = Store.getSite(a.siteId), fvOn = a.on !== false;
+      if (!fvs) return Promise.resolve({ ok: false, why: '이 기기에 그 현장이 없어요' });
+      Store.updateSite(fvs.id, Share.filmVendorPatch(fvs, fvOn));
+      return Promise.resolve({ ok: true, text: '🚚 ' + Share.titleLine(fvs) + (fvOn ? ': 필름은 업체가 가져옴 — 주문 알림 안 함' : ': 필름 직접 주문으로 되돌림') });
+    }
     if (a.tool === 'set_staff') return Promise.resolve(chatApply({ kind: 'staff', names: a.names, mode: a.mode, date: /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : '', label: '작업자' }, a.siteId, '👷'));
     if (a.tool === 'send_site_info') return chatSms(a.siteId, a.names, workerInfoText(Store.getSite(a.siteId)), '현장 정보 문자');
     if (a.tool === 'send_text') return chatSms(a.siteId, a.names, String(a.text).trim().slice(0, 1500), '문자');
@@ -3888,6 +3897,9 @@
     try { after = Number(localStorage.getItem('chatFeedAt')) || 0; } catch (e) { /* 저장소 막힘 */ }
     chatFeedBusy = true;
     wlPost({ action: 'feed_list', after: after }).then(function (d) {
+      // 🟢/🔴 노트북 (11/5) — 30분 넘게 신호가 없으면 멈춘 것
+      var beat = Number(d.beat) || 0;
+      $('chatBeat').textContent = !beat ? '' : Date.now() - beat < 30 * 60000 ? '🟢' : '🔴 노트북 멈춤';
       var items = d.items || [];
       if (!after && !items.length) { try { localStorage.setItem('chatFeedAt', String(d.now || Date.now())); } catch (e) { /* */ } return; }
       if (!items.length) return;
@@ -6725,6 +6737,8 @@
     settingsTab = 'team';   // 설정을 열 때마다 첫 탭에서 시작한다
     renderSettingsTabs();
     $('backupKey').value = state.settings.backupKey || '';
+    $('reviewLink').value = state.settings.reviewLink || '';
+    $('reviewLink').onchange = function () { Store.setSettings({ reviewLink: this.value.trim() }); toast('후기 링크를 저장했어요'); };
     if ($('appVer')) $('appVer').textContent = '버전 ' + (appVersion() || '—');
     renderSyncStatus();
     renderTeamList();
@@ -7176,8 +7190,8 @@
         // 결재함 [내가할께] → 그날 할 일 (2026-11-03). 현장이 이 기기에 있으면 현장에 이어 둔다
         if (f.kind === 'task') {
           var ts = Store.getSite(f.siteId);
-          var exists = Store.tasks().some(function (t) { return t.title === f.title && t.date === f.date; });
-          if (!exists && Store.addTask({ title: f.title, date: f.date, link: ts ? { type: 'site', id: ts.id, siteId: ts.id, label: Share.titleLine(ts) } : null })) n++;
+          var exists = Store.tasks().some(function (t) { return t.title === f.title && (t.date === f.date || (f.vendor && !t.done)); });
+          if (!exists && Store.addTask({ title: f.title, date: f.date, fromVendor: !!f.vendor, link: ts ? { type: 'site', id: ts.id, siteId: ts.id, label: Share.titleLine(ts) } : null })) n++;
           done.push(f.id);
           return;
         }

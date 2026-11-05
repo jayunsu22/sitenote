@@ -149,6 +149,9 @@
       if (!nm || !day || day.staff.indexOf(nm) !== -1) return null;
       day.staff.push(nm);
       return { days: days };
+    } else if (f.kind === 'filmVendor') {
+      // 🚚 업체가 필름을 가져다준다고 함 (2026-11-05)
+      return site.filmVendor ? null : Share.filmVendorPatch(site, true);
     } else if (f.kind === 'filmOrdered') {
       // 텔레그램 버튼으로 사장님 폰이 주문 문자를 보냄 (2026-11-01) → '필름 주문' 단계 (이미 수령이면 그대로)
       // + 필름 탭에 '11/1 에이엔디·주문담당 ps170 1롤 주문' 기록 (filmOrders, 같은 우편 id 는 한 번)

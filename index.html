@@ -175,7 +175,7 @@
   <section id="viewOrder" class="view" hidden>
     <header class="topbar">
       <button id="btnOrderBack" class="icon-btn" title="거래처 화면">←</button>
-      <h1 class="topbar-title topbar-title-center"><img class="ch-title-av" src="assistant_face.jpg" alt=""> 비서 <small id="chatVer" class="ch-ver"></small></h1>
+      <h1 class="topbar-title topbar-title-center"><img class="ch-title-av" src="assistant_face.jpg" alt=""> 비서 <small id="chatVer" class="ch-ver"></small><small id="chatBeat" class="ch-ver"></small></h1>
       <div class="topbar-actions"></div>
     </header>
     <div class="wl-tabs">
@@ -226,6 +226,13 @@
           <button id="btnFlushNow" class="btn-sm">지금 백업</button>
           <button id="btnTrash" class="btn-sm">🗑 지운 현장 되살리기</button>
           <button id="btnRestore" class="btn-sm btn-danger">Airtable에서 복원</button>
+        </div>
+      </div>
+      <div class="settings-section" data-stab="team">
+        <h2>후기 링크</h2>
+        <div class="field-group">
+          <label class="field-label" for="reviewLink">개인고객 후기 문자에 넣을 주소 (네이버·블로그, 없으면 빼고 보냅니다)</label>
+          <input type="url" id="reviewLink" placeholder="https://" autocomplete="off">
         </div>
       </div>
       <div class="settings-section" data-stab="team">
@@ -520,16 +527,16 @@
     </div>
   </div>
 
-  <script src="share.js?v=20261105b"></script>
-  <script src="store.js?v=20261104q"></script>
+  <script src="share.js?v=20261105c"></script>
+  <script src="store.js?v=20261105a"></script>
   <script src="owner-key.js?v=20261104q"></script>
   <script src="adminlink.js?v=20261019g"></script>
   <script src="taskui.js?v=20261024h"></script>
   <script src="quote_requests.js?v=20261103e"></script>
   <script src="quote_link.js?v=20261019g"></script>
-  <script src="kakao.js?v=20261103b"></script>
-  <script src="boss_chat.js?v=20261105g"></script>
-  <script src="app.js?v=20261105j"></script>
+  <script src="kakao.js?v=20261105a"></script>
+  <script src="boss_chat.js?v=20261105h"></script>
+  <script src="app.js?v=20261105k"></script>
   <script src="stamp.js?v=20261027s"></script>
   <script src="voice.js?v=20261104a"></script>
   <script src="app-switcher.js?v=20261020a" data-app-id="schedule"></script>

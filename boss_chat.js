@@ -80,6 +80,7 @@
       id: s.id, client: (clients && clients[s.clientId]) || '', name: [str(s.name), str(s.unit)].filter(Boolean).join(' '), date: str(s.date).slice(0, 10),
       customer: names((Array.isArray(s.owners) ? s.owners : []).map(function (r) { return r && r.name; })),   // 개인고객 이름 (번호는 안 보냄)
       kakaoRoom: str(s.kakaoRoom),   // 개인고객 카톡방 이름 (11/5)
+      filmVendor: !!s.filmVendor,    // 🚚 업체가 필름을 가져옴 (11/5)
       pwLobby: str(s.pwLobby), pwUnit: str(s.pwUnit), toilet: str(s.toilet), payDone: !!s.payDone,
       films: (Array.isArray(s.films) ? s.films : []).filter(function (x) { return x && str(x.code); }).map(function (x) { return (str(x.place) + ' ' + str(x.code)).trim(); }),
       days: (Array.isArray(s.days) ? s.days : []).map(function (d) { return { date: str(d && d.date), staff: names(d && d.staff) }; })
@@ -116,7 +117,7 @@
       if (!(Array.isArray(a.films) && a.films.some(function (x) { return x && str(x.code); }))) return '필름 번호가 없어요';
       return site() ? '' : '그 현장을 못 찾았어요';
     }
-    if (t === 'mark_paid') return site() ? '' : '그 현장을 못 찾았어요';
+    if (t === 'mark_paid' || t === 'set_film_vendor') return site() ? '' : '그 현장을 못 찾았어요';
     if (t === 'set_staff') {
       if (!names(a.names).length) return '작업자 이름이 없어요';
       if (['add', 'set', 'remove'].indexOf(a.mode) === -1) return '넣기·바꾸기·빼기 중 무엇인지 모르겠어요';

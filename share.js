@@ -1753,7 +1753,7 @@
     });
     return out;
   }
-  /* 📋 내일 업무일정표 (2026-11-03 사장님 — 저녁 7시 n8n 업무일정표 흐름이 이 함수로 만든다, 결재함).
+  /* 📋 내일 업무일정표 (2026-11-03 사장님 — 오후 5시(11/5 당김) n8n 업무일정표 흐름이 이 함수로 만든다, 결재함).
      today = 오늘. 돌려줌 { date: 내일, today, done: [{ kind, title, res }], next: [{ id, kind, title, res, siteId, act }] }.
      act: 'film' = 필름 발주(진행해 → 담당자 골라 9시 문자), 'crew' = 인원 모집(9시 시작), '' = 확인만.
      설계 songil docs/superpowers/specs/2026-11-03-결재함-design.md */
@@ -1804,6 +1804,46 @@
       return s.id !== exceptId && ownerRows(s.owners).some(function (r) { return phoneDigits(r.phone) === d; });
     }).sort(function (a, b) { return str(a.date) < str(b.date) ? 1 : -1; });
   }
+  /* 🚚 업체가 필름을 현장에 가져다줌 (2026-11-05 사장님) — 주문할 필름이 아니다. 켜면 '필름 주문' 단계로 올려 주문 알림·결재함·빨간 깜빡임이 모두 멈춘다.
+     끄면 그 단계만 되돌린다. 필름 번호는 그대로 묻는다 (현장에서 맞는지 봐야 해서) */
+  function filmVendorPatch(site, on) {
+    var k = filmStageOf(site);
+    return on ? { filmVendor: true, filmStage: Math.max(k, 2) } : { filmVendor: false, filmStage: k === 2 ? 1 : k };
+  }
+  /* 📨 작업자 안내 문자 (앱 비서·낮 12시 자동이 같은 글을 쓴다) */
+  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo'], OWNER_NAMES = ['김정헌'];
+  function workerInfoText(s) {
+    var keys = FIELDS.map(function (f) { return f.key; }).filter(function (k) { return WORKER_SHARE_SKIP.indexOf(k) === -1; });
+    var text = buildShare(s, keys.concat([WORKER_KEY]));
+    var addr = navAddress(s), cut = text.indexOf('\n');
+    if (addr) text = cut === -1 ? text + '\n📍 주소: ' + addr : text.slice(0, cut) + '\n📍 주소: ' + addr + text.slice(cut);
+    return s && s.filmVendor ? text + '\n🚚 필름은 업체가 현장으로 가져다줍니다' : text;
+  }
+  // 내일 일하는 작업자마다 한 통 (사장님 11/5: 전날 낮 12시). 오늘도 같은 현장에 있던 사람은 이미 안다 → 안 보냄. 사장님 본인도 뺀다
+  function workerNotices(sites, settings, today) {
+    var tomorrow = addDays(today, 1), people = (settings && settings.people) || {}, out = [];
+    (sites || []).forEach(function (s) {
+      if (!s || !s.id || s.hide) return;
+      var days = daysOf(s), day = days.filter(function (d) { return str(d.date) === tomorrow; })[0];
+      if (!day) return;
+      var prev = days.filter(function (d) { return str(d.date) === today; })[0];
+      var before = ((prev && prev.staff) || []).map(str);
+      var missing = [['pwLobby', '공동현관 비번'], ['pwUnit', '세대 비번'], ['toilet', '화장실']].filter(function (k) { return !str(s[k[0]]); }).map(function (k) { return k[1]; });
+      if (!(Array.isArray(s.films) && s.films.some(function (x) { return x && str(x.code); }))) missing.push('필름 번호');
+      (day.staff || []).map(str).filter(Boolean).forEach(function (name) {
+        if (before.indexOf(name) !== -1 || OWNER_NAMES.indexOf(name) !== -1) return;
+        out.push({ siteId: s.id, date: tomorrow, name: name, phone: phoneDigits((people[name] || {}).phone || ''), title: titleLine(s), missing: missing,
+          text: '안녕하세요 섬세한손길입니다 🙂\n내일 작업 안내드립니다.\n\n' + workerInfoText(s) });
+      });
+    });
+    return out;
+  }
+  // 👤 개인고객 시공 후 안부·후기 문자 (사장님 11/5). 링크는 설정 › 후기 링크, 없으면 빼고 보낸다
+  function reviewSms(site, settings) {
+    var who = str(privateCustomer(site).name), link = str((settings || {}).reviewLink);
+    return '안녕하세요' + (who ? ' ' + who + '님' : '') + ', 섬세한손길입니다 🙂\n시공 잘 마무리됐는지요? 쓰시다 불편한 곳 있으면 편하게 말씀 주세요.\n' +
+      '괜찮으셨다면 후기 한 줄 부탁드려요 🙏' + (link ? '\n' + link : '');
+  }
   function dailyReport(sites, settings, tasks, today) {
     settings = settings || {};
     var tomorrow = addDays(today, 1), done = [], next = [];
@@ -1840,6 +1880,11 @@
       if (end && !str(s.payDone) && dayDiff(end, tomorrow) >= 1 && dayDiff(end, tomorrow) <= REPORT_PAY_DAYS) {
         if (!sitePaidAny(s)) next.push({ id: 'pay:' + s.id, kind: 'pay', title: name + ' 잔금 받기', res: '시공 끝 ' + shortDate(end) + ' · 입금 기록 없음', siteId: s.id, act: '' });
       }
+      // 내일 — 👤 개인고객 안부·후기 문자 (시공 끝나고 이틀 뒤 아침, 결재해야 나감, 11/5)
+      var cust = ownerRows(s.owners)[0];
+      if (end && dayDiff(end, tomorrow) === 2 && cust && phoneDigits(cust.phone).length >= 9 && (str(s.source) || str(cust.role) === '고객')) {
+        next.push({ id: 'review:' + s.id, kind: 'review', title: name + ' 고객 후기 문자', res: str(cust.name) || '고객', siteId: s.id, act: 'review' });
+      }
     });
     // 내일 — 앱 자동 할 일과 같은 기준 (필름 발주·인원 모집·실리콘·자재·차 보충·대기 인원 배정)
     autoTasks(sites, tomorrow, settings.taskRules, settings.holds, settings).forEach(function (t) {
@@ -1854,7 +1899,8 @@
     (tasks || []).forEach(function (t) {
       if (!t || !t.title) return;
       if (t.done && t.doneAt && dayOf(t.doneAt) === today) done.push({ kind: 'task', title: t.title, res: str(t.result) });
-      if (!t.done && str(t.date) === tomorrow) next.push({ id: 'task:' + t.id, kind: 'task', title: t.title, res: str(t.time), siteId: t.link && t.link.siteId || '', act: '' });
+      // 업체가 부탁한 일 (11/5)은 끝낼 때까지 날마다 올린다
+      if (!t.done && (str(t.date) === tomorrow || (t.fromVendor && str(t.date) && str(t.date) < tomorrow))) next.push({ id: 'task:' + t.id, kind: 'task', title: t.title, res: str(t.time), siteId: t.link && t.link.siteId || '', act: '' });
     });
     return { date: tomorrow, today: today, done: done, next: next };
   }
@@ -2505,6 +2551,10 @@
     recruitAskText: recruitAskText,
     recruitMulti: recruitMulti,
     dailyReport: dailyReport,
+    filmVendorPatch: filmVendorPatch,
+    workerInfoText: workerInfoText,
+    workerNotices: workerNotices,
+    reviewSms: reviewSms,
     dailyReportKakao: dailyReportKakao,
     parseTeamPaste: parseTeamPaste,
     mergeTeamPaste: mergeTeamPaste,
