@@ -278,6 +278,24 @@
       Store.updateClient(currentClientId, patch);
     });
   });
+  /* ❓ 질문 담당 · 💬 카톡 / 📨 문자 (11/5 사장님: 출입정보를 누구에게 어떻게 물을지) — 거래처 담당자·현장 발주처 담당자 줄 아래.
+     결재함 '출입정보 질문' [진행해] 때 이 사람·방법이 맨 위로 나온다. 방법을 안 고르면 카톡방 이름이 있으면 카톡, 없으면 문자 */
+  function askControls(r, onChange) {
+    var box = el2('div', 'ask-ctl');
+    var who = el2('button', 'ask-who' + (r.ask ? ' on' : ''), r.ask ? '❓ 질문 담당' : '❓ 질문 담당으로');
+    who.type = 'button';
+    who.title = '출입정보·업체 확인 질문을 이 사람에게 묻기';
+    who.onclick = function () { onChange({ ask: !r.ask }); };
+    box.appendChild(who);
+    var via = r.via === 'kakao' || r.via === 'sms' ? r.via : (String(r.kakaoRoom || '').trim() ? 'kakao' : 'sms');
+    [['kakao', '💬 카톡'], ['sms', '📨 문자']].forEach(function (v) {
+      var b = el2('button', 'ask-via' + (via === v[0] ? ' on' : ''), v[1]);
+      b.type = 'button';
+      b.onclick = function () { onChange({ via: v[0] }); };
+      box.appendChild(b);
+    });
+    return box;
+  }
   function renderContacts(c) {
     var wrap = $('contactList'); wrap.innerHTML = '';
     (c.contacts || []).forEach(function (ct, i) {
@@ -292,7 +310,8 @@
         '<input type="text" class="room" placeholder="카톡방 이름 (카톡에 보이는 그대로)" value="' + esc(ct.kakaoRoom || '') + '" autocomplete="off">';
       var save = function () {
         var contacts = c.contacts.slice();
-        contacts[i] = { name: row.querySelector('.name').value, phone: row.querySelector('.phone').value, kakaoRoom: row.querySelector('.room').value.trim() };
+        // ask(질문 담당)·via(카톡/문자) 는 그대로 둔다 (11/5)
+        contacts[i] = Object.assign({}, contacts[i], { name: row.querySelector('.name').value, phone: row.querySelector('.phone').value, kakaoRoom: row.querySelector('.room').value.trim() });
         // 직접 적으면 ✕ 로 뺐던 방도 다시 살린다
         var offNow = (c.kakaoRoomsOff || []).filter(function (n) { return n !== contacts[i].kakaoRoom; });
         c = Store.updateClient(c.id, { contacts: contacts, kakaoRoomsOff: offNow }) || Store.getClient(c.id);
@@ -314,6 +333,14 @@
         if (!t) { toast('이름과 연락처가 비어 있습니다'); return; }
         copyText(t, '복사됨 — ' + t);
       };
+      row.appendChild(askControls(ct, function (patch) {
+        // 질문 담당은 거래처에 한 명 — 켜면 다른 사람은 끈다
+        var contacts = c.contacts.map(function (x, j) {
+          if (j === i) return Object.assign({}, x, patch);
+          return patch.ask ? Object.assign({}, x, { ask: false }) : x;
+        });
+        Store.updateClient(c.id, { contacts: contacts }); renderContacts(Store.getClient(c.id));
+      }));
       row.querySelector('.x').onclick = function () {
         var contacts = c.contacts.slice(); contacts.splice(i, 1);
         Store.updateClient(c.id, { contacts: contacts }); renderContacts(Store.getClient(c.id));
@@ -3235,6 +3262,11 @@
     if (x.siteId && Store.getSite(x.siteId)) { t.classList.add('ap-link'); t.onclick = function () { go('#site/' + x.siteId); }; }
     bd.appendChild(t);
     if (x.res) bd.appendChild(el2('div', 'ap-res', x.res));
+    // ❓ 출입정보 질문: 누구에게·카톡/문자 (11/5) — [진행해] 로 고른 것, 아니면 정해 둔 것
+    if (x.kind === 'ask') {
+      var who = dec && dec.to ? Share.askWho(dec.to) : Share.askWho(askTargetOf(x.siteId));
+      bd.appendChild(el2('div', 'ap-res ap-who', who ? '→ ' + who + (dec && dec.to ? '' : ' (진행해를 누르면 바꿀 수 있어요)') : '→ 물어볼 담당자가 없어요 — 거래처 담당자를 적어 주세요'));
+    }
     it.appendChild(bd);
     if (cleared) {
       bd.appendChild(el2('div', 'ap-clear', '🎉 CLEAR' + (auto ? ' — 앱에 이미 반영됨' : x.kind === 'pay' ? ' — 잔금 받음' : ' — 완료')));
@@ -3262,6 +3294,7 @@
       b.onclick = function () {
         if (on) return decideApprove(d, x, '');   // 다시 누르면 결재 취소
         if (a[0] === 'go' && x.act === 'film') return pickOrderContact(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
+        if (a[0] === 'go' && x.kind === 'ask') return pickAskTarget(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
         if (a[0] === 'done') {
           return modalConfirm('✔ 완료표시', x.title + '\n\n이미 끝난 일로 표시합니다' + (x.kind === 'pay' ? ' (잔금 받음).' : '.') + ' 앱 기록에도 반영됩니다.', '완료').then(function (ok) { if (ok) decideApprove(d, x, 'done'); });
         }
@@ -3349,6 +3382,27 @@
         if (act === 'done' || !act) { setTimeout(takeFills, 1500); setTimeout(takeFills, 4000); }
       })
       .catch(function (e) { toast('❌ ' + String(e.message || e).slice(0, 60)); });
+  }
+  // ❓ 출입정보 질문 [진행해] — 누구에게·카톡/문자 (정해 둔 것이 맨 위). 9시에 이대로 번호 질문을 보낸다 (빈칸 + 업체 확인 질문)
+  function askTargetOf(siteId) {
+    var s = Store.getSite(siteId);
+    return s ? Share.askTarget(s, Store.getClient(s.clientId)) : null;
+  }
+  function pickAskTarget(x) {
+    var s = Store.getSite(x.siteId);
+    if (!s) { toast('이 기기에 그 현장이 없어요'); return Promise.resolve(null); }
+    var items = Share.askChoices(s, Store.getClient(s.clientId));
+    if (!items.length) { toast('물어볼 담당자가 없어요 — 거래처 화면 담당자에 번호나 카톡방 이름을 적어 주세요'); return Promise.resolve(null); }
+    var q = Share.askQuestion(s, state.settings);
+    return new Promise(function (resolve) {
+      openModal('❓ 누구에게 물을까요? (9시에 보냄)', '<div class="sheet-list">' + items.map(function (it, i) {
+        return '<button data-i="' + i + '">' + esc(it.label) + '</button>';
+      }).join('') + '</div>' + (q ? '<div class="hint" style="margin:10px 0 4px">보낼 질문 (빈칸 + 업체 확인 질문)</div><div class="rc-pv">' + esc(q) + '</div>' : ''),
+      [{ label: '닫기', onClick: function () { closeModal(); resolve(null); } }]);
+      $('modalBody').querySelectorAll('.sheet-list button').forEach(function (b) {
+        b.onclick = function () { closeModal(); var v = items[+b.dataset.i].value; resolve(Object.assign({}, v, { label: Share.askWho(v) })); };
+      });
+    });
   }
   // 필름 발주 [진행해] — 설정 › 필름 거래처의 담당자 중 번호 있는 사람
   function pickOrderContact(x) {
@@ -5722,6 +5776,17 @@
       };
       line.appendChild(del);
       list.appendChild(line);
+      // ❓ 이 현장은 이 사람에게 묻기 (거래처 질문 담당보다 먼저) · 카톡이면 방 이름
+      var ctlRow = askControls(r, function (patch) {
+        rows.forEach(function (x, j) { if (j === i) Object.assign(x, patch); else if (patch.ask) x.ask = false; });
+        commit(); renderOwners(ctl, Store.getSite(s.id) || s, save);
+      });
+      if ((r.via || '') === 'kakao') {
+        var rm = document.createElement('input'); rm.type = 'text'; rm.className = 'owner-room'; rm.placeholder = '카톡방 이름'; rm.value = r.kakaoRoom || ''; rm.autocomplete = 'off';
+        rm.addEventListener('input', function () { r.kakaoRoom = rm.value.trim(); commit(); });
+        ctlRow.appendChild(rm);
+      }
+      list.appendChild(ctlRow);
     });
     ctl.appendChild(list);
     var add = document.createElement('button'); add.type = 'button'; add.className = 'film-add owner-add'; add.textContent = '＋ 담당자 추가';

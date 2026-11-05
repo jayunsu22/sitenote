@@ -1445,7 +1445,7 @@ console.log('인원 모집 (2026-11-01)');
     assert.strictEqual(r.done[1].res, '150만원');
     const by = Object.fromEntries(r.next.map((n) => [n.id, n]));
     assert.strictEqual(by['as:b:v1'].res, '문틀 들뜸');
-    assert.strictEqual(by['ask:b'].res, '공동현관·세대 비번 — 업체 카톡방');
+    assert.strictEqual(by['ask:b'].res, '공동현관·세대 비번·필름 번호·확인 질문 3개');
     assert.ok(by['pay:c'] && !by['pay:d']);   // 입금 기록 있는 현장은 잔금 항목 없음
     assert.strictEqual(by['film:a'].act, 'film');
     assert.ok(by['film:a'].res.includes('ps035'));
@@ -1455,6 +1455,24 @@ console.log('인원 모집 (2026-11-01)');
     assert.ok(k.startsWith('📋 11/4(수) 업무일정표') && k.endsWith('👉 결재하기: https://x/#approve/2026-11-04'));
   });
 }
+
+console.log('❓ 출입정보 질문 담당 (11/5)');
+test('askTarget·askChoices·askQuestion: 현장 담당자 → 거래처 질문 담당 → 하나뿐이면 그 사람, 방법 기본은 카톡방 있으면 카톡', () => {
+  const site = { id: 's', name: '보현나이스 802호', date: '2026-11-12', pwLobby: '', pwUnit: '1', toilet: '', films: [{ code: 'x' }], owners: [], checks: {} };
+  const client = { name: '블라블라', contacts: [{ name: '대표님', phone: '010-1111-2222' }, { name: '실장님', phone: '010-3333-4444', kakaoRoom: '블라 실장님' }] };
+  assert.strictEqual(Share.askWho(Share.askTarget(site, client)), '대표님 · 📨 문자');
+  client.contacts[1].ask = true;
+  assert.strictEqual(Share.askWho(Share.askTarget(site, client)), '실장님 · 💬 카톡');
+  client.contacts[1].via = 'sms';
+  assert.ok(Share.askChoices(site, client)[0].label.startsWith('실장님 · 📨 문자'));
+  site.owners = [{ name: '김소장', phone: '01055556666', ask: true }];
+  assert.strictEqual(Share.askTarget(site, client).name, '김소장');
+  assert.ok(!Share.askChoices(site, client).some((c) => c.value.name === '김소장' && c.value.via === 'kakao'), '발주처 담당자 카톡은 방 이름이 있어야');
+  const q = Share.askQuestion(site, {});
+  assert.ok(q.startsWith('안녕하세요. 실장님~\n보현나이스 802호 (11/12 시공) 확인 부탁드려요.'));
+  assert.ok(q.includes('1. 공동현관 비번\n2. 화장실 위치\n3. '), q);
+  assert.strictEqual(Share.askQuestion(Object.assign({}, site, { pwLobby: '1', toilet: '1', checks: { door: { v: '네' }, overlap: { v: '없음' }, xmark: { skip: true } } }), {}), '');
+});
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

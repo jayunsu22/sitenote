@@ -1769,6 +1769,54 @@
     }).map(function (c) { return { id: c.id, text: c.text, ok: !!c.ok }; });
     return { missing: missing, checks: checks };
   }
+  /* ❓ 출입정보 질문 — 누구에게·카톡/문자 (2026-11-05 사장님: 보현나이스 질문을 누구에게 어떻게 물을지 정해야).
+     거래처 담당자(client.contacts)·현장 발주처 담당자(site.owners) 마다 ask(질문 담당)·via('kakao'|'sms')·kakaoRoom.
+     정하는 순서: 현장 발주처 담당자 중 질문 담당 → 거래처 담당자 중 질문 담당 → 거래처 담당자가 하나면 그 사람 → 첫 담당자.
+     방법을 안 정했으면 카톡방 이름이 있으면 카톡, 없으면 문자. 결재함 [진행해] 에서 고른 것이 9시에 그대로 나간다 */
+  var ASK_LABEL = { pwLobby: '공동현관 비번', pwUnit: '세대 비번', toilet: '화장실 위치', films: '필름 번호 (위치별)' };
+  var ASK_GREETING = '안녕하세요. 실장님~';
+  // 업체에 보낼 번호 질문 — 노트북 gaps.question 과 같은 글 (답을 번호로 맞춰 읽는다)
+  function askQuestion(s, settings) {
+    var it = siteAskItems(s, settings);
+    var qs = it.missing.map(function (k) { return ASK_LABEL[k]; }).filter(Boolean)
+      .concat(it.checks.map(function (c) { return checkText(c, s); }));
+    if (!qs.length) return '';
+    return [ASK_GREETING, titleLine(s) + ' (' + shortDate(s.date) + ' 시공) 확인 부탁드려요.', '번호로 짧게 답 주시면 됩니다 🙏']
+      .concat(qs.map(function (q, i) { return (i + 1) + '. ' + q; })).join('\n');
+  }
+  function askVia(r) { return r && (r.via === 'kakao' || r.via === 'sms') ? r.via : (str(r && r.kakaoRoom) ? 'kakao' : 'sms'); }
+  function askPerson(r, from, client) {
+    return { name: str(r.name) || str(r.role) || '담당자', phone: phoneDigits(r.phone), kakaoRoom: str(r.kakaoRoom), via: askVia(r), from: from, client: str(client && client.name) };
+  }
+  // 정해 둔 질문 담당 (없으면 null)
+  function askTarget(s, client) {
+    var owners = ownerRows(s && s.owners), cs = ((client && client.contacts) || []).filter(function (c) { return c && (str(c.name) || str(c.phone) || str(c.kakaoRoom)); });
+    var o = owners.filter(function (r) { return r.ask; })[0];
+    if (o) return askPerson(o, 'site', client);
+    var c = cs.filter(function (r) { return r.ask; })[0] || (cs.length === 1 ? cs[0] : null) || cs[0];
+    return c ? askPerson(c, 'client', client) : null;
+  }
+  // 결재함 [진행해] 때 고를 목록 — 정해 둔 사람·방법이 맨 위 (추천). 카톡은 방 이름(없으면 노트북이 거래처 이름으로 찾음), 문자는 번호가 있어야
+  function askChoices(s, client) {
+    var out = [], seen = {}, pick = askTarget(s, client);
+    var add = function (p, only) {
+      (only ? [only] : ['kakao', 'sms']).forEach(function (via) {
+        if (via === 'sms' && p.phone.length < 9) return;
+        if (via === 'kakao' && p.from === 'site' && !p.kakaoRoom) return;   // 발주처 담당자 카톡은 방 이름이 있어야
+        var v = Object.assign({}, p, { via: via });
+        var k = v.name + '|' + via;
+        if (seen[k]) return;
+        seen[k] = true;
+        out.push({ label: v.name + ' · ' + (via === 'kakao' ? '💬 카톡 (' + (v.kakaoRoom || (v.client ? v.client + ' 방' : '거래처 방')) + ')' : '📨 문자 ' + v.phone), value: v });
+      });
+    };
+    if (pick) add(pick, pick.via);   // 정해 둔 사람·방법 먼저
+    ownerRows(s && s.owners).forEach(function (r) { add(askPerson(r, 'site', client)); });
+    ((client && client.contacts) || []).forEach(function (r) { if (r && (str(r.name) || str(r.phone) || str(r.kakaoRoom))) add(askPerson(r, 'client', client)); });
+    if (pick && out.length && out[0].value.name === pick.name && out[0].value.via === pick.via) out[0].label += ' (정해 둔 것)';
+    return out;
+  }
+  function askWho(p) { return p ? p.name + ' · ' + (p.via === 'kakao' ? '💬 카톡' : '📨 문자') : ''; }
   // 입금 기록이 하나라도 있나 (정산 내역)
   function sitePaidAny(s) {
     return Object.keys(s.settleLog || {}).some(function (k) { return str((s.settleLog[k] || {}).입금일); }) ||
@@ -1895,8 +1943,12 @@
       // 내일 — 출입정보 질문 (시공 7일 전, 공동현관·세대 비번·화장실 빈칸)
       var first = str(s.date);
       if (isIsoDate(first) && dayDiff(tomorrow, first) === REPORT_ASK_DAYS) {
-        var miss = [['pwLobby', '공동현관'], ['pwUnit', '세대 비번'], ['toilet', '화장실']].filter(function (k) { return !str(s[k[0]]); });
-        if (miss.length) next.push({ id: 'ask:' + s.id, kind: 'ask', title: name + ' 출입정보 질문', res: miss.map(function (k) { return k[1]; }).join('·') + ' — 업체 카톡방', siteId: s.id, act: '' });
+        // 빈칸(비번·화장실·필름) + 안 받은 업체 확인 질문 (11/5) — 둘 다 없으면 카드 없음. 누구에게·어떻게는 앱이 카드에 붙인다
+        var ai = siteAskItems(s, settings), SHORT = { pwLobby: '공동현관', pwUnit: '세대 비번', toilet: '화장실', films: '필름 번호' };
+        if (ai.missing.length || ai.checks.length) {
+          next.push({ id: 'ask:' + s.id, kind: 'ask', title: name + ' 출입정보 질문', siteId: s.id, act: 'ask',
+            res: ai.missing.map(function (k) { return SHORT[k]; }).concat(ai.checks.length ? ['확인 질문 ' + ai.checks.length + '개'] : []).join('·') });
+        }
       }
       // 내일 — 잔금 받기 (시공 끝난 지 14일 안, 입금 기록이 하나도 없음, 결재함 [완료표시] 안 함 = payDone)
       var ds = daysOf(s).map(function (d) { return str(d.date); }).filter(isIsoDate).sort();
@@ -2614,6 +2666,7 @@
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
+    askQuestion: askQuestion, askTarget: askTarget, askChoices: askChoices, askWho: askWho,
     DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer, checkSkipped: checkSkipped,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,

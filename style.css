@@ -1808,3 +1808,10 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .hl-tag.warn { background: #fee2e2; color: #991b1b; }
 .hl-off { flex: none; color: #64748b; font-weight: 600; }
 
+/* ❓ 질문 담당 · 카톡/문자 (11/5) — 거래처 담당자·현장 발주처 담당자 줄 아래 */
+.ask-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; width: 100%; }
+.ask-who, .ask-via { padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff; color: var(--muted, #64748b); font-size: 13px; font-weight: 700; }
+.ask-who.on { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.ask-via.on { background: #e0e7ff; border-color: #6366f1; color: #3730a3; }
+.ask-ctl .owner-room { flex: 1 1 140px; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.ap-who { color: #4338ca; font-weight: 800; margin-top: 2px; }

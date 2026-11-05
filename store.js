@@ -150,7 +150,12 @@
   function normalizeOwners(raw) {
     if (!Array.isArray(raw)) return [];
     return raw.filter(function (r) { return r && typeof r === 'object'; }).map(function (r) {
-      return { name: String(r.name || '').trim(), role: String(r.role || '').trim(), phone: String(r.phone || '').trim() };
+      var o = { name: String(r.name || '').trim(), role: String(r.role || '').trim(), phone: String(r.phone || '').trim() };
+      // ❓ 질문 담당·카톡/문자·카톡방 (2026-11-05)
+      if (r.ask) o.ask = true;
+      if (r.via === 'kakao' || r.via === 'sms') o.via = r.via;
+      if (String(r.kakaoRoom || '').trim()) o.kakaoRoom = String(r.kakaoRoom).trim();
+      return o;
     });
   }
   // AS·추가작업 목록 — 예전 현장엔 없다(빈 목록). 모양이 이상한 줄은 버린다
