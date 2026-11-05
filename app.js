@@ -111,7 +111,7 @@
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
-    if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); chatAutoOff(); chatMicOff(); return; }   // 📝 업무지시 보드 (2026-11-04)
+    if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); chatAutoOff(); chatMicOff(); chatFeedPull(); return; }   // 📝 업무지시 보드 (2026-11-04)
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
     rememberView('main');
@@ -807,7 +807,7 @@
         fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
           body: JSON.stringify({ siteId: s.id, name: Share.titleLine(s), text: v, sendTo: { label: c.name || '고객', phone: phone } }) })
           .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok || !d.ok) throw new Error(d.error || 'HTTP ' + res.status); }); })
-          .then(function () { toast('✅ 문자를 보냈어요'); workLog([{ src: 'me', kind: 'sms', title: (c.name || '고객') + '님께 정보 묻는 문자', detail: Share.titleLine(s), siteId: s.id }]); })
+          .then(function () { smsReplyWatch(phone, c.name || '고객', s.id, Share.titleLine(s), true, keys); toast('✅ 문자를 보냈어요'); workLog([{ src: 'me', kind: 'sms', title: (c.name || '고객') + '님께 정보 묻는 문자', detail: Share.titleLine(s), siteId: s.id }]); })
           .catch(function (e) { toast('❌ 못 보냈어요 — 폰의 SMS Gateway 를 확인해 주세요 (' + String(e.message || e).slice(0, 60) + ')'); });
       } }]);
     $('pvAsk').value = text;
@@ -3338,6 +3338,7 @@
       return fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
         body: JSON.stringify({ siteId: siteId, name: title, text: text, sendTo: { label: n, phone: phone } }) })
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
+          if (res.ok && d.ok) smsReplyWatch(phone, n, siteId, title, (state.settings.team || []).indexOf(n) === -1, []);
           return { name: n, ok: res.ok && !!d.ok, why: d.error || (res.ok ? '' : 'HTTP ' + res.status), id: d.id || '', state: d.state || '' }; }); })
         .catch(function (e) { return { name: n, ok: false, why: String(e.message || e).slice(0, 60) }; });
     }));
@@ -3870,6 +3871,39 @@
       if (!was) el.classList.add('ch-copy-on');
     });
   }
+  /* 📨 답장 띄우기 (2026-11-05 사장님: 답장을 비서에서 보여 주고 처리 결과도) — 카톡은 노트북이, 문자는 n8n 문자_답장이 알림함(work-log feed)에 넣는다.
+     비서 화면을 열어 둔 동안 30초마다, 열 때 한 번 가져와 대화에 붙인다. 설계 songil docs/superpowers/specs/2026-11-05-답장띄우기-design.md */
+  var SMS_REPLY_URL = 'https://primary-production-a6fa.up.railway.app/webhook/sms-reply';
+  var chatFeedBusy = false;
+  // 비서·앱에서 문자를 보낸 번호를 기억 → 그 번호의 답만 본다. fill = 답에서 현장 칸을 채울까 (팀원 답은 글만 띄움)
+  function smsReplyWatch(phone, name, siteId, siteName, fill, keys) {
+    var key = '', s = Store.getSite(siteId), c = s && Store.getClient(s.clientId);
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    fetch(SMS_REPLY_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+      body: JSON.stringify({ action: 'watch', items: [{ phone: phone, name: name, siteId: siteId, siteName: siteName, client: c ? c.name : '', fill: !!fill, keys: keys || [] }] }) }).catch(function () { /* 답을 못 띄울 뿐 */ });
+  }
+  function chatFeedPull() {
+    if (chatFeedBusy || chatBusy || !ownerKeyOn()) return;
+    var after = 0;
+    try { after = Number(localStorage.getItem('chatFeedAt')) || 0; } catch (e) { /* 저장소 막힘 */ }
+    chatFeedBusy = true;
+    wlPost({ action: 'feed_list', after: after }).then(function (d) {
+      var items = d.items || [];
+      if (!after && !items.length) { try { localStorage.setItem('chatFeedAt', String(d.now || Date.now())); } catch (e) { /* */ } return; }
+      if (!items.length) return;
+      items.forEach(function (x) {
+        var head = (x.kind === 'sms' ? '📨 ' : '💬 ') + x.from + '님이 답했어요' + (x.siteName ? ' · ' + x.siteName : '');
+        var cards = (x.lines || []).map(function (l) { return { ok: true, text: '✅ ' + l }; });
+        if ((x.left || []).length) cards.push({ wait: true, text: '❓ 아직 못 받음: ' + x.left.join(' · ') });
+        chatAdd({ role: 'ai', text: head + (x.text ? '\n「' + x.text + '」' : ''), cards: cards });
+        // 🎤 켜 둔 동안은 소리로 — 글 원문(비번일 수 있음)은 안 읽는다
+        if (chatAuto) { chatVoice = true; chatSpeak(x.from + '님이 답했어요. ' + (x.lines || []).join('. ')); }
+      });
+      try { localStorage.setItem('chatFeedAt', String(items[items.length - 1].t)); } catch (e) { /* 저장소 막힘 */ }
+      if (!$('viewOrder').hidden && !$('chatPane').hidden) renderChat();
+    }).catch(function () { /* 다음에 */ }).then(function () { chatFeedBusy = false; });
+  }
+  setInterval(function () { if (!document.hidden && !$('viewOrder').hidden) chatFeedPull(); }, 30000);
   function chatBubble(text) {
     var row = el2('div', 'ch-ai');
     var av = el2('div', 'ch-av'), face = el2('img'); face.src = 'assistant_face.jpg'; face.alt = ''; av.appendChild(face);   // 1분 간편견적의 AI 견적비서 (11/5)
