@@ -32,4 +32,21 @@ const task = { id: 't', title: '계산서 발행', date: '2026-11-01', fromVendo
 assert.ok(Share.dailyReport([], {}, [task], '2026-11-05').next.some((x) => x.id === 'task:t'));
 assert.ok(!Share.dailyReport([], {}, [Object.assign({}, task, { done: true })], '2026-11-05').next.some((x) => x.id === 'task:t'));
 assert.ok(!Share.dailyReport([], {}, [Object.assign({}, task, { fromVendor: false })], '2026-11-05').next.some((x) => x.id === 'task:t'));
+// 👋 안부 인사
+const cl = (o) => Object.assign({ id: 'c1', name: '가나인테리어', contacts: [{ name: '가실장', phone: '010-1111-2222' }] }, o);
+const st = (d, o) => Object.assign({ id: 's' + d, clientId: 'c1', name: '하늘', date: d, days: [{ date: d, staff: [] }] }, o);
+const T = '2026-11-09';
+let h = Share.helloList([st('2026-10-20')], [cl()], T);
+assert.deepStrictEqual(h.map((x) => [x.name, x.who, x.days, x.phone]), [['가나인테리어', '가실장', 20, '01011112222']]);
+assert.strictEqual(Share.helloList([st('2026-10-30')], [cl()], T).length, 0, '2주 안 됨');
+assert.strictEqual(Share.helloList([st('2026-10-20'), st('2026-11-20')], [cl()], T).length, 0, '잡힌 현장 있음');
+assert.strictEqual(Share.helloList([st('2026-10-20')], [cl({ helloOff: true })], T).length, 0);
+assert.strictEqual(Share.helloList([st('2026-10-20')], [cl({ name: '개인고객' })], T).length, 0);
+assert.strictEqual(Share.helloList([], [cl()], T).length, 0, '현장이 없던 업체');
+assert.strictEqual(Share.helloList([st('2026-10-20')], [cl({ helloAt: '2026-10-20' })], T).length, 0, '보내고 4주 안');
+assert.strictEqual(Share.helloList([st('2026-10-01')], [cl({ helloAt: '2026-10-05' })], T).length, 1, '4주 지나면 다시');
+assert.ok(Share.helloText(Share.HELLO_TEXT, h[0]).startsWith('안녕하세요 가실장님'));
+// 월요일 보고서에만
+assert.ok(Share.dailyReport([], {}, [], '2026-11-09').next.some((x) => x.kind === 'hello'));
+assert.ok(!Share.dailyReport([], {}, [], '2026-11-10').next.some((x) => x.kind === 'hello'));
 console.log('notice ok');

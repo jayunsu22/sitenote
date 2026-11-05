@@ -1844,6 +1844,30 @@
     return '안녕하세요' + (who ? ' ' + who + '님' : '') + ', 섬세한손길입니다 🙂\n시공 잘 마무리됐는지요? 쓰시다 불편한 곳 있으면 편하게 말씀 주세요.\n' +
       '괜찮으셨다면 후기 한 줄 부탁드려요 🙏' + (link ? '\n' + link : '');
   }
+  /* 👋 안부 인사 (2026-11-05 사장님) — 마지막 현장일이 2주 넘게 지났고 앞으로 잡힌 현장이 없는 업체. 보낸 곳은 4주 동안 빠진다.
+     카톡·전화를 주고받았는지는 알 수 없어서 목록은 후보일 뿐이고, 사장님이 체크한 곳에만 나간다 */
+  var HELLO_AFTER_DAYS = 14, HELLO_AGAIN_DAYS = 28;
+  var HELLO_TEXT = '안녕하세요 {이름}님 😊 섬세한손길 김정헌입니다.\n요즘 잘 지내시죠? 날이 많이 쌀쌀해졌어요.\n필름 시공 필요한 현장 있으시면 편하게 연락 주세요!';
+  function helloList(sites, clients, today) {
+    var out = [];
+    (clients || []).forEach(function (c) {
+      if (!c || !c.id || isPrivateClient(c) || c.helloOff) return;
+      if (isIsoDate(str(c.helloAt)) && dayDiff(str(c.helloAt), today) < HELLO_AGAIN_DAYS) return;
+      var last = '', lastSite = null, ahead = false;
+      (sites || []).forEach(function (s) {
+        if (!s || s.hide || s.clientId !== c.id) return;
+        daysOf(s).map(function (d) { return str(d.date); }).filter(isIsoDate).forEach(function (d) {
+          if (d >= today) ahead = true;
+          if (d > last) { last = d; lastSite = s; }
+        });
+      });
+      if (!last || ahead || dayDiff(last, today) < HELLO_AFTER_DAYS) return;
+      var who = ((c.contacts || []).filter(function (x) { return x && (str(x.name) || str(x.phone)); }))[0] || {};
+      out.push({ clientId: c.id, name: str(c.name), who: str(who.name), phone: phoneDigits(who.phone || ''), last: last, days: dayDiff(last, today), site: titleLine(lastSite), helloAt: str(c.helloAt) });
+    });
+    return out.sort(function (a, b) { return a.days - b.days; });
+  }
+  function helloText(text, row) { return String(text || '').split('{이름}').join(row.who || row.name); }
   function dailyReport(sites, settings, tasks, today) {
     settings = settings || {};
     var tomorrow = addDays(today, 1), done = [], next = [];
@@ -1902,6 +1926,8 @@
       // 업체가 부탁한 일 (11/5)은 끝낼 때까지 날마다 올린다
       if (!t.done && (str(t.date) === tomorrow || (t.fromVendor && str(t.date) && str(t.date) < tomorrow))) next.push({ id: 'task:' + t.id, kind: 'task', title: t.title, res: str(t.time), siteId: t.link && t.link.siteId || '', act: '' });
     });
+    // 월요일 보고서 — 👋 안부 인사 카드 (몇 곳인지는 앱이 열 때 센다)
+    if (new Date(today + 'T00:00:00Z').getUTCDay() === 1) next.push({ id: 'hello:' + today, kind: 'hello', title: '연락 뜸한 업체 안부 인사', res: '', siteId: '', act: '' });
     return { date: tomorrow, today: today, done: done, next: next };
   }
   // 카톡 김정헌방에 올리는 글 (C안) — 링크를 누르면 앱 결재함
@@ -2555,6 +2581,9 @@
     workerInfoText: workerInfoText,
     workerNotices: workerNotices,
     reviewSms: reviewSms,
+    HELLO_TEXT: HELLO_TEXT,
+    helloList: helloList,
+    helloText: helloText,
     dailyReportKakao: dailyReportKakao,
     parseTeamPaste: parseTeamPaste,
     mergeTeamPaste: mergeTeamPaste,

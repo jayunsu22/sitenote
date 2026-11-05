@@ -1795,3 +1795,16 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .room-chip { display: inline-block; margin: 0 5px 5px 0; padding: 4px 10px; border-radius: 99px; background: #fef9c3; color: #3c1e1e; font-size: 13px; font-weight: 700; }
 .room-x { margin-left: 6px; padding: 0 2px; border: 0; background: none; color: #92400e; font-size: 13px; font-weight: 900; }
 .room-chip small { margin-left: 5px; color: #92400e; font-size: 11px; font-weight: 700; }
+/* 👋 안부 인사 (2026-11-05) */
+.hl-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; }
+.hl-link { border: 0; background: none; color: var(--primary); font-weight: 700; font-size: 13px; padding: 4px; }
+.hl-row { display: flex; align-items: flex-start; gap: 6px; padding: 10px 0; border-top: 1px solid var(--border); }
+.hl-ck { display: flex; flex: 1; min-width: 0; gap: 10px; align-items: flex-start; }
+.hl-ck input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; }
+.hl-ck b, .hl-ck small { display: block; }
+.hl-ck small { color: #64748b; font-size: 12px; }
+.hl-tag { display: inline-block; margin: 4px 4px 0 0; padding: 1px 8px; border-radius: 99px; background: #e0f2fe; color: #075985; font-size: 12px; font-weight: 700; font-style: normal; }
+.hl-tag.sms { background: #ede9fe; color: #5b21b6; }
+.hl-tag.warn { background: #fee2e2; color: #991b1b; }
+.hl-off { flex: none; color: #64748b; font-weight: 600; }
+

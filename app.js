@@ -3101,11 +3101,11 @@
   }
   // 결재함 업무 종류 — 순서·아이콘·이름, 버튼 4개
   var AP_ORDER = ['film', 'crew', 'ask', 'as', 'pay', 'task', 'silicone', 'supply', 'stock', 'hold'];
-  var AP_ICON = { review: '⭐', film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
-  var AP_TITLE = { review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
+  var AP_ICON = { hello: '👋', review: '⭐', film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
+  var AP_TITLE = { hello: '안부 인사', review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
   var AP_BTN = [['go', '▶', '진행해'], ['later', '⏭', '연기'], ['mine', '✋', '내가할께'], ['done', '✔', '완료']];
   // 3안 '오늘의 미션' (사장님 11/3: 산뜻하고 일할 맛 나게) — 남색 머리 + 경험치 막대, 큰 아이콘 미션 카드, 끝내면 CLEAR
-  var AP_TILE = { review: '#fef9c3', film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
+  var AP_TILE = { hello: '#fef9c3', review: '#fef9c3', film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
   function paintApprove(d) {
     var body = $('approveBody'); body.innerHTML = '';
     if (d.none || !d.rep) {
@@ -3141,7 +3141,7 @@
     // 미션 카드 — 종류 순서대로
     var list = d.rep.next.slice().sort(function (a, b) { return AP_ORDER.indexOf(a.kind) - AP_ORDER.indexOf(b.kind); });
     list.forEach(function (x) { body.appendChild(apItem(x, (d.decisions || {})[x.id] || null, d)); });
-    var rest = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && x.act !== 'film'; });
+    var rest = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && x.act !== 'film' && x.kind !== 'hello'; });   // 안부 인사는 체크해야 나간다
     if (rest.length && d.date >= Share.todayIso()) {
       var allBtn = el2('button', 'ap-all', '▶ 남은 미션 모두 진행 (' + rest.length + ')'); allBtn.type = 'button';
       allBtn.title = '필름 발주는 담당자를 골라야 해서 빠집니다';
@@ -3221,7 +3221,8 @@
     var kind = el2('div', 'ap-kind', AP_TITLE[x.kind] || '할 일');
     if (x.again) kind.appendChild(el2('span', 'ap-again', '어제 내가할께 — 아직 안 됨'));
     bd.appendChild(kind);
-    var t = el2('div', 'ap-name', x.title);
+    var hl = x.kind === 'hello' ? Share.helloList(state.sites, state.clients, Share.todayIso()) : null;
+    var t = el2('div', 'ap-name', hl ? (hl.length ? '연락 뜸한 업체 ' + hl.length + '곳' : '지금은 안부 보낼 업체가 없어요') : x.title);
     if (x.siteId && Store.getSite(x.siteId)) { t.classList.add('ap-link'); t.onclick = function () { go('#site/' + x.siteId); }; }
     bd.appendChild(t);
     if (x.res) bd.appendChild(el2('div', 'ap-res', x.res));
@@ -3235,7 +3236,13 @@
     }
     if (dec && dec.doneAt) { bd.appendChild(el2('div', 'ap-stamp', '✔ ' + AP_ACT[dec.act] + ' — 처리함')); return it; }
     var btns = el2('div', 'ap-btns');
-    AP_BTN.forEach(function (a) {
+    if (hl) {
+      var hlOpen = el2('button', 'ap-ib b-go'); hlOpen.type = 'button';
+      hlOpen.appendChild(el2('i', '', '▶')); hlOpen.appendChild(document.createTextNode('목록 보기'));
+      hlOpen.onclick = function () { openHello(function () { decideApprove(d, x, 'done'); }); };
+      btns.appendChild(hlOpen);
+    }
+    AP_BTN.filter(function (a) { return !hl || a[0] === 'done'; }).forEach(function (a) {
       var on = dec && dec.act === a[0];
       var label = a[0] === 'go' && on && dec.to ? dec.to.label.split('·')[0] : a[0] === 'mine' ? '내가' : a[2];
       var b = el2('button', 'ap-ib b-' + a[0] + (on ? ' on' : '')); b.type = 'button';
@@ -3252,6 +3259,74 @@
     });
     bd.appendChild(btns);
     return it;
+  }
+  /* 👋 안부 인사 (2026-11-05 사장님): 목록에서 체크한 업체에만. 카톡방이 있으면 카톡(노트북), 없으면 담당자 번호로 문자.
+     답은 비서 대화에 뜬다 — 카톡은 7일 동안 그 방을 지켜보고(vendor), 문자는 번호를 기억한다. 설계 songil docs/superpowers/specs/2026-11-05-안부인사-design.md */
+  function openHello(onSent) {
+    var today = Share.todayIso();
+    var rows = Share.helloList(state.sites, state.clients, today).map(function (r) {
+      return Object.assign(r, { room: BossChat.clientRooms(Store.getClient(r.clientId))[0] || '' });
+    });
+    var off = state.clients.filter(function (c) { return c && c.helloOff; });
+    var html = !rows.length ? '<p class="sec-empty">지금은 안부 보낼 업체가 없어요.</p>' :
+      '<div class="hl-head"><b>체크한 곳에만 보냅니다</b><button type="button" id="hlAll" class="hl-link">모두 체크</button></div>' +
+      rows.map(function (r, i) {
+        var can = r.room || r.phone.length >= 9;
+        return '<div class="hl-row"><label class="hl-ck"><input type="checkbox" data-i="' + i + '"' + (can ? '' : ' disabled') + '><span>' +
+          '<b>' + esc(r.name) + (r.who ? ' · ' + esc(r.who) : '') + '</b><small>마지막 현장 ' + esc(r.site) + ' · ' + Share.shortDate(r.last) + ' (' + r.days + '일 전)</small>' +
+          '<i class="hl-tag' + (r.room ? '' : can ? ' sms' : ' warn') + '">' + (r.room ? '💬 카톡 · ' + esc(r.room) : can ? '📨 문자 · 카톡방 없음' : '카톡방·번호 없음') + '</i>' +
+          (r.helloAt ? '<i class="hl-tag warn">지난 안부 ' + Share.shortDate(r.helloAt) + '</i>' : '') + '</span></label>' +
+          '<button type="button" class="hl-link hl-off" data-off="' + esc(r.clientId) + '">안 보냄</button></div>';
+      }).join('') +
+      '<label class="field-label" for="hlText" style="margin-top:12px">보낼 글 — {이름} 은 담당자 이름으로 바뀝니다</label><textarea id="hlText" rows="5" style="width:100%;font-size:15px"></textarea>' +
+      '<p class="hint">카톡은 노트북이 한 곳씩 보냅니다. 밤(저녁 8시~아침 9시)에는 보내지 않아요.</p>';
+    if (off.length) html += '<p class="hint hl-offs">안 보내는 업체: ' + off.map(function (c) { return '<button type="button" class="hl-link" data-on="' + esc(c.id) + '">' + esc(c.name) + ' 되돌리기</button>'; }).join(' ') + '</p>';
+    var picked = function () { return rows.filter(function (r, i) { var c = $('modalBody').querySelector('input[data-i="' + i + '"]'); return c && c.checked; }); };
+    openModal('👋 안부 인사', html, [
+      { label: '닫기', onClick: closeModal },
+      { label: '체크한 곳에 보내기', cls: 'primary', onClick: function () {
+        var list = picked(), hour = new Date().getHours();
+        if (!list.length) { toast('보낼 업체를 체크해 주세요'); return; }
+        if (hour < 9 || hour >= 20) { toast('밤에는 안 보내요 — 아침 9시 이후에 보내 주세요'); return; }
+        var text = String($('hlText').value || '').trim();
+        if (!text) { toast('보낼 글이 비어 있어요'); return; }
+        closeModal(); toast('보내는 중…');
+        Promise.all(list.map(function (r) { return helloSend(r, Share.helloText(text, r), today); })).then(function (rs) {
+          var okList = rs.filter(function (x) { return x.ok; }), bad = rs.filter(function (x) { return !x.ok; });
+          okList.forEach(function (x) { Store.updateClient(x.row.clientId, { helloAt: today }); });
+          chatAdd({ role: 'ai', text: '👋 안부 인사', cards: rs.map(function (x) { return x.ok ? { ok: true, text: (x.row.room ? '💬 ' + x.row.room + ' 방에 맡김 — 노트북이 곧 보내요' : '📨 ' + (x.row.who || x.row.name) + '님께 문자 보냄') } : { ok: false, text: '⚠️ ' + x.row.name + ' 못 보냄 (' + x.why + ')' }; }) });
+          if (okList.length) workLog(okList.map(function (x) { return { src: 'me', kind: x.row.room ? 'reply' : 'sms', title: x.row.name + ' 안부 인사', detail: x.row.room || (x.row.who || '') }; }));
+          toast(bad.length ? '⚠️ ' + bad.length + '곳은 못 보냈어요 — 비서 대화를 봐 주세요' : '✅ ' + okList.length + '곳에 안부를 보냈어요');
+          if (okList.length && onSent) onSent();
+        });
+      } }
+    ]);
+    if ($('hlText')) $('hlText').value = Share.HELLO_TEXT;
+    var body = $('modalBody');
+    if ($('hlAll')) $('hlAll').onclick = function () {
+      var boxes = [].slice.call(body.querySelectorAll('input[data-i]:not(:disabled)')), on = boxes.some(function (c) { return !c.checked; });
+      boxes.forEach(function (c) { c.checked = on; });
+      this.textContent = on ? '모두 끄기' : '모두 체크';
+    };
+    [].forEach.call(body.querySelectorAll('[data-off]'), function (b) { b.onclick = function () { Store.updateClient(b.getAttribute('data-off'), { helloOff: true }); closeModal(); openHello(onSent); }; });
+    [].forEach.call(body.querySelectorAll('[data-on]'), function (b) { b.onclick = function () { Store.updateClient(b.getAttribute('data-on'), { helloOff: false }); closeModal(); openHello(onSent); }; });
+  }
+  function helloSend(r, text, today) {
+    var fail = function (e) { return { ok: false, row: r, why: String(e && e.message || e).slice(0, 60) }; };
+    if (r.room) {
+      var id = 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      return kakaoPost({ action: 'add', id: id, room: r.room, client: '', text: text, watch: { siteId: '', name: r.name, until: Share.addDays(today, 7), keys: [], vendor: true } })
+        .then(function () { return { ok: true, row: r }; }).catch(fail);
+    }
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    return fetch(ORDER_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+      body: JSON.stringify({ siteId: '-', name: '안부 인사', text: text, sendTo: { label: r.who || r.name, phone: r.phone } }) })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) {
+        if (!res.ok || !d.ok) throw new Error(d.error || 'HTTP ' + res.status);
+        smsReplyWatch(r.phone, r.who || r.name, '-', r.name, false, []);
+        return { ok: true, row: r };
+      }); }).catch(fail);
   }
   function decideApprove(d, x, act, to) {
     reportPost({ action: 'decide', date: d.date, id: x.id, act: act, to: to || null })
