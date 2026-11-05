@@ -3135,7 +3135,7 @@
     var xp = el2('div', 'ap-xp'), fill = el2('span');
     fill.style.width = (all ? Math.round(cleared / all * 100) : 100) + '%';
     xp.appendChild(fill); hero.appendChild(xp);
-    hero.appendChild(el2('div', 'ap-cnt', all - cleared > 0 ? (all - cleared) + '개 남음 — 오늘도 끝까지 가 봅시다 🚀' : '수고하셨습니다! 내일 미션은 저녁 7시에 와요 🙌'));
+    hero.appendChild(el2('div', 'ap-cnt', all - cleared > 0 ? (all - cleared) + '개 남음 — 오늘도 끝까지 가 봅시다 🚀' : '수고하셨습니다! 내일 미션은 오후 5시에 와요 🙌'));
     body.appendChild(hero);
     apInbox(d, body);
     // 미션 카드 — 종류 순서대로

@@ -10,7 +10,7 @@
 
   <!-- 홈화면 추가(PWA) -->
   <!-- 📝 업무지시 화면(#order)에서 '설치 및 바로가기' 하면 따로 된 업무지시 앱으로 설치 (2026-11-04: 현장관리 앱으로 설치되던 것) -->
-  <script>document.write('<link rel="manifest" href="' + (/^#order/.test(location.hash) ? 'manifest-order.json' : 'manifest.json') + '">');</script>
+  <script>document.write('<link rel="manifest" href="' + (/^#order/.test(location.hash) ? 'manifest-order.json' : /^#approve/.test(location.hash) ? 'manifest-approve.json' : 'manifest.json') + '">');</script>
   <link rel="icon" href="icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="theme-color" content="#2563eb">
@@ -536,7 +536,7 @@
   <script src="quote_link.js?v=20261019g"></script>
   <script src="kakao.js?v=20261105a"></script>
   <script src="boss_chat.js?v=20261105h"></script>
-  <script src="app.js?v=20261105l"></script>
+  <script src="app.js?v=20261105m"></script>
   <script src="stamp.js?v=20261027s"></script>
   <script src="voice.js?v=20261104a"></script>
   <script src="app-switcher.js?v=20261020a" data-app-id="schedule"></script>
