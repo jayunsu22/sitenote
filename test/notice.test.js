@@ -50,3 +50,25 @@ assert.ok(Share.helloText(Share.HELLO_TEXT, h[0]).startsWith('안녕하세요 �
 assert.ok(Share.dailyReport([], {}, [], '2026-11-09').next.some((x) => x.kind === 'hello'));
 assert.ok(!Share.dailyReport([], {}, [], '2026-11-10').next.some((x) => x.kind === 'hello'));
 console.log('notice ok');
+
+// 결재함 카드가 앱 기록으로 이미 끝났는가 (11/5)
+(function () {
+  const D = Share.reportItemDone;
+  const base = { id: 's1', name: '현장', date: '2026-11-07', days: [{ date: '2026-11-07', staff: ['가'] }], needStaff: 1 };
+  const film = { id: 'film:s1', kind: 'film', siteId: 's1' };
+  assert.strictEqual(D(film, '2026-11-05', [Object.assign({}, base, { filmStage: 1 })], {}, []), false, '필름 주문 전');
+  assert.strictEqual(D(film, '2026-11-05', [Object.assign({}, base, { filmStage: 2 })], {}, []), true, '필름 주문 후');
+  const ask = { id: 'ask:s1', kind: 'ask', siteId: 's1' };
+  assert.strictEqual(D(ask, '2026-11-05', [Object.assign({}, base, { pwLobby: '1', pwUnit: '2' })], {}, []), false, '화장실 빈칸');
+  assert.strictEqual(D(ask, '2026-11-05', [Object.assign({}, base, { pwLobby: '1', pwUnit: '2', toilet: '실내' })], {}, []), true, '다 채움');
+  const pay = { id: 'pay:s1', kind: 'pay', siteId: 's1' };
+  assert.strictEqual(D(pay, '2026-11-05', [base], {}, []), false);
+  assert.strictEqual(D(pay, '2026-11-05', [Object.assign({}, base, { payDone: '2026-11-05' })], {}, []), true);
+  const task = { id: 'task:t1', kind: 'task', siteId: '' };
+  assert.strictEqual(D(task, '2026-11-05', [], {}, [{ id: 't1', done: false }]), false);
+  assert.strictEqual(D(task, '2026-11-05', [], {}, [{ id: 't1', done: true }]), true);
+  assert.strictEqual(D({ id: 'as:s1:v1', kind: 'as', siteId: 's1' }, '2026-11-05', [Object.assign({}, base, { services: [{ id: 'v1', date: '2026-11-05', done: true }] })], {}, []), true);
+  assert.strictEqual(D({ id: 'review:s1', kind: 'review', siteId: 's1' }, '2026-11-05', [base], {}, []), false, '후기는 사람이 정함');
+  assert.strictEqual(D({ id: 'hello:x', kind: 'hello' }, '2026-11-05', [base], {}, []), false, '안부도 사람이 정함');
+  console.log('reportItemDone ok');
+})();

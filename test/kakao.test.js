@@ -74,3 +74,13 @@ assert.strictEqual(K.fillPatch({ payDone: '2026-11-01' }, { kind: 'done', what: 
 assert.deepStrictEqual(K.fillPatch({ services: [{ id: 'v1', done: false }, { id: 'v2' }] }, { kind: 'done', what: 'as', serviceId: 'v1' }, 'a'),
   { services: [{ id: 'v1', done: true }, { id: 'v2' }] });
 console.log('kakao ok');
+
+// 결재함 [되돌리기] (11/5)
+assert.deepStrictEqual(K.fillPatch({ payDone: '2026-11-05' }, { kind: 'undo', what: 'pay' }, 'a'), { payDone: '' });
+assert.strictEqual(K.fillPatch({}, { kind: 'undo', what: 'pay' }, 'a'), null);
+assert.deepStrictEqual(K.fillPatch({ services: [{ id: 'v1', done: true }] }, { kind: 'undo', what: 'as', serviceId: 'v1' }, 'a'), { services: [{ id: 'v1', done: false }] });
+const direct = { id: 'x', at: '2026-11-05', to: '직접 주문', items: '직접 주문' };
+assert.deepStrictEqual(K.fillPatch({ filmStage: 2, filmOrders: [direct], films: [{ code: 'ps1' }] }, { kind: 'undo', what: 'film', at: '2026-11-05' }, 'a'), { filmOrders: [], filmStage: 1 });
+assert.deepStrictEqual(K.fillPatch({ filmStage: 2, filmOrders: [direct], filmVendor: true }, { kind: 'undo', what: 'film', at: '2026-11-05' }, 'a'), { filmOrders: [], filmStage: 2 });
+assert.strictEqual(K.fillPatch({ filmStage: 2, filmOrders: [{ at: '2026-11-05', to: '에이엔디' }] }, { kind: 'undo', what: 'film', at: '2026-11-05' }, 'a'), null);
+console.log('kakao undo ok');

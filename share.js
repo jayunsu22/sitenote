@@ -1930,6 +1930,28 @@
     if (new Date(today + 'T00:00:00Z').getUTCDay() === 1) next.push({ id: 'hello:' + today, kind: 'hello', title: '연락 뜸한 업체 안부 인사', res: '', siteId: '', act: '' });
     return { date: tomorrow, today: today, done: done, next: next };
   }
+  /* 결재함 카드가 앱 기록으로 이미 끝났는가 (2026-11-05 사장님: 현장 화면·카톡으로 끝낸 일이 카드에 남아 있었다).
+     보고서는 전날 만든 그대로라, 카드를 그릴 때 지금 앱 내용과 맞춰 본다. 고객 후기·안부 인사는 사람이 정할 일이라 뺀다 */
+  function reportItemDone(x, repDate, sites, settings, tasks) {
+    if (!x) return false;
+    var cfg = settings || {};
+    var site = x.siteId ? (sites || []).filter(function (s) { return s && s.id === x.siteId; })[0] : null;
+    if (x.kind === 'ask') return !site || ['pwLobby', 'pwUnit', 'toilet'].every(function (k) { return str(site[k]); });
+    if (x.kind === 'pay') return !site || !!str(site.payDone) || sitePaidAny(site);
+    if (x.kind === 'as') {
+      if (!site) return true;
+      var sid = String(x.id || '').split(':')[2];
+      var v = servicesOf(site).filter(function (o) { return o.id === sid; })[0];
+      return !v || !!v.done;
+    }
+    if (x.kind === 'task') {
+      var tid = String(x.id || '').replace(/^task:/, '');
+      var t = (tasks || []).filter(function (o) { return o && o.id === tid; })[0];
+      return !!(t && t.done);
+    }
+    if (['film', 'crew', 'silicone', 'supply', 'stock', 'hold'].indexOf(x.kind) === -1) return false;
+    return !autoTasks(sites, repDate, cfg.taskRules, cfg.holds, cfg).some(function (o) { return o.id === 'auto:' + x.id; });
+  }
   // 카톡 김정헌방에 올리는 글 (C안) — 링크를 누르면 앱 결재함
   function dailyReportKakao(rep, url) {
     var lines = ['📋 ' + dayLabel(rep.date) + ' 업무일정표'];
@@ -2577,6 +2599,7 @@
     recruitAskText: recruitAskText,
     recruitMulti: recruitMulti,
     dailyReport: dailyReport,
+    reportItemDone: reportItemDone,
     filmVendorPatch: filmVendorPatch,
     workerInfoText: workerInfoText,
     workerNotices: workerNotices,

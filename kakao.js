@@ -160,6 +160,27 @@
       if (f.id && orders.some(function (o) { return o && o.id === f.id; })) return null;
       return { filmStage: Math.max(k, 2),
         filmOrders: orders.concat([{ id: f.id || '', at: String(f.at || ''), to: String(f.room || ''), items: String(f.value || '') }]) };
+    } else if (f.kind === 'undo') {
+      // 결재함 [되돌리기] (2026-11-05): 완료표시로 앱에 넣은 것도 함께 되돌린다
+      if (f.what === 'pay') return site.payDone ? { payDone: '' } : null;
+      if (f.what === 'as') {
+        var was = false;
+        var back = (site.services || []).map(function (v) {
+          if (v && v.id === f.serviceId && v.done) { was = true; return Object.assign({}, v, { done: false }); }
+          return v;
+        });
+        return was ? { services: back } : null;
+      }
+      if (f.what === 'film') {
+        var list = Array.isArray(site.filmOrders) ? site.filmOrders : [], cut = -1;
+        list.forEach(function (o, i) { if (o && o.to === '직접 주문' && o.at === String(f.at || '')) cut = i; });
+        if (cut < 0) return null;
+        var rest = list.filter(function (o, i) { return i !== cut; });
+        var st = parseInt(site.filmStage, 10) || 0;
+        var coded = Array.isArray(site.films) && site.films.some(function (x) { return x && String(x.code || '').trim(); });
+        return { filmOrders: rest, filmStage: st === 2 && !site.filmVendor && !rest.length ? (coded ? 1 : 0) : st };
+      }
+      return null;
     } else if (f.kind === 'done') {
       // 결재함 [완료표시] (2026-11-03): 잔금 받음 → payDone(그 뒤로 '잔금 받기' 안 뜸) / AS 끝냄 → 그 AS 완료
       if (f.what === 'pay') return site.payDone ? null : { payDone: String(f.at || '') || '완료' };
