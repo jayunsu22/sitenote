@@ -111,6 +111,8 @@
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
+    // ⏰ 정시 보고 알림의 '확인 필요 보기' → #order/log (업무 내역 탭)
+    if (h === '#order/log') { showView('viewOrder'); wlMigrate(); wlTab(true); chatFeedPull(); return; }
     if (h === '#order') { showView('viewOrder'); wlMigrate(); renderChat(); chatAutoOff(); chatMicOff(); chatFeedPull(); return; }   // 📝 업무지시 보드 (2026-11-04)
     if (h && h !== '#') { history.replaceState(null, '', location.pathname); }
     currentSiteId = '';
@@ -3918,6 +3920,7 @@
     if (!list.length) body.appendChild(chatBubble('무엇을 도와드릴까요? 편하게 말씀해 주세요.\n예: 류춘화 현장 작업자 전체에게 주소 문자 보내줘 / 이번주 잔금 안 받은 현장 어디야?'));
     list.forEach(function (m, i) {
       if (m.role === 'me') { var me = el2('div', 'ch-me'); var mine = el2('span', '', m.text); chatCopyBtn(mine, m.text); me.appendChild(mine); body.appendChild(me); body.appendChild(el2('div', 'ch-time me', chatTime(m.at))); return; }
+      if (m.report) { body.appendChild(reportCard(m.report, m.at)); return; }
       var row = chatBubble(m.text), bub = row.querySelector('.ch-bub');
       chatCopyBtn(bub, [m.text].concat((m.cards || []).map(function (c) { return c.text; })).filter(Boolean).join('\n'));
       (m.cards || []).forEach(function (c) {
@@ -4092,6 +4095,8 @@
       if (!after && !items.length) { try { localStorage.setItem('chatFeedAt', String(d.now || Date.now())); } catch (e) { /* */ } return; }
       if (!items.length) return;
       items.forEach(function (x) {
+        // ⏰ 정시 업무보고 (11/7) — 카드로 (일 없는 시간은 회색 한 줄)
+        if (x.kind === 'report') { chatAdd({ role: 'ai', text: '', report: { title: x.title, quiet: !!x.quiet, start: x.start, end: x.end, done: x.done || [], replies: x.replies || [], need: x.need || [] } }); return; }
         var head = (x.kind === 'sms' ? '📨 ' : '💬 ') + x.from + '님이 답했어요' + (x.siteName ? ' · ' + x.siteName : '');
         var cards = (x.lines || []).map(function (l) { return { ok: true, text: '✅ ' + l }; });
         if ((x.left || []).length) cards.push({ wait: true, text: '❓ 아직 못 받음: ' + x.left.join(' · ') });
@@ -4104,6 +4109,105 @@
     }).catch(function () { /* 다음에 */ }).then(function () { chatFeedBusy = false; });
   }
   setInterval(function () { if (!document.hidden && !$('viewOrder').hidden) chatFeedPull(); }, 30000);
+  /* ⏰ 정시 업무보고 (2026-11-07 사장님: 매일 8~17시 정시마다 지난 1시간 일을 폰 알림으로) — n8n 현장관리_빈칸 정시보고(report.js)가
+     매시 정각에 업무 내역·답장을 모아 비서 대화 카드(알림함 feed kind 'report')와 폰 알림(웹푸시)을 만든다. 🔔 로 이 폰 등록·시간·요일 설정.
+     설계 songil docs/superpowers/specs/2026-11-07-정시보고-design.md */
+  var HOURLY_URL = 'https://primary-production-a6fa.up.railway.app/webhook/hourly-report';
+  var PUSH_KEY = 'BM8jyhW7o4JcrHNww-B8eaAvXOqRYUJ8uAfXYkscm68RnEOX62ADjydxtcgEpngcpJZG22DYlVgNJTx7f02KdLc';   // 견적 앱과 같은 VAPID 공개키
+  function hourPost(body) {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    return fetch(HOURLY_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key }, body: JSON.stringify(body) })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok || d.ok === false) throw new Error(d.error || 'HTTP ' + res.status); return d; }); });
+  }
+  function hm(t) { var d = new Date(t); return d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function reportCard(r, at) {
+    if (r.quiet) { var q = el2('div', 'rp-quiet'); q.appendChild(el2('span', '', r.title + ' · 새 일 없음')); return q; }
+    var row = el2('div', 'ch-ai rp-row');
+    var av = el2('div', 'ch-av'), face = el2('img'); face.src = 'assistant_face.jpg'; face.alt = ''; av.appendChild(face); row.appendChild(av);
+    var col = el2('div', 'rp-col');
+    var box = el2('div', 'rp');
+    var h = el2('div', 'rp-h');
+    h.appendChild(el2('b', '', r.title.replace(/\s*\(.*\)$/, '')));
+    if (r.start && r.end) h.appendChild(el2('span', '', hm(r.start) + ' ~ ' + hm(r.end)));
+    h.appendChild(el2('em', '', (r.done.length + r.replies.length + r.need.length) + '건'));
+    box.appendChild(h);
+    var sec = function (cls, title, items, line) {
+      if (!items.length) return;
+      var sc = el2('div', 'rp-sec ' + cls);
+      sc.appendChild(el2('h4', '', title + ' ' + items.length));
+      items.forEach(function (x) {
+        var it = el2('div', 'rp-it');
+        it.appendChild(el2('span', 'rp-tm', x.t ? hm(x.t) : ''));
+        var tx = el2('span', 'rp-tx');
+        line(tx, x);
+        it.appendChild(tx);
+        sc.appendChild(it);
+      });
+      box.appendChild(sc);
+    };
+    sec('ok', '✅ 처리됨', r.done, function (tx, x) { tx.appendChild(document.createTextNode(x.title)); if (x.detail) tx.appendChild(el2('small', '', x.detail)); });
+    sec('re', '💬 받은 답장', r.replies, function (tx, x) { tx.appendChild(document.createTextNode(x.from + (x.site ? ' · ' + x.site : ''))); if ((x.lines || []).length) tx.appendChild(el2('small', '', x.lines.join(' · '))); });
+    sec('wn', '⚠️ 확인 필요', r.need, function (tx, x) { tx.appendChild(document.createTextNode(x.title)); if (x.detail) tx.appendChild(el2('small', '', x.detail)); });
+    var f = el2('div', 'rp-f');
+    var all = el2('button', '', '업무 내역 전체'); all.type = 'button'; all.onclick = function () { wlTab(true); };
+    f.appendChild(all);
+    if (r.need.length) { var nd = el2('button', 'wn', '확인 필요 보기'); nd.type = 'button'; nd.onclick = function () { wlTab(true); }; f.appendChild(nd); }
+    box.appendChild(f);
+    col.appendChild(box);
+    col.appendChild(el2('div', 'ch-time rp-time', chatTime(at)));
+    row.appendChild(col);
+    return row;
+  }
+  // 🔔 이 폰에서 알림 받기 — 앱 서비스워커로 웹푸시 구독 → n8n 에 저장
+  function pushSubscribe() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !window.Notification) return Promise.reject(new Error('이 브라우저는 폰 알림이 안 돼요 — 크롬에서, 홈 화면에 설치한 앱으로 열어 주세요'));
+    return Notification.requestPermission().then(function (p) {
+      if (p !== 'granted') throw new Error('알림이 막혀 있어요 — 주소창 왼쪽 자물쇠 › 권한 › 알림 허용');
+      return navigator.serviceWorker.ready;
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        if (sub) return sub;
+        var raw = atob(PUSH_KEY.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - PUSH_KEY.length % 4) % 4));
+        var key = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
+        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      });
+    }).then(function (sub) { return hourPost({ action: 'sub', subscription: JSON.stringify(sub), device: (navigator.userAgentData && navigator.userAgentData.platform) || 'phone' }); });
+  }
+  function pushHere() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve(false);
+    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) { return !!sub && window.Notification && Notification.permission === 'granted'; }).catch(function () { return false; });
+  }
+  function openHourlySettings() {
+    if (!ownerKeyOn()) { toast('이 기기는 사장님 열쇠가 없어요'); return; }
+    openModal('🔔 정시 업무보고', '<p class="hint">불러오는 중…</p>', [{ label: '닫기', onClick: closeModal }]);
+    Promise.all([hourPost({ action: 'cfg' }), pushHere()]).then(function (res) {
+      var c = res[0].cfg || {}, here = res[1];
+      var hours = function (sel) { var o = ''; for (var h = 5; h <= 22; h++) o += '<option value="' + h + '"' + (h === sel ? ' selected' : '') + '>' + h + '시</option>'; return o; };
+      var html = '<div class="rp-set">' +
+        '<label class="rp-opt"><span>정시 보고 받기<small>매 정시에 지난 1시간 일을 알림으로</small></span><input type="checkbox" id="rpOn"' + (c.on !== false ? ' checked' : '') + '></label>' +
+        '<div class="rp-opt"><span>시간<small>매일 이 시간 정시마다</small></span><span class="rp-hrs"><select id="rpFrom">' + hours(c.from || 8) + '</select> ~ <select id="rpTo">' + hours(c.to || 17) + '</select></span></div>' +
+        '<label class="rp-opt"><span>일 없는 시간도 알림<small>끄면 대화에 회색 한 줄만</small></span><input type="checkbox" id="rpEmpty"' + (c.empty ? ' checked' : '') + '></label>' +
+        '<div class="rp-opt"><span>주말<small>토·일요일에도 보고</small></span><span class="rp-days"><label><input type="checkbox" id="rpSat"' + (c.sat !== false ? ' checked' : '') + '> 토</label><label><input type="checkbox" id="rpSun"' + (c.sun ? ' checked' : '') + '> 일</label></span></div>' +
+        '<div class="rp-opt"><span>이 폰<small>' + (here ? '✅ 알림 받는 중' : '아직 이 폰은 알림을 안 받아요') + ' · 등록된 기기 ' + (res[0].n || 0) + '대</small></span>' +
+        '<button type="button" id="rpSub" class="btn-sm' + (here ? '' : ' primary') + '">' + (here ? '다시 등록' : '이 폰에서 받기') + '</button></div>' +
+        '</div>';
+      openModal('🔔 정시 업무보고', html, [
+        { label: '시험 보내기', onClick: function () { hourPost({ action: 'test' }).then(function () { toast('🔔 시험 알림을 보냈어요 — 몇 초 안에 와요'); }).catch(function (e) { toast('❌ ' + String(e.message || e).slice(0, 60)); }); } },
+        { label: '닫기', onClick: closeModal },
+        { label: '저장', cls: 'primary', onClick: function () {
+          var cfg = { on: $('rpOn').checked, from: +$('rpFrom').value, to: +$('rpTo').value, empty: $('rpEmpty').checked, sat: $('rpSat').checked, sun: $('rpSun').checked };
+          hourPost({ action: 'cfg', cfg: cfg }).then(function () { closeModal(); toast('정시 보고 설정을 저장했어요'); }).catch(function (e) { toast('❌ ' + String(e.message || e).slice(0, 60)); });
+        } }
+      ]);
+      $('rpSub').onclick = function () {
+        $('rpSub').disabled = true;
+        pushSubscribe().then(function () { toast('✅ 이 폰에서 정시 보고 알림을 받아요'); openHourlySettings(); })
+          .catch(function (e) { $('rpSub').disabled = false; toast('❌ ' + String(e.message || e).slice(0, 80)); });
+      };
+    }).catch(function (e) { $('modalBody').innerHTML = '<p class="hint">못 불러왔어요 — 인터넷을 확인해 주세요 (' + esc(String(e.message || e).slice(0, 60)) + ')</p>'; });
+  }
   function chatBubble(text) {
     var row = el2('div', 'ch-ai');
     var av = el2('div', 'ch-av'), face = el2('img'); face.src = 'assistant_face.jpg'; face.alt = ''; av.appendChild(face);   // 1분 간편견적의 AI 견적비서 (11/5)
@@ -4342,6 +4446,7 @@
   $('btnChatMic').hidden = !(window.SpeechRecognition || window.webkitSpeechRecognition);
   $('btnChatMic').onclick = chatMic;
   $('btnOrderBack').onclick = function () { go(''); };
+  $('btnHourly').onclick = openHourlySettings;   // ⏰ 정시 업무보고 설정 (11/7)
   (window.AppSwitcherActions = window.AppSwitcherActions || []).push({
     icon: '📝', name: '업무비서', onClick: function () { go('#order'); }
   });
