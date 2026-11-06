@@ -713,7 +713,7 @@
       i.addEventListener('input', function () { rows[0][key] = i.value; Store.updateSite(siteId, { owners: rows.map(function (r) { return Object.assign({}, r); }) }); paintLinks(); });
       box.appendChild(i);
     };
-    box.appendChild(el2('div', 'pc-ct', '👤 고객'));
+    box.appendChild(el2('div', 'pc-ct', '고객'));
     line('name', '이름');
     line('phone', '연락처', 'tel');
     box.appendChild(el2('label', 'pc-l', '카톡방 이름 (카톡에 보이는 그대로)'));
@@ -726,7 +726,7 @@
       links.innerHTML = '';
       var d = Share.phoneDigits(rows[0].phone);
       if (d.length < 9) return;
-      [['📞 전화', 'tel:'], ['💬 문자', 'sms:']].forEach(function (x) {
+      [['전화', 'tel:'], ['문자', 'sms:']].forEach(function (x) {
         var a = el2('a', 'pc-link', x[0]); a.href = x[1] + d;
         links.appendChild(a);
       });
@@ -754,12 +754,12 @@
       var keys = ['pwLobby', 'pwUnit', 'parking', 'toilet'].filter(function (k) { return Share.isEmpty(s, k); });
       if (keys.length) {
         var ask = el2('div', 'pc-ask');
-        ask.appendChild(el2('b', '', '❓ 시공 전 못 받은 정보'));
+        ask.appendChild(el2('b', '', '시공 전 못 받은 정보'));
         ask.appendChild(el2('div', 'kk-v', keys.map(function (k) { return Kakao.FIELD_LABEL[k]; }).join(' · ')));
         var row = el2('div', 'pc-links');
-        var q = el2('button', 'pc-askbtn', '📨 문자로'); q.type = 'button';
+        var q = el2('button', 'pc-askbtn', '문자로'); q.type = 'button';
         q.onclick = function () { openCustomerAsk(siteId, keys); };
-        var kk = el2('button', 'pc-askbtn kk', '💬 카톡으로'); kk.type = 'button';
+        var kk = el2('button', 'pc-askbtn kk', '카톡으로'); kk.type = 'button';
         kk.onclick = function () { openCustomerKakao(siteId, keys, stat); };
         row.appendChild(q); row.appendChild(kk);
         ask.appendChild(row);
@@ -2019,19 +2019,19 @@
     head.innerHTML = '';
     var nm = document.createElement('div'); nm.className = 'sh-name'; nm.textContent = Share.titleLine(s);
     var sub = document.createElement('div'); sub.className = 'sh-sub';
-    sub.innerHTML = '<span class="sh-when">📅 ' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
+    sub.innerHTML = '<span class="sh-when">' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
       (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '');
     // 견적서 버튼 (2026-10-18) — 현장업무 왼쪽. 이어 붙인 견적서의 내역을 보고 인원을 가늠한다
     var qb = document.createElement('button'); qb.type = 'button';
     qb.className = 'sh-quote' + (s.quoteCode ? ' on' : '');
-    qb.textContent = s.quoteCode ? '📄 견적서 ✓' : '📄 견적서 연결';
+    qb.textContent = s.quoteCode ? '견적서 ✓' : '견적서 연결';
     qb.title = s.quoteCode ? '견적 내역 보기 · /q/' + s.quoteCode : '발행한 견적서를 이 현장에 이어 붙입니다';
     qb.onclick = function () { openQuoteSheet(s.id); };
     sub.appendChild(qb);
     // 현장업무(관리자 앱) 연결 버튼 — 연결 전엔 '연결', 후엔 맞춤 상태와 함께 시트를 연다
     var ab = document.createElement('button'); ab.type = 'button';
     ab.className = 'sh-admin' + (s.adminId ? ' on' : '');
-    ab.textContent = s.adminId ? '🛠 현장업무 ' + adminBadge(s) : '🛠 현장업무 연결';
+    ab.textContent = s.adminId ? '현장업무 ' + adminBadge(s) : '현장업무 연결';
     ab.onclick = function () { openAdminSheet(s.id); };
     sub.appendChild(ab);
     // 거래처명을 누르면 그 업체 탭이 열린 거래처 화면으로 (같은 업체의 다른 현장을 바로 본다)
@@ -2432,11 +2432,11 @@
     box.appendChild(strip);
     // 🚚 업체가 필름을 가져다주는 현장 (2026-11-05)
     var fvBtn = document.createElement('button'); fvBtn.type = 'button'; fvBtn.className = 'fv-sitetog' + (s.filmVendor ? ' on' : '');
-    fvBtn.textContent = (s.filmVendor ? '☑' : '☐') + ' 🚚 업체가 필름을 가져옴';
+    fvBtn.textContent = (s.filmVendor ? '☑' : '') + ' 업체가 필름을 가져옴';
     fvBtn.onclick = function () {
       var on = !s.filmVendor;
       Store.updateSite(siteId, Share.filmVendorPatch(s, on));
-      toast(on ? '🚚 주문 알림을 끕니다 — 전날 업체에 한 번 확인해요' : '직접 주문하는 현장으로 되돌렸어요');
+      toast(on ? '주문 알림을 끕니다 — 전날 업체에 한 번 확인해요' : '직접 주문하는 현장으로 되돌렸어요');
       renderStageSection(box, siteId);
     };
     box.appendChild(fvBtn);
@@ -2651,10 +2651,10 @@
     });
     money.appendChild(step);
     wrap.appendChild(money);
-    if (plan.selfHire) wrap.appendChild(el2('div', 'rc-self-note', '✋ 이 날은 문자를 안 보냅니다. 직접 구해서 채워 주세요. 다 채울 때까지 결재함에 날마다 올라옵니다.'));
+    if (plan.selfHire) wrap.appendChild(el2('div', 'rc-self-note', '이 날은 문자를 안 보냅니다. 직접 구해서 채워 주세요. 다 채울 때까지 결재함에 날마다 올라옵니다.'));
     if (!plan.need) return wrap;
     wrap.appendChild(el2('div', 'rc-left' + (plan.slots ? '' : ' ok'), '남은 자리 ' + plan.slots + '명' + (plan.slots ? '' : ' ✓')));
-    if (plan.noPay.length) wrap.appendChild(el2('div', 'rc-warn', '⚠ 일당 미입력: ' + plan.noPay.join('·') + ' — 예산 참고 합계에서 빠집니다'));
+    if (plan.noPay.length) wrap.appendChild(el2('div', 'rc-warn', '일당 미입력: ' + plan.noPay.join('·') + ' — 예산 참고 합계에서 빠집니다'));
     return wrap;
   }
   // 📨 여러 날 한 번에 모집 (11/1 사장님) — 날짜 칸 위에 하나. 자리 남은 날 · 버튼 · 진행
@@ -2662,17 +2662,17 @@
     var wrap = el2('div', 'rc-all');
     var isos = site.days.map(function (d) { return d.date; }).filter(Share.isIsoDate);
     var m = Share.recruitMulti(site, isos, state.sites, state.settings);
-    wrap.appendChild(el2('div', 'rc-all-h', '📨 인원 모집' + (m.days.length ? ' — 자리 남은 날' : '')));
+    wrap.appendChild(el2('div', 'rc-all-h', '인원 모집' + (m.days.length ? ' — 자리 남은 날' : '')));
     if (!m.days.length) wrap.appendChild(el2('div', 'rc-st', '날마다 필요 인원을 넣으면 남은 자리가 여기 보입니다 (직접 구인 날은 빠집니다)'));
     m.days.forEach(function (d) { wrap.appendChild(el2('div', 'rc-st', d.label + ' · ' + d.slots + '자리')); });
     var picks = Share.recruitPickOf(site, state.settings);
-    var ord = el2('button', 'rc-order', '🔢 문자 보낼 사람 고르기 (' + picks.length + '명 선택됨' + ((site.recruitOrder || []).length ? ' · 이 현장만' : '') + ')');
+    var ord = el2('button', 'rc-order', '문자 보낼 사람 고르기 (' + picks.length + '명 선택됨' + ((site.recruitOrder || []).length ? ' · 이 현장만' : '') + ')');
     ord.type = 'button';
     ord.onclick = function () { openRecruitOrder(site.id, rerender); };
     wrap.appendChild(ord);
     if (picks.length) wrap.appendChild(el2('div', 'rc-picks', picks.map(function (n, i) { return (i + 1) + '. ' + n; }).join(' · ')));
     if (m.days.length) {
-      var go = el2('button', 'rc-go', picks.length ? '📨 모집 시작' : '문자 보낼 사람을 먼저 골라 주세요'); go.type = 'button';
+      var go = el2('button', 'rc-go', picks.length ? '모집 시작' : '문자 보낼 사람을 먼저 골라 주세요'); go.type = 'button';
       go.disabled = !picks.length;
       go.onclick = function () { startRecruit(site.id, rerender); };
       wrap.appendChild(go);
@@ -2897,7 +2897,7 @@
      아래에 이미 접수된 목록. 목록을 누르면 예전처럼 접수 창으로 열어 고친다 */
   function renderServiceSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
-    box.innerHTML = '<h3 class="sec-title">🔧 AS·추가작업 접수 <span class="sec-hint">— 끝난 현장에 요청이 오면 여기에</span></h3>';
+    box.innerHTML = '<h3 class="sec-title">AS·추가작업 접수 <span class="sec-hint">— 끝난 현장에 요청이 오면 여기에</span></h3>';
     var host = document.createElement('div'); host.className = 'svc-inline-host';
     var list = document.createElement('div'); list.className = 'svc-inline-list';
     box.appendChild(host); box.appendChild(list);
@@ -2981,7 +2981,7 @@
   // 후기는 '팀원에게 공유 복사' 에 안 들어간다 (Share.FIELDS 밖에 있다)
   function renderReviewSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
-    box.innerHTML = '<h3 class="sec-title">📝 현장 후기 <span class="sec-hint">— 다음 현장을 고치려고 남기는 기록</span></h3>';
+    box.innerHTML = '<h3 class="sec-title">현장 후기 <span class="sec-hint">— 다음 현장을 고치려고 남기는 기록</span></h3>';
     var answers = (s.review && s.review.answers) || {};
     Share.reviewQuestionsOf(s, state.settings.reviewQuestions || []).forEach(function (q) {
       var row = document.createElement('div'); row.className = 'rv-q';
@@ -4654,7 +4654,7 @@
       }));
       row.appendChild(name);
       if (auto) {   // 실리콘 칸에서 만든 줄 — 지우려면 실리콘 칸에서 색을 끈다
-        name.textContent = '🧴 ' + r.name; row.classList.add('sil-row');
+        name.textContent = '' + r.name; row.classList.add('sil-row');
         var tag = document.createElement('span'); tag.className = 'sil-tag'; tag.textContent = '실리콘 칸'; row.appendChild(tag);
       } else {
         var x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.title = '삭제';
@@ -4724,15 +4724,15 @@
     box.classList.add('extra-sec');
     var hrs = Math.floor(plan.minutes / 60), mins = plan.minutes % 60;
     var 시간 = (hrs ? hrs + '시간 ' : '') + (mins ? mins + '분' : '') || '0분';
-    box.appendChild(el2('h3', 'sec-title', '➕ 추가작업 ' + plan.rows.length + '건 — 기사앱 사장님 보기에서 적은 일'));
+    box.appendChild(el2('h3', 'sec-title', '추가작업 ' + plan.rows.length + '건 — 기사앱 사장님 보기에서 적은 일'));
     var list = el2('div', 'ex-list');
-    var 표 = { 재시공: '🔁 재시공', AS: '🛠 AS', 추가요청: '➕ 추가' };
+    var 표 = { 재시공: '재시공', AS: 'AS', 추가요청: '추가' };
     plan.rows.forEach(function (r) {
       var row = el2('div', 'ex-r' + (r.done ? ' done' : ''));
       var nm = el2('div', 'ex-nm');
       var tag = el2('span', 'ex-t ex-' + (r.kind === 'AS' ? 'as' : r.kind === '재시공' ? 're' : 'add'), 표[r.kind] || r.kind);
       nm.appendChild(tag); nm.appendChild(document.createTextNode(' ' + r.name));
-      var sub = el2('small', '', [r.who, r.done ? '✅ 끝남' : '약 ' + (r.minutes >= 60 ? Math.round(r.minutes / 6) / 10 + '시간' : r.minutes + '분'),
+      var sub = el2('small', '', [r.who, r.done ? '끝남' : '약 ' + (r.minutes >= 60 ? Math.round(r.minutes / 6) / 10 + '시간' : r.minutes + '분'),
         r.filmM ? '필름 ' + r.filmM + 'm' + (r.filmCode ? ' ' + r.filmCode : '') : ''].filter(Boolean).join(' · '));
       nm.appendChild(sub);
       row.appendChild(nm);
@@ -4742,7 +4742,7 @@
     if (!film) {
       var need = Share.needStaffOf(s);
       var st = el2('div', 'ex-plan');
-      st.appendChild(el2('b', '', '👷 남은 추가작업 약 ' + 시간 + ' ≈ ' + plan.pum + '품'));
+      st.appendChild(el2('b', '', '남은 추가작업 약 ' + 시간 + ' ≈ ' + plan.pum + '품'));
       st.appendChild(el2('span', '', plan.addStaff ? '필요 인원 ' + (need || 0) + '명 → ' + ((need || 0) + plan.addStaff) + '명으로 늘리면 위 날짜별 인원에서 모자란 만큼 보여요'
         : '이미 필요 인원에 넣었어요'));
       if (plan.addStaff) {
@@ -4766,7 +4766,7 @@
       box.appendChild(st);
     }
     var fp = el2('div', 'ex-plan film');
-    fp.appendChild(el2('b', '', '🎞 추가작업 필름 ' + (plan.films.length ? plan.films.map(function (f) { return f.code + ' +' + f.m + 'm'; }).join(', ') : '없음')));
+    fp.appendChild(el2('b', '', '추가작업 필름 ' + (plan.films.length ? plan.films.map(function (f) { return f.code + ' +' + f.m + 'm'; }).join(', ') : '없음')));
     var noCode = plan.rows.filter(function (r) { return r.filmM > 0 && !r.filmCode; }).length;
     fp.appendChild(el2('span', '', plan.newFilmRows.length ? '필름 줄에 넣어 두면 이 현장 필름 목록에 추가분(m)이 남아요 — 주문할 때 수량에 더하세요'
       : noCode ? '필름 번호를 먼저 적어 주세요 (시공위치가 같은 줄의 번호를 씁니다)' : '이미 필름 줄에 넣었어요'));
@@ -4778,7 +4778,7 @@
         var rows = (cur.films || []).slice();
         plan.newFilmRows.forEach(function (r) { rows.push(Share.extraFilmRow(r)); doneMap[r.id] = Object.assign({}, doneMap[r.id], { film: 1 }); });
         Store.updateSite(siteId, { films: rows, extraDone: doneMap });
-        toast('🎞 필름 줄 ' + plan.newFilmRows.length + '개 추가 — 시공위치에 추가분 m 이 적혀 있어요');
+        toast('필름 줄 ' + plan.newFilmRows.length + '개 추가 — 시공위치에 추가분 m 이 적혀 있어요');
         renderSite();
       };
       fp.appendChild(fb);
@@ -4931,7 +4931,7 @@
     var adminId = String(s.adminId || '').trim();
     box.innerHTML = ''; box.hidden = false;
     box.classList.add('settle-sec');
-    box.appendChild(el2('h3', 'sec-title', '💰 정산 내역 — 견적·추가견적·입금을 날짜순으로'));
+    box.appendChild(el2('h3', 'sec-title', '정산 내역 — 견적·추가견적·입금을 날짜순으로'));
     var rerender = function () { var b = $('settleSec'); if (b) renderSettleSection(b, siteId); };
     var c = { list: [] };
     if (adminId) {
@@ -4980,7 +4980,7 @@
       };
       list.appendChild(row);
       if (l.견적서 && l.종류 === '견적') {
-        var a = el2('a', 'lg-doc', '📄 견적서 보기'); a.href = 'https://songil.netlify.app/s/' + encodeURIComponent(l.견적서.코드); a.target = '_blank'; a.rel = 'noopener';
+        var a = el2('a', 'lg-doc', '견적서 보기'); a.href = 'https://songil.netlify.app/s/' + encodeURIComponent(l.견적서.코드); a.target = '_blank'; a.rel = 'noopener';
         list.appendChild(a);
       }
     });
@@ -5005,12 +5005,12 @@
     box.appendChild(tot);
     var foot = el2('div', 'st-foot');
     if (sum.미수 > 0) {
-      var pay = el2('button', 'btn-sm', '💰 미수금 ' + won(sum.미수) + ' 다 받음'); pay.type = 'button';
+      var pay = el2('button', 'btn-sm', '미수금 ' + won(sum.미수) + ' 다 받음'); pay.type = 'button';
       pay.onclick = function () { openLedgerEdit(siteId, null, '입금', rerender, sum.미수); };
       foot.appendChild(pay);
     }
     if (sum.lines.length) {
-      var cp = el2('button', 'btn-sm st-memo', '📝 메모에 붙이기'); cp.type = 'button';
+      var cp = el2('button', 'btn-sm st-memo', '메모에 붙이기'); cp.type = 'button';
       cp.onclick = function () {
         var cur = Store.getSite(siteId);
         var text = settleMemoText(Share.settleLedger(c.list || [], cur.settleLog, cur.settleManual));
@@ -5018,7 +5018,7 @@
         // 예전에 붙인 정산 내역 덩어리는 새 것으로 바꾼다 (계속 쌓이지 않게)
         memo = memo.replace(/\[정산 내역\][\s\S]*?(?=\n\n|$)/, '').replace(/^\n+/, '');
         Store.updateSite(siteId, { memo: text + (memo ? '\n\n' + memo : '') });
-        toast('📝 메모 맨 위에 정산 내역을 붙였어요');
+        toast('메모 맨 위에 정산 내역을 붙였어요');
         renderSite(); pickSiteTab('review', false);
       };
       foot.appendChild(cp);
@@ -5082,7 +5082,7 @@
     var live = all.filter(function (it) { return !it.usedAt; }), used = all.filter(function (it) { return it.usedAt; });
     var photos = Store.photosOf(boxOwner(siteId));
     box.className = 'sec bx-sec' + (asTab ? ' as' : '');
-    box.innerHTML = '<h3 class="sec-title">📦 ' + (asTab ? '이 현장 AS 박스' : 'AS 박스') + ' <span class="sec-hint">— ' +
+    box.innerHTML = '<h3 class="sec-title">' + (asTab ? '이 현장 AS 박스' : 'AS 박스') + ' <span class="sec-hint">— ' +
       (asTab ? (live.length ? '꺼내 쓰면 줄을 눌러 고치기' : '필름·부자재 탭에서 넣어요') : '마지막 날 가장 긴 필름만 넣고 사진') + '</span></h3>';
     if (photos.length) {
       var strip = el2('div', 'bx-photos');
@@ -5111,14 +5111,14 @@
       box.appendChild(det);
     }
     if (asTab) return;
-    if (boxReading[siteId]) { box.appendChild(el2('div', 'bx-reading', '🔎 사진 속 테이프 글씨를 읽는 중…')); return; }
+    if (boxReading[siteId]) { box.appendChild(el2('div', 'bx-reading', '사진 속 테이프 글씨를 읽는 중…')); return; }
     if (boxDraft[siteId]) { renderBoxDraft(box, siteId); return; }
     var btns = el2('div', 'bx-btns');
-    var up = el2('button', 'btn-sm primary', '📷 박스 사진 올리기'); up.type = 'button';
+    var up = el2('button', 'btn-sm primary', '박스 사진 올리기'); up.type = 'button';
     var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.hidden = true;
     inp.onchange = function () { var f = Array.prototype.slice.call(inp.files || []); inp.value = ''; if (f.length) uploadBoxPhotos(siteId, f); };
     up.onclick = function () { inp.click(); };
-    var hand = el2('button', 'btn-sm', '✏️ 직접 적기'); hand.type = 'button';
+    var hand = el2('button', 'btn-sm', '직접 적기'); hand.type = 'button';
     hand.onclick = function () { boxDraft[siteId] = { rows: [''], note: '' }; paintBoxes(siteId); };
     btns.appendChild(up); btns.appendChild(hand); btns.appendChild(inp);
     box.appendChild(btns);
@@ -5235,9 +5235,9 @@
     var sc = Share.siliconeOf(s);
     var rerender = function () { renderSiliconeSection(box, siteId); var sup = box.previousElementSibling; if (sup) renderSuppliesSection(sup, siteId); paintSiteStatus(); };
     box.className = 'sec sil-sec' + (sc.who === 'me' ? ' me' : sc.who === 'other' ? ' other' : '');
-    box.innerHTML = '<h3 class="sec-title">🧴 실리콘 <span class="sec-hint">— 내가 쏘면 2일 전부터 준비 알림</span></h3>';
+    box.innerHTML = '<h3 class="sec-title">실리콘 <span class="sec-hint">— 내가 쏘면 2일 전부터 준비 알림</span></h3>';
     var who = document.createElement('div'); who.className = 'sil-who';
-    [['', '없음'], ['me', '🙋 내가 쏨'], ['other', '👷 다른 사람']].forEach(function (o) {
+    [['', '없음'], ['me', '내가 쏨'], ['other', '다른 사람']].forEach(function (o) {
       var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
       b.className = 'sil-opt' + (sc.who === o[0] ? ' on' : '');
       b.onclick = function () { Store.setSilicone(siteId, o[0], sc.colors); rerender(); };
@@ -5602,7 +5602,7 @@
      숨긴 현장은 메인 목록 맨 아래 '숨긴 현장 N곳' 을 펼쳐 열고, 그 화면에서 다시 보이기·완전 삭제 */
   function paintHideState(s) {
     var b = $('btnHideSite');
-    b.textContent = s && s.hide ? '👁' : '🙈';
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (s && s.hide ? "<path d=\"M3 12s3.500-6.500 9-6.500S21 12 21 12s-3.500 6.500-9 6.500S3 12 3 12z\"/><circle cx=\"12\" cy=\"12\" r=\"2.500\"/>" : "<path d=\"M3 12s3.500-6.500 9-6.500S21 12 21 12s-3.500 6.500-9 6.500S3 12 3 12z\"/><path d=\"M4 4l16 16\"/>") + '</svg>';
     b.title = s && s.hide ? '다시 보이기 — 목록에 다시 나옵니다' : '숨기기 — 목록에서만 안 보이게';
     var old = $('hiddenBanner'); if (old) old.remove();
     if (!s || !s.hide) return;
@@ -5671,11 +5671,11 @@
     if (f.key === 'name' || f.key === 'calRegion') cb.style.visibility = 'hidden';
     var label = document.createElement('div'); label.className = 'flabel'; label.textContent = f.label;
     // 📥 카톡 정리로 채운 칸은 어느 방에서 언제 온 값인지 작게 (2026-10-28)
-    if (s.fieldSrc && s.fieldSrc[f.key]) { var srcTag = document.createElement('small'); srcTag.className = 'fsrc'; srcTag.textContent = '💬 ' + s.fieldSrc[f.key]; label.appendChild(srcTag); }
+    if (s.fieldSrc && s.fieldSrc[f.key]) { var srcTag = document.createElement('small'); srcTag.className = 'fsrc'; srcTag.textContent = '' + s.fieldSrc[f.key]; label.appendChild(srcTag); }
     // 현장명 옆 '주소 복사' — 내비에 붙여넣는다 (호수·평형은 빼고 아파트 이름과 동까지)
     if (f.key === 'name') {
       var navBtn = document.createElement('button');
-      navBtn.type = 'button'; navBtn.className = 'nav-copy'; navBtn.textContent = '📋 주소 복사';
+      navBtn.type = 'button'; navBtn.className = 'nav-copy'; navBtn.textContent = '주소 복사';
       navBtn.onclick = function () {
         var addr = Share.navAddress(Store.getSite(s.id) || s);
         if (!addr) { toast('현장명을 먼저 적어주세요'); return; }
@@ -5695,9 +5695,9 @@
         checked[Share.WORKER_KEY] = wcb.checked; paintCopyPick();
       };
       wl.appendChild(wcb);
-      wl.appendChild(document.createTextNode('🔗 기사접속링크'));
+      wl.appendChild(document.createTextNode('기사접속링크'));
       // 흐린 칸을 누르면 왜 못 고르는지 알려 준다 (비활성 체크박스는 눌러도 아무 일이 없어서)
-      if (!연결) wl.onclick = function () { toast('현장업무에 연결된 현장만 기사접속 링크를 넣을 수 있습니다 (위의 🛠 현장업무 연결)'); };
+      if (!연결) wl.onclick = function () { toast('현장업무에 연결된 현장만 기사접속 링크를 넣을 수 있습니다 (위의 현장업무 연결)'); };
       var tools = document.createElement('span'); tools.className = 'name-tools';
       tools.appendChild(wl); tools.appendChild(navBtn);
       label.appendChild(tools);
@@ -6903,47 +6903,60 @@
     box.className = 'sec chk-sec';
     box.innerHTML = '';
     if (!list.length) return;
-    box.appendChild(el2('div', 'field-label', '📋 업체 확인'));
+    var asked = list.filter(function (c) { return !Share.checkSkipped(s, c.id); });
+    var got = asked.filter(function (c) { return Share.checkAnswer(s, c.id); }).length;
+    var head = el2('div', 'chk-head');
+    head.appendChild(el2('h3', '', '업체 확인'));
+    head.appendChild(el2('span', 'chk-count', got + ' / ' + asked.length + ' 받음'));
+    box.appendChild(head);
     var save = function (all) { Store.updateSite(siteId, { checks: all }); renderCheckSection(box, siteId); };
+    var checksOf = function () { return Object.assign({}, Store.getSite(siteId).checks || {}); };
     list.forEach(function (c) {
-      var row = el2('div', 'chk-row');
       var a = (s.checks || {})[c.id];
       var v = Share.checkAnswer(s, c.id);
-      // '이 현장은 안 물음' (사장님 11/1) — 예: 현관문 공사가 없는 현장의 X 표시. 다시 누르면 묻기로 돌아간다
-      var skipped = Share.checkSkipped(s, c.id);
-      var top = el2('div', 'chk-top');
-      top.appendChild(el2('div', 'chk-q' + (v || skipped ? ' done' : '') + (skipped ? ' skip' : ''),
-        (skipped ? '➖ ' : v ? '✅ ' : '☐ ') + Share.checkText(c, s) + (c.ok ? ' (확답)' : '')));
-      var sk = el2('button', 'chk-tog' + (skipped ? ' on' : ''), skipped ? '다시 묻기' : '이 현장은 안 물음'); sk.type = 'button';
-      sk.onclick = function () {
-        var all = Object.assign({}, Store.getSite(siteId).checks || {});
-        if (skipped) delete all[c.id]; else all[c.id] = { v: '', skip: true };
-        save(all);
-      };
-      // ✔ 전화로 확답 받았을 때 (사장님 11/6) — 답이 있으면 업체에 다시 묻지 않는다
-      if (!v && !skipped) {
-        var yes = el2('button', 'chk-tog chk-yes', '✔ 확답 받음'); yes.type = 'button';
-        yes.onclick = function () {
-          var all = Object.assign({}, Store.getSite(siteId).checks || {});
-          all[c.id] = { v: '확답 받음', src: '전화 ' + Share.shortDate(Share.todayIso()) };
-          save(all);
-        };
-        top.appendChild(yes);
+      var skipped = Share.checkSkipped(s, c.id);   // '이 현장은 안 물음' (사장님 11/1). 다시 누르면 묻기로 돌아간다
+      var row = el2('div', 'chk-row' + (skipped ? ' skip' : v ? ' done' : ''));
+      var mark = el2('span', 'chk-mark');
+      mark.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.500 4.500L19 7.500"/></svg>';
+      row.appendChild(mark);
+      row.appendChild(el2('div', 'chk-q', Share.checkText(c, s)));
+      var body = el2('div', 'chk-body');
+      row.appendChild(body);
+      box.appendChild(row);
+      if (skipped) {
+        var line = el2('div', 'chk-skipline');
+        line.appendChild(el2('span', '', '이 현장은 안 물어요'));
+        var again = el2('button', 'chk-again', '다시 묻기'); again.type = 'button';
+        again.onclick = function () { var all = checksOf(); delete all[c.id]; save(all); };
+        line.appendChild(again);
+        body.appendChild(line);
+        return;
       }
-      if (!v || skipped) top.appendChild(sk);
-      row.appendChild(top);
-      if (skipped) { box.appendChild(row); return; }
-      var inp = document.createElement('input'); inp.type = 'text'; inp.value = v; inp.autocomplete = 'off';
-      inp.placeholder = c.ok ? '확답 받으면 "확답 받음"' : '업체 답';
+      var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'chk-ans'; inp.value = v; inp.autocomplete = 'off';
+      inp.placeholder = '업체 답을 적어 주세요';
+      inp.setAttribute('aria-label', '업체 답');
       inp.addEventListener('change', function () {
-        var cur = Store.getSite(siteId), all = Object.assign({}, cur.checks || {});
-        var t = inp.value.trim();
+        var all = checksOf(), t = inp.value.trim();
         if (t) all[c.id] = { v: t, src: '' }; else delete all[c.id];
         save(all);
       });
-      row.appendChild(inp);
-      if (a && a.src) row.appendChild(el2('small', 'chk-src', '💬 ' + a.src));
-      box.appendChild(row);
+      body.appendChild(inp);
+      if (v) {
+        if (a && a.src) body.appendChild(el2('div', 'chk-src', a.src));
+        return;
+      }
+      var acts = el2('div', 'chk-acts');
+      // 전화로 확답 받았을 때 (사장님 11/6) — 답이 있으면 업체에 다시 묻지 않는다
+      var yes = el2('button', 'chk-btn chk-yes', '확답 받음'); yes.type = 'button';
+      yes.onclick = function () {
+        var all = checksOf();
+        all[c.id] = { v: '확답 받음', src: '전화 ' + Share.shortDate(Share.todayIso()) };
+        save(all);
+      };
+      var skip = el2('button', 'chk-btn plain', '이 현장은 안 물음'); skip.type = 'button';
+      skip.onclick = function () { var all = checksOf(); all[c.id] = { v: '', skip: true }; save(all); };
+      acts.appendChild(yes); acts.appendChild(skip);
+      body.appendChild(acts);
     });
   }
 

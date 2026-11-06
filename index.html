@@ -7,6 +7,8 @@
   <!-- 사장님 전용 화면 — 관리자 암호(관리자 앱과 같은 암호, 한 번 열면 같이 열림) -->
   <script src="pin-lock.js?v=20261008a" data-key="adminUnlocked"></script>
   <link rel="stylesheet" href="style.css?v=20261106c">
+  <link rel="stylesheet" href="site-design.css?v=20261106a">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 
   <!-- 홈화면 추가(PWA) -->
   <!-- 📝 업무지시 화면(#order)에서 '설치 및 바로가기' 하면 따로 된 업무지시 앱으로 설치 (2026-11-04: 현장관리 앱으로 설치되던 것) -->
@@ -106,16 +108,16 @@
   <!-- ========== 현장 상세 화면 ========== -->
   <section id="viewSite" class="view" hidden>
     <header class="topbar">
-      <button id="btnBack" class="icon-btn" title="뒤로">←</button>
+      <button id="btnBack" class="icon-btn" title="뒤로" aria-label="뒤로"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
       <!-- 현장명은 아래 큰 제목에 있어서 위에서는 뺀다 (좁은 화면에서 잘려 보였음, 2026-10-28) — 화면 읽기용으로만 남김 -->
       <h1 id="siteTitle" class="topbar-title topbar-title-center sr-only">현장</h1>
       <div class="topbar-actions">
-        <button id="btnSiteMonth" class="icon-btn" title="월간 일정 바로가기">📅</button>
-        <button id="btnSiteTask" class="icon-btn" title="이 현장 할 일 넣기">📝</button>
-        <button id="btnColor" class="icon-btn" title="색상 변경">🎨</button>
-        <button id="btnSitePhotos" class="icon-btn" title="완료사진 찍기 — 이 현장 품목을 한 화면에서">📸</button>
-        <button id="btnHideSite" class="icon-btn" title="숨기기 — 목록에서만 안 보이게">🙈</button>
-        <button id="btnSiteSettings" class="icon-btn" title="설정 (팀원·거래처)">⚙</button>
+        <button id="btnSiteMonth" class="icon-btn" title="월간 일정 바로가기" aria-label="월간 일정"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg></button>
+        <button id="btnSiteTask" class="icon-btn" title="이 현장 할 일 넣기" aria-label="할 일 넣기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l1-4L16.500 4.500a2.100 2.100 0 013 3L9 18l-4 1z"/></svg></button>
+        <button id="btnColor" class="icon-btn" title="색상 변경" aria-label="색상 변경"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.500a8.500 8.500 0 100 17c1.300 0 1.900-.9 1.500-2-.4-1.200.4-2.500 1.800-2.500h2.200c1.400 0 2.500-1.100 2.500-2.500 0-5.500-3.800-10-8-10z"/><circle cx="8" cy="11" r=".6"/><circle cx="12" cy="8" r=".6"/><circle cx="16" cy="10.500" r=".6"/></svg></button>
+        <button id="btnSitePhotos" class="icon-btn" title="완료사진 찍기 — 이 현장 품목을 한 화면에서" aria-label="완료사진"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.500a2 2 0 012-2h2l1.500-2h5l1.500 2h2a2 2 0 012 2V18a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="3.500"/></svg></button>
+        <button id="btnHideSite" class="icon-btn" title="숨기기 — 목록에서만 안 보이게" aria-label="숨기기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.500-6.500 9-6.500S21 12 21 12s-3.500 6.500-9 6.500S3 12 3 12z"/><path d="M4 4l16 16"/></svg></button>
+        <button id="btnSiteSettings" class="icon-btn" title="설정 (팀원·거래처)" aria-label="설정"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.500M12 18.500V21M3 12h2.500M18.500 12H21M5.600 5.600l1.800 1.800M16.600 16.600l1.800 1.800M5.600 18.400l1.800-1.800M16.600 7.400l1.800-1.800"/></svg></button>
       </div>
     </header>
     <div id="colorPicker" class="color-picker" hidden></div>
@@ -130,7 +132,7 @@
       </div>
       <!-- 입력은 칸마다 즉시 자동저장되지만, 눌러서 확인할 수 있는 저장 버튼을 따로 둔다.
            (누르면 키보드를 내리고, 백업 대기분을 기다리지 않고 바로 보낸 뒤 결과를 알려준다) -->
-      <button id="btnSaveSite" class="btn-save">💾 저장</button>
+      <button id="btnSaveSite" class="btn-save">저장</button>
       <button id="btnCopyQuestion" class="btn-copy btn-copy-q">업자에게 질문 복사</button>
       <button id="btnCopyShare" class="btn-copy btn-copy-s">팀원에게 공유 복사</button>
     </div>
@@ -536,8 +538,8 @@
   <script src="quote_link.js?v=20261019g"></script>
   <script src="kakao.js?v=20261105b"></script>
   <script src="boss_chat.js?v=20261105h"></script>
-  <script src="app.js?v=20261106f"></script>
-  <script src="stamp.js?v=20261027s"></script>
+  <script src="app.js?v=20261106g"></script>
+  <script src="stamp.js?v=20261106a"></script>
   <script src="voice.js?v=20261104a"></script>
   <script src="app-switcher.js?v=20261020a" data-app-id="schedule"></script>
 </body>

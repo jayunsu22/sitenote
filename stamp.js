@@ -35,7 +35,7 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'stamp-btn';
-    btn.textContent = '📅 날짜입력';
+    btn.textContent = '날짜 넣기';
     btn.title = '지금 날짜·시간 넣기';
     // 누를 때 칸의 커서 자리를 잃지 않게
     btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
