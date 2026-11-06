@@ -6920,6 +6920,16 @@
         if (skipped) delete all[c.id]; else all[c.id] = { v: '', skip: true };
         save(all);
       };
+      // ✔ 전화로 확답 받았을 때 (사장님 11/6) — 답이 있으면 업체에 다시 묻지 않는다
+      if (!v && !skipped) {
+        var yes = el2('button', 'chk-tog chk-yes', '✔ 확답 받음'); yes.type = 'button';
+        yes.onclick = function () {
+          var all = Object.assign({}, Store.getSite(siteId).checks || {});
+          all[c.id] = { v: '확답 받음', src: '전화 ' + Share.shortDate(Share.todayIso()) };
+          save(all);
+        };
+        top.appendChild(yes);
+      }
       if (!v || skipped) top.appendChild(sk);
       row.appendChild(top);
       if (skipped) { box.appendChild(row); return; }
@@ -7445,7 +7455,24 @@
   });
   setInterval(function () { if (!document.hidden) takeFills(); }, 5 * 60 * 1000);
 
+  // 📨 장문 문자(MMS) 받기 등록 (11/6) — 폰 문자 앱이 긴 답도 서버로 넘기게. 잘 되면 다시 안 한다
+  function registerMmsHook() {
+    var key = '';
+    try {
+      if (localStorage.getItem('mmsHookV1')) return;
+      key = localStorage.getItem('ownerKey') || '';
+    } catch (e) { return; }
+    if (!key) return;
+    Promise.all(['mms:downloaded', 'mms:received'].map(function (event) {
+      return fetch('https://primary-production-a6fa.up.railway.app/webhook/crew-sms-hook', { method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-owner-key': key }, body: JSON.stringify({ event: event }) })
+        .then(function (res) { return res.json(); })
+        .then(function (d) { if (!d || !d.id) throw new Error('등록 안 됨'); });
+    })).then(function () { try { localStorage.setItem('mmsHookV1', '1'); } catch (e) { /* 다음에 다시 */ } })
+      .catch(function () { /* 다음에 앱을 열 때 다시 */ });
+  }
   // ---------- 시작 ----------
+  registerMmsHook();
   if (state.settings.backupKey && Store.pendingCount()) Store.flush();
   takeFills();
   refreshApproveCount();

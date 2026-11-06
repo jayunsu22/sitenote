@@ -1844,3 +1844,6 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .team-sort input:checked + .team-sort-sw { background: #16a34a; }
 .team-sort input:checked + .team-sort-sw::after { left: 21px; }
 .team-pick { margin-left: 6px; font-size: 12px; font-weight: 800; color: #2563eb; }
+.chk-tog.chk-yes { border-color: #16a34a; color: #15803d; font-weight: 800; }
+.chk-top { flex-wrap: wrap; }
+.chk-top .chk-q { flex: 1 1 60%; }
