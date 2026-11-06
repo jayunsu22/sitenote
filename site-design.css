@@ -30,6 +30,24 @@
 #viewSite .sh-quote, #viewSite .sh-admin { min-height: 34px; padding: 0 10px; border: 1px solid #cfd6de; border-radius: 8px; background: #fff; color: var(--text); font-size: 13.5px; font-weight: 600; box-shadow: none; }
 #viewSite .sh-quote.on, #viewSite .sh-admin.on { border-color: #b9d0f5; background: #eaf1fd; color: var(--primary-dark); }
 #viewSite .sh-client { min-height: 34px; padding: 0 2px; border: 0; background: none; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+/* 1안 머리 (11/7): 위 아이콘·현장명·날짜·거래처 줄을 옅은 회색 띠로 묶어 아래 탭·항목과 나눈다 */
+#viewSite > .topbar { background: var(--bg); }
+#viewSite .site-head { background: var(--bg); border-bottom: 1px solid var(--border); padding: 2px 16px 14px; }
+#viewSite .sh-r1 { display: flex; align-items: center; gap: 12px; }
+#viewSite .sh-date { flex: none; padding-right: 12px; border-right: 1px solid #d4dae2; text-align: center; line-height: 1.15; font-variant-numeric: tabular-nums; }
+#viewSite .sh-d1 { font-size: 19px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
+#viewSite .sh-d2 { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+#viewSite .sh-d2 .sh-dday { font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--primary-dark); }
+#viewSite .sh-d2 .sh-dday.done { color: var(--muted); }
+#viewSite .sh-date.none .sh-d1 { font-size: 15px; color: var(--muted); }
+#viewSite .sh-r1 .sh-name { flex: 1; min-width: 0; font-size: 20px; line-height: 1.3; word-break: keep-all; }
+#viewSite .sh-name .nobr { white-space: nowrap; }
+#viewSite .sh-date.range .sh-d1 { font-size: 15.5px; letter-spacing: -.03em; }
+#viewSite .site-head .sh-sub { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; margin-top: 10px; }
+#viewSite .site-head .sh-client { order: 0; margin: 0 auto 0 0; flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 5px; justify-content: flex-start; padding: 0 2px; font-size: 14px; font-weight: 600; color: var(--muted); }
+#viewSite .site-head .sh-client svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#viewSite .site-head .sh-client span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#viewSite .site-head .sh-quote, #viewSite .site-head .sh-admin { flex: none; }
 
 /* 탭 — 칸마다 배경, 지금 탭은 파랑으로 꽉 채운다 (사장님 11/6: 구분이 잘 안 됨) */
 #viewSite .site-tabs { top: 56px; gap: 4px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }

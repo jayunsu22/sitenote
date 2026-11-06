@@ -2001,6 +2001,9 @@
       var ds = dated.map(function (d) { return d.date; }).sort();
       var a = ds[0], z = ds[ds.length - 1];
       line = Share.shortDate(a) + ' ' + weekdayOf(a) + (a !== z ? ' – ' + Share.shortDate(z) + ' ' + weekdayOf(z) : '') + (ds.length > 1 ? ' · ' + ds.length + '일' : '');
+      // 1안 머리 (11/7): 현장명 왼쪽 두 줄 날짜 — 위 '11/7' (여러 날이면 '9/28–9/29'), 아래 '토' / '월–화 · 2일'
+      st.d1 = Share.shortDate(a) + (a !== z ? '–' + Share.shortDate(z) : '');
+      st.d2 = weekdayOf(a) + (a !== z ? '–' + weekdayOf(z) : '') + (ds.length > 1 ? ' · ' + ds.length + '일' : '');
       var next = ds.filter(function (d) { return d >= today; })[0];
       if (!next) dd = '끝남';
       else {
@@ -2017,10 +2020,17 @@
     var st = siteStatus(s);
     var client = Store.getClient(s.clientId);
     head.innerHTML = '';
-    var nm = document.createElement('div'); nm.className = 'sh-name'; nm.textContent = Share.titleLine(s);
+    /* 1안 머리 (11/7 사장님): 날짜는 현장명 왼쪽 두 줄, 거래처명은 견적서·현장업무와 같은 줄 왼쪽, 머리 전체는 회색 띠로 아래와 나눈다 */
+    var r1 = document.createElement('div'); r1.className = 'sh-r1';
+    var dt = document.createElement('div'); dt.className = 'sh-date' + (st.d1 ? '' : ' none') + (st.d1 && st.d1.indexOf('–') !== -1 ? ' range' : '');
+    dt.innerHTML = '<div class="sh-d1">' + esc(st.d1 || '미정') + '</div><div class="sh-d2">' + esc(st.d2 || '날짜') +
+      (st.dday ? ' · <em class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</em>' : '') + '</div>';
+    dt.title = st.when || '날짜 미정';
+    var nm = document.createElement('div'); nm.className = 'sh-name';
+    // '250-14' 같은 번지가 '250-' / '14' 로 갈라지지 않게 (11/7) — 보이는 제목만
+    nm.innerHTML = esc(Share.titleLine(s)).replace(/(\S*\d-\d\S*)/g, '<span class="nobr">$1</span>');
+    r1.appendChild(dt); r1.appendChild(nm);
     var sub = document.createElement('div'); sub.className = 'sh-sub';
-    sub.innerHTML = '<span class="sh-when">' + (st.when ? esc(st.when) : '날짜 미정') + '</span>' +
-      (st.dday ? '<span class="sh-dday' + (st.dday === '끝남' ? ' done' : '') + '">' + st.dday + '</span>' : '');
     // 견적서 버튼 (2026-10-18) — 현장업무 왼쪽. 이어 붙인 견적서의 내역을 보고 인원을 가늠한다
     var qb = document.createElement('button'); qb.type = 'button';
     qb.className = 'sh-quote' + (s.quoteCode ? ' on' : '');
@@ -2037,17 +2047,18 @@
     // 거래처명을 누르면 그 업체 탭이 열린 거래처 화면으로 (같은 업체의 다른 현장을 바로 본다)
     if (client) {
       var cb = document.createElement('button'); cb.type = 'button'; cb.className = 'sh-client';
-      cb.textContent = client.name; cb.title = '이 업체의 현장 목록 보기';
+      cb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5l8-2v18M12 8l8 2v11M4 21h16M8 8h.01M8 12h.01M8 16h.01M16 13h.01M16 17h.01"/></svg><span>' + esc(client.name) + '</span>';
+      cb.title = '이 업체의 현장 목록 보기';
       cb.onclick = function () {
         currentClientId = client.id;
         if (state.settings.lastTab !== client.id) Store.setSettings({ lastTab: client.id });
         go('');
       };
-      sub.appendChild(cb);
+      sub.insertBefore(cb, sub.firstChild);   // 거래처명은 줄 맨 왼쪽
     }
     // 상태 알약 줄은 뺐다 (2026-09-26) — 탭 이름 옆 빨간 점이면 '여기 볼 게 있다' 는 걸 알기에 넉넉하고,
     // 알약이 두 줄로 늘어나 정작 봐야 할 칸이 아래로 밀렸다. 판정(siteStatus)은 그 점에 그대로 쓴다
-    head.appendChild(nm); head.appendChild(sub);
+    head.appendChild(r1); head.appendChild(sub);
     SITE_TABS.forEach(function (t) {
       var b = document.querySelector('#siteTabs .tab-' + t.key);
       if (b) b.classList.toggle('warn', !!st[t.key].warn);
