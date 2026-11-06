@@ -1883,3 +1883,10 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .rp-days { display: flex; gap: 10px; font-size: 14px; }
 .rp-days label { display: flex; align-items: center; gap: 4px; }
 .rp-days input { width: 20px !important; height: 20px !important; }
+/* 🤖 비서 위 줄 한 줄 (11/7): 대화·업무 내역 = 아이콘 탭, 고른 것만 진하게 */
+#viewOrder .ch-acts { gap: 2px; }
+#viewOrder .ch-tab { width: 40px; height: 40px; border-radius: 10px; color: #94a3b8; display: grid; place-items: center; }
+#viewOrder .ch-tab.on { background: #eef0fb; color: #312e81; }
+#viewOrder .ch-tab.on svg { stroke-width: 2.2; }
+#viewOrder #btnHourly { color: #475569; }
+#viewOrder .topbar .topbar-title { min-width: 0; }
