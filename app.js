@@ -3199,7 +3199,7 @@
       res.appendChild(line);
     });
     body.appendChild(res);
-    body.appendChild(el2('p', 'hint ap-hint', '▶ 진행해 = 오전 9시에 비서가 함(필름 발주·인원 모집) · ⏭ 연기 = 다음 보고서에 다시 · ✋ 내가 = 내가 마무리, 안 되면 다음 보고서에 다시 물음 · ✔ 완료 = 이미 끝남(앱에 반영). 안 누르면 지금처럼.'));
+    body.appendChild(el2('p', 'hint ap-hint', '❓ 출입정보 질문은 안 눌러도 오전 9시에 자동으로 나갑니다 · ▶ 진행해 = 오전 9시에 비서가 함(필름 발주·인원 모집) · ⏭ 연기 = 다음 보고서에 다시 · ✋ 내가 = 내가 마무리, 안 되면 다음 보고서에 다시 물음 · ✔ 완료 = 이미 끝남(앱에 반영). 나머지는 안 누르면 지금처럼.'));
     // 📤 카톡으로 보내기 (11/3 사장님) — 보고서를 지금 다시 만들어 노트북이 카톡 김정헌방에 (5분 안)
     var send = el2('div', 'ap-send');
     [['📤 오늘 할 일 보내기', Share.addDays(Share.todayIso(), -1)], ['📤 내일 일정표 보내기', '']].forEach(function (a) {
@@ -3271,7 +3271,8 @@
           (was.who ? ' (' + was.who + ')' : '') + ' · ' + Share.shortDate(Share.todayIso(new Date(was.at))) + ' — 답을 기다리는 중'));
       }
       var who = dec && dec.to ? Share.askWho(dec.to) : Share.askWho(askTargetOf(x.siteId));
-      bd.appendChild(el2('div', 'ap-res ap-who', who ? '→ ' + who + (dec && dec.to ? '' : ' (진행해를 누르면 바꿀 수 있어요)') : '→ 물어볼 담당자가 없어요 — 거래처 담당자를 적어 주세요'));
+      var late = apAskNow(d);
+      bd.appendChild(el2('div', 'ap-res ap-who', who ? '→ ' + who + (dec && dec.to ? '' : late ? ' (진행해를 누르면 바로 보냅니다)' : ' · 9시에 자동으로 보냅니다 (진행해로 바꿀 수 있어요)') : '→ 물어볼 담당자가 없어요 — 거래처 담당자를 적어 주세요'));
     }
     it.appendChild(bd);
     if (cleared) {
@@ -3300,7 +3301,7 @@
       b.onclick = function () {
         if (on) return decideApprove(d, x, '');   // 다시 누르면 결재 취소
         if (a[0] === 'go' && x.act === 'film') return pickOrderContact(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
-        if (a[0] === 'go' && x.kind === 'ask') return pickAskTarget(x).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
+        if (a[0] === 'go' && x.kind === 'ask') return pickAskTarget(x, d).then(function (to) { if (to) decideApprove(d, x, 'go', to); });
         if (a[0] === 'done') {
           return modalConfirm('✔ 완료표시', x.title + '\n\n이미 끝난 일로 표시합니다' + (x.kind === 'pay' ? ' (잔금 받음).' : '.') + ' 앱 기록에도 반영됩니다.', '완료').then(function (ok) { if (ok) decideApprove(d, x, 'done'); });
         }
@@ -3394,14 +3395,16 @@
     var s = Store.getSite(siteId);
     return s ? Share.askTarget(s, Store.getClient(s.clientId)) : null;
   }
-  function pickAskTarget(x) {
+  // 오늘 카드이고 9시가 지났으면 [진행해] 가 바로 나간다 (11/6)
+  function apAskNow(d) { return !!d && d.date === Share.todayIso() && new Date().getHours() >= 9; }
+  function pickAskTarget(x, d) {
     var s = Store.getSite(x.siteId);
     if (!s) { toast('이 기기에 그 현장이 없어요'); return Promise.resolve(null); }
     var items = Share.askChoices(s, Store.getClient(s.clientId));
     if (!items.length) { toast('물어볼 담당자가 없어요 — 거래처 화면 담당자에 번호나 카톡방 이름을 적어 주세요'); return Promise.resolve(null); }
     var q = Share.askQuestion(s, state.settings);
     return new Promise(function (resolve) {
-      openModal('❓ 누구에게 물을까요? (9시에 보냄)', '<div class="sheet-list">' + items.map(function (it, i) {
+      openModal('❓ 누구에게 물을까요? (' + (apAskNow(d) ? '바로 보냄' : '9시에 보냄') + ')', '<div class="sheet-list">' + items.map(function (it, i) {
         return '<button data-i="' + i + '">' + esc(it.label) + '</button>';
       }).join('') + '</div>' + (q ? '<div class="hint" style="margin:10px 0 4px">보낼 질문 (빈칸 + 업체 확인 질문)</div><div class="rc-pv">' + esc(q) + '</div>' : ''),
       [{ label: '닫기', onClick: function () { closeModal(); resolve(null); } }]);

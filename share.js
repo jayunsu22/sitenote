@@ -1781,7 +1781,7 @@
     var qs = it.missing.map(function (k) { return ASK_LABEL[k]; }).filter(Boolean)
       .concat(it.checks.map(function (c) { return checkText(c, s); }));
     if (!qs.length) return '';
-    return [ASK_GREETING, titleLine(s) + ' (' + shortDate(s.date) + ' 시공) 확인 부탁드려요.', '번호로 짧게 답 주시면 됩니다 🙏']
+    return [ASK_GREETING, titleLine(s) + ' (' + shortDate(s.date) + ' 시공) 확인 부탁드려요.']
       .concat(qs.map(function (q, i) { return (i + 1) + '. ' + q; })).join('\n');
   }
   function askVia(r) { return r && (r.via === 'kakao' || r.via === 'sms') ? r.via : (str(r && r.kakaoRoom) ? 'kakao' : 'sms'); }
