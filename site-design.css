@@ -31,13 +31,14 @@
 #viewSite .sh-quote.on, #viewSite .sh-admin.on { border-color: #b9d0f5; background: #eaf1fd; color: var(--primary-dark); }
 #viewSite .sh-client { min-height: 34px; padding: 0 2px; border: 0; background: none; color: var(--muted); font-size: 13.5px; font-weight: 500; }
 
-/* 탭 — 색은 하나, 지금 탭은 밑줄 */
-#viewSite .site-tabs { top: 56px; gap: 0; padding: 0 8px; border-bottom: 1px solid var(--border); }
-#viewSite .site-tab { flex: 1 1 auto; min-height: 46px; padding: 0 2px; border-radius: 0; background: none; color: var(--muted); font-size: 14px; font-weight: 600; letter-spacing: 0; }
-#viewSite .site-tab.on { background: none; color: var(--text); font-weight: 700; box-shadow: inset 0 -2px 0 var(--primary); }
+/* 탭 — 칸마다 배경, 지금 탭은 파랑으로 꽉 채운다 (사장님 11/6: 구분이 잘 안 됨) */
+#viewSite .site-tabs { top: 56px; gap: 4px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
+#viewSite .site-tab { flex: 1 1 auto; min-height: 44px; padding: 0 4px; border-radius: 10px; background: #e9edf2; color: #3c4655; font-size: 14px; font-weight: 600; letter-spacing: 0; }
+#viewSite .site-tab.on { background: var(--primary); color: #fff; font-weight: 700; }
 #viewSite .tab-dot { position: static; display: none; width: 6px; height: 6px; margin-left: 3px; vertical-align: 2px; box-shadow: none; }
 #viewSite .site-tab.warn .tab-dot { display: inline-block; }
-@media (max-width: 400px) { #viewSite .site-tab { font-size: 13px; } }
+#viewSite .site-tab.on .tab-dot { background: #fff; box-shadow: none; }
+@media (max-width: 430px) { #viewSite .site-tabs { gap: 3px; padding-left: 8px; padding-right: 8px; } #viewSite .site-tab { font-size: 12.5px; padding: 0 3px; } }
 
 /* 입력 칸 */
 #viewSite .site-pane { background: var(--card); }

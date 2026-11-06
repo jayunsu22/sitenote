@@ -1924,7 +1924,7 @@
       var pane = TAB_OF_FIELD[f.key] || 'info';
       if (f.key === 'films') sec('film', 'stageSec', renderStageSection);   // 필름 단계 띠는 필름 줄 바로 위
       if (f.key === 'memo') sec('review', 'settleSec', renderSettleSection);   // 정산 내역은 메모 바로 위 (2026-10-26)
-      if (f.key === 'owners') sec('info', '', function (box) { var mv = el2('button', 'hidden-toggle pc-move', '🔀 다른 거래처로 옮기기'); mv.type = 'button'; mv.onclick = function () { moveSiteToClient(s.id); }; box.appendChild(mv); });
+      if (f.key === 'owners') sec('info', '', function (box) { var mv = el2('button', 'hidden-toggle pc-move', '다른 거래처로 옮기기'); mv.type = 'button'; mv.onclick = function () { moveSiteToClient(s.id); }; box.appendChild(mv); });
       panes[pane].appendChild(fieldRow(s, f));
       if (f.key === 'date') {                                                // 시공날짜 바로 아래 날짜별 인원
         sec('staff', 'daysSec', renderDaysSection);
