@@ -1847,3 +1847,6 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .chk-tog.chk-yes { border-color: #16a34a; color: #15803d; font-weight: 800; }
 .chk-top { flex-wrap: wrap; }
 .chk-top .chk-q { flex: 1 1 60%; }
+/* 🧭 길안내 (11/6) */
+.nav-go { background: #2563eb; color: #fff; }
+.nav-go:active { background: #1d4ed8; }

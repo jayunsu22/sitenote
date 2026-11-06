@@ -5699,7 +5699,18 @@
       // 흐린 칸을 누르면 왜 못 고르는지 알려 준다 (비활성 체크박스는 눌러도 아무 일이 없어서)
       if (!연결) wl.onclick = function () { toast('현장업무에 연결된 현장만 기사접속 링크를 넣을 수 있습니다 (위의 현장업무 연결)'); };
       var tools = document.createElement('span'); tools.className = 'name-tools';
-      tools.appendChild(wl); tools.appendChild(navBtn);
+      /* 🧭 길안내 (11/6 사장님: 카카오내비·티맵 상관없이) — 안드로이드 geo: 링크. 폰에 깔린 내비·지도 앱(티맵·카카오내비·카카오맵·네이버지도)
+         중 고르는 창이 뜨고, '항상' 을 누르면 다음부터 그 앱으로 바로. 앱이 검색 화면으로 열릴 때 붙여넣게 주소도 복사해 둔다 */
+      var goBtn = document.createElement('button');
+      goBtn.type = 'button'; goBtn.className = 'nav-copy nav-go'; goBtn.textContent = '🧭 길안내';
+      goBtn.onclick = function () {
+        var addr = Share.navAddress(Store.getSite(s.id) || s);
+        if (!addr) { toast('현장명을 먼저 적어주세요'); return; }
+        try { if (navigator.clipboard) navigator.clipboard.writeText(addr); } catch (e) { /* 복사 못 해도 길안내는 */ }
+        toast('🧭 ' + addr + ' — 내비 앱을 고르세요 (항상 누르면 다음부터 바로)');
+        location.href = 'geo:0,0?q=' + encodeURIComponent(addr);
+      };
+      tools.appendChild(wl); tools.appendChild(goBtn); tools.appendChild(navBtn);
       label.appendChild(tools);
     }
     var ctl = document.createElement('div'); ctl.className = 'fctl';
