@@ -802,8 +802,18 @@
      (날마다 10명씩이 아니다 — 예전에는 날마다 견줘서 다 채운 현장을 '부족' 이라고 했다.)
      같은 사람이 이틀 나오면 두 번 센다. 0 = 아직 안 정함 (예전 현장은 전부 0) */
   var MAX_NEED_STAFF = 99;
+  // 날마다 정한 필요 인원을 더한 수 (11/6: 현장 전체 필요 인원은 이제 따로 안 적고 날짜 카드에서 온다)
+  function dayNeedSum(site) {
+    var plan = (site && site.dayPlan) || {};
+    return daysOf(site).reduce(function (a, d) {
+      var x = parseInt((plan[str(d.date)] || {}).need, 10);
+      return a + (x > 0 ? x : 0);
+    }, 0);
+  }
   function needStaffOf(site) {
-    var n = parseInt(site && site.needStaff, 10);
+    var sum = dayNeedSum(site);
+    if (sum) return Math.min(sum, MAX_NEED_STAFF);
+    var n = parseInt(site && site.needStaff, 10);   // 예전 현장에 적어 둔 수
     if (!(n > 0)) return 0;
     return Math.min(n, MAX_NEED_STAFF);
   }
@@ -1713,8 +1723,12 @@
       var siteLink = { type: 'site', id: s.id, siteId: s.id, label: name };
       var first = str(s.date);
       if (within(today, first, r.filmDays) && filmStageOf(s) < 2) make('film', 'auto:film:' + s.id, '필름 주문: ' + name, siteLink);
-      var st = staffStatus(s);
-      if (within(today, first, r.staffDays) && st.short > 0) make('staff', 'auto:staff:' + s.id, '인원 모집: ' + name + ' (' + st.short + '명 부족)', siteLink);
+      var rcShort = recruitShort(s);
+      if (within(today, first, r.staffDays) && rcShort > 0) make('staff', 'auto:staff:' + s.id, '인원 모집: ' + name + ' (' + rcShort + '명 부족)', siteLink);
+      // ✋ 직접 구인 (11/6): 문자 없이 사장님이 구한다 — 다 채울 때까지 날짜 기준 없이 날마다 남는다
+      selfHireLeft(s, today).forEach(function (x) {
+        make('selfhire', 'auto:selfhire:' + s.id + ':' + x.iso, '직접 구인: ' + name + ' · ' + dayLabel(x.iso) + ' (' + x.left + '명 남음)', siteLink);
+      });
       /* 현장 자재: 차에 늘 싣고 다니는 상비품(설정의 부자재 기본 항목)은 뺀다 —
          그건 아래 '차 보충' 할 일 하나로 본다. 그 현장에만 챙겨야 하는 것만 현장 할 일로 */
       var 특수 = (s.supplies || []).filter(function (x) {
@@ -2001,7 +2015,7 @@
       var t = (tasks || []).filter(function (o) { return o && o.id === tid; })[0];
       return !!(t && t.done);
     }
-    if (['film', 'crew', 'silicone', 'supply', 'stock', 'hold'].indexOf(x.kind) === -1) return false;
+    if (['film', 'crew', 'selfhire', 'silicone', 'supply', 'stock', 'hold'].indexOf(x.kind) === -1) return false;
     return !autoTasks(sites, repDate, cfg.taskRules, cfg.holds, cfg).some(function (o) { return o.id === 'auto:' + x.id; });
   }
   // 카톡 김정헌방에 올리는 글 (C안) — 링크를 누르면 앱 결재함
@@ -2063,18 +2077,63 @@
      설계 songil docs/superpowers/specs/2026-11-01-인원모집-design.md */
   function dayPlanOf(site, iso) {
     var p = ((site && site.dayPlan) || {})[str(iso)] || {};
-    var n = function (v) { var x = parseInt(v, 10); return x > 0 ? x : 0; };
-    return { budget: n(p.budget), need: n(p.need) };
+    var x = parseInt(p.need, 10);
+    return { need: x > 0 ? x : 0, selfHire: !!p.selfHire };
   }
-  // 이 현장 모집 순서 — 현장 순서(명단에 있는 사람만) + 그 뒤에 명단의 나머지 (새로 들어온 사람)
-  function recruitOrderOf(site, team) {
-    var t = (team || []).map(str).filter(Boolean), out = [], seen = {};
-    ((site && site.recruitOrder) || []).concat(t).forEach(function (n) {
+  // 💰 인건비 예산 (11/6): 현장에 하나, 만원. 참고용이라 문자를 막지 않는다. 0 = 미정
+  var LABOR_BUDGETS = [];
+  for (var lb = 20; lb <= 300; lb += 10) LABOR_BUDGETS.push(lb);
+  function laborBudgetOf(site) {
+    var x = parseInt(site && site.laborBudget, 10);
+    return x > 0 ? x : 0;
+  }
+  // 넣은 사람 일당 합계 (같은 사람이 이틀 나오면 두 번)
+  function laborPaySum(site, people) {
+    return daysOf(site).reduce(function (a, d) {
+      return staffOf(d).reduce(function (b, n) { return b + (parseInt(personOf(people || {}, n).pay, 10) || 0); }, a);
+    }, 0);
+  }
+  // 문자로 구해야 할 수 — 직접 구인 날은 뺀다. 날마다 정하지 않은 예전 현장은 전체 부족 수
+  function recruitShort(site) {
+    if (!dayNeedSum(site)) return staffStatus(site).short;
+    return daysOf(site).reduce(function (a, d) {
+      var p = dayPlanOf(site, d.date);
+      return a + (p.selfHire ? 0 : Math.max(0, p.need - staffOf(d).length));
+    }, 0);
+  }
+  // 직접 구인인데 아직 빈 날 [{ iso, left }]. 필요 인원을 안 정했으면 아무도 없을 때 1명으로 본다
+  function selfHireLeft(site, today) {
+    var out = [];
+    daysOf(site).forEach(function (d) {
+      var iso = str(d.date), p = dayPlanOf(site, iso);
+      if (!p.selfHire || !isIsoDate(iso) || iso < str(today)) return;
+      var left = Math.max(0, (p.need || 1) - staffOf(d).length);
+      if (left) out.push({ iso: iso, left: left });
+    });
+    return out;
+  }
+  // 문자 보낼 사람 (11/6: 고른 사람에게만) — 이 현장에서 고른 명단, 없으면 설정의 기본 명단. 명단에 없는 이름은 버린다
+  function recruitPickOf(site, settings) {
+    var cfg = settings || {}, team = (cfg.team || []).map(str).filter(Boolean), out = [], seen = {};
+    var own = (site && site.recruitOrder) || [];
+    (own.length ? own : (cfg.recruitPick || [])).forEach(function (n) {
       var k = normName(n);
-      if (!k || seen[k] || !t.some(function (x) { return normName(x) === k; })) return;
+      if (!k || seen[k] || !team.some(function (x) { return normName(x) === k; })) return;
       seen[k] = 1; out.push(str(n));
     });
     return out;
+  }
+  // 팀원 화면 정렬 스위치 (11/6, 보기용): 등급 → 페이 높은 순. 둘 다 꺼지면 명단 순서
+  var GRADE_RANK = { A: 0, B: 1, C: 2, F: 3 };
+  function teamSorted(names, people, opt) {
+    opt = opt || {};
+    var rank = function (n) { var g = GRADE_RANK[personOf(people || {}, n).grade]; return g == null ? 9 : g; };
+    var pay = function (n) { return parseInt(personOf(people || {}, n).pay, 10) || 0; };
+    return (names || []).map(function (n, i) { return { n: n, i: i }; }).sort(function (a, b) {
+      if (opt.grade && rank(a.n) !== rank(b.n)) return rank(a.n) - rank(b.n);
+      if (opt.pay && pay(a.n) !== pay(b.n)) return pay(b.n) - pay(a.n);
+      return a.i - b.i;
+    }).map(function (x) { return x.n; });
   }
   // 그날 어느 현장·AS 에 들어갔거나 대기로 잡힌 사람 { 이름: 1 }
   function busyOn(sites, holds, iso) {
@@ -2086,51 +2145,32 @@
     ((holds && holds[iso]) || []).forEach(function (n) { busy[normName(n)] = 1; });
     return busy;
   }
-  /* 예산 안에서 고르기 — n8n 인원모집 흐름과 같은 규칙 (바꾸면 둘 다).
-     순서대로 보며, 이 사람을 넣고 남은 자리를 남은 후보 중 가장 싼 사람들로 채워도 예산 안이면 고른다.
-     budget 0 = 예산 안 정함(제한 없음) */
-  function pickWithinBudget(cands, slots, budget) {
-    var picked = [], left = budget, rest = cands.slice();
-    while (picked.length < slots && rest.length) {
-      var need = slots - picked.length, hit = -1;
-      for (var i = 0; i < rest.length && hit < 0; i++) {
-        var others = rest.filter(function (_, j) { return j !== i; }).map(function (c) { return c.pay; }).sort(function (a, b) { return a - b; });
-        var fill = others.slice(0, need - 1).reduce(function (a, b) { return a + b; }, 0);
-        if (!budget || rest[i].pay + fill <= left) hit = i;
-      }
-      if (hit < 0) break;
-      picked.push(rest[hit]); left -= rest[hit].pay; rest.splice(hit, 1);
-    }
-    return picked;
-  }
-  /* 한 날짜의 모집 판 — { iso, budget, need, have:[{name,pay}], spent, left, slots, noPay:[이름],
-     queue:[{name, phone, pay}] (예산 안에 들 수 있는 후보, 순서대로), first:[처음 보낼 사람] } */
+  /* 한 날짜의 모집 판 — { iso, need, selfHire, have:[{name,pay}], slots, noPay:[이름],
+     queue:[{name, phone, pay}] (고른 사람 중 그날 비고 번호 있는 사람, 순서대로), first:[처음 보낼 사람] }.
+     예산·일당으로 거르지 않는다 (사장님 11/6: 예산은 참고, 페이는 사장님이 판단) */
   function recruitPlan(site, iso, sites, settings) {
     settings = settings || {};
     var plan = dayPlanOf(site, iso), people = settings.people || {};
     var day = daysOf(site).filter(function (d) { return str(d.date) === iso; })[0];
     var have = staffOf(day).map(function (n) { var p = personOf(people, n); return { name: n, pay: parseInt(p.pay, 10) || 0 }; });
-    var spent = have.reduce(function (a, h) { return a + h.pay; }, 0);
-    var left = plan.budget ? plan.budget - spent : 0;
     var slots = Math.max(0, plan.need - have.length);
     var busy = busyOn(sites, settings.holds, iso);
     var queue = [];
-    recruitOrderOf(site, settings.team).forEach(function (n) {
+    recruitPickOf(site, settings).forEach(function (n) {
       if (busy[normName(n)]) return;
-      var p = personOf(people, n), pay = parseInt(p.pay, 10) || 0;
-      if (!pay || !phoneDigits(p.phone)) return;
-      if (plan.budget && pay > left) return;
-      queue.push({ name: n, phone: phoneDigits(p.phone), pay: pay });
+      var p = personOf(people, n);
+      if (!phoneDigits(p.phone)) return;
+      queue.push({ name: n, phone: phoneDigits(p.phone), pay: parseInt(p.pay, 10) || 0 });
     });
-    return { iso: iso, budget: plan.budget, need: plan.need, have: have, spent: spent, left: left, slots: slots,
+    return { iso: iso, need: plan.need, selfHire: plan.selfHire, have: have, slots: slots,
       noPay: have.filter(function (h) { return !h.pay; }).map(function (h) { return h.name; }),
-      queue: queue, first: pickWithinBudget(queue, slots, plan.budget ? left : 0) };
+      queue: queue, first: queue.slice(0, slots) };
   }
   /* 여러 날 한 번에 모집 (11/1 사장님) — 자리 남은 날들 → { days:[{iso,label,slots,budget,left}],
-     queue:[{name, phone, pay, dates:[되는 날]}] (그 날들 중 하루라도 비고 예산 안에 드는 사람, 순서대로),
+     queue:[{name, phone, pay, dates:[되는 날]}] (고른 사람 중 그 날들에 하루라도 비는 사람, 순서대로),
      first:[{name, pay, dates}] (처음 묻는 사람 — n8n 인원모집 advance 와 같은 규칙: 순서대로, 아직 빈 날 중 그 사람이 되는 날을 묻고 자리를 잡아 둔다) } */
   function recruitMulti(site, isos, sites, settings) {
-    var plans = (isos || []).map(function (iso) { return recruitPlan(site, iso, sites, settings); }).filter(function (p) { return p.slots > 0; });
+    var plans = (isos || []).map(function (iso) { return recruitPlan(site, iso, sites, settings); }).filter(function (p) { return p.slots > 0 && !p.selfHire; });
     var byName = {}, queue = [];
     plans.forEach(function (p) {
       p.queue.forEach(function (c) {
@@ -2139,30 +2179,25 @@
         byName[k].dates.push(p.iso);
       });
     });
-    recruitOrderOf(site, (settings || {}).team).forEach(function (n) { var c = byName[normName(n)]; if (c) queue.push(c); });
-    // 처음 묻는 사람 — 날마다 남은 자리·예산을 잡아 가며
-    var open = {}, used = {};
-    plans.forEach(function (p) { open[p.iso] = p.slots; used[p.iso] = 0; });
+    recruitPickOf(site, settings).forEach(function (n) { var c = byName[normName(n)]; if (c) queue.push(c); });
+    // 처음 묻는 사람 — 날마다 남은 자리를 잡아 가며
+    var open = {};
+    plans.forEach(function (p) { open[p.iso] = p.slots; });
     var waits = queue.slice(), first = [];
     for (var guard = 0; guard < 50; guard++) {
       var hit = -1, dates = [];
       for (var i = 0; i < waits.length && hit < 0; i++) {
         dates = plans.filter(function (p) {
-          if (open[p.iso] <= 0 || waits[i].dates.indexOf(p.iso) < 0) return false;
-          if (!p.budget) return true;
-          var me = waits[i];
-          var fill = waits.filter(function (x) { return x !== me && x.dates.indexOf(p.iso) >= 0; }).map(function (x) { return x.pay; })
-            .sort(function (a, b) { return a - b; }).slice(0, open[p.iso] - 1).reduce(function (a, b) { return a + b; }, 0);
-          return me.pay + fill <= p.left - used[p.iso];
+          return open[p.iso] > 0 && waits[i].dates.indexOf(p.iso) >= 0;
         }).map(function (p) { return p.iso; });
         if (dates.length) hit = i;
       }
       if (hit < 0) break;
       var c = waits.splice(hit, 1)[0];
-      dates.forEach(function (iso) { open[iso]--; used[iso] += c.pay; });
+      dates.forEach(function (iso) { open[iso]--; });
       first.push({ name: c.name, pay: c.pay, dates: dates });
     }
-    return { days: plans.map(function (p) { return { iso: p.iso, label: dayLabel(p.iso), slots: p.slots, budget: p.budget, left: p.left }; }),
+    return { days: plans.map(function (p) { return { iso: p.iso, label: dayLabel(p.iso), slots: p.slots }; }),
       queue: queue, first: first };
   }
   // '11월 15일,16일,18일' · 달이 바뀌면 '11월 30일, 12월 1일'
@@ -2645,8 +2680,14 @@
     ownerLine: ownerLine,
     buildRecruitText: buildRecruitText,
     dayPlanOf: dayPlanOf,
-    recruitOrderOf: recruitOrderOf,
-    pickWithinBudget: pickWithinBudget,
+    recruitPickOf: recruitPickOf,
+    recruitShort: recruitShort,
+    selfHireLeft: selfHireLeft,
+    dayNeedSum: dayNeedSum,
+    LABOR_BUDGETS: LABOR_BUDGETS,
+    laborBudgetOf: laborBudgetOf,
+    laborPaySum: laborPaySum,
+    teamSorted: teamSorted,
     recruitPlan: recruitPlan,
     recruitAskText: recruitAskText,
     recruitMulti: recruitMulti,

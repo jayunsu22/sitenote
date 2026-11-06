@@ -1374,24 +1374,63 @@ console.log('인원 모집 (2026-11-01)');
       일당없음: { phone: '01000000006' }, 바쁨: { pay: '9', phone: '01000000007' } },
     holds: {}
   };
+  const picks = { recruitPick: ['가A', '나B', '다C', '라D', '번호없음', '일당없음', '바쁨', '명단밖'] };
+  const cfg = Object.assign({}, settings, picks);
   const site = { id: 's1', days: [{ date: '2026-11-05', staff: ['고정'] }, { date: '2026-11-06', staff: [] }],
-    dayPlan: { '2026-11-05': { budget: 50, need: 3 } } };
+    dayPlan: { '2026-11-05': { need: 3 } } };
   const other = { id: 's2', days: [{ date: '2026-11-05', staff: ['바쁨'] }] };
-  test('recruitPlan: 고정 팀원 일당을 빼고 남은 예산·자리, 바쁜 사람·번호·일당 없는 사람·예산 넘는 사람은 빠짐', () => {
-    const p = Share.recruitPlan(site, '2026-11-05', [site, other], settings);
-    assert.strictEqual(p.left, 42); assert.strictEqual(p.slots, 2);
-    assert.deepStrictEqual(p.queue.map((c) => c.name), ['가A', '나B', '다C', '라D']);
-    assert.deepStrictEqual(p.first.map((c) => c.name), ['가A', '다C']);   // 25+23=48 ✗, 25+17=42 ✓
+  test('recruitPlan: 고른 사람만 고른 순서대로, 바쁜 사람·번호 없는 사람은 빠지고 페이는 안 따짐', () => {
+    const p = Share.recruitPlan(site, '2026-11-05', [site, other], cfg);
+    assert.strictEqual(p.slots, 2);
+    assert.deepStrictEqual(p.queue.map((c) => c.name), ['가A', '나B', '다C', '라D', '일당없음']);
+    assert.deepStrictEqual(p.first.map((c) => c.name), ['가A', '나B']);
   });
-  test('recruitOrderOf: 현장 순서 먼저, 명단의 나머지는 뒤에, 명단에 없는 이름은 버림', () => {
-    assert.deepStrictEqual(Share.recruitOrderOf({ recruitOrder: ['다C', '없는사람', '가A'] }, ['가A', '나B', '다C']), ['다C', '가A', '나B']);
-    const p = Share.recruitPlan(Object.assign({}, site, { recruitOrder: ['다C', '나B'] }), '2026-11-05', [site, other], settings);
-    assert.deepStrictEqual(p.first.map((c) => c.name), ['다C', '나B']);   // 17+23=40 ✓
+  test('recruitPlan: 아무도 안 고르면 보낼 사람 없음', () => {
+    assert.deepStrictEqual(Share.recruitPlan(site, '2026-11-05', [site, other], settings).queue, []);
   });
-  test('pickWithinBudget: 예산 0 이면 제한 없이 순서대로', () => {
-    assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }, { pay: 29 }, { pay: 8 }], 2, 0).map((c) => c.pay), [30, 29]);
-    assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }, { pay: 29 }, { pay: 8 }], 2, 38).map((c) => c.pay), [30, 8]);
-    assert.deepStrictEqual(Share.pickWithinBudget([{ pay: 30 }], 2, 20), []);
+  test('recruitPickOf: 현장에서 고른 명단이 먼저, 없으면 기본 명단, 팀원이 아니면 버림', () => {
+    assert.deepStrictEqual(Share.recruitPickOf({ recruitOrder: ['다C', '없는사람', '가A'] }, cfg), ['다C', '가A']);
+    assert.deepStrictEqual(Share.recruitPickOf({}, { team: ['가A', '나B'], recruitPick: ['나B'] }), ['나B']);
+    assert.deepStrictEqual(Share.recruitPickOf(null, { team: ['가A'] }), []);
+  });
+  test('needStaffOf: 날짜별 필요 합계, 없으면 예전에 적어 둔 수', () => {
+    const s = { days: [{ date: '2026-11-05', staff: [] }, { date: '2026-11-06', staff: [] }], needStaff: 9, dayPlan: { '2026-11-05': { need: 2 }, '2026-11-06': { need: 3 } } };
+    assert.strictEqual(Share.needStaffOf(s), 5);
+    assert.strictEqual(Share.needStaffOf({ days: s.days, needStaff: 9 }), 9);
+    assert.strictEqual(Share.needStaffOf({ needStaff: 4 }), 4);
+  });
+  test('직접 구인: 문자에서 빠지고, 다 찰 때까지 자동 할 일로 남음', () => {
+    const s = { id: 'sh', name: '현장', date: '2026-11-13', days: [{ date: '2026-11-13', staff: [] }, { date: '2026-11-14', staff: ['가A'] }],
+      dayPlan: { '2026-11-13': { need: 2 }, '2026-11-14': { need: 2, selfHire: true } } };
+    const m = Share.recruitMulti(s, ['2026-11-13', '2026-11-14'], [s], cfg);
+    assert.deepStrictEqual(m.days.map((d) => d.iso), ['2026-11-13']);
+    assert.strictEqual(Share.recruitShort(s), 2, '직접 구인 날은 문자로 구할 수에서 뺌');
+    assert.deepStrictEqual(Share.selfHireLeft(s, '2026-11-06'), [{ iso: '2026-11-14', left: 1 }]);
+    const ids = Share.autoTasks([s], '2026-11-06', {}, {}, {}).map((t) => t.id);
+    assert.ok(ids.includes('auto:selfhire:sh:2026-11-14'), '며칠 전이어도 남음');
+    const filled = Object.assign({}, s, { days: [s.days[0], { date: '2026-11-14', staff: ['가A', '나B'] }] });
+    assert.deepStrictEqual(Share.selfHireLeft(filled, '2026-11-06'), []);
+    assert.strictEqual(Share.reportItemDone({ id: 'selfhire:sh:2026-11-14', kind: 'selfhire', siteId: 'sh' }, '2026-11-06', [filled], {}, []), true, '다 차면 카드가 끝남');
+    assert.strictEqual(Share.reportItemDone({ id: 'selfhire:sh:2026-11-14', kind: 'selfhire', siteId: 'sh' }, '2026-11-06', [s], {}, []), false);
+    assert.deepStrictEqual(Share.selfHireLeft(s, '2026-11-15'), [], '시공일이 지나면 안 남음');
+    const noNeed = { id: 'n', days: [{ date: '2026-11-14', staff: [] }], dayPlan: { '2026-11-14': { selfHire: true } } };
+    assert.deepStrictEqual(Share.selfHireLeft(noNeed, '2026-11-06'), [{ iso: '2026-11-14', left: 1 }]);
+  });
+  test('인건비 예산: 현장에 하나, 20~300만 10만 단위, 합계는 참고', () => {
+    assert.strictEqual(Share.LABOR_BUDGETS[0], 20);
+    assert.strictEqual(Share.LABOR_BUDGETS[Share.LABOR_BUDGETS.length - 1], 300);
+    assert.strictEqual(Share.LABOR_BUDGETS.length, 29);
+    assert.strictEqual(Share.laborBudgetOf({ laborBudget: '110' }), 110);
+    assert.strictEqual(Share.laborBudgetOf({}), 0);
+    assert.strictEqual(Share.laborPaySum({ days: [{ date: '2026-11-05', staff: ['가A', '나B'] }, { date: '2026-11-06', staff: ['가A'] }] }, settings.people), 73);
+  });
+  test('teamSorted: 페이별·등급별 스위치, 다 끄면 명단 순서', () => {
+    const people = { 가: { pay: '16', grade: 'B' }, 나: { pay: '25', grade: 'A' }, 다: { pay: '23', grade: 'A' }, 라: { pay: '20' } };
+    const names = ['가', '나', '다', '라'];
+    assert.deepStrictEqual(Share.teamSorted(names, people, {}), names);
+    assert.deepStrictEqual(Share.teamSorted(names, people, { pay: true }), ['나', '다', '라', '가']);
+    assert.deepStrictEqual(Share.teamSorted(names, people, { grade: true }), ['나', '다', '가', '라']);
+    assert.deepStrictEqual(Share.teamSorted(['다', '나', '라', '가'], people, { grade: true, pay: true }), ['나', '다', '가', '라']);
   });
   test('recruitAskText: 여러 날 한 문자, 일당·현장명 없음 (사장님 11/1)', () => {
     assert.strictEqual(Share.recruitAskText(['2026-11-15', '2026-11-16', '2026-11-18']),
@@ -1400,12 +1439,12 @@ console.log('인원 모집 (2026-11-01)');
   });
   test('recruitMulti: 날마다 되는 사람, 처음 묻는 사람은 빈 날을 잡아 가며', () => {
     const s2 = { id: 's1', days: [{ date: '2026-11-05', staff: ['고정'] }, { date: '2026-11-06', staff: ['고정'] }],
-      dayPlan: { '2026-11-05': { budget: 50, need: 3 }, '2026-11-06': { need: 2 } } };
-    const m = Share.recruitMulti(s2, ['2026-11-05', '2026-11-06'], [s2, other], settings);
-    assert.deepStrictEqual(m.days.map((d) => [d.iso, d.slots, d.left]), [['2026-11-05', 2, 42], ['2026-11-06', 1, 0]]);
+      dayPlan: { '2026-11-05': { need: 3 }, '2026-11-06': { need: 2 } } };
+    const m = Share.recruitMulti(s2, ['2026-11-05', '2026-11-06'], [s2, other], cfg);
+    assert.deepStrictEqual(m.days.map((d) => [d.iso, d.slots]), [['2026-11-05', 2], ['2026-11-06', 1]]);
     assert.deepStrictEqual(m.queue.find((c) => c.name === '바쁨').dates, ['2026-11-06']);
-    // 가A: 5·6일, 그다음 5일 1자리(남은 17만) → 다C
-    assert.deepStrictEqual(m.first.map((c) => [c.name, c.dates.length]), [['가A', 2], ['다C', 1]]);
+    // 가A: 5·6일, 그다음 5일 1자리 → 나B
+    assert.deepStrictEqual(m.first.map((c) => [c.name, c.dates.length]), [['가A', 2], ['나B', 1]]);
   });
   test('parseTeamPaste: 이름·번호·일당·메모, 번호 없는 줄은 버림 (번호는 지어낸 것)', () => {
     const rows = Share.parseTeamPaste('가나다 준기공 010-0000-1111 15\n라마 조공 01000002222\n\n번호없음 기공\n바사아 | 기공 | +82 10-0000-3333 | 23만');

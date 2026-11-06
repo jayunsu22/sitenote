@@ -122,7 +122,7 @@
     // 1일차는 시작날짜 칸과 같아야 한다 (복원 등으로 어긋났으면 시작날짜 기준으로 밀기)
     if (s.days[0].date !== String(s.date || '')) s.days = Share.shiftDays(s.days, s.date || '');
     s.filmStage = Share.filmStageOf(s);
-    s.needStaff = Share.needStaffOf(s);
+    s.needStaff = Share.needStaffOf({ needStaff: s.needStaff });   // 예전에 적어 둔 수 (날짜별 합계로 덮어쓰지 않는다)
     s.quoteCode = String(s.quoteCode == null ? '' : s.quoteCode).trim();   // 이어 붙인 견적서 코드
     if (!Array.isArray(s.supplies)) s.supplies = supplyRows(supplyDefaults || currentSupplyDefaults());
     else s.supplies = s.supplies.map(function (r) { return { name: String((r && r.name) || ''), ready: !!(r && r.ready) }; });
@@ -717,7 +717,7 @@
     if ((s.days || []).some(function (d) { return d && (t(d.date) || (d.staff || []).length); })) return false;
     if ((s.services || []).length || t(s.quoteCode) || t(s.adminId)) return false;
     if ((s.supplies || []).some(function (r) { return r && r.ready; })) return false;
-    if (Number(s.needStaff) > 0) return false;
+    if (Number(s.needStaff) > 0 || Number(s.laborBudget) > 0 || Share.dayNeedSum(s) > 0) return false;
     var r = s.review || {};
     if ((r.tags || []).length || Object.keys(r.answers || {}).some(function (k) { return t(r.answers[k]); })) return false;
     var si = s.silicone || {};
@@ -881,7 +881,7 @@
   // ---------- 설정 ----------
   // 서버로 보내는 설정 칸 (settingsForSync 와 같다). 나머지 — 백업키·마지막 화면·마지막 탭·
   // 달력 보기 방식 — 는 이 폰(이 브라우저)에만 둔다
-  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income', 'evals', 'tracked', 'checks'];
+  var SYNCED_SETTINGS = ['questions', 'team', 'supplyDefaults', 'stockLow', 'filmVendors', 'people', 'reviewQuestions', 'reviewTags', 'serviceTools', 'taskRules', 'holds', 'taskPresets', 'income', 'evals', 'tracked', 'checks', 'recruitPick'];
   function setSettings(patch) {
     Object.assign(state.settings, patch);
     if (patch && patch.questions) state.settings.questions = Object.assign({}, Share.DEFAULT_QUESTIONS, patch.questions);

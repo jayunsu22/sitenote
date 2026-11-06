@@ -2541,31 +2541,26 @@
     return el;
   }
   // 현장 상세: 총 필요 인원 칸 (− ＋ 로 올리고 내린다). 0 이면 '미정'
-  function needStaffRow(siteId, rerender) {
+  // 💰 인건비 예산 (11/6): 현장에 하나. 참고용이라 문자를 막지 않는다 — 언제든 다시 고른다
+  function laborBudgetRow(siteId, rerender) {
     var s = Store.getSite(siteId);
-    var need = Share.needStaffOf(s);
-    var row = document.createElement('div'); row.className = 'sec-row need-row';
-    var lb = document.createElement('div'); lb.className = 'day-label'; lb.textContent = '필요 인원';
-    var step = document.createElement('div'); step.className = 'stepper';
-    var bump = function (label, delta, title) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'step-btn'; b.textContent = label; b.title = title;
-      b.onclick = function () { Store.setNeedStaff(siteId, need + delta); rerender(); };
-      return b;
-    };
-    var val = document.createElement('div'); val.className = 'step-val' + (need ? '' : ' none');
-    val.textContent = need ? need + '명' : '미정';
-    // 숫자를 탭하면 직접 입력 (10명 넘는 현장은 ＋ 를 여러 번 누르기 번거롭다)
-    val.onclick = function () {
-      modalPrompt('총 필요 인원', need ? String(need) : '', '숫자만 (0 = 미정)').then(function (v) {
-        if (v == null) return;
-        Store.setNeedStaff(siteId, parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0);
-        rerender();
-      });
-    };
-    step.appendChild(bump('−', -1, '한 명 줄이기'));
-    step.appendChild(val);
-    step.appendChild(bump('＋', 1, '한 명 늘리기'));
-    row.appendChild(lb); row.appendChild(step);
+    var cur = Share.laborBudgetOf(s);
+    var row = el2('div', 'rc-labor');
+    var top = el2('div', 'rc-labor-row');
+    top.appendChild(el2('span', 'day-label', '인건비 예산'));
+    var sel = document.createElement('select'); sel.className = 'rc-labor-sel'; sel.setAttribute('aria-label', '인건비 예산');
+    [0].concat(Share.LABOR_BUDGETS).forEach(function (v) {
+      var o = document.createElement('option'); o.value = String(v); o.textContent = v ? v + '만원' : '미정';
+      sel.appendChild(o);
+    });
+    if (cur && Share.LABOR_BUDGETS.indexOf(cur) < 0) {
+      var keep = document.createElement('option'); keep.value = String(cur); keep.textContent = cur + '만원'; sel.appendChild(keep);
+    }
+    sel.value = String(cur);
+    sel.onchange = function () { Store.updateSite(siteId, { laborBudget: parseInt(sel.value, 10) || 0 }); rerender(); };
+    top.appendChild(sel);
+    row.appendChild(top);
+    row.appendChild(el2('div', 'hint rc-labor-ref', '참고: 배정 페이 합계 ' + Share.laborPaySum(s, state.settings.people) + '만 / 인건비 예산 ' + (cur ? cur + '만' : '미정')));
     return row;
   }
   // 지금 '빼기 모드'인 날짜 줄 (-1 = 없음). 한 번에 한 줄만, 화면을 다시 그리면 풀린다
@@ -2574,16 +2569,10 @@
   // 맨 위에 총 필요 인원을 정해두면 날마다 배치/필요(3/3)가 옆에 뜨고, 모자란 날은 빨갛게 나온다
   function renderDaysSection(box, siteId) {
     var s = Store.getSite(siteId); if (!s) return;
-    box.innerHTML = '<h3 class="sec-title">날짜별 인원</h3>';
+    box.innerHTML = '';
     var rerender = function () { renderDaysSection(box, siteId); };
-    box.appendChild(needStaffRow(siteId, rerender));
+    box.appendChild(laborBudgetRow(siteId, rerender));
     var ss = Share.staffStatus(s);
-    var nh = document.createElement('div'); nh.className = 'sec-empty' + (ss.short ? ' warn' : '');
-    nh.textContent = !ss.need ? '이 현장에 다 더해 몇 명이 들어가야 하는지 정해두면, 날마다 채워 가며 견줄 수 있습니다.'
-      : ss.short ? '⚠ 다 더해 ' + ss.have + '명 — ' + ss.short + '명 더 넣어야 합니다 (필요 ' + ss.need + '명)'
-      : '✓ 다 더해 ' + ss.have + '명, 필요한 ' + ss.need + '명을 다 채웠습니다.';
-    box.appendChild(nh);
-    if (s.days.some(function (d) { return Share.isIsoDate(d.date); })) box.appendChild(recruitAllBlock(s, rerender));
     // 날짜 줄 — 날마다 테두리로 감싸서 누가 어느 날인지 섞이지 않게 한다 (2026-09-26)
     s.days.forEach(function (d, i) {
       // 날마다 테두리 색을 돌려 쓴다 — 이름이 여러 줄로 흐를 때 어느 날 사람인지 색으로 갈린다
@@ -2591,7 +2580,9 @@
       var head = document.createElement('div'); head.className = 'day-head';
       var lb = document.createElement('span'); lb.className = 'day-label';
       if (d.date) fillDayLabel(lb, i, d.date); else lb.textContent = '날짜 없음';
-      head.appendChild(lb); head.appendChild(staffCountBadge(s, i, false));
+      head.appendChild(lb);
+      var selfLeft = Share.isIsoDate(d.date) && Share.dayPlanOf(s, d.date).selfHire ? Share.selfHireLeft(s, d.date).filter(function (x) { return x.iso === d.date; })[0] : null;
+      head.appendChild(selfLeft ? el2('span', 'rc-self-badge', '직접 구인 · ' + selfLeft.left + '명 남음') : staffCountBadge(s, i, false));
       var chips = document.createElement('div'); chips.className = 'chips';
       renderChips(chips, d.staff, {
         del: staffDelDay === i,
@@ -2603,12 +2594,7 @@
       if (Share.isIsoDate(d.date)) row.appendChild(recruitBlock(s, d.date, rerender));
       box.appendChild(row);
     });
-    if (s.days.some(function (d) { return Share.isIsoDate(d.date); })) {
-      var ord = el2('button', 'rc-order', '🔢 이 현장 모집 순서' + ((s.recruitOrder || []).length ? ' (따로 정함)' : ''));
-      ord.type = 'button';
-      ord.onclick = function () { openRecruitOrder(siteId, rerender); };
-      box.appendChild(ord);
-    }
+    if (s.days.some(function (d) { return Share.isIsoDate(d.date); })) box.appendChild(recruitAllBlock(s, rerender));
     // 합계 줄 — 날짜 줄을 다 더한 수를 필요 인원과 견준다
     if (s.days.length > 1 || ss.need) {
       var sum = document.createElement('div'); sum.className = 'sec-row sum-row';
@@ -2624,7 +2610,7 @@
     }
   }
   /* ---------- 👥 인원 모집 (2026-11-01 사장님) ----------
-     일차 칸마다 예산(만원)·필요 인원 → 넣은 사람 일당을 빼고 '남은 예산 42만 · 남은 자리 2명' → 📨 인원 모집.
+     일차 칸마다 필요 인원·직접 구인 → '남은 자리 2명' → 📨 인원 모집 (11/6: 예산은 현장 하나, 참고용. 고른 사람에게만).
      문자는 n8n 인원모집 흐름(crew-recruit)이 사장님 폰(SMS Gateway)으로: 남은 자리 수만큼 순서대로, 2시간 답 없으면 한 번 더,
      '아니요'·무응답이면 다음 사람. '네' 는 텔레그램 [넣기] 를 누르면 우편함으로 이 앱 그날 인원에 들어온다 (kakao.js crewAdd).
      설계 songil docs/superpowers/specs/2026-11-01-인원모집-design.md */
@@ -2647,13 +2633,15 @@
       dp[iso] = Object.assign({}, Share.dayPlanOf(cur, iso), patch);
       Store.updateSite(site.id, { dayPlan: dp }); rerender();
     };
-    // 예산 [50] 만 · 필요 [− 3명 ＋]
+    // ✋ 직접 구인 — 문자를 안 보내고 사장님이 구해서 채운다. 다 찰 때까지 결재함에 남는다
+    var ck = document.createElement('label'); ck.className = 'rc-self';
+    var box = document.createElement('input'); box.type = 'checkbox'; box.checked = plan.selfHire;
+    box.onchange = function () { setPlan({ selfHire: box.checked }); };
+    ck.appendChild(box); ck.appendChild(document.createTextNode('직접 구인'));
+    wrap.appendChild(ck);
+    // 이 날 필요 [− 3명 ＋]
     var money = el2('div', 'rc-money');
-    var bud = document.createElement('input'); bud.type = 'text'; bud.inputMode = 'numeric'; bud.className = 'rc-budget';
-    bud.placeholder = '0'; bud.value = plan.budget ? String(plan.budget) : '';
-    bud.onchange = function () { setPlan({ budget: parseInt(String(bud.value).replace(/[^0-9]/g, ''), 10) || 0 }); };
-    money.appendChild(el2('span', 'rc-lab', '예산')); money.appendChild(bud); money.appendChild(el2('span', 'rc-lab', '만'));
-    money.appendChild(el2('span', 'rc-lab rc-gap', '필요'));
+    money.appendChild(el2('span', 'rc-lab', '이 날 필요'));
     var step = el2('div', 'stepper');
     [['−', -1], ['＋', 1]].forEach(function (a, k) {
       var b = el2('button', 'step-btn', a[0]); b.type = 'button';
@@ -2663,12 +2651,10 @@
     });
     money.appendChild(step);
     wrap.appendChild(money);
+    if (plan.selfHire) wrap.appendChild(el2('div', 'rc-self-note', '✋ 이 날은 문자를 안 보냅니다. 직접 구해서 채워 주세요. 다 채울 때까지 결재함에 날마다 올라옵니다.'));
     if (!plan.need) return wrap;
-    // 남은 예산 · 남은 자리
-    var left = el2('div', 'rc-left' + (plan.slots ? '' : ' ok') + (plan.budget && plan.left < 0 ? ' over' : ''),
-      (plan.budget ? '남은 예산 ' + plan.left + '만' : '예산 안 정함') + ' · 남은 자리 ' + plan.slots + '명' + (plan.slots ? '' : ' ✓'));
-    wrap.appendChild(left);
-    if (plan.noPay.length) wrap.appendChild(el2('div', 'rc-warn', '⚠ 일당 미입력: ' + plan.noPay.join('·') + ' — 설정 › 팀원 [수정]에서 페이를 넣으세요'));
+    wrap.appendChild(el2('div', 'rc-left' + (plan.slots ? '' : ' ok'), '남은 자리 ' + plan.slots + '명' + (plan.slots ? '' : ' ✓')));
+    if (plan.noPay.length) wrap.appendChild(el2('div', 'rc-warn', '⚠ 일당 미입력: ' + plan.noPay.join('·') + ' — 예산 참고 합계에서 빠집니다'));
     return wrap;
   }
   // 📨 여러 날 한 번에 모집 (11/1 사장님) — 날짜 칸 위에 하나. 자리 남은 날 · 버튼 · 진행
@@ -2677,12 +2663,17 @@
     var isos = site.days.map(function (d) { return d.date; }).filter(Share.isIsoDate);
     var m = Share.recruitMulti(site, isos, state.sites, state.settings);
     wrap.appendChild(el2('div', 'rc-all-h', '📨 인원 모집' + (m.days.length ? ' — 자리 남은 날' : '')));
-    if (!m.days.length) wrap.appendChild(el2('div', 'rc-st', '날마다 예산·필요 인원을 넣으면 남은 자리가 여기 보입니다'));
-    m.days.forEach(function (d) {
-      wrap.appendChild(el2('div', 'rc-st', d.label + ' · ' + d.slots + '자리' + (d.budget ? ' · 남은 예산 ' + d.left + '만' : '')));
-    });
+    if (!m.days.length) wrap.appendChild(el2('div', 'rc-st', '날마다 필요 인원을 넣으면 남은 자리가 여기 보입니다 (직접 구인 날은 빠집니다)'));
+    m.days.forEach(function (d) { wrap.appendChild(el2('div', 'rc-st', d.label + ' · ' + d.slots + '자리')); });
+    var picks = Share.recruitPickOf(site, state.settings);
+    var ord = el2('button', 'rc-order', '🔢 문자 보낼 사람 고르기 (' + picks.length + '명 선택됨' + ((site.recruitOrder || []).length ? ' · 이 현장만' : '') + ')');
+    ord.type = 'button';
+    ord.onclick = function () { openRecruitOrder(site.id, rerender); };
+    wrap.appendChild(ord);
+    if (picks.length) wrap.appendChild(el2('div', 'rc-picks', picks.map(function (n, i) { return (i + 1) + '. ' + n; }).join(' · ')));
     if (m.days.length) {
-      var go = el2('button', 'rc-go', '📨 여러 날 한 번에 모집'); go.type = 'button';
+      var go = el2('button', 'rc-go', picks.length ? '📨 모집 시작' : '문자 보낼 사람을 먼저 골라 주세요'); go.type = 'button';
+      go.disabled = !picks.length;
       go.onclick = function () { startRecruit(site.id, rerender); };
       wrap.appendChild(go);
     }
@@ -2698,7 +2689,7 @@
     var picked = all.days.map(function (d) { return d.iso; });
     var html = all.days.map(function (d, i) {
       return '<label class="rc-ck"><input type="checkbox" data-i="' + i + '" checked> ' + esc(d.label) +
-        '<span class="rc-ck-r">' + d.slots + '자리' + (d.budget ? ' · ' + d.left + '만' : '') + '</span></label>';
+        '<span class="rc-ck-r">' + d.slots + '자리</span></label>';
     }).join('') + '<div id="rcPreview"></div>';
     var cur = null;
     var paint = function () {
@@ -2706,7 +2697,7 @@
       var dd = function (ds) { return ds.map(function (iso) { return parseInt(iso.slice(8, 10), 10); }).join('·'); };
       var later = cur.queue.filter(function (c) { return !cur.first.some(function (f) { return f.name === c.name; }); });
       $('rcPreview').innerHTML = !picked.length ? '<p class="rc-warn">날짜를 하나 이상 고르세요</p>' : !cur.first.length
-        ? '<p class="rc-warn">예산 안에 드는 팀원이 없습니다 — 밴드에서 구해 주세요</p>'
+        ? '<p class="rc-warn">그 날에 물어볼 사람이 없습니다 — 문자 보낼 사람을 더 고르거나 직접 구해 주세요</p>'
         : '<div class="rc-pv-h">먼저 보낼 사람 (' + cur.first.length + '명)</div>' +
           cur.first.map(function (c, i) { return '<div class="rc-st">' + (i + 1) + '. ' + esc(c.name) + ' (' + c.pay + ')<span class="rc-t">' + dd(c.dates) + '일</span></div>'; }).join('') +
           (later.length ? '<p class="hint">대기: ' + esc(later.map(function (c) { return c.name + '(' + c.pay + ')'; }).join(' · ')) + ' — 거절·무응답마다 1명씩</p>' : '') +
@@ -2719,7 +2710,7 @@
         if (!picked.length || !cur.first.length) { toast('보낼 사람이 없어요'); return; }
         closeModal(); toast('보내는 중…');
         crewPost({ action: 'start', siteId: siteId, siteName: Share.titleLine(site), queue: cur.queue,
-          days: cur.days.map(function (d) { return { date: d.iso, label: d.label, slots: d.slots, budget: d.budget ? d.left : 0, band: Share.buildRecruitText(site) }; }) })
+          days: cur.days.map(function (d) { return { date: d.iso, label: d.label, slots: d.slots, budget: 0, band: Share.buildRecruitText(site) }; }) })
           .then(function (d) { toast('📨 ' + (d.sent || 0) + '명에게 보냈어요 — 답은 텔레그램으로 옵니다'); rerender(); })
           .catch(function (e) { toast('❌ 못 보냈어요 (' + String(e.message || e).slice(0, 80) + ')'); });
       } }
@@ -2767,15 +2758,19 @@
       });
     }).catch(function () { /* 인터넷 없으면 진행 상황만 안 보임 */ });
   }
-  // 🔢 이 현장 모집 순서 — 기본(설정 팀원) 순서를 복사해 ▲▼. 저장하면 이 현장에서만
+  // 🔢 이 현장에 문자 보낼 사람 — 처음엔 기본 명단. 저장하면 이 현장에서만
   function openRecruitOrder(siteId, rerender) {
     var site = Store.getSite(siteId);
-    var list = Share.recruitOrderOf(site, state.settings.team);
-    openTapOrder('🔢 이 현장 모집 순서',
-      '이 현장에서 문자를 먼저 보낼 사람부터 차례로 탭하세요. 안 누른 사람은 지금 순서대로 뒤에 붙습니다. 저장하면 이 현장에서만 이 순서를 씁니다.',
-      list.map(personOrderItem), function (order) {
-        Store.updateSite(siteId, { recruitOrder: order }); rerender(); toast('이 현장 모집 순서를 저장했어요');
-      }, [{ label: '기본 순서로', onClick: function () { Store.updateSite(siteId, { recruitOrder: [] }); closeModal(); rerender(); toast('설정 › 팀원 순서를 씁니다'); } }]);
+    openRecruitPick('🔢 문자 보낼 사람 (이 현장)', Share.recruitPickOf(site, state.settings), function (order) {
+      Store.updateSite(siteId, { recruitOrder: order }); rerender(); toast('이 현장에 문자 보낼 ' + order.length + '명을 저장했어요');
+    }, [{ label: '기본 명단으로', onClick: function () { Store.updateSite(siteId, { recruitOrder: [] }); closeModal(); rerender(); toast('설정의 기본 명단을 씁니다'); } }]);
+  }
+  // 고르기 창 — 누른 순서가 문자 순서, 안 고른 사람에게는 안 간다 (사장님 11/6). 목록은 팀원 화면 정렬을 따른다
+  function openRecruitPick(title, picked, onSave, extra) {
+    var cfg = state.settings;
+    var team = Share.teamSorted(cfg.team || [], cfg.people, { pay: !!cfg.teamSortPay, grade: !!cfg.teamSortGrade });
+    openTapOrder(title, '문자를 먼저 보낼 사람부터 차례로 누르세요. 번호가 붙은 사람에게만 문자가 갑니다. 다시 누르면 빠집니다.',
+      team.map(personOrderItem), onSave, extra, { only: true, picked: picked });
   }
   // ---------- 달력 시트 (시공날짜 여러 날 고르기) ----------
   // 탭 = 넣기/빼기, 고른 날엔 1·2·3 번호(날짜순). [초기화] 전부 지움, [확인] 저장, 바깥/✕ = 취소
@@ -3139,12 +3134,12 @@
     });
   }
   // 결재함 업무 종류 — 순서·아이콘·이름, 버튼 4개
-  var AP_ORDER = ['film', 'crew', 'ask', 'as', 'pay', 'task', 'silicone', 'supply', 'stock', 'hold'];
-  var AP_ICON = { hello: '👋', review: '⭐', film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
-  var AP_TITLE = { hello: '안부 인사', review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
+  var AP_ORDER = ['film', 'crew', 'selfhire', 'ask', 'as', 'pay', 'task', 'silicone', 'supply', 'stock', 'hold'];
+  var AP_ICON = { selfhire: '✋', hello: '👋', review: '⭐', film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
+  var AP_TITLE = { selfhire: '직접 구인', hello: '안부 인사', review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
   var AP_BTN = [['go', '▶', '진행해'], ['later', '⏭', '연기'], ['mine', '✋', '내가할께'], ['done', '✔', '완료']];
   // 3안 '오늘의 미션' (사장님 11/3: 산뜻하고 일할 맛 나게) — 남색 머리 + 경험치 막대, 큰 아이콘 미션 카드, 끝내면 CLEAR
-  var AP_TILE = { hello: '#fef9c3', review: '#fef9c3', film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
+  var AP_TILE = { selfhire: '#fef3c7', hello: '#fef9c3', review: '#fef9c3', film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
   function paintApprove(d) {
     var body = $('approveBody'); body.innerHTML = '';
     apLast = d;
@@ -3181,7 +3176,7 @@
     // 미션 카드 — 종류 순서대로
     var list = d.rep.next.slice().sort(function (a, b) { return AP_ORDER.indexOf(a.kind) - AP_ORDER.indexOf(b.kind); });
     list.forEach(function (x) { body.appendChild(apItem(x, (d.decisions || {})[x.id] || null, d)); });
-    var rest = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && !apAutoDone(x, d) && x.act !== 'film' && x.kind !== 'hello'; });   // 안부 인사는 체크해야 나간다
+    var rest = d.rep.next.filter(function (x) { return !(d.decisions || {})[x.id] && !apAutoDone(x, d) && x.act !== 'film' && x.kind !== 'hello' && x.kind !== 'selfhire'; });   // 안부 인사는 체크해야 나간다
     if (rest.length && d.date >= Share.todayIso()) {
       var allBtn = el2('button', 'ap-all', '▶ 남은 미션 모두 진행 (' + rest.length + ')'); allBtn.type = 'button';
       allBtn.title = '필름 발주는 담당자를 골라야 해서 빠집니다';
@@ -3300,6 +3295,25 @@
       hlOpen.onclick = function () { openHello(function () { decideApprove(d, x, 'done'); }); };
       btns.appendChild(hlOpen);
     }
+    // ✋ 직접 구인 — 다 채우면 저절로 CLEAR. 못 구하겠으면 문자 모집으로 돌린다
+    if (x.kind === 'selfhire') {
+      var open = el2('button', 'ap-ib b-go'); open.type = 'button';
+      open.appendChild(el2('i', '', '▶')); open.appendChild(document.createTextNode('현장 열기'));
+      open.onclick = function () { go('#site/' + x.siteId + '/staff'); };
+      btns.appendChild(open);
+      var toSms = el2('button', 'ap-ib b-later'); toSms.type = 'button';
+      toSms.appendChild(el2('i', '', '📨')); toSms.appendChild(document.createTextNode('문자 모집으로'));
+      toSms.onclick = function () {
+        var cur = Store.getSite(x.siteId), iso = String(x.id).split(':')[2];
+        if (!cur) { toast('이 기기에 그 현장이 없어요'); return; }
+        var dp = Object.assign({}, cur.dayPlan || {});
+        dp[iso] = Object.assign({}, Share.dayPlanOf(cur, iso), { selfHire: false });
+        Store.updateSite(x.siteId, { dayPlan: dp });
+        toast('이 날을 문자 모집으로 바꿨어요 — 현장에서 모집을 시작해 주세요');
+        go('#site/' + x.siteId + '/staff');
+      };
+      btns.appendChild(toSms);
+    } else
     AP_BTN.filter(function (a) { return !hl || a[0] === 'done'; }).forEach(function (a) {
       var on = dec && dec.act === a[0];
       var pause = x.kind === 'ask' && a[0] === 'later';   // ❓ 출입정보 질문은 자동으로 나가서 연기 대신 멈춤 (11/6)
@@ -4738,7 +4752,11 @@
           var doneMap = Object.assign({}, cur.extraDone || {});
           plan.rows.forEach(function (r) { if (!r.done) doneMap[r.id] = Object.assign({}, doneMap[r.id], { staff: 1 }); });
           Store.updateSite(siteId, { extraDone: doneMap });
-          Store.setNeedStaff(siteId, (Share.needStaffOf(cur) || 0) + plan.addStaff);
+          if (Share.dayNeedSum(cur)) {   // 날마다 정한 현장 — 마지막 날 필요 인원에 더한다 (11/6)
+            var lastIso = cur.days[cur.days.length - 1].date, dp = Object.assign({}, cur.dayPlan || {});
+            dp[lastIso] = Object.assign({}, Share.dayPlanOf(cur, lastIso), { need: Share.dayPlanOf(cur, lastIso).need + plan.addStaff });
+            Store.updateSite(siteId, { dayPlan: dp });
+          } else Store.setNeedStaff(siteId, (Share.needStaffOf(cur) || 0) + plan.addStaff);
           toast('필요 인원 +' + plan.addStaff + '명 — 날짜를 더하거나 그날 사람을 넣으세요');
           var ds = $('daysSec'); if (ds) renderDaysSection(ds, siteId);
           rerender(); paintSiteStatus();
@@ -6152,10 +6170,22 @@
     // 등급을 안 정한 사람(미정)은 [전체]에서만 보인다
     var gradeOf = function (n) { return Share.personOf(state.settings.people, n).grade; };
     if (team.length > 1) {
-      var ob = el2('button', 'team-order-btn', '🔢 순서 정하기'); ob.type = 'button';
-      ob.title = '번호 = 인원 모집 문자를 보내는 순서';
+      var picks = Share.recruitPickOf(null, state.settings);
+      var ob = el2('button', 'team-order-btn', '🔢 문자 보낼 사람 고르기 (' + picks.length + '명)'); ob.type = 'button';
+      ob.title = '인원 모집 문자는 고른 사람에게만, 고른 순서대로 갑니다';
       ob.onclick = openTeamOrder;
       box.appendChild(ob);
+      // 정렬 스위치 (사장님 11/6) — 보기용. 다 끄면 명단 순서
+      var sws = el2('div', 'team-sorts');
+      [['teamSortPay', '페이별'], ['teamSortGrade', '등급별']].forEach(function (a) {
+        var sw = document.createElement('label'); sw.className = 'team-sort';
+        sw.appendChild(document.createTextNode(a[1]));
+        var inp = document.createElement('input'); inp.type = 'checkbox'; inp.setAttribute('role', 'switch'); inp.checked = !!state.settings[a[0]];
+        inp.onchange = function () { var p = {}; p[a[0]] = inp.checked; Store.setSettings(p); renderTeamList(); };
+        sw.appendChild(inp); sw.appendChild(el2('span', 'team-sort-sw'));
+        sws.appendChild(sw);
+      });
+      box.appendChild(sws);
     }
     if (team.length) {
       var tabs = document.createElement('div'); tabs.className = 'team-tabs';
@@ -6170,6 +6200,8 @@
       box.appendChild(tabs);
     }
     var shown = teamTab ? team.filter(function (nm) { return gradeOf(nm) === teamTab; }) : team;
+    shown = Share.teamSorted(shown, state.settings.people, { pay: !!state.settings.teamSortPay, grade: !!state.settings.teamSortGrade });
+    var pickNo = Share.recruitPickOf(null, state.settings);
     if (team.length && !shown.length) {
       var none = document.createElement('div'); none.className = 'sec-empty';
       none.textContent = teamTab + '등급인 사람이 아직 없습니다. [수정]에서 등급을 정할 수 있습니다.';
@@ -6177,19 +6209,21 @@
     }
     // 한 줄 = 이름+등급+페이 · [수정] [전화] [일정] [×] (2026-10-16).
     // 전화번호는 글자로 띄우지 않는다 — [전화]로 바로 걸고, 번호가 없으면 그 버튼이 비활성
-    shown.forEach(function (name) {
+    shown.forEach(function (name, shownAt) {
       var i = team.indexOf(name);
       var p = Share.personOf(state.settings.people, name);
       // 한 사람 = 테두리 칸 2줄 (11/2 사장님): 번호 이름(일당) · A B C F · ✕ / 수정 전화 문자 일정
       var row = document.createElement('div'); row.className = 'team-row team-card';
       var main = document.createElement('div'); main.className = 'team-main';
       var t = document.createElement('div'); t.className = 'slist-name';
-      t.appendChild(el2('span', 'team-no', String(i + 1)));   // 번호 = 인원 모집 문자를 보내는 기본 순서
+      t.appendChild(el2('span', 'team-no', String(shownAt + 1)));   // 지금 보이는 차례
       t.appendChild(document.createTextNode(name));
       // 이름 뒤에 일당 — 서영호(23). 없으면 회색 (일당?) — 모집 문자 대상이 안 된다
       var pay = el2('span', 'team-pay' + (p.pay ? '' : ' none'), p.pay ? '(' + p.pay + ')' : '(일당?)');
-      pay.title = p.pay ? '일당 ' + p.pay + '만원' : '일당이 없으면 인원 모집 문자를 받지 않습니다 — [수정]에서 페이를 넣으세요';
+      pay.title = p.pay ? '일당 ' + p.pay + '만원' : '일당이 없으면 인건비 참고 합계에서 빠집니다 — [수정]에서 페이를 넣으세요';
       t.appendChild(pay);
+      var pn = pickNo.indexOf(name);
+      if (pn >= 0) t.appendChild(el2('span', 'team-pick', '📨 ' + (pn + 1)));
       main.appendChild(t);
       // 이름 아래 '📒 18일차 ›' — 누르면 작업내역 (2026-10-23). 사장님이 [수정]에서 켠 사람만 (2026-10-24)
       var h = (state.settings.tracked || []).indexOf(name) !== -1 ? Share.personHistory(state.sites, name, Share.todayIso()) : null;
@@ -6269,14 +6303,16 @@
   }
   /* 🔢 순서 빠르게 정하기 (11/2 사장님, 할 일 순서와 같은 방식) — 원하는 순서대로 탭하면 1, 2, 3 …, 다시 탭하면 빠진다.
      저장하면 안 누른 것은 누른 것 뒤에 지금 순서대로 붙는다. items = [{ key, label, sub }], onSave(키 순서) */
-  function openTapOrder(title, hint, items, onSave, extra) {
-    var picked = [];
+  // opt.only: 고른 사람만 저장 (안 고른 사람은 뒤에 붙이지 않는다), opt.picked: 처음에 골라 둔 것
+  function openTapOrder(title, hint, items, onSave, extra, opt) {
+    opt = opt || {};
+    var picked = (opt.picked || []).slice();
     openModal(title, '<p class="hint" style="margin:0 0 6px">' + esc(hint) + '</p><div class="order-list"></div><div class="order-count"></div>',
       (extra || []).concat([
         { label: '초기화', onClick: function () { picked = []; paint(); } },
         { label: '💾 저장', cls: 'primary', onClick: function () {
           var rest = items.map(function (it) { return it.key; }).filter(function (k) { return picked.indexOf(k) < 0; });
-          closeModal(); onSave(picked.concat(rest));
+          closeModal(); onSave(opt.only ? picked.slice() : picked.concat(rest));
         } }
       ]));
     var wrap = $('modalBody').querySelector('.order-list'), count = $('modalBody').querySelector('.order-count');
@@ -6289,9 +6325,10 @@
         row.appendChild(el2('span', 'order-num', n ? String(n) : ''));
         row.appendChild(el2('span', 'order-title', it.label));
         if (it.sub) row.appendChild(el2('span', 'order-sub', it.sub));
+        if (opt.only) row.appendChild(el2('span', 'order-tag' + (n ? '' : ' off'), n ? '문자 감' : '문자 안 감'));
         wrap.appendChild(row);
       });
-      count.textContent = picked.length + ' / ' + items.length + '명 지정됨';
+      count.textContent = opt.only ? picked.length + '명에게 순서대로 문자' : picked.length + ' / ' + items.length + '명 지정됨';
     };
     paint();
   }
@@ -6299,20 +6336,11 @@
     var p = Share.personOf(state.settings.people, n);
     return { key: n, label: n, sub: [p.grade, p.pay].filter(Boolean).join(' · ') || '일당?' };
   }
-  // 팀원 명단 순서 (= 인원 모집 기본 순서). 등급 탭에서 열면 그 등급 사람들 자리 안에서만 바꾼다
+  // 기본 문자 명단 — 현장에서 따로 고르지 않으면 이 사람들에게, 이 순서로
   function openTeamOrder() {
-    var team = (state.settings.team || []).slice();
-    var gradeOf = function (n) { return Share.personOf(state.settings.people, n).grade; };
-    var shown = teamTab ? team.filter(function (n) { return gradeOf(n) === teamTab; }) : team;
-    if (shown.length < 2) { toast('순서를 바꿀 사람이 둘 이상이어야 해요'); return; }
-    openTapOrder('🔢 모집 순서 정하기' + (teamTab ? ' (' + teamTab + '등급)' : ''),
-      '문자를 먼저 보낼 사람부터 차례로 탭하세요. 번호가 매겨지고, 다시 탭하면 빠집니다. 안 누른 사람은 누른 사람 뒤에 지금 순서대로 붙습니다.',
-      shown.map(personOrderItem), function (order) {
-        var slots = [];
-        team.forEach(function (n, k) { if (shown.indexOf(n) >= 0) slots.push(k); });
-        slots.forEach(function (k, j) { team[k] = order[j]; });
-        Store.setSettings({ team: team }); renderTeamList(); toast('모집 순서를 저장했어요');
-      });
+    openRecruitPick('🔢 문자 보낼 사람 고르기', Share.recruitPickOf(null, state.settings), function (order) {
+      Store.setSettings({ recruitPick: order }); renderTeamList(); toast('문자 보낼 ' + order.length + '명을 저장했어요');
+    });
   }
   /* 팀원 작업내역 창 (2026-10-23, 2026-10-24 사장님: 탭 두 개만) — [품목별 경험] [현장별 경험].
      기록은 현장업무(관리자 앱)에서 받는다: n8n worker-history (사장님 열쇠). 품목을 누르면 그 품목을 한 현장들이 펼쳐진다.
