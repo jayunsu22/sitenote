@@ -5675,7 +5675,8 @@
     // 현장명 옆 '주소 복사' — 내비에 붙여넣는다 (호수·평형은 빼고 아파트 이름과 동까지)
     if (f.key === 'name') {
       var navBtn = document.createElement('button');
-      navBtn.type = 'button'; navBtn.className = 'nav-copy'; navBtn.textContent = '주소 복사';
+      navBtn.type = 'button'; navBtn.className = 'nav-copy';
+      navBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2.5"/><path d="M16 8V5.5A2.5 2.5 0 0 0 13.5 3h-8A2.5 2.5 0 0 0 3 5.5v8A2.5 2.5 0 0 0 5.5 16H8"/></svg>주소 복사';
       navBtn.onclick = function () {
         var addr = Share.navAddress(Store.getSite(s.id) || s);
         if (!addr) { toast('현장명을 먼저 적어주세요'); return; }
@@ -5695,14 +5696,16 @@
         checked[Share.WORKER_KEY] = wcb.checked; paintCopyPick();
       };
       wl.appendChild(wcb);
-      wl.appendChild(document.createTextNode('기사접속링크'));
+      wl.appendChild(document.createTextNode('기사링크'));
       // 흐린 칸을 누르면 왜 못 고르는지 알려 준다 (비활성 체크박스는 눌러도 아무 일이 없어서)
       if (!연결) wl.onclick = function () { toast('현장업무에 연결된 현장만 기사접속 링크를 넣을 수 있습니다 (위의 현장업무 연결)'); };
-      var tools = document.createElement('span'); tools.className = 'name-tools';
+      // A안 (11/6 사장님): 현장명 칸 아래 한 줄 — [길안내] [주소 복사] [기사링크] (예전엔 라벨 옆이라 버튼이 다음 줄로 밀림)
+      var tools = document.createElement('div'); tools.className = 'name-bar';
       /* 🧭 길안내 (11/6 사장님: 카카오내비·티맵 상관없이) — 안드로이드 geo: 링크. 폰에 깔린 내비·지도 앱(티맵·카카오내비·카카오맵·네이버지도)
          중 고르는 창이 뜨고, '항상' 을 누르면 다음부터 그 앱으로 바로. 앱이 검색 화면으로 열릴 때 붙여넣게 주소도 복사해 둔다 */
       var goBtn = document.createElement('button');
-      goBtn.type = 'button'; goBtn.className = 'nav-copy nav-go'; goBtn.textContent = '🧭 길안내';
+      goBtn.type = 'button'; goBtn.className = 'nav-copy nav-go';
+      goBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>길안내';
       goBtn.onclick = function () {
         var addr = Share.navAddress(Store.getSite(s.id) || s);
         if (!addr) { toast('현장명을 먼저 적어주세요'); return; }
@@ -5710,11 +5713,13 @@
         toast('🧭 ' + addr + ' — 내비 앱을 고르세요 (항상 누르면 다음부터 바로)');
         location.href = 'geo:0,0?q=' + encodeURIComponent(addr);
       };
-      tools.appendChild(wl); tools.appendChild(goBtn); tools.appendChild(navBtn);
-      label.appendChild(tools);
+      tools.appendChild(goBtn); tools.appendChild(navBtn); tools.appendChild(wl);
+      wl.classList.toggle('on', wcb.checked);
+      wcb.addEventListener('change', function () { wl.classList.toggle('on', wcb.checked); });
     }
     var ctl = document.createElement('div'); ctl.className = 'fctl';
     row.appendChild(cb); row.appendChild(label); row.appendChild(ctl);
+    if (f.key === 'name') row.appendChild(tools);   // 칸 아래 한 줄
 
     var save = function (patch) { s = Store.updateSite(s.id, patch) || s; refreshRowState(row, s, f.key); };
 

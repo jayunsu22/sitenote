@@ -135,5 +135,18 @@
 #viewSite .hidden-toggle { display: block; width: calc(100% - 32px); margin: 8px 16px; min-height: 44px; border: 1px solid #cfd6de; border-radius: 10px; background: #fff; color: var(--text); font-size: 14.5px; font-weight: 600; }
 #viewSite .nav-copy, #viewSite .wl-pick { border-width: 1px; border-radius: 8px; font-size: 13.5px; font-weight: 600; }
 #viewSite .nav-copy { border-color: #cfd6de; background: #fff; color: var(--text); }
+/* A안 (11/6): 현장명 칸 아래 한 줄 — 길안내(파랑) · 주소 복사 · 기사링크. 같은 높이, 줄이 안 넘침 */
+#viewSite .frow-name > .fcheck { display: none; }   /* 현장명은 공유 체크가 없다 — 빈 칸 자리 때문에 라벨이 들여써지던 것 */
+#viewSite .frow-name .flabel { display: block; grid-column: 1 / -1; padding-left: 2px; }
+#viewSite .name-bar { grid-column: 1 / -1; display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+#viewSite .name-bar .nav-copy, #viewSite .name-bar .wl-pick { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 44px; min-height: 44px; padding: 0 8px;
+  border: 1px solid #cfd6de; border-radius: 10px; background: #fff; color: var(--text); font-size: 14px; font-weight: 600; white-space: nowrap; }
+#viewSite .name-bar svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#viewSite .name-bar .nav-go { border-color: var(--primary); background: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(29, 95, 209, .22); }
+#viewSite .name-bar .nav-go:active { background: var(--primary-dark); border-color: var(--primary-dark); }
+#viewSite .name-bar .nav-copy:not(.nav-go):active, #viewSite .name-bar .wl-pick:active { background: var(--bg); }
+#viewSite .name-bar .wl-pick input { width: 16px; height: 16px; margin: 0; accent-color: var(--success); }
+#viewSite .name-bar .wl-pick.on, #viewSite .name-bar .wl-pick:has(input:checked) { border-color: #a9d8bb; background: #eef8f2; color: var(--success); }
+#viewSite .name-bar .wl-pick.off { border-color: var(--border); background: var(--bg); color: #8a94a1; }
 #viewSite .rc-left { padding: 2px 0 0; border: 0; background: none; color: var(--warn); font-size: 14px; font-weight: 600; }
 #viewSite .rc-left.ok { color: var(--success); }
