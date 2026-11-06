@@ -1686,7 +1686,7 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .ch-send:disabled { opacity: .6; }
 
 /* 📋 업무 내역 (2026-11-04) */
-.wl-tabs { display: flex; background: #fff; position: sticky; top: 0; z-index: 2; }
+.wl-tabs { display: flex; background: #fff; position: sticky; top: 52px; z-index: 19; box-shadow: 0 1px 0 #e3e7ec; }   /* 대화·업무 내역 탭을 위 줄 바로 아래 고정 (11/7) — 전엔 top 0 이라 위 줄에 가려 사라졌다 */
 .wl-tabs button { flex: 1; padding: 10px 0; border: 0; border-bottom: 3px solid transparent; background: none; font-size: 14px; font-weight: 800; color: #64748b; }
 .wl-tabs button.on { color: #312e81; border-bottom-color: #312e81; }
 .ch-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
