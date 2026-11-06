@@ -3116,10 +3116,15 @@
     if (dec && (dec.doneAt || dec.act === 'done')) return false;
     return Share.reportItemDone(x, d.rep.date || d.date, state.sites, state.settings, state.tasks);
   }
+  // ⏸ 멈춘 ❓ 카드는 아직 남은 일로 센다 (11/6)
+  function apDecided(x, d) {
+    var dec = (d.decisions || {})[x.id];
+    return !!dec && !(x.kind === 'ask' && dec.act === 'later');
+  }
   function countPending(d) {
     var inbox = (d && d.inbox || []).length;   // 🤖 능동 비서 카드 (11/4)
     if (!d || !d.rep || d.date < Share.todayIso()) return inbox;
-    return inbox + d.rep.next.filter(function (n) { return !(d.decisions || {})[n.id] && !apAutoDone(n, d); }).length;
+    return inbox + d.rep.next.filter(function (n) { return !apDecided(n, d) && !apAutoDone(n, d); }).length;
   }
   function refreshApproveCount() {
     if (!ownerKeyOn()) return;
@@ -3153,7 +3158,7 @@
     }
     if (d.reports && d.date === d.reports[0]) approvePending = countPending(d);
     var all = d.rep.next.length;
-    var cleared = d.rep.next.filter(function (x) { return (d.decisions || {})[x.id] || apAutoDone(x, d); }).length;
+    var cleared = d.rep.next.filter(function (x) { return apDecided(x, d) || apAutoDone(x, d); }).length;
     // 머리 — 날짜 칩 · 미션 n개 중 m개 클리어 · 경험치 막대
     var hero = el2('div', 'ap-hero');
     var top = el2('div', 'ap-hero-row');
@@ -3199,7 +3204,7 @@
       res.appendChild(line);
     });
     body.appendChild(res);
-    body.appendChild(el2('p', 'hint ap-hint', '❓ 출입정보 질문은 안 눌러도 오전 9시에 자동으로 나갑니다 (⏸ 멈춤을 누르면 안 나감) · ▶ 진행해 = 오전 9시에 비서가 함(필름 발주·인원 모집) · ⏭ 연기 = 다음 보고서에 다시 · ✋ 내가 = 내가 마무리, 안 되면 다음 보고서에 다시 물음 · ✔ 완료 = 이미 끝남(앱에 반영). 나머지는 안 누르면 지금처럼.'));
+    body.appendChild(el2('p', 'hint ap-hint', '❓ 출입정보 질문은 안 눌러도 오전 9시에 자동으로 나갑니다 (⏸ 멈춤을 누르면 안 나가고 날마다 다시 올라옴) · ▶ 진행해 = 오전 9시에 비서가 함(필름 발주·인원 모집) · ⏭ 연기 = 다음 보고서에 다시 · ✋ 내가 = 내가 마무리, 안 되면 다음 보고서에 다시 물음 · ✔ 완료 = 이미 끝남(앱에 반영). 나머지는 안 누르면 지금처럼.'));
     // 📤 카톡으로 보내기 (11/3 사장님) — 보고서를 지금 다시 만들어 노트북이 카톡 김정헌방에 (5분 안)
     var send = el2('div', 'ap-send');
     [['📤 오늘 할 일 보내기', Share.addDays(Share.todayIso(), -1)], ['📤 내일 일정표 보내기', '']].forEach(function (a) {
@@ -3272,7 +3277,7 @@
       }
       var who = dec && dec.to ? Share.askWho(dec.to) : Share.askWho(askTargetOf(x.siteId));
       var late = apAskNow(d);
-      if (dec && dec.act === 'later') { bd.appendChild(el2('div', 'ap-res ap-who', '⏸ 멈춤 — 자동으로 보내지 않아요 (보내려면 진행해)')); who = ''; }
+      if (dec && dec.act === 'later') { bd.appendChild(el2('div', 'ap-res ap-who', '⏸ 멈춤 — 자동으로 보내지 않고 날마다 다시 올라와요 (보내려면 진행해)')); who = ''; }
       else
       bd.appendChild(el2('div', 'ap-res ap-who', who ? '→ ' + who + (dec && dec.to ? '' : late ? ' (진행해를 누르면 바로 보냅니다)' : ' · 9시에 자동으로 보냅니다 (진행해로 바꿀 수 있어요)') : '→ 물어볼 담당자가 없어요 — 거래처 담당자를 적어 주세요'));
     }
@@ -3387,7 +3392,7 @@
     reportPost({ action: 'decide', date: d.date, id: x.id, act: act, to: to || null })
       .then(function (r) {
         paintApprove(r);
-        toast(act === 'later' && x.kind === 'ask' ? '⏸ 멈춤 — 자동으로 보내지 않아요' : act ? AP_ACT[act] + ' — ' + x.title : '결재를 취소했어요');
+        toast(act === 'later' && x.kind === 'ask' ? '⏸ 멈춤 — 안 보내고, 다음 보고서에 다시 올려요' : act ? AP_ACT[act] + ' — ' + x.title : '결재를 취소했어요');
         // 완료·되돌리기는 우편함을 거쳐 앱에 들어간다 — 5분을 기다리지 않고 바로 받아 온다
         if (act === 'done' || !act) { setTimeout(takeFills, 1500); setTimeout(takeFills, 4000); }
       })
