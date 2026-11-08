@@ -1872,14 +1872,26 @@
     var k = filmStageOf(site);
     return on ? { filmVendor: true, filmStage: Math.max(k, 2) } : { filmVendor: false, filmStage: k === 2 ? 1 : k };
   }
-  /* 📨 작업자 안내 문자 (앱 비서·낮 12시 자동이 같은 글을 쓴다) */
-  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo'], OWNER_NAMES = ['김정헌'];
+  /* 📨 작업자 안내 문자 (앱 비서·낮 12시 자동이 같은 글을 쓴다). 출입정보만 — 필름 번호·현장사진·🚚 줄은 안 보낸다 (사장님 11/8) */
+  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo', 'films', 'photoUrl'], OWNER_NAMES = ['김정헌'];
   function workerInfoText(s) {
     var keys = FIELDS.map(function (f) { return f.key; }).filter(function (k) { return WORKER_SHARE_SKIP.indexOf(k) === -1; });
     var text = buildShare(s, keys.concat([WORKER_KEY]));
     var addr = navAddress(s), cut = text.indexOf('\n');
     if (addr) text = cut === -1 ? text + '\n📍 주소: ' + addr : text.slice(0, cut) + '\n📍 주소: ' + addr + text.slice(cut);
-    return s && s.filmVendor ? text + '\n🚚 필름은 업체가 현장으로 가져다줍니다' : text;
+    return text;
+  }
+  /* 🚗 픽업 (사장님 11/8): 사장님 차로 같이 가는 사람 — 날짜마다 따로. 안내 문자 대신 사장님께 '전화하세요' 알림.
+     site.pickup = { 'YYYY-MM-DD': [이름…] } (일차 줄은 저장할 때 date·staff 만 남겨서 현장에 둔다) */
+  function pickupOf(site, iso) {
+    var p = ((site && site.pickup) || {})[str(iso)];
+    return Array.isArray(p) ? p.map(str).filter(Boolean) : [];
+  }
+  function pickupPatch(site, iso, name, on) {
+    var all = Object.assign({}, (site && site.pickup) || {}), cur = pickupOf(site, iso).filter(function (n) { return n !== str(name); });
+    if (on) cur.push(str(name));
+    if (cur.length) all[str(iso)] = cur; else delete all[str(iso)];
+    return { pickup: all };
   }
   // 내일 일하는 작업자마다 한 통 (사장님 11/5: 전날 낮 12시). 오늘도 같은 현장에 있던 사람은 이미 안다 → 안 보냄. 사장님 본인도 뺀다
   function workerNotices(sites, settings, today) {
@@ -1891,9 +1903,13 @@
       var prev = days.filter(function (d) { return str(d.date) === today; })[0];
       var before = ((prev && prev.staff) || []).map(str);
       var missing = [['pwLobby', '공동현관 비번'], ['pwUnit', '세대 비번'], ['toilet', '화장실']].filter(function (k) { return !str(s[k[0]]); }).map(function (k) { return k[1]; });
-      if (!(Array.isArray(s.films) && s.films.some(function (x) { return x && str(x.code); }))) missing.push('필름 번호');
+      var pick = pickupOf(s, tomorrow);
       (day.staff || []).map(str).filter(Boolean).forEach(function (name) {
         if (before.indexOf(name) !== -1 || OWNER_NAMES.indexOf(name) !== -1) return;
+        if (pick.indexOf(name) !== -1) {   // 🚗 픽업 — 문자 없이 사장님께만
+          out.push({ siteId: s.id, date: tomorrow, name: name, phone: phoneDigits((people[name] || {}).phone || ''), title: titleLine(s), missing: [], pickup: true, text: '' });
+          return;
+        }
         out.push({ siteId: s.id, date: tomorrow, name: name, phone: phoneDigits((people[name] || {}).phone || ''), title: titleLine(s), missing: missing,
           text: '안녕하세요 섬세한손길입니다 🙂\n내일 작업 안내드립니다.\n\n' + workerInfoText(s) });
       });
@@ -2696,6 +2712,8 @@
     filmVendorPatch: filmVendorPatch,
     workerInfoText: workerInfoText,
     workerNotices: workerNotices,
+    pickupOf: pickupOf,
+    pickupPatch: pickupPatch,
     reviewSms: reviewSms,
     HELLO_TEXT: HELLO_TEXT,
     helloList: helloList,

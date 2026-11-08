@@ -6,13 +6,24 @@ const site = (o) => Object.assign({ id: 'a', name: '하늘마을', date: '2026-1
 let n = Share.workerNotices([site()], set, '2026-11-05');
 assert.deepStrictEqual(n.map((x) => x.name), ['마바'], '오늘도 온 사람·사장님은 빼고');
 assert.ok(n[0].text.includes('#0000') && n[0].text.includes('내일 작업 안내'));
-assert.ok(n[0].missing.includes('세대 비번') && n[0].missing.includes('필름 번호'));
+assert.ok(n[0].missing.includes('세대 비번') && !n[0].missing.includes('필름 번호'), '필름은 묻지 않는다 (11/8)');
+// 출입정보만: 필름 번호·현장사진 링크·🚚 줄은 안 보낸다 (사장님 11/8)
+const rich = site({ films: [{ place: '방문', code: 'PW0000' }], photoUrl: 'https://example.com/p', filmVendor: true, toilet: '1층' });
+const rt = Share.workerNotices([rich], set, '2026-11-05')[0].text;
+assert.ok(!rt.includes('PW0000') && !rt.includes('example.com/p') && !rt.includes('업체가 현장으로'), rt);
+assert.ok(rt.includes('#0000') && rt.includes('1층'));
+// 🚗 픽업: 그날 픽업한 사람은 문자 없이 pickup 표시만, 다른 날·다른 사람은 그대로
+const pk = site(Share.pickupPatch(site(), '2026-11-06', '마바', true));
+assert.deepStrictEqual(pk.pickup, { '2026-11-06': ['마바'] });
+let pn = Share.workerNotices([pk], set, '2026-11-05');
+assert.deepStrictEqual(pn.map((x) => [x.name, !!x.pickup, x.text]), [['마바', true, '']]);
+assert.deepStrictEqual(Share.pickupOf(pk, '2026-11-05'), []);
+assert.deepStrictEqual(Share.pickupPatch(pk, '2026-11-06', '마바', false), { pickup: {} });
+assert.deepStrictEqual(Share.pickupPatch(pk, '2026-11-06', '마바', true).pickup['2026-11-06'], ['마바'], '두 번 넣지 않는다');
 assert.strictEqual(Share.workerNotices([site({ hide: true })], set, '2026-11-05').length, 0);
 assert.strictEqual(Share.workerNotices([site()], set, '2026-11-01').length, 0);
 // 🚚
 const fv = site({ filmVendor: true, filmStage: 2 });
-assert.ok(Share.workerInfoText(fv).includes('업체가 현장으로'));
-assert.ok(!Share.workerInfoText(site()).includes('업체가 현장으로'));
 assert.deepStrictEqual(Share.filmVendorPatch(site({ filmStage: 1 }), true), { filmVendor: true, filmStage: 2 });
 assert.deepStrictEqual(Share.filmVendorPatch(site({ filmStage: 3 }), true), { filmVendor: true, filmStage: 3 });
 assert.deepStrictEqual(Share.filmVendorPatch(fv, false), { filmVendor: false, filmStage: 1 });

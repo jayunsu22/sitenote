@@ -2468,11 +2468,22 @@
      그냥 탭하면 그 사람에게 전화가 걸린다 (설정 › 팀원의 연락처). 번호가 없으면 알림만.
      빼기는 [−] 를 눌러 '빼기 모드'로 들어간 뒤, 이름에 생긴 ✕ 를 눌러야 지워진다
      — 전화하려다 사람이 빠지는 일이 없게 두 단계로 나눴다.
-     opts: dup{정규화이름:true} 겹침 표시, del 빼기 모드, onRemove(name), onAdd(), onDelToggle() */
+     opts: dup{정규화이름:true} 겹침 표시, del 빼기 모드, onRemove(name), onAdd(), onDelToggle(),
+     picked[이름] 🚗 픽업한 사람, onPickup(name) 이 있으면 칩 끝에 [픽업] (사장님 11/8) */
+  var CAR_SVG = '<svg class="pk-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16V11l2-5h12l2 5v5M4 16h16M7 16v2M17 16v2"/><circle cx="8" cy="13" r=".6"/><circle cx="16" cy="13" r=".6"/></svg>';
+  function pickupBtn(n, on, onPickup) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'chip-pk';
+    b.innerHTML = CAR_SVG + '<span>픽업</span>';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.title = on ? n + ' 픽업 풀기 — 다시 안내 문자가 갑니다' : n + ' 픽업 — 안내 문자 대신 사장님께 전화 알림';
+    b.onclick = function (e) { e.stopPropagation(); onPickup(n); };
+    return b;
+  }
   function renderChips(container, names, opts) {
     container.innerHTML = '';
     var dup = (opts && opts.dup) || {};
     var del = !!(opts && opts.del);
+    var picked = (opts && opts.picked) || [], onPickup = opts && opts.onPickup;
     (names || []).forEach(function (n) {
       var isDup = !!dup[String(n).replace(/\s+/g, '')];
       var phone = Share.personOf(state.settings.people, n).phone;
@@ -2496,12 +2507,25 @@
         csm.textContent = '💬'; csm.title = n + ' 에게 문자 (' + phone + ')';
         csm.onclick = function (e) { e.stopPropagation(); };
         c.appendChild(cnm); c.appendChild(csm);
+      } else if (onPickup) {                       // 번호가 없는 사람 + [픽업]
+        c = document.createElement('span');
+        c.className = 'chip call nophone' + (isDup ? ' dup' : '');
+        var cnb = document.createElement('button'); cnb.type = 'button'; cnb.className = 'chip-nm';
+        cnb.textContent = n + (isDup ? ' ⚠' : '');
+        cnb.title = '연락처 없음 — 설정 › 팀원에서 번호를 넣으세요';
+        cnb.onclick = function (e) { e.stopPropagation(); toast(n + ' 연락처가 없습니다 — 설정 › 팀원에서 번호를 넣으세요'); };
+        c.appendChild(cnb);
       } else {                                     // 번호가 없는 사람
         c = document.createElement('button'); c.type = 'button';
         c.className = 'chip nophone' + (isDup ? ' dup' : '');
         c.textContent = n + (isDup ? ' ⚠' : '');
         c.title = '연락처 없음 — 설정 › 팀원에서 번호를 넣으세요';
         c.onclick = function (e) { e.stopPropagation(); toast(n + ' 연락처가 없습니다 — 설정 › 팀원에서 번호를 넣으세요'); };
+      }
+      if (!del && onPickup) {
+        var pon = picked.indexOf(n) !== -1;
+        c.appendChild(pickupBtn(n, pon, onPickup));
+        if (pon) c.className += ' picked';
       }
       container.appendChild(c);
     });
@@ -2597,13 +2621,21 @@
       var selfLeft = Share.isIsoDate(d.date) && Share.dayPlanOf(s, d.date).selfHire ? Share.selfHireLeft(s, d.date).filter(function (x) { return x.iso === d.date; })[0] : null;
       head.appendChild(selfLeft ? el2('span', 'rc-self-badge', '직접 구인 · ' + selfLeft.left + '명 남음') : staffCountBadge(s, i, false));
       var chips = document.createElement('div'); chips.className = 'chips';
+      var iso = Share.isIsoDate(d.date) ? d.date : '', picked = iso ? Share.pickupOf(s, iso) : [];
       renderChips(chips, d.staff, {
         del: staffDelDay === i,
+        picked: picked,
+        onPickup: iso ? function (n) {
+          var cur = Store.getSite(siteId);
+          Store.updateSite(siteId, Share.pickupPatch(cur, iso, n, Share.pickupOf(cur, iso).indexOf(n) === -1)); rerender();
+        } : null,
         onRemove: function (n) { Store.removeStaff(siteId, i, n); rerender(); },
         onAdd: function () { staffDelDay = -1; openStaffPicker(siteId, i, rerender); },
         onDelToggle: function () { staffDelDay = (staffDelDay === i ? -1 : i); rerender(); }
       });
       row.appendChild(head); row.appendChild(chips);
+      var pickNow = picked.filter(function (n) { return d.staff.indexOf(n) !== -1; });
+      if (pickNow.length) row.appendChild(el2('div', 'pk-note', pickNow.join('·') + '님은 픽업 — 안내 문자 대신 사장님께 "전화하세요" 알림'));
       if (Share.isIsoDate(d.date)) row.appendChild(recruitBlock(s, d.date, rerender));
       box.appendChild(row);
     });
