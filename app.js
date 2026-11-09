@@ -2087,6 +2087,7 @@
         내용 + '<div class="sheet-list">' +
           btn('items', '🛠 현장업무에 시공품목 자동 선택<small>' + (s.adminId ? '견적서에 있는 품목을 현장업무에서 켭니다' : '먼저 현장업무를 연결해야 합니다') + '</small>') +
           btn('edit', '✏️ 견적서 수정하기<small>방문견적에서 이 견적을 불러와 고칩니다 · 다시 발행하면 새 견적서</small>') +
+          btn('copy', '📋 견적서 링크 복사<small>카톡·문자로 다른 사람에게 보낼 때</small>') +
           btn('open', '🔗 견적서 열기<small>발행된 견적서를 새 창으로</small>') +
           btn('change', '🔁 다른 견적서로 바꾸기') +
           btn('unlink', '✕ 견적서 연결 해제') +
@@ -2095,6 +2096,24 @@
         b.onclick = function () {
           var k = b.dataset.k;
           if (k === 'open') { window.open(QuoteLink.보기주소(code), '_blank'); return; }
+          // 방문견적이 보내는 링크와 같은 꼴: /q/코드?d=1(품목설명 켬)&n=제목(base64url, 카톡 미리보기 제목) (2026-11-09)
+          if (k === 'copy') {
+            var 링크 = QuoteLink.보기주소(code) + '?d=1';
+            var 제목 = 견적캐시[code] && QuoteLink.요약(견적캐시[code]).현장명;
+            if (제목) {
+              var bin = '';
+              new TextEncoder().encode(제목).forEach(function (c) { bin += String.fromCharCode(c); });
+              링크 += '&n=' + btoa(bin).split('+').join('-').split('/').join('_').split('=').join('');
+            }
+            var 안됨 = function () { window.prompt('길게 눌러 복사하세요', 링크); };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(링크).then(function () {
+                toast('견적서 링크를 복사했습니다');
+                var sm = b.querySelector('small'); if (sm) sm.textContent = '✅ 복사됨 · 카톡·문자에 붙여넣기';
+              }, 안됨);
+            } else 안됨();
+            return;
+          }
           // 방문견적 ?edit=<견적코드>&client=<거래처ID> (견적요청 내역의 [이 견적 수정하기] 와 같은 길, 2026-11-09).
           // 고쳐서 다시 발행하면 새 견적코드가 나온다 - 이 현장 연결은 [다른 견적서로 바꾸기] 로 새 것으로 바꾼다
           if (k === 'edit') {
