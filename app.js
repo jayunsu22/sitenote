@@ -2086,6 +2086,7 @@
       openModal('📄 견적서 · /q/' + code,
         내용 + '<div class="sheet-list">' +
           btn('items', '🛠 현장업무에 시공품목 자동 선택<small>' + (s.adminId ? '견적서에 있는 품목을 현장업무에서 켭니다' : '먼저 현장업무를 연결해야 합니다') + '</small>') +
+          btn('edit', '✏️ 견적서 수정하기<small>방문견적에서 이 견적을 불러와 고칩니다 · 다시 발행하면 새 견적서</small>') +
           btn('open', '🔗 견적서 열기<small>발행된 견적서를 새 창으로</small>') +
           btn('change', '🔁 다른 견적서로 바꾸기') +
           btn('unlink', '✕ 견적서 연결 해제') +
@@ -2094,6 +2095,14 @@
         b.onclick = function () {
           var k = b.dataset.k;
           if (k === 'open') { window.open(QuoteLink.보기주소(code), '_blank'); return; }
+          // 방문견적 ?edit=<견적코드>&client=<거래처ID> (견적요청 내역의 [이 견적 수정하기] 와 같은 길, 2026-11-09).
+          // 고쳐서 다시 발행하면 새 견적코드가 나온다 - 이 현장 연결은 [다른 견적서로 바꾸기] 로 새 것으로 바꾼다
+          if (k === 'edit') {
+            window.open('https://songil.netlify.app/quote_pro.html?edit=' + encodeURIComponent(code) +
+              (s.clientId ? '&client=' + encodeURIComponent(s.clientId) : ''), '_blank');
+            toast('다시 발행했으면 여기서 [다른 견적서로 바꾸기] 로 새 견적서를 연결하세요');
+            return;
+          }
           if (k === 'change') { openQuotePicker(siteId); return; }
           if (k === 'items') { applyQuoteItems(siteId); return; }
           if (k === 'unlink') {
