@@ -3917,25 +3917,72 @@
       return { wait: true, text: '📨 ' + a.names.join(', ') + ' (' + a.names.length + '명)께 보낼 문자\n' + text };
     });
   }
+  /* 📷 비서에게 사진 (2026-11-10 사장님: 위치·필름 번호를 적은 사진 여러 장을 올리고 '위치별로 정리해' ).
+     고른 사진은 입력칸 위에 작게 보이고, 보내면 그 말과 같이 AI 에게 간다 (AI 가 사진 글씨를 읽어 set_films 등으로 처리).
+     AI 용 사진(1400px)은 이 화면을 쓰는 동안 메모리에만 — 이어지는 대화('덕유주공이야')에도 같이 보낸다. 대화에는 작은 사진만 남긴다 */
+  var chatPics = [], chatPicData = {}, CHAT_PICS_MAX = 10;
+  function chatPicPrep(file) {
+    return readImage(file).then(function (img) {
+      if (!(img.width || img.naturalWidth)) throw new Error('이미지 크기를 알 수 없습니다');
+      var ai = encode(img, [1400, 1100, 900], [0.8, 0.7, 0.6], 350 * 1024);
+      var th = encode(img, [200, 160], [0.6, 0.5], 12 * 1024);
+      if (!ai) throw new Error('사진을 변환하지 못했습니다');
+      return { ai: ai.dataUrl, thumb: (th || ai).dataUrl };
+    });
+  }
+  function chatPicsPaint() {
+    var bar = $('chatPics'); bar.innerHTML = '';
+    bar.hidden = !chatPics.length;
+    chatPics.forEach(function (p, i) {
+      var w = el2('div', 'ch-pic'), im = document.createElement('img'); im.src = p.thumb; im.alt = '';
+      var x = el2('button', '', '✕'); x.type = 'button'; x.setAttribute('aria-label', '사진 빼기');
+      x.onclick = function () { chatPics.splice(i, 1); chatPicsPaint(); };
+      w.appendChild(im); w.appendChild(x); bar.appendChild(w);
+    });
+    if (chatPics.length) bar.appendChild(el2('span', 'ch-pics-n', '사진 ' + chatPics.length + '장 · 할 말을 적고 📨'));
+  }
+  function chatPicsAdd(files) {
+    files = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type || ''); });
+    if (!files.length) return;
+    var room = CHAT_PICS_MAX - chatPics.length;
+    if (room <= 0) { toast('사진은 한 번에 ' + CHAT_PICS_MAX + '장까지예요'); return; }
+    if (files.length > room) toast('사진은 한 번에 ' + CHAT_PICS_MAX + '장까지예요 — ' + room + '장만 넣었어요');
+    toast('사진 준비 중…');
+    files.slice(0, room).reduce(function (p, f) {
+      return p.then(function () { return chatPicPrep(f).then(function (r) { chatPics.push(r); chatPicsPaint(); }, function () { toast('사진 한 장을 열지 못했어요'); }); });
+    }, Promise.resolve());
+  }
+  // AI 에 보낼 대화: 사진이 있는 내 말에는 사진을 붙인다 (메모리에 있는 것만)
+  function chatHistory(list) {
+    var hist = BossChat.toHistory(list), tail = list.slice(-hist.length);
+    hist.forEach(function (h, i) {
+      var d = tail[i] && chatPicData[tail[i].id];
+      if (d && d.length) h.photos = d.map(function (u) { return { mime: 'image/jpeg', data: u.split(',')[1] || '' }; });
+    });
+    return hist;
+  }
   function chatSend(text, voice) {
     var box = $('chatText'), value = String(text == null ? box.value : text).trim();
+    var pics = chatPics.slice();
+    if (!value && pics.length) value = '사진 ' + pics.length + '장 — 사진에 적힌 위치별로 필름 번호 정리해 줘';
     if (!value || chatBusy) return;
     if (!ownerKeyOn()) { toast('이 기기는 사장님 열쇠가 없어 비서를 쓸 수 없어요'); return; }
     chatMicStop();
     chatVoice = !!voice;
     chatSpeak('');
     if (text == null) { box.value = ''; chatGrow(); }
-    chatAdd({ role: 'me', text: value });
+    var mine = chatAdd(pics.length ? { role: 'me', text: value, pics: pics.map(function (p) { return p.thumb; }) } : { role: 'me', text: value });
+    if (pics.length) { chatPicData[mine.id] = pics.map(function (p) { return p.ai; }); chatPics = []; chatPicsPaint(); }
     // 문자 확인을 기다리는 중에 '응'·'아니' 라고 하면 [보내]·[안 보냄] 을 누른 것과 같다
     var waiting = chatList().slice(-2)[0];
-    if (waiting && waiting.role === 'ai' && (waiting.pending || []).length && BossChat.confirmWord(value)) {
+    if (!pics.length && waiting && waiting.role === 'ai' && (waiting.pending || []).length && BossChat.confirmWord(value)) {
       chatDecide(waiting, BossChat.confirmWord(value) === 'yes');
       return;
     }
     chatBusy = true;
     renderChat();
     var list = chatList();
-    BossChat.run(BossChat.toHistory(list), {
+    BossChat.run(chatHistory(list), {
       ask: chatAsk, exec: chatExec, userText: BossChat.recentUserText(list), confirmSms: chatVoice,
       hasSite: function (id) { return !!Store.getSite(id); }
     }).then(function (r) {
@@ -3979,7 +4026,14 @@
     var list = chatList();
     if (!list.length) body.appendChild(chatBubble('무엇을 도와드릴까요? 편하게 말씀해 주세요.\n예: 류춘화 현장 작업자 전체에게 주소 문자 보내줘 / 이번주 잔금 안 받은 현장 어디야?'));
     list.forEach(function (m, i) {
-      if (m.role === 'me') { var me = el2('div', 'ch-me'); var mine = el2('span', '', m.text); chatCopyBtn(mine, m.text); me.appendChild(mine); body.appendChild(me); body.appendChild(el2('div', 'ch-time me', chatTime(m.at))); return; }
+      if (m.role === 'me') {
+        var me = el2('div', 'ch-me');
+        if ((m.pics || []).length) {
+          var ps = el2('div', 'ch-me-pics');
+          m.pics.forEach(function (u) { if (!Share.isImageDataUrl(u)) return; var im = document.createElement('img'); im.src = u; im.alt = ''; ps.appendChild(im); });
+          me.appendChild(ps);
+        }
+        var mine = el2('span', '', m.text); chatCopyBtn(mine, m.text); me.appendChild(mine); body.appendChild(me); body.appendChild(el2('div', 'ch-time me', chatTime(m.at))); return; }
       if (m.report) { body.appendChild(reportCard(m.report, m.at)); return; }
       var row = chatBubble(m.text), bub = row.querySelector('.ch-bub');
       chatCopyBtn(bub, [m.text].concat((m.cards || []).map(function (c) { return c.text; })).filter(Boolean).join('\n'));
@@ -4391,6 +4445,8 @@
     });
   }
   $('btnChatSend').onclick = function () { chatSend(); };
+  $('btnChatPhoto').onclick = function () { $('chatPhotoInput').click(); };
+  $('chatPhotoInput').onchange = function (e) { chatPicsAdd(e.target.files); e.target.value = ''; };
   // 비서 옆 버전 (11/5) — 앱을 다시 받았는지 눈으로 확인
   (function () {
     var sc = document.querySelector('script[src*="app.js"]'), m = sc && /[?&]v=\d{4}(\w+)/.exec(sc.getAttribute('src'));
