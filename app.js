@@ -107,7 +107,13 @@
     if (mp && Store.getPhoto(mp[1])) { showView('viewMain'); renderMain(); openPhotoViewer(mp[1]); return; }
     closePhotoViewer();
     if (h === '#settings') { showView('viewSettings'); renderSettings(); return; }
-    if (h === '#schedule') { rememberView('schedule'); showView('viewSchedule'); schDelKey = ''; renderSchedule(); return; }
+    if (h === '#schedule') {
+      // 일정 화면은 월간으로 연다 (2026-11-10 사장님). 현장을 보고 뒤로 온 거면 보던 그대로 (목록 자리 유지)
+      if ($('viewSite').hidden && $('viewSchedule').hidden) { calMode = 'month'; calMonth = ymOf(pickedDate || Share.todayIso()); monthBase = 0; }
+      rememberView('schedule'); showView('viewSchedule'); schDelKey = ''; renderSchedule();
+      if (calMode === 'month') monthBase = Math.max(0, window.scrollY || 0);
+      return;
+    }
     if (h === '#reviews') { showView('viewReviews'); renderReviews(); return; }
     var ma = /^#approve(?:\/(\d{4}-\d{2}-\d{2}))?$/.exec(h);   // 📋 결재함 (카톡 링크 #approve/날짜, 2026-11-03)
     if (ma) { showView('viewApprove'); renderApprove(ma[1] || ''); return; }
@@ -1009,7 +1015,7 @@
   var calShow = 'count';   // 달력 칸에 건수 / 시공지역 / 인원 중 뭘 볼까 (설정에 기억해 둔다)
   // 필름 보기는 뺐다(2026-10-22) — 달력 칸에 번호가 몰리면 구분이 안 된다. 대신 '필름 모아보기' 의 날짜별 주문 내역
   var CAL_SHOWS = ['count', 'region', 'staff', 'income'];
-  var calMode = 'week';   // 'week' | 'month'
+  var calMode = 'month';   // 'week' | 'month' — 처음엔 월간 (2026-11-10), 아래로 내리면 주간으로 접힌다
   var calMonth = '';      // 월간에서 보고 있는 달 'YYYY-MM' (비면 이번 달)
   // 주간에서 보고 있는 주의 일요일. 오늘부터 7일을 세면 요일 칸이 돌아가서
   // 월간과 세로줄이 안 맞는다. 달력처럼 일~토 한 주를 그대로 보여준다.
