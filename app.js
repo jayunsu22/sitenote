@@ -6096,15 +6096,32 @@
     if (!films.length) films.push({ place: '', code: '', ready: false, orderedAt: '' });
     var warnPainters = [];   // 번호를 바꾸면 줄마다 경고를 다시 그린다 (첫 줄만 보이는 규칙 때문에)
     films.forEach(function (r, i) {
+      /* 한 줄 = 카드 (2026-11-10 사장님 C안): 시공위치가 화면 폭 전체, 길면 저절로 줄바꿈해 다 보인다.
+         그 아래 필름번호·필요량. 칸마다 작은 이름표를 달아 어느 칸인지 구분 */
       var line = document.createElement('div'); line.className = 'film-row';
-      line.innerHTML = '<input type="text" class="place" placeholder="시공위치 (현관문 뒷면)" value="' + esc(r.place) + '">' +
-        '<input type="text" class="code" placeholder="필름번호 (PS035)" value="' + esc(r.code) + '">' +
-        // 필요량 (2026-11-01 사장님) — 주문 문자에 번호 뒤로 들어간다. 목록에 없는 옛 값도 그대로 보인다
-        '<select class="qty" title="필요량"><option value="">필요량</option>' +
-        Share.FILM_QTYS.concat(r.qty && Share.FILM_QTYS.indexOf(r.qty) < 0 ? [r.qty] : []).map(function (q) {
-          return '<option' + (q === r.qty ? ' selected' : '') + '>' + esc(q) + '</option>';
-        }).join('') + '</select>' +
+      line.innerHTML = '<div class="fr-body">' +
+        '<label class="fr-f fr-place"><span>시공위치</span><textarea class="place" rows="1" data-no-stamp placeholder="예: 안방화장실문·문틀, 거실샤시 외부">' + esc(r.place) + '</textarea></label>' +
+        '<div class="fr-l2">' +
+          '<label class="fr-f fr-code"><span>필름번호</span><input type="text" class="code" placeholder="PS035" value="' + esc(r.code) + '"></label>' +
+          // 필요량 (2026-11-01 사장님) — 주문 문자에 번호 뒤로 들어간다. 목록에 없는 옛 값도 그대로 보인다
+          '<label class="fr-f fr-qty"><span>필요량</span><select class="qty" title="필요량"><option value="">선택</option>' +
+          Share.FILM_QTYS.concat(r.qty && Share.FILM_QTYS.indexOf(r.qty) < 0 ? [r.qty] : []).map(function (q) {
+            return '<option' + (q === r.qty ? ' selected' : '') + '>' + esc(q) + '</option>';
+          }).join('') + '</select></label>' +
+        '</div></div>' +
         '<button type="button" class="x" title="줄 삭제">×</button>';
+      var place = line.querySelector('.place');
+      var grow = function () { place.style.height = 'auto'; place.style.height = place.scrollHeight + 'px'; };
+      // 위치는 한 칸 — 엔터는 줄바꿈 대신 칸을 나간다. 붙여넣은 줄바꿈은 띄어쓰기로
+      place.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); place.blur(); } });
+      place.addEventListener('input', function () {
+        if (/\n/.test(place.value)) place.value = place.value.replace(/\s*\n+\s*/g, ' ');
+        grow();
+      });
+      // 탭이 가려진 채 그려지면 높이를 못 잰다 — 보일 때 다시 잰다
+      requestAnimationFrame(grow);
+      place.addEventListener('focus', grow);
+      if (window.IntersectionObserver) new IntersectionObserver(function (es) { if (es.some(function (e) { return e.isIntersecting; })) grow(); }).observe(place);
       // 줄마다 [주문] 버튼은 뺐다 (2026-10-24 사장님: 번거롭다 — 위 단계 띠의 '필름 주문' 으로 충분)
       // 준비됨 ☑ — 줄 맨 앞. 아직 저장 안 된 빈 첫 줄이면 먼저 저장하고 토글한다
       line.insertBefore(checkBtn(r.ready, function () {

@@ -208,13 +208,22 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
    밀려 화면의 2/3)으로는 글자가 잘려서, 입력칸만 라벨 아래 줄로 내려 가로 폭을 꽉 채운다. */
 .frow.frow-wide { grid-template-columns: 28px 1fr; }
 .frow.frow-wide .fctl { grid-column: 1 / -1; margin-top: 4px; }
-.film-row { display: flex; gap: 6px; margin-bottom: 6px; }
-.film-row input { flex: 1; min-width: 0; }
-.film-row input.code { flex: 0.8; }
-/* 필요량 (2026-11-01) — 좁은 폰에서도 한 줄에 들어가게 짧게 */
-.film-row select.qty { flex: 0 0 auto; width: 92px; min-width: 0; padding-left: 6px; padding-right: 2px; font-size: 14px; }
+/* 필름 줄 = 카드 (2026-11-10 C안): [☐] [시공위치(폭 전체, 길면 줄바꿈) / 필름번호 · 필요량] [×] */
+.film-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 8px; padding: 8px 6px 10px 8px;
+  border: 1px solid #d6dde8; border-left: 4px solid var(--primary); border-radius: 12px; background: #f8fafc; }
+.film-row .fr-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.film-row .fr-l2 { display: flex; gap: 6px; }
+.film-row .fr-f { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 0; }
+.film-row .fr-f > span { font-size: 11px; font-weight: 700; color: #64748b; padding-left: 2px; }
+.film-row .fr-code { flex: 1; }
+.film-row .fr-qty { flex: 0 0 104px; }
+.film-row input, .film-row textarea, .film-row select { width: 100%; min-width: 0; box-sizing: border-box; background: #fff; }
+.film-row textarea.place { field-sizing: content; resize: none; overflow: hidden; line-height: 1.4; min-height: 42px; font-family: inherit; }
+.film-row input.code { font-weight: 800; letter-spacing: .02em; color: #1e3a8a; }
+/* 필요량 (2026-11-01) */
+.film-row select.qty { padding-left: 6px; padding-right: 2px; font-size: 14px; }
 .film-row select.qty:invalid, .film-row select.qty option[value=""] { color: var(--muted); }
-.film-row .x { width: 32px; border: none; background: transparent; color: var(--muted); font-size: 18px; }
+.film-row .x { flex: none; width: 30px; height: 34px; border: none; background: transparent; color: var(--muted); font-size: 20px; padding: 0; }
 .film-actions { display: flex; gap: 6px; }
 .film-add { flex: 1 1 auto; padding: 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background: transparent; color: var(--primary); font-weight: 700; font-size: 13px; }
 /* 필름 번호만 복사(대리점 주문용). 줄 추가와 나란히, 실선으로 구분. */
@@ -310,7 +319,7 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
   border: 2px solid #9ca3af; background: #fff; box-sizing: border-box; }
 .chk.on::before { background: var(--success); border-color: var(--success); }
 .chk.on::after { content: '✓'; position: absolute; left: 7px; top: 5px; width: 18px; text-align: center; color: #fff; font-size: 13px; font-weight: 800; line-height: 20px; }
-.film-row .chk { margin-left: -6px; }
+.film-row .chk { margin: 14px 0 0 -4px; }
 /* 이름 칩 */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
 .chip { border: 1px solid rgba(0,0,0,0.18); border-radius: 999px; padding: 5px 11px; background: rgba(255,255,255,0.8);
