@@ -119,6 +119,8 @@
   }
 
   function str(v) { return (v == null ? '' : String(v)).trim(); }
+  // 필름 시공위치는 칸 안에서 엔터로 줄을 나눠 적는다 (2026-11-10). 한 줄로 나갈 때는 ' · ' 로 잇는다
+  function placeLine(v) { return str(v).split(/\s*\n+\s*/).filter(Boolean).join(' · '); }
 
   // 붙여넣은 링크를 눌러서 열 수 있는 주소로. 주소창에서 복사하면 http(s) 가 빠지는 경우가
   // 많은데, 그대로 카톡에 보내면 링크로 안 잡히는 일이 있어 없으면 https:// 를 붙인다.
@@ -329,7 +331,7 @@
     if (has.films) {
       var fl = site.films
         .filter(function (r) { return r && str(r.code) !== ''; })
-        .map(function (r) { return [str(r.place), str(r.code)].filter(Boolean).join(' '); });
+        .map(function (r) { return [placeLine(r.place), str(r.code)].filter(Boolean).join(' '); });
       // 위치마다 한 줄 (2026-09-29). 쉼표로 이어 붙이면 카톡에서 한 덩어리로 보여 어느 문에 뭘 붙일지 안 보인다
       lines.push('필름:\n' + fl.join('\n'));
     }
@@ -2436,7 +2438,7 @@
         var day = byDate[o] = byDate[o] || {};
         var id = s.id + '|' + k;
         if (!day[id]) day[id] = { code: str(r.code), key: k, site: s, siteDate: str(s.date), places: [] };
-        if (str(r.place) && day[id].places.indexOf(str(r.place)) === -1) day[id].places.push(str(r.place));
+        if (str(r.place) && day[id].places.indexOf(placeLine(r.place)) === -1) day[id].places.push(placeLine(r.place));
       });
     });
     return Object.keys(byDate).sort().reverse().map(function (date) {
@@ -2485,7 +2487,7 @@
     list.forEach(function (s) {
       var rows = (s.films || []).filter(function (r) { return r && filmKey(r.code); }).map(function (r) {
         var k = filmKey(r.code), n = Object.keys(sitesByKey[k]).length;
-        return { code: str(r.code), key: k, place: str(r.place), status: filmStatus(s, r),
+        return { code: str(r.code), key: k, place: placeLine(r.place), status: filmStatus(s, r),
           orderedAt: isIsoDate(r.orderedAt) ? r.orderedAt : '', dup: n > 1 ? n : 0 };
       });
       if (!rows.length) return;
@@ -2650,7 +2652,7 @@
     extraFilmCode: extraFilmCode,
     extraPlan: extraPlan,
     extraFilmRow: extraFilmRow,
-    filmKey: filmKey,
+    filmKey: filmKey, placeLine: placeLine,
     parseFilmLabel: parseFilmLabel,
     parseFilmLabels: parseFilmLabels,
     filmSizeText: filmSizeText,

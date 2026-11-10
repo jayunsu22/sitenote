@@ -608,7 +608,7 @@
     if (as) lines.push('🔧 AS·추가작업 ' + as + '건 남음');
     if (s.address && s.address.trim()) lines.push('📍 ' + s.address.trim());
     var films = (s.films || []).filter(function (r) { return r && (r.code || '').trim(); })
-      .map(function (r) { return [r.place, r.code].filter(Boolean).join(' '); });
+      .map(function (r) { return [Share.placeLine(r.place), r.code].filter(Boolean).join(' '); });
     if (films.length) lines.push('필름: ' + films.join(', '));
     if (!lines.length && s.memo && s.memo.trim()) lines.push(s.memo.trim().split('\n')[0]);
     return lines;
@@ -3628,14 +3628,14 @@
     renderOrder();
   }
   function orderValue(f) {
-    if (f.kind === 'films') return (f.films || []).map(function (x) { return ((x.place || '') + ' ' + x.code).trim(); }).join(', ');
+    if (f.kind === 'films') return (f.films || []).map(function (x) { return (Share.placeLine(x.place) + ' ' + x.code).trim(); }).join(', ');
     if (f.kind === 'pay') return '잔금 받음';
     if (f.kind === 'staff') return (f.mode === 'remove' ? '빼기 ' : f.mode === 'add' ? '+ ' : '') + f.names.join(', ') + (f.date ? ' (' + Share.shortDate(f.date) + ')' : '');
     return f.value;
   }
   function orderPrevText(prev) {
     if (!prev) return '';
-    if (prev.key === 'films') return (prev.value || []).filter(function (x) { return x && x.code; }).map(function (x) { return ((x.place || '') + ' ' + x.code).trim(); }).join(', ');
+    if (prev.key === 'films') return (prev.value || []).filter(function (x) { return x && x.code; }).map(function (x) { return (Share.placeLine(x.place) + ' ' + x.code).trim(); }).join(', ');
     if (prev.key === 'payDone') return prev.value ? '이미 받음' : '안 받음';
     if (prev.key === 'days') return (prev.value || []).map(function (d) { return (d.date ? Share.shortDate(d.date) + ' ' : '') + ((d.staff || []).join(',') || '없음'); }).join(' / ');
     return String(prev.value || '');
@@ -4610,7 +4610,7 @@
       var code = String((r && r.code) || '').trim(); if (!code) return;
       var k = Share.filmKey(code);
       if (!byCode[k]) { byCode[k] = { code: code, places: [] }; order.push(k); }
-      if (r.place && byCode[k].places.indexOf(r.place) === -1) byCode[k].places.push(r.place);
+      var pl = Share.placeLine(r.place); if (pl && byCode[k].places.indexOf(pl) === -1) byCode[k].places.push(pl);
     });
     mine.forEach(function (code) { var k = Share.filmKey(code); if (!byCode[k]) { byCode[k] = { code: code, places: [], extra: true }; order.push(k); } });
     var picked = el2('div', 'svc-films-picked' + (mine.length ? '' : ' none'),
@@ -6100,7 +6100,7 @@
          그 아래 필름번호·필요량. 칸마다 작은 이름표를 달아 어느 칸인지 구분 */
       var line = document.createElement('div'); line.className = 'film-row';
       line.innerHTML = '<div class="fr-body">' +
-        '<label class="fr-f fr-place"><span>시공위치</span><textarea class="place" rows="1" data-no-stamp placeholder="예: 안방화장실문·문틀, 거실샤시 외부">' + esc(r.place) + '</textarea></label>' +
+        '<label class="fr-f fr-place"><span>시공위치</span><textarea class="place" rows="1" data-no-stamp placeholder="예: 안방화장실문·문틀 (엔터로 다음 구역)">' + esc(r.place) + '</textarea></label>' +
         '<div class="fr-l2">' +
           '<label class="fr-f fr-code"><span>필름번호</span><input type="text" class="code" placeholder="PS035" value="' + esc(r.code) + '"></label>' +
           // 필요량 (2026-11-01 사장님) — 주문 문자에 번호 뒤로 들어간다. 목록에 없는 옛 값도 그대로 보인다
@@ -6112,12 +6112,8 @@
         '<button type="button" class="x" title="줄 삭제">×</button>';
       var place = line.querySelector('.place');
       var grow = function () { place.style.height = 'auto'; place.style.height = place.scrollHeight + 'px'; };
-      // 위치는 한 칸 — 엔터는 줄바꿈 대신 칸을 나간다. 붙여넣은 줄바꿈은 띄어쓰기로
-      place.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); place.blur(); } });
-      place.addEventListener('input', function () {
-        if (/\n/.test(place.value)) place.value = place.value.replace(/\s*\n+\s*/g, ' ');
-        grow();
-      });
+      // 엔터 = 칸 안에서 다음 줄 (2026-11-10 사장님: 구역마다 줄을 나눠 적기). 문자·공유처럼 한 줄로 나갈 땐 ' · ' 로 이어진다 (Share.placeLine)
+      place.addEventListener('input', grow);
       // 탭이 가려진 채 그려지면 높이를 못 잰다 — 보일 때 다시 잰다
       requestAnimationFrame(grow);
       place.addEventListener('focus', grow);
@@ -7477,7 +7473,7 @@
     var sites = Store.sitesOf(clientId).filter(function (s) { return !s.hide || (s.date && s.date >= Share.addDays(Share.todayIso(), -60)); }).slice(0, 40).map(function (s) {
       var known = {};
       ['pwLobby', 'pwUnit', 'barrier', 'gate', 'parking', 'toilet', 'startTime'].forEach(function (k) { if (s[k]) known[k] = s[k]; });
-      if ((s.films || []).length) known.films = s.films.map(function (r) { return (r.place ? r.place + ' ' : '') + r.code; }).join(', ');
+      if ((s.films || []).length) known.films = s.films.map(function (r) { return (r.place ? Share.placeLine(r.place) + ' ' : '') + r.code; }).join(', ');
       return { id: s.id, name: Share.titleLine(s), date: s.date || '', known: known };
     });
     $('modalBtns').hidden = true;

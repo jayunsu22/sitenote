@@ -660,7 +660,7 @@
     if (films.length) {
       var warned = {};   // 같은 번호는 한 번만, 끝난 현장은 빼고 (2026-10-24)
       films.forEach(function (x) {
-        var fl = el('div', 'task-film', [x.place, x.code].filter(Boolean).join(' · '));
+        var fl = el('div', 'task-film', [Share.placeLine(x.place), x.code].filter(Boolean).join(' · '));
         if (Share.isIsoDate(x.orderedAt)) fl.appendChild(el('span', 'task-ord', '✓ 주문 ' + Share.shortDate(x.orderedAt)));
         fs.appendChild(fl);
         var k = Share.filmKey(x.code);
@@ -844,7 +844,7 @@
             var left = el('span', 'fb-site');
             var num = el('b', 'fb-num', r.code);
             left.appendChild(num);
-            var sub = [r.place, r.dup ? '⚠ ' + r.dup + '곳에 같은 번호' : ''].filter(Boolean).join(' · ');
+            var sub = [Share.placeLine(r.place), r.dup ? '⚠ ' + r.dup + '곳에 같은 번호' : ''].filter(Boolean).join(' · ');
             if (sub) left.appendChild(el('span', 'fb-sub' + (r.dup ? ' warn' : ''), sub));
             row.appendChild(left);
             row.appendChild(el('span', 'fb-pill ' + FILM_STATUS_CLS[r.status],

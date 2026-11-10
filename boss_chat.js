@@ -82,7 +82,7 @@
       kakaoRoom: str(s.kakaoRoom),   // 개인고객 카톡방 이름 (11/5)
       filmVendor: !!s.filmVendor,    // 🚚 업체가 필름을 가져옴 (11/5)
       pwLobby: str(s.pwLobby), pwUnit: str(s.pwUnit), toilet: str(s.toilet), payDone: !!s.payDone,
-      films: (Array.isArray(s.films) ? s.films : []).filter(function (x) { return x && str(x.code); }).map(function (x) { return (str(x.place) + ' ' + str(x.code)).trim(); }),
+      films: (Array.isArray(s.films) ? s.films : []).filter(function (x) { return x && str(x.code); }).map(function (x) { return (str(x.place).split(/\s*\n+\s*/).filter(Boolean).join(' · ') + ' ' + str(x.code)).trim(); }),
       days: (Array.isArray(s.days) ? s.days : []).map(function (d) { return { date: str(d && d.date), staff: names(d && d.staff) }; })
     };
   }
