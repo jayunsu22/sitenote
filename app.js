@@ -410,6 +410,11 @@
     Store.clients().forEach(function (c) { var r = BossChat.clientRooms({ contacts: c.contacts }); if (r.length) rooms[c.name] = r; });
     kakaoPost({ action: 'rooms', side: 'app', rooms: rooms, off: offRooms }).then(function (d) {
       laptopRooms = d.rooms || {};
+      // 노트북이 아는 방을 거래처에 적어 둔다 — 9시 출입정보 질문(n8n 업무일정표)이 '카톡방이 있으면 카톡' 을 판단할 때 쓴다 (11/11)
+      Store.clients().forEach(function (c) {
+        var lap = [].concat(laptopRooms[c.name] || []).map(function (n) { return String(n || '').trim(); }).filter(Boolean).sort();
+        if (JSON.stringify(lap) !== JSON.stringify((c.laptopRooms || []).slice().sort())) Store.updateClient(c.id, { laptopRooms: lap });
+      });
       paintClientRooms(Store.getClient(currentClientId));
     }).catch(function () { /* 다음에 */ });
   }

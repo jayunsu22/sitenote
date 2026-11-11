@@ -1499,11 +1499,17 @@ console.log('❓ 출입정보 질문 담당 (11/5)');
 test('askTarget·askChoices·askQuestion: 현장 담당자 → 거래처 질문 담당 → 하나뿐이면 그 사람, 방법 기본은 카톡방 있으면 카톡', () => {
   const site = { id: 's', name: '보현나이스 802호', date: '2026-11-12', pwLobby: '', pwUnit: '1', toilet: '', films: [{ code: 'x' }], owners: [], checks: {} };
   const client = { name: '블라블라', contacts: [{ name: '대표님', phone: '010-1111-2222' }, { name: '실장님', phone: '010-3333-4444', kakaoRoom: '블라 실장님' }] };
-  assert.strictEqual(Share.askWho(Share.askTarget(site, client)), '대표님 · 📨 문자');
+  assert.strictEqual(Share.askWho(Share.askTarget(site, client)), '대표님 · 💬 카톡', '거래처에 카톡방(실장님 방)이 있으면 카톡 (11/11)');
   client.contacts[1].ask = true;
   assert.strictEqual(Share.askWho(Share.askTarget(site, client)), '실장님 · 💬 카톡');
+  // 카톡방이 있으면 문자로 정해 뒀어도 카톡 (11/11 사장님)
   client.contacts[1].via = 'sms';
-  assert.ok(Share.askChoices(site, client)[0].label.startsWith('실장님 · 📨 문자'));
+  assert.ok(Share.askChoices(site, client)[0].label.startsWith('실장님 · 💬 카톡'));
+  // 방이 노트북 설정에만 있어도(laptopRooms) 거래처 담당자는 카톡 — 오니브디자인 (11/11)
+  const oniv = { name: '오니브디자인', contacts: [{ name: '실장님', phone: '010-7777-8888' }], laptopRooms: ['오니브디자인[안산]'] };
+  assert.deepStrictEqual([Share.askTarget(site, oniv).via, Share.askTarget(site, oniv).kakaoRoom], ['kakao', '오니브디자인[안산]']);
+  assert.strictEqual(Share.askTarget(site, Object.assign({}, oniv, { kakaoRoomsOff: ['오니브디자인[안산]'] })).via, 'sms', '뺀 방은 없는 것');
+  assert.strictEqual(Share.askTarget(site, { name: 'x', contacts: [{ name: 'a', phone: '01011112222' }] }).via, 'sms', '방이 없으면 문자');
   site.owners = [{ name: '김소장', phone: '01055556666', ask: true }];
   assert.strictEqual(Share.askTarget(site, client).name, '김소장');
   assert.ok(!Share.askChoices(site, client).some((c) => c.value.name === '김소장' && c.value.via === 'kakao'), '발주처 담당자 카톡은 방 이름이 있어야');

@@ -1800,9 +1800,23 @@
     return [ASK_GREETING, titleLine(s) + ' (' + shortDate(s.date) + ' 시공) 확인 부탁드려요.']
       .concat(qs.map(function (q, i) { return (i + 1) + '. ' + q; })).join('\n');
   }
-  function askVia(r) { return r && (r.via === 'kakao' || r.via === 'sms') ? r.via : (str(r && r.kakaoRoom) ? 'kakao' : 'sms'); }
+  /* 카톡방이 있으면 카톡, 없으면 문자 (2026-11-11 사장님: 오니브디자인은 카톡방이 있는데 문자로 물었다 — 방이 노트북 설정에만 있어서 몰랐다).
+     거래처의 방 = 담당자 아래 적은 방 · 카톡 정리로 연결된 방(kakaoRooms) · 노트북이 알려 준 방(laptopRooms, 앱이 거래처에 적어 둔다). 뺀 방(kakaoRoomsOff)은 빼고 */
+  function clientKakaoRooms(client) {
+    var c = client || {}, off = c.kakaoRoomsOff || [], out = [];
+    (c.contacts || []).map(function (x) { return str(x && x.kakaoRoom); }).concat(c.kakaoRooms || [], c.laptopRooms || []).forEach(function (n) {
+      n = str(n); if (n && off.indexOf(n) === -1 && out.indexOf(n) === -1) out.push(n);
+    });
+    return out;
+  }
+  function askVia(r, client, from) {
+    if (str(r && r.kakaoRoom)) return 'kakao';
+    if (from !== 'site' && clientKakaoRooms(client).length) return 'kakao';
+    return r && r.via === 'kakao' ? 'kakao' : 'sms';
+  }
   function askPerson(r, from, client) {
-    return { name: str(r.name) || str(r.role) || '담당자', phone: phoneDigits(r.phone), kakaoRoom: str(r.kakaoRoom), via: askVia(r), from: from, client: str(client && client.name) };
+    var room = str(r.kakaoRoom) || (from !== 'site' ? (clientKakaoRooms(client)[0] || '') : '');
+    return { name: str(r.name) || str(r.role) || '담당자', phone: phoneDigits(r.phone), kakaoRoom: room, via: askVia(r, client, from), from: from, client: str(client && client.name) };
   }
   // 정해 둔 질문 담당 (없으면 null)
   function askTarget(s, client) {
@@ -2727,7 +2741,7 @@
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
-    askQuestion: askQuestion, askTarget: askTarget, askChoices: askChoices, askWho: askWho,
+    askQuestion: askQuestion, askTarget: askTarget, askChoices: askChoices, askWho: askWho, clientKakaoRooms: clientKakaoRooms,
     DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer, checkSkipped: checkSkipped,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
