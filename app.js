@@ -4202,6 +4202,23 @@
     fetch(SMS_REPLY_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
       body: JSON.stringify({ action: 'watch', items: [{ phone: phone, name: name, siteId: siteId, siteName: siteName, client: c ? c.name : '', fill: !!fill, keys: keys || [] }] }) }).catch(function () { /* 답을 못 띄울 뿐 */ });
   }
+  // 📱 업체·발주처 번호부를 n8n 에 (2026-11-11 A안) — 그 번호로 온 문자도 읽어 비번 등을 넣는다. 바뀌었거나 3시간 지났을 때만
+  function smsBookSync() {
+    if (!ownerKeyOn()) return;
+    var items = BossChat.smsBook({ today: Share.todayIso(), clients: state.clients, sites: state.sites });
+    var sig = JSON.stringify(items), last = {};
+    try { last = JSON.parse(localStorage.getItem('smsBookSent') || '{}'); } catch (e) { /* */ }
+    var hash = String(sig.length) + ':' + sig.split('').reduce(function (h, ch) { return (h * 31 + ch.charCodeAt(0)) | 0; }, 7);
+    if (last.hash === hash && Date.now() - (last.at || 0) < 3 * 3600e3) return;
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* */ }
+    fetch(SMS_REPLY_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key },
+      body: JSON.stringify({ action: 'book', items: items }) })
+      .then(function (res) { if (res.ok) try { localStorage.setItem('smsBookSent', JSON.stringify({ hash: hash, at: Date.now() })); } catch (e) { /* */ } })
+      .catch(function () { /* 다음에 */ });
+  }
+  setTimeout(smsBookSync, 4000);
+  Store.onChange(function () { clearTimeout(smsBookSync.t); smsBookSync.t = setTimeout(smsBookSync, 15000); });
   function chatFeedPull() {
     if (chatFeedBusy || chatBusy || !ownerKeyOn()) return;
     var after = 0;

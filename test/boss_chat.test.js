@@ -181,3 +181,14 @@ console.log('boss_chat ok');
   assert.strictEqual(B.needsConfirm({ tool: 'send_kakao', client: '류춘화', text: 'x' }, false), false);
   assert.strictEqual(B.needsConfirm({ tool: 'send_kakao', client: '류춘화', text: 'x' }, true), true);
 
+
+// 📱 문자 번호부 (11/11): 업체 담당자 → 그 거래처 가까운 현장, 발주처 → 그 현장. 지난 현장·숨긴 현장·번호 없는 사람은 빼고
+{
+  const assert = require('assert');
+  const B = require('../boss_chat.js');
+  const r = B.smsBook({ today: '2026-11-11', clients: [{ id: 'c1', name: '지인', contacts: [{ name: '김사장', phone: '010-1234-5678' }, { name: '번호없음', phone: '' }] }],
+    sites: [{ id: 's1', clientId: 'c1', name: '덕유', date: '2026-11-12', pwUnit: '1#', films: [{ place: '안방\n문틀', code: 'ps170' }], owners: [{ name: '실장', phone: '01099998888' }] },
+      { id: 's2', clientId: 'c1', name: '옛날', date: '2026-09-01' }, { id: 's3', clientId: 'c1', name: '숨김', date: '2026-11-13', hide: true }] });
+  assert.deepStrictEqual(r.map((x) => [x.phone, x.name, x.sites.map((s) => s.id)]), [['01012345678', '지인 김사장', ['s1']], ['01099998888', '덕유 실장', ['s1']]]);
+  assert.deepStrictEqual(r[0].sites[0].known, { pwUnit: '1#', films: '안방 · 문틀 ps170' });
+}

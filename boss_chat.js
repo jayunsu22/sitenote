@@ -40,6 +40,40 @@
     });
     return out;
   }
+  /* 📱 문자 번호부 (2026-11-11 사장님 A안: 업체·발주처 번호로 온 문자도 읽어 비번 등을 앱에 넣기).
+     n8n 문자_답장(sms-reply action 'book') 에 보낸다 — 그 번호에서 문자가 오면 이 현장들 중에서 AI 가 고른다.
+     업체 담당자(client.contacts) → 그 거래처의 가까운 현장(7일 전 ~ 45일 뒤), 발주처(site.owners) → 그 현장.
+     번호 하나에 현장 12곳까지. known = 이미 적힌 값 (AI 가 같은 값을 또 넣지 않게) */
+  function smsBook(o) {
+    var today = o.today, book = {};
+    var gap = function (d) { return Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5); };
+    var near = function (s) { var d = str(s.date).slice(0, 10); return s && s.id && !s.hide && d && gap(d) >= -7 && gap(d) <= 45; };
+    var view = function (s) {
+      var known = {};
+      ['pwLobby', 'pwUnit', 'barrier', 'gate', 'parking', 'toilet', 'startTime'].forEach(function (k) { if (str(s[k])) known[k] = str(s[k]); });
+      var films = (Array.isArray(s.films) ? s.films : []).filter(function (x) { return x && str(x.code); });
+      if (films.length) known.films = films.map(function (x) { return (str(x.place).split(/\s*\n+\s*/).filter(Boolean).join(' · ') + ' ' + str(x.code)).trim(); }).join(', ');
+      return { id: s.id, name: str(s.name), date: str(s.date).slice(0, 10), known: known };
+    };
+    var add = function (phone, name, client, sites) {
+      var k = digits(phone);
+      if (k.length < 9 || !sites.length) return;
+      var e = book[k] = book[k] || { phone: k, name: str(name), client: str(client), sites: [] };
+      sites.forEach(function (s) { if (!e.sites.some(function (x) { return x.id === s.id; })) e.sites.push(view(s)); });
+    };
+    var sitesByClient = {};
+    (o.sites || []).filter(near).sort(function (a, b) { return Math.abs(gap(str(a.date).slice(0, 10))) - Math.abs(gap(str(b.date).slice(0, 10))); })
+      .forEach(function (s) { (sitesByClient[s.clientId] = sitesByClient[s.clientId] || []).push(s); });
+    (o.clients || []).forEach(function (c) {
+      var ss = sitesByClient[c.id] || [];
+      (c.contacts || []).forEach(function (ct) { if (ct) add(ct.phone, str(c.name) + ' ' + (str(ct.name) || '담당자'), c.name, ss); });
+    });
+    var cname = {}; (o.clients || []).forEach(function (c) { cname[c.id] = c.name; });
+    (o.sites || []).filter(near).forEach(function (s) {
+      (Array.isArray(s.owners) ? s.owners : []).forEach(function (w) { if (w) add(w.phone, str(s.name) + ' ' + (str(w.name) || str(w.role) || '발주처'), cname[s.clientId], [s]); });
+    });
+    return Object.keys(book).map(function (k) { book[k].sites = book[k].sites.slice(0, 12); return book[k]; }).slice(0, 150);
+  }
   // AI 에게 줄 지금 앱 상태 — 고객 번호는 넣지 않는다. 팀원·업체 연락처는 번호 대신 있고 없고만
   function buildContext(o) {
     var today = o.today, clients = {};
@@ -283,5 +317,5 @@
   function recentUserText(msgs) {
     return (msgs || []).filter(function (m) { return m.role === 'me'; }).slice(-6).map(function (m) { return m.text; }).join(' ');
   }
-  return { contactBook: contactBook, buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, clientRooms: clientRooms, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
+  return { smsBook: smsBook, contactBook: contactBook, buildContext: buildContext, findSites: findSites, check: check, needsConfirm: needsConfirm, clientRooms: clientRooms, logItems: logItems, oldLogItems: oldLogItems, goWord: goWord, confirmWord: confirmWord, speakable: speakable, run: run, toHistory: toHistory, recentUserText: recentUserText, CONFIRM_OVER: CONFIRM_OVER };
 });
