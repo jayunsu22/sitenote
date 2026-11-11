@@ -6377,11 +6377,29 @@
   function saveNow() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     if (!state.settings.backupKey) { toast('저장됨 (백업키가 없어 폰에만 저장)'); return; }
-    if (!Store.pendingCount()) { toast('저장됨 — 백업까지 완료'); return; }
+    if (!Store.pendingCount()) { toast('저장됨 — 백업까지 완료'); workerNowSend(); return; }
     toast('저장 중...');
     Store.flush().then(function (ok) {
       toast(ok ? '저장됨 — 백업까지 완료' : '폰에 저장됨 — 백업은 잠시 뒤 다시 보냅니다');
+      if (ok) workerNowSend();
     });
+  }
+  /* 📨 저장하자마자 내일 작업자 안내 (2026-11-11 사장님: 낮 12시 일괄 문자 뒤에 인원을 넣으면 문자가 안 갔다).
+     낮 12시가 지났고 이 현장에 내일 일하는 사람이 있으면, n8n 업무일정표(workerNow)가 백업을 읽어 아직 안내를 못 받은 사람에게만 바로 보낸다.
+     12시에 받은 사람·이미 보낸 사람은 또 안 간다 (n8n 이 보낸 기록을 가진다). 12시 전이면 12시에 같이 간다 */
+  function workerNowSend() {
+    var s = Store.getSite(currentSiteId);
+    if (!s || !ownerKeyOn() || new Date().getHours() < 12) return;
+    var tmr = Share.addDays(Share.todayIso(), 1);
+    var day = (s.days || []).filter(function (d) { return d && d.date === tmr; })[0];
+    if (!day || !(day.staff || []).some(function (n) { return n && n !== '김정헌'; })) return;
+    reportPost({ action: 'workerNow', siteId: s.id }).then(function (d) {
+      var msg = [];
+      if ((d.sent || []).length) msg.push('📨 ' + d.sent.join(', ') + '님께 내일 현장 안내 문자 보냄');
+      if ((d.pickup || []).length) msg.push('🚗 ' + d.pickup.join(', ') + '님은 픽업이라 문자 안 보냄');
+      if ((d.noPhone || []).length) msg.push('❗ 번호 없어 못 보냄: ' + d.noPhone.join(', '));
+      if (msg.length) toast(msg.join(' · '));
+    }).catch(function () { toast('내일 작업자 안내 문자를 못 보냈어요 — 잠시 뒤 다시 저장해 주세요'); });
   }
   $('btnSaveSite').onclick = saveNow;
 
