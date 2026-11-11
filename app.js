@@ -6627,7 +6627,8 @@
     };
     openModal('🚗 차량번호 복사', '<p class="hint" style="margin:0 0 6px">보낼 사람을 누르세요. 맨 위 \'차량번호 알려드려요\' 아래로 차량번호가 한 줄에 한 대씩 복사됩니다.' +
       (picked.length ? ' 내일(' + esc(Share.shortDate(tmr)) + ') 일하는 사람이 골라져 있어요.' : '') + '</p><div class="order-list"></div><div class="order-count"></div>',
-      [{ label: '초기화', onClick: function () { picked = []; paint(); } },
+      [{ label: '닫기', onClick: closeModal },
+       { label: '초기화', onClick: function () { picked = []; paint(); } },
        { label: '📋 복사', cls: 'primary', onClick: function () {
          var list = cars();
          if (!list.length) { toast('고른 사람 중 차량번호가 있는 사람이 없어요'); return; }
