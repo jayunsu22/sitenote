@@ -6376,6 +6376,7 @@
   // 실제로 하는 일: 키보드 내리기(마지막 입력 확정) + 백업 대기분을 3초 기다리지 않고 바로 전송.
   function saveNow() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    filmAddOrder();   // 필름 추가 주문은 백업과 상관없이 (문자는 바로 나간다)
     if (!state.settings.backupKey) { toast('저장됨 (백업키가 없어 폰에만 저장)'); return; }
     if (!Store.pendingCount()) { toast('저장됨 — 백업까지 완료'); workerNowSend(); return; }
     toast('저장 중...');
@@ -6383,6 +6384,26 @@
       toast(ok ? '저장됨 — 백업까지 완료' : '폰에 저장됨 — 백업은 잠시 뒤 다시 보냅니다');
       if (ok) workerNowSend();
     });
+  }
+  /* 🎞 저장하자마자 추가 필름 주문 (2026-11-11 사장님: 주문을 보낸 뒤 필름을 더 넣으면 주문 문자가 안 갔다).
+     이 현장에 이미 주문한 적이 있고, 번호·필요량을 다 적은 새 줄이 있으면 지난번 주문처에 그 줄만 '📨 추가 주문' 창으로 (보내기를 눌러야 나감).
+     보내면 그 줄에 주문한 날(orderedAt)을 남겨 다시 안 묻는다. 처음 주문은 지금처럼 결재함·텔레그램 버튼으로 */
+  function filmAddOrder() {
+    var s = Store.getSite(currentSiteId);
+    if (!s || !(s.filmOrders || []).length || s.filmVendor) return;
+    var rows = Share.filmPendingRows(s);
+    if (!rows.length) return;
+    var v = Share.filmLastVendor(s, state.settings);
+    if (!v || !v.phone) { toast('추가 필름 주문: ' + (v ? v.to + ' 번호가 없어요' : '주문처를 몰라요') + ' — 필름 탭 주문처 📨 로 보내 주세요'); return; }
+    var films = rows.map(function (i) { return Object.assign({}, s.films[i], { ready: false }); });
+    // [취소] 한 같은 줄들은 저장할 때마다 또 묻지 않는다 (필요하면 필름 탭 주문처 📨)
+    var sig = films.map(function (r) { return r.code + ' ' + r.qty + ' ' + r.place; }).join('|'), skipKey = 'filmAddSkip:' + s.id;
+    try { if (localStorage.getItem(skipKey) === sig) return; localStorage.setItem(skipKey, sig); } catch (e) { /* */ }
+    sendFilmOrderNow(s, films, v.to, v.phone, function () {
+      var cur = Store.getSite(s.id); if (!cur) return;
+      var today = Share.todayIso();
+      Store.updateSite(s.id, { films: (cur.films || []).map(function (r, i) { return rows.indexOf(i) >= 0 ? Object.assign({}, r, { orderedAt: today }) : r; }) });
+    }, '🎞 추가 필름 주문');
   }
   /* 📨 저장하자마자 내일 작업자 안내 (2026-11-11 사장님: 낮 12시 일괄 문자 뒤에 인원을 넣으면 문자가 안 갔다).
      낮 12시가 지났고 이 현장에 내일 일하는 사람이 있으면, n8n 업무일정표(workerNow)가 백업을 읽어 아직 안내를 못 받은 사람에게만 바로 보낸다.
@@ -7727,7 +7748,7 @@
   }
   // 📨 바로 주문 (2026-11-01 사장님): 필름 주문처 담당자 옆 📨 → 확인 → n8n 이 바로 사장님 폰으로 문자 → 필름 탭에 기록·'필름 주문' 단계.
   // 1롤인 줄 알았는데 더 필요해서 추가 주문할 때도 — ☑ 체크한 줄이 있으면 그 줄만 보낸다 (필름명 복사와 같은 규칙)
-  function sendFilmOrderNow(site, films, to, phone) {
+  function sendFilmOrderNow(site, films, to, phone, onSent, title) {
     var key = '';
     try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
     if (!key) { toast('이 기기는 사장님 열쇠가 없어 바로 보낼 수 없어요 — 💬 로 보내 주세요'); return; }
@@ -7736,7 +7757,7 @@
     // 첫 줄(인사 문구)만 이 창에서 고친다 — 아래 필름·양은 그대로 (11/2 사장님)
     var cut = full.indexOf('\n'), body = full.slice(cut + 1);
     new Promise(function (resolve) {
-      openModal('📨 바로 주문', '<p class="hint" style="margin:0 0 6px">' + esc(to) + ' 에게 지금 이 문자를 보냅니다 (사장님 폰에서). 문구는 고칠 수 있어요.</p>' +
+      openModal(title || '📨 바로 주문', '<p class="hint" style="margin:0 0 6px">' + esc(to) + ' 에게 지금 이 문자를 보냅니다 (사장님 폰에서). 문구는 고칠 수 있어요.</p>' +
         '<textarea id="orderHello" rows="2" style="width:100%;font-size:15px"></textarea>' +
         '<div class="rc-pv" style="margin-top:6px">' + esc(body) + '</div>', [
         { label: '취소', onClick: function () { closeModal(); resolve(''); } },
@@ -7761,6 +7782,7 @@
           Store.updateSite(site.id, { filmStage: Math.max(Share.filmStageOf(cur), 2),
             filmOrders: (cur.filmOrders || []).concat([{ id: '', at: Share.todayIso(), to: to, items: Share.filmOrderText({ films: films }).split('\n').join(' · ') }]) });
           toast('✅ ' + to + '에게 보냈어요');
+          if (onSent) onSent();
           workLog([{ src: 'me', kind: 'crew', title: '필름 주문 문자', detail: to, siteId: site.id }]);
           if (!$('viewSite').hidden) renderSite();
         })

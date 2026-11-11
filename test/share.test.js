@@ -1519,5 +1519,13 @@ test('askTarget·askChoices·askQuestion: 현장 담당자 → 거래처 질문 
   assert.strictEqual(Share.askQuestion(Object.assign({}, site, { pwLobby: '1', toilet: '1', checks: { door: { v: '네' }, overlap: { v: '없음' }, xmark: { skip: true } } }), {}), '');
 });
 
+test('filmPendingRows·filmLastVendor: 주문 뒤 새로 적은 필름만 (11/11)', () => {
+  const site = { filmOrders: [{ at: '2026-11-09', to: '에이엔디·주문담당', items: 'ps170 2롤' }],
+    films: [{ code: 'ps170', qty: '2롤' }, { code: 'ps170', qty: '' }, { code: 'PS170', qty: '1롤' }, { code: 'px451', qty: '1롤', orderedAt: '2026-11-10' }, { code: 'ps170', qty: '2롤' }] };
+  assert.deepStrictEqual(Share.filmPendingRows(site), [2, 4], '필요량 없는 줄·이미 주문한 줄은 빼고, 같은 주문 조각은 한 줄만 지움');
+  assert.deepStrictEqual(Share.filmLastVendor(site, { filmVendors: [{ name: '에이엔디', people: [{ name: '주문담당', phone: '010' }] }] }), { to: '에이엔디·주문담당', phone: '010' });
+  assert.strictEqual(Share.filmLastVendor({ films: [] }, {}), null);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

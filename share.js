@@ -256,6 +256,34 @@
     });
     return out;
   }
+  /* 🎞 추가 주문 (2026-11-11 사장님: 주문을 보낸 뒤 필름을 더 적고 [저장] 하면 그 필름만 주문 문자).
+     아직 주문 안 한 줄 = 번호·필요량이 다 있고, orderedAt 이 없고, 지난 주문 기록(filmOrders)의 '번호 필요량' 조각과도 안 맞는 줄.
+     조각 하나는 줄 하나만 지운다 (ps170 2롤 을 한 번 주문했는데 ps170 2롤 줄이 둘이면 하나는 새 것). 돌려주는 값 = 줄 번호들 */
+  function filmPendingRows(site) {
+    var pieces = [];
+    ((site && site.filmOrders) || []).forEach(function (o) {
+      str(o && o.items).split(' · ').forEach(function (p) { p = str(p).replace(/\s+/g, ' ').toLowerCase(); if (p) pieces.push(p); });
+    });
+    var out = [];
+    ((site && site.films) || []).forEach(function (r, i) {
+      if (!r || !str(r.code) || !str(r.qty) || isIsoDate(str(r.orderedAt))) return;
+      var key = (str(r.code) + ' ' + str(r.qty)).replace(/\s+/g, ' ').toLowerCase();
+      var at = pieces.indexOf(key);
+      if (at >= 0) { pieces.splice(at, 1); return; }
+      out.push(i);
+    });
+    return out;
+  }
+  // 이 현장에 마지막으로 주문한 곳 { to: '에이엔디·주문담당', phone } — 설정 › 필름 주문처에서 번호를 찾는다 (없으면 null)
+  function filmLastVendor(site, settings) {
+    var orders = ((site && site.filmOrders) || []).filter(function (o) { return o && str(o.to); });
+    if (!orders.length) return null;
+    var to = str(orders[orders.length - 1].to), hit = null;
+    filmVendors(settings).forEach(function (v) {
+      v.people.forEach(function (p) { if (!hit && p.phone && (v.name + '·' + (p.name || '담당자')) === to) hit = { to: to, phone: p.phone }; });
+    });
+    return hit || { to: to, phone: '' };
+  }
   function filmOrderSms(site, withSite) {
     var 필름 = filmOrderText(site);
     if (!필름) return '';
@@ -2727,7 +2755,7 @@
     reportItemDone: reportItemDone,
     filmVendorPatch: filmVendorPatch,
     workerInfoText: workerInfoText,
-    workerNotices: workerNotices,
+    workerNotices: workerNotices, filmPendingRows: filmPendingRows, filmLastVendor: filmLastVendor,
     pickupOf: pickupOf,
     pickupPatch: pickupPatch,
     reviewSms: reviewSms,
