@@ -170,7 +170,8 @@
     // 방문견적(quote_pro.js 링크()) 과 같은 주소: /q/코드?d=1&n=제목(base64url)
     function 보낼링크(x) {
       var 링크 = VIEW + x.견적코드 + '?d=1';
-      if (x.이름 && !x.연결) {
+      // 연결한 견적서도 이름을 알면 붙인다 (2026-11-11 사장님: 카톡 미리보기에 '섬세한손길 시공 견적서' 만 나왔다)
+      if (x.이름 && x.이름 !== '(연결한 견적서)') {
         var bin = '';
         new TextEncoder().encode(x.이름).forEach(function (b) { bin += String.fromCharCode(b); });
         링크 += '&n=' + btoa(bin).split('+').join('-').split('/').join('_').split('=').join('');
