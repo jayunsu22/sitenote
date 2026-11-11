@@ -6441,7 +6441,11 @@
       var ob = el2('button', 'team-order-btn', '🔢 문자 보낼 사람 고르기 (' + picks.length + '명)'); ob.type = 'button';
       ob.title = '인원 모집 문자는 고른 사람에게만, 고른 순서대로 갑니다';
       ob.onclick = openTeamOrder;
-      box.appendChild(ob);
+      // 🚗 차량번호 복사 (2026-11-11 사장님: 내일 일할 사람 차량번호를 관리실에 보낼 때)
+      var cb = el2('button', 'team-order-btn', '🚗 차량번호 복사'); cb.type = 'button';
+      cb.onclick = openCarCopy;
+      var obw = el2('div', 'team-order-btns'); obw.appendChild(cb); obw.appendChild(ob);
+      box.appendChild(obw);
       // 정렬 스위치 (사장님 11/6) — 보기용. 다 끄면 명단 순서
       var sws = el2('div', 'team-sorts');
       [['teamSortPay', '페이별'], ['teamSortGrade', '등급별']].forEach(function (a) {
@@ -6602,6 +6606,52 @@
   function personOrderItem(n) {
     var p = Share.personOf(state.settings.people, n);
     return { key: n, label: n, sub: [p.grade, p.pay].filter(Boolean).join(' · ') || '일당?' };
+  }
+  /* 🚗 차량번호 복사 (2026-11-11 사장님) — 사람을 눌러 고르면 고른 순서대로 차량번호만 한 줄에 한 대씩 복사.
+     처음엔 내일 현장에 들어가는 사람이 골라져 있다. 차량번호가 없는 사람은 회색 (설정 → 팀원 → 수정 에서 넣기) */
+  function openCarCopy() {
+    var cfg = state.settings;
+    var team = Share.teamSorted(cfg.team || [], cfg.people, { pay: !!cfg.teamSortPay, grade: !!cfg.teamSortGrade });
+    var carOf = function (n) { return String(Share.personOf(cfg.people, n).car || '').trim(); };
+    var tmr = Share.addDays(Share.todayIso(), 1), picked = [];
+    (state.sites || []).forEach(function (st) {
+      if (st.hide) return;
+      (st.days || []).forEach(function (d) {
+        if (d && d.date === tmr) (d.staff || []).forEach(function (n) { if (team.indexOf(n) >= 0 && carOf(n) && picked.indexOf(n) < 0) picked.push(n); });
+      });
+    });
+    var cars = function () {
+      var out = [];
+      picked.forEach(function (n) { var c = carOf(n); if (c && out.indexOf(c) < 0) out.push(c); });
+      return out;
+    };
+    openModal('🚗 차량번호 복사', '<p class="hint" style="margin:0 0 6px">보낼 사람을 누르세요. 차량번호만 한 줄에 한 대씩 복사됩니다.' +
+      (picked.length ? ' 내일(' + esc(Share.shortDate(tmr)) + ') 일하는 사람이 골라져 있어요.' : '') + '</p><div class="order-list"></div><div class="order-count"></div>',
+      [{ label: '초기화', onClick: function () { picked = []; paint(); } },
+       { label: '📋 복사', cls: 'primary', onClick: function () {
+         var list = cars();
+         if (!list.length) { toast('고른 사람 중 차량번호가 있는 사람이 없어요'); return; }
+         closeModal(); copyText(list.join('\n'), '차량번호 ' + list.length + '대 복사됨 — 카톡/문자에 붙여넣기 하세요');
+       } }]);
+    var wrap = $('modalBody').querySelector('.order-list'), count = $('modalBody').querySelector('.order-count');
+    var paint = function () {
+      wrap.innerHTML = '';
+      team.forEach(function (n) {
+        var car = carOf(n), k = picked.indexOf(n) + 1;
+        var row = el2('button', 'order-row' + (k ? ' on' : '') + (car ? '' : ' nocar')); row.type = 'button';
+        row.onclick = function () {
+          if (!car) { toast(n + ' 님은 차량번호가 없어요 — 수정 에서 넣어 주세요'); return; }
+          var j = picked.indexOf(n); if (j >= 0) picked.splice(j, 1); else picked.push(n); paint();
+        };
+        row.appendChild(el2('span', 'order-num', k ? String(k) : ''));
+        row.appendChild(el2('span', 'order-title', n));
+        row.appendChild(el2('span', 'order-sub', car || '차량번호 없음'));
+        wrap.appendChild(row);
+      });
+      var list = cars();
+      count.textContent = list.length ? list.length + '대: ' + list.join(' / ') : '아직 고른 사람이 없어요';
+    };
+    paint();
   }
   // 기본 문자 명단 — 현장에서 따로 고르지 않으면 이 사람들에게, 이 순서로
   function openTeamOrder() {
