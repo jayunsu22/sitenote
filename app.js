@@ -6625,13 +6625,13 @@
       picked.forEach(function (n) { var c = carOf(n); if (c && out.indexOf(c) < 0) out.push(c); });
       return out;
     };
-    openModal('🚗 차량번호 복사', '<p class="hint" style="margin:0 0 6px">보낼 사람을 누르세요. 차량번호만 한 줄에 한 대씩 복사됩니다.' +
+    openModal('🚗 차량번호 복사', '<p class="hint" style="margin:0 0 6px">보낼 사람을 누르세요. 맨 위 \'차량번호 알려드려요\' 아래로 차량번호가 한 줄에 한 대씩 복사됩니다.' +
       (picked.length ? ' 내일(' + esc(Share.shortDate(tmr)) + ') 일하는 사람이 골라져 있어요.' : '') + '</p><div class="order-list"></div><div class="order-count"></div>',
       [{ label: '초기화', onClick: function () { picked = []; paint(); } },
        { label: '📋 복사', cls: 'primary', onClick: function () {
          var list = cars();
          if (!list.length) { toast('고른 사람 중 차량번호가 있는 사람이 없어요'); return; }
-         closeModal(); copyText(list.join('\n'), '차량번호 ' + list.length + '대 복사됨 — 카톡/문자에 붙여넣기 하세요');
+         closeModal(); copyText(['차량번호 알려드려요'].concat(list).join('\n'), '차량번호 ' + list.length + '대 복사됨 — 카톡/문자에 붙여넣기 하세요');
        } }]);
     var wrap = $('modalBody').querySelector('.order-list'), count = $('modalBody').querySelector('.order-count');
     var paint = function () {
