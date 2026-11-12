@@ -788,6 +788,9 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .sec .day-row.day-c5 { border-color: #5eead4; background: #f0fdfa; }
 .sec .day-row.day-c5 .day-label { color: #0f766e; }
 .sec .day-row .chip { background: #fff; }
+/* 인원 빼기 [−]/[완료] (2026-11-12 사장님: 빼기 모드의 [완료] 글자가 안 보였다 — 위 흰 바탕이 빨간 바탕을 덮어 흰 글자가 묻혔다) */
+.sec .day-row .chip.del-toggle { background: transparent; }
+.sec .day-row .chip.del-toggle.on { background: var(--danger); color: #fff; font-weight: 800; }
 /* 현장 머리글의 거래처명 — 누르면 그 업체 현장 목록으로 간다 (누를 수 있게 테두리를 준다) */
 .sh-client { margin-left: auto; flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   border: 1px solid var(--border); border-radius: 999px; background: var(--card);
