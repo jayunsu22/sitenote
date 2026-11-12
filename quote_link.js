@@ -13,19 +13,66 @@
   var SAVE_URL = BASE + '/film-quality-save';
   var DETAIL_URL = BASE + '/film-quality-get-v2';
   var VIEW_URL = 'https://songil.netlify.app/q/';
+  // 정산 견적서 (2026-11-12): songil.netlify.app/s/<코드>. 현장에 이을 때 코드 앞에 's:' 를 붙여 방문견적과 가른다
+  var SETTLE_QUOTE_URL = BASE + '/settle-quote';
+  var SETTLE_VIEW_URL = 'https://songil.netlify.app/s/';
 
   function str(v) { return String(v == null ? '' : v).trim(); }
 
   // ---------- 견적코드 ----------
   // 'AB12CD34' · '/q/AB12CD34' · 'https://songil.netlify.app/q/AB12CD34?x=1' 다 받는다
+  // 정산 견적서는 '/s/AB12' 주소 또는 's:AB12' → 's:AB12'
   function 코드뽑기(값) {
     var v = str(값);
     if (!v) return '';
+    var s = /\/s\/([A-Za-z0-9_-]+)/.exec(v) || /^s:([A-Za-z0-9_-]+)$/.exec(v);
+    if (s) return 's:' + s[1];
     var m = /\/q\/([A-Za-z0-9_-]+)/.exec(v);
     if (m) return m[1];
     return /^[A-Za-z0-9_-]+$/.test(v) ? v : '';
   }
-  function 보기주소(code) { return VIEW_URL + str(code); }
+  function is정산(code) { return /^s:/.test(str(code)); }
+  function 보기주소(code) {
+    var c = str(code);
+    return is정산(c) ? SETTLE_VIEW_URL + c.slice(2) : VIEW_URL + c;
+  }
+  function 짧은주소(code) { var c = str(code); return is정산(c) ? '/s/' + c.slice(2) : '/q/' + c; }
+
+  /* 정산 견적서(settle-quote 응답) → 방문견적과 같은 꼴 { 현장명, 총액, 발행일시, 라인들:[{구역,품목명,수량,단위,표시금액}] }.
+     품목 견적: 품목마다 금액. 품수 견적: 인건비(품수) · 자재별 금액 + 품목 이름(금액 0).
+     부가 항목·고객청구 추가작업·미수금도 줄로. 업체청구 추가작업은 고객 합계 밖이라 뺀다 */
+  function 정산견적변환(d) {
+    var s = (d && d.스냅샷) || {};
+    var 줄 = [];
+    var 넣기 = function (구역, 품목명, 수량, 단위, 금액) {
+      줄.push({ 구역: 구역, 품목명: 품목명, 수량: 수량 == null ? '' : 수량, 단위: 단위 || '', 표시금액: Math.round(Number(금액) || 0) });
+    };
+    var 범위 = function (p) { return p.시공범위 && p.시공범위 !== '문+틀 양쪽면 시공' ? ' (' + p.시공범위 + ')' : ''; };
+    if (s.방식 === '품목') {
+      (s.시공품목 || []).forEach(function (p) {
+        var n = Number(p.개수) || 1;
+        넣기(str(p.구역) || '기타', str(p.품목명) + 범위(p), n > 1 ? n : '', n > 1 ? '개' : '', p.금액);
+      });
+    } else {
+      var 인 = s.인건비 || {};
+      if (Number(인.품수) || Number(인.금액)) 넣기('인건비', '시공 인건비', Number(인.품수) || '', '품', 인.금액);
+    }
+    (s.자재소계 || []).forEach(function (r) { 넣기('자재비', str(r.자재명), Number(r.소모량합) || '', 'm', r.금액); });
+    (s.품목 || []).forEach(function (p) {
+      if (p.종류 === '금액') { 넣기('직접 추가', str(p.품목명), '', '', p.금액); return; }
+      if (s.방식 === '품목') return;   // 품목 견적의 필름 추가 줄은 위 자재비에 이미 들어 있다
+      넣기(str(p.구역) || '기타', str(p.품목명) + 범위(p), Number(p.소모량) || '', 'm', 0);
+    });
+    (s.부가 || []).forEach(function (e) { 넣기('부가 항목', str(e.항목명) + (e.비고 ? ' (' + e.비고 + ')' : ''), '', '', e.금액); });
+    (s.추가작업 || []).forEach(function (a) {
+      if ((a.청구 || '고객청구') !== '고객청구') return;
+      넣기('추가 작업', str(a.품목명) + (a.구분 ? ' (' + a.구분 + ')' : ''), '', '', a.금액);
+    });
+    (s.미수금 || []).forEach(function (m) { 넣기('미수금', str(m.현장명), '', '', m.금액); });
+    return { 견적코드: str(d && d.견적코드), 현장명: str(d && d.현장명), 평형: '', 정산: true,
+      총액: Math.round(Number(d && d.총액 != null ? d.총액 : (s.합계 || {}).총액) || 0),
+      발행일시: str(d && d.발행일시), 라인들: 줄 };
+  }
 
   // ---------- 견적 내역 ----------
   // 발행된 견적서의 라인들 → 화면에 그릴 구역별 묶음. 금액은 표시금액(조정까지 반영된 값)
@@ -160,6 +207,15 @@
   function 견적받기(code, deps) {
     var c = 코드뽑기(code);
     if (!c) return Promise.reject(new Error('견적코드가 없습니다'));
+    if (is정산(c)) {
+      return request(deps, SETTLE_QUOTE_URL + '?id=' + encodeURIComponent(c.slice(2)), { method: 'GET', cache: 'no-store' })
+        .then(function (res) { return res.json(); })
+        .then(function (j) {
+          if (Array.isArray(j)) j = j[0];
+          if (!j || j.error) throw new Error('정산 견적서를 찾지 못했습니다');
+          return 정산견적변환(j);
+        });
+    }
     return request(deps, QUOTE_URL + '?id=' + encodeURIComponent(c), { method: 'GET', cache: 'no-store' })
       .then(function (res) { return res.json(); })
       .then(function (j) {
@@ -176,6 +232,8 @@
   /* 견적서대로 현장업무 품목을 켠다.
      돌려주는 값: { 켠것, 이미, 짝없음, 실패 } — 이미 켜진 품목은 건드리지 않는다(실수로 꺼지지 않게) */
   function 품목맞추기(adminId, code, deps) {
+    // 정산 견적서는 현장업무 품목으로 만든 견적이라 다시 켤 품목이 없다
+    if (is정산(코드뽑기(code))) return Promise.resolve({ 켠것: [], 이미: [], 짝없음: [], 실패: [], 정산: true });
     var 견적;
     return 견적받기(code, deps).then(function (q) {
       견적 = q;
@@ -205,7 +263,7 @@
 
   var QuoteLink = {
     QUOTE_URL: QUOTE_URL, SAVE_URL: SAVE_URL, DETAIL_URL: DETAIL_URL,
-    코드뽑기: 코드뽑기, 보기주소: 보기주소,
+    코드뽑기: 코드뽑기, 보기주소: 보기주소, 짧은주소: 짧은주소, is정산: is정산, 정산견적변환: 정산견적변환,
     구역별: 구역별, 요약: 요약,
     후보: 후보, 견적품목들: 견적품목들, 방수추정: 방수추정, 짝짓기: 짝짓기,
     견적받기: 견적받기, 현장상세받기: 현장상세받기, 품목맞추기: 품목맞추기

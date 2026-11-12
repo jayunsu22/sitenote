@@ -2048,7 +2048,7 @@
     var qb = document.createElement('button'); qb.type = 'button';
     qb.className = 'sh-quote' + (s.quoteCode ? ' on' : '');
     qb.textContent = s.quoteCode ? '견적서 ✓' : '견적서 연결';
-    qb.title = s.quoteCode ? '견적 내역 보기 · /q/' + s.quoteCode : '발행한 견적서를 이 현장에 이어 붙입니다';
+    qb.title = s.quoteCode ? '견적 내역 보기 · ' + QuoteLink.짧은주소(s.quoteCode) : '발행한 견적서를 이 현장에 이어 붙입니다';
     qb.onclick = function () { openQuoteSheet(s.id); };
     sub.appendChild(qb);
     // 현장업무(관리자 앱) 연결 버튼 — 연결 전엔 '연결', 후엔 맞춤 상태와 함께 시트를 연다
@@ -2092,12 +2092,17 @@
     var s = Store.getSite(siteId); if (!s) return;
     if (!s.quoteCode) { openQuotePicker(siteId); return; }
     var code = s.quoteCode;
+    // 정산 견적서(/s/, 2026-11-12) 는 현장업무 품목으로 만든 견적이라 '시공품목 자동 선택' 이 필요 없고,
+    // 수정은 방문견적이 아니라 그 현장의 정산견적 화면에서 한다
+    var 정산 = QuoteLink.is정산(code);
     var btn = function (k, label) { return '<button type="button" data-k="' + k + '">' + label + '</button>'; };
     var 그리기 = function (내용) {
-      openModal('📄 견적서 · /q/' + code,
+      openModal('📄 ' + (정산 ? '정산 견적서' : '견적서') + ' · ' + QuoteLink.짧은주소(code),
         내용 + '<div class="sheet-list">' +
-          btn('items', '🛠 현장업무에 시공품목 자동 선택<small>' + (s.adminId ? '견적서에 있는 품목을 현장업무에서 켭니다' : '먼저 현장업무를 연결해야 합니다') + '</small>') +
-          btn('edit', '✏️ 견적서 수정하기<small>방문견적에서 이 견적을 불러와 고칩니다 · 다시 발행하면 새 견적서</small>') +
+          (정산 ? '' : btn('items', '🛠 현장업무에 시공품목 자동 선택<small>' + (s.adminId ? '견적서에 있는 품목을 현장업무에서 켭니다' : '먼저 현장업무를 연결해야 합니다') + '</small>')) +
+          (정산
+            ? (s.adminId ? btn('edit', '✏️ 정산 견적서 수정하기<small>정산견적 화면에서 고칩니다 · 다시 발행하면 새 견적서</small>') : '')
+            : btn('edit', '✏️ 견적서 수정하기<small>방문견적에서 이 견적을 불러와 고칩니다 · 다시 발행하면 새 견적서</small>')) +
           btn('copy', '📋 견적서 링크 복사<small>카톡·문자로 다른 사람에게 보낼 때</small>') +
           btn('open', '🔗 견적서 열기<small>발행된 견적서를 새 창으로</small>') +
           btn('change', '🔁 다른 견적서로 바꾸기') +
@@ -2127,6 +2132,11 @@
           }
           // 방문견적 ?edit=<견적코드>&client=<거래처ID> (견적요청 내역의 [이 견적 수정하기] 와 같은 길, 2026-11-09).
           // 고쳐서 다시 발행하면 새 견적코드가 나온다 - 이 현장 연결은 [다른 견적서로 바꾸기] 로 새 것으로 바꾼다
+          if (k === 'edit' && 정산) {
+            window.open('https://songil.netlify.app/settle.html?site=' + encodeURIComponent(s.adminId), '_blank');
+            toast('다시 발행했으면 여기서 [다른 견적서로 바꾸기] 로 새 견적서를 연결하세요');
+            return;
+          }
           if (k === 'edit') {
             window.open('https://songil.netlify.app/quote_pro.html?edit=' + encodeURIComponent(code) +
               (s.clientId ? '&client=' + encodeURIComponent(s.clientId) : ''), '_blank');
@@ -2153,10 +2163,11 @@
       var html = '<div class="qv-head"><b>' + esc(sum.현장명 || '(이름 없음)') + '</b>' +
         '<span>' + esc([sum.평형, sum.줄수 ? '품목 ' + sum.줄수 + '개' : '', sum.총액 ? 원화(sum.총액) : ''].filter(Boolean).join(' · ')) + '</span></div>';
       QuoteLink.구역별(q.라인들).forEach(function (z) {
-        html += '<div class="qv-zone"><span>' + esc(z.구역) + '</span><em>' + esc(원화(z.합)) + '</em></div>';
+        // 품수 정산 견적서의 품목 줄은 금액이 없다(인건비·자재비로 따로 셈) - 0원 대신 빈칸
+        html += '<div class="qv-zone"><span>' + esc(z.구역) + '</span><em>' + (z.합 ? esc(원화(z.합)) : '') + '</em></div>';
         z.줄.forEach(function (x) {
           html += '<div class="qv-line"><span>' + esc(x.품목명) + (x.수량 ? ' <i>' + esc(x.수량 + (x.단위 || '')) + '</i>' : '') +
-            '</span><em>' + esc(원화(x.금액)) + '</em></div>';
+            '</span><em>' + (x.금액 ? esc(원화(x.금액)) : '') + '</em></div>';
         });
       });
       그리기('<div class="qv-box">' + html + '</div>');
@@ -2169,7 +2180,20 @@
   function openQuotePicker(siteId) {
     var s = Store.getSite(siteId); if (!s) return;
     openModal('견적서 연결', '<p class="hint">불러오는 중…</p>', [{ label: '닫기', onClick: closeModal }]);
-    QuoteRequests.발행목록(quoteDeps).then(function (list) {
+    // 정산 견적서 (2026-11-12): 현장업무에 연결된 현장이면 그 현장에서 발행한 정산 견적서를 받아 맨 위에 둔다
+    var adminId = String(s.adminId || '').trim();
+    var 정산목록 = adminId
+      ? fetch(SETTLE_HISTORY_URL + encodeURIComponent(adminId))
+          .then(function (res) { return res.ok ? res.json() : {}; })
+          .then(function (d) { return ((d && d.정산) || []).slice().reverse(); }, function () { return []; })
+      : Promise.resolve([]);
+    // 방문견적 목록을 못 받아도 정산 견적서는 보여 준다 (둘은 따로 받는다). 둘 다 없으면 예전처럼 오류 화면
+    var 발행 = QuoteRequests.발행목록(quoteDeps).then(function (l) { return { list: l }; }, function (e) { return { err: e }; });
+    Promise.all([발행, 정산목록]).then(function (둘) {
+      return 둘[0].err && !(둘[1] || []).length ? Promise.reject(둘[0].err) : 둘;
+    }).then(function (둘) {
+      var list = 둘[0].list || [], 정산들 = 둘[1] || [];
+      var 발행오류 = 둘[0].err ? (둘[0].err.message || String(둘[0].err)) : '';
       var c = Store.getClient(s.clientId) || {};
       var 이은코드 = Array.isArray(c.quoteCodes) ? c.quoteCodes : [];
       var 쓴코드 = ((Store.state && Store.state.sites) || []).reduce(function (m, x) {
@@ -2181,8 +2205,17 @@
       var ranked = (list || []).filter(function (p) { return p && p.견적코드; })
         .sort(function (a, b) { return (rank(a) - rank(b)) || String(b.발행일시 || '').localeCompare(String(a.발행일시 || '')); })
         .slice(0, 50);
-      var html = '<div class="qreq-linkrow"><input type="text" id="qlCode" placeholder="견적코드 또는 /q/… 주소" autocomplete="off">' +
+      var html = '<div class="qreq-linkrow"><input type="text" id="qlCode" placeholder="견적코드 또는 /q/·/s/ 주소" autocomplete="off">' +
         '<button type="button" class="btn-sm primary" id="qlGo">연결</button></div><p class="hint admin-err" id="qlMsg" hidden></p>';
+      if (정산들.length) {
+        html += '<div class="sheet-list">' + 정산들.map(function (p, k) {
+          var 남 = 쓴코드['s:' + p.코드];
+          return '<button type="button" data-s="' + k + '">🧮 정산 견적서 <em class="sim">이 현장</em>' +
+            '<small>' + esc([p.발행일시 ? Share.shortDate(String(p.발행일시).slice(0, 10)) : '', p.총액 ? 원화(p.총액) : '', '/s/' + p.코드,
+              남 ? '이미 ' + 남 + ' 에 연결됨' : ''].filter(Boolean).join(' · ')) + '</small></button>';
+        }).join('') + '</div>';
+      }
+      if (발행오류) html += '<p class="hint admin-err">⚠ 방문견적 목록은 못 받았습니다 (' + esc(발행오류) + ')</p>';
       html += ranked.length
         ? '<div class="sheet-list">' + ranked.map(function (p, k) {
             var 남 = 쓴코드[p.견적코드];
@@ -2191,7 +2224,7 @@
               '<small>' + esc([p.발행일시 ? Share.shortDate(String(p.발행일시).slice(0, 10)) : '', p.총액 ? 원화(p.총액) : '', '/q/' + p.견적코드,
                 남 ? '이미 ' + 남 + ' 에 연결됨' : ''].filter(Boolean).join(' · ')) + '</small></button>';
           }).join('') + '</div>'
-        : '<p class="hint">발행된 견적서를 못 받았습니다. 위 칸에 견적코드를 넣어 연결하세요.</p>';
+        : (발행오류 ? '' : '<p class="hint">발행된 견적서를 못 받았습니다. 위 칸에 견적코드를 넣어 연결하세요.</p>');
       $('modalBody').innerHTML = html;
       var 붙이기 = function (code) {
         var c2 = QuoteLink.코드뽑기(code);
@@ -2208,9 +2241,12 @@
       $('modalBody').querySelectorAll('button[data-k]').forEach(function (b) {
         b.onclick = function () { 붙이기(ranked[+b.dataset.k].견적코드); };
       });
+      $('modalBody').querySelectorAll('button[data-s]').forEach(function (b) {
+        b.onclick = function () { 붙이기('s:' + 정산들[+b.dataset.s].코드); };
+      });
     }, function (e) {
       $('modalBody').innerHTML = '<p class="hint admin-err">⚠ 목록을 못 받았습니다 (' + esc(e.message) + ')</p>' +
-        '<div class="qreq-linkrow"><input type="text" id="qlCode" placeholder="견적코드 또는 /q/… 주소" autocomplete="off">' +
+        '<div class="qreq-linkrow"><input type="text" id="qlCode" placeholder="견적코드 또는 /q/·/s/ 주소" autocomplete="off">' +
         '<button type="button" class="btn-sm primary" id="qlGo">연결</button></div>';
       $('qlGo').onclick = function () {
         var c2 = QuoteLink.코드뽑기($('qlCode').value);
