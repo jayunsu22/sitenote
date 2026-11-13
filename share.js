@@ -2158,7 +2158,7 @@
     lines.push('✅ 오늘 결과 ' + rep.done.length + '건');
     rep.done.slice(0, 8).forEach(function (d) { lines.push(' · ' + d.title); });
     lines.push('📅 내일 예정 ' + rep.next.length + '건' + (rep.next.length ? ' — 결재해 주세요' : ''));
-    rep.next.slice(0, 10).forEach(function (n) { lines.push(' · ' + n.title); });
+    rep.next.slice(0, 10).forEach(function (n) { lines.push(' · ' + n.title + (n.link ? '\n   🔗 ' + n.link : '')); });   // 🙋 직접 물어보기는 링크도 (11/13)
     if (rep.next.length > 10) lines.push(' · … 외 ' + (rep.next.length - 10) + '건');
     lines.push('👉 결재하기: ' + url);
     return lines.join('\n');

@@ -3410,7 +3410,7 @@
   // 결재함 업무 종류 — 순서·아이콘·이름, 버튼 4개
   var AP_ORDER = ['film', 'crew', 'selfhire', 'ask', 'as', 'pay', 'task', 'silicone', 'supply', 'stock', 'hold'];
   var AP_ICON = { selfhire: '✋', hello: '👋', review: '⭐', film: '🎞', crew: '👷', ask: '❓', as: '🔧', pay: '💰', task: '📝', silicone: '🧴', supply: '🧰', stock: '🚚', hold: '👥' };
-  var AP_TITLE = { selfhire: '직접 구인', hello: '안부 인사', review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
+  var AP_TITLE = { askSelf: '🙋 직접 물어보기', selfhire: '직접 구인', hello: '안부 인사', review: '고객 후기 문자', film: '필름 발주', crew: '인원 모집', ask: '출입정보 질문', as: 'AS 방문', pay: '잔금 받기', task: '할 일', silicone: '실리콘 준비', supply: '자재 챙기기', stock: '차 보충', hold: '인원 배정' };
   var AP_BTN = [['go', '▶', '진행해'], ['later', '⏭', '연기'], ['mine', '✋', '내가할께'], ['done', '✔', '완료']];
   // 3안 '오늘의 미션' (사장님 11/3: 산뜻하고 일할 맛 나게) — 남색 머리 + 경험치 막대, 큰 아이콘 미션 카드, 끝내면 CLEAR
   var AP_TILE = { selfhire: '#fef3c7', hello: '#fef9c3', review: '#fef9c3', film: '#ede9fe', crew: '#dcfce7', ask: '#ffedd5', as: '#fee2e2', pay: '#fef9c3', task: '#e0f2fe', silicone: '#f1f5f9', supply: '#f1f5f9', stock: '#f1f5f9', hold: '#dcfce7' };
@@ -3569,6 +3569,21 @@
       hlOpen.onclick = function () { openHello(function () { decideApprove(d, x, 'done'); }); };
       btns.appendChild(hlOpen);
     }
+    // 🙋 직접 물어보기 (사장님 11/13: 업체엔 한 번만 묻고, 답이 없으면 내가 링크를 복사해 직접 보낸다 — 계속 물으면 실례)
+    if (x.kind === 'askSelf') {
+      var cpq = el2('button', 'ap-ib b-go'); cpq.type = 'button';
+      cpq.appendChild(el2('i', '', '📋')); cpq.appendChild(document.createTextNode('질문 링크 복사'));
+      cpq.onclick = function () {
+        var cur = Store.getSite(x.siteId), txt = cur ? Share.askQuestion(cur, state.settings) : (x.copy || '');
+        if (!txt) { toast('이제 물을 게 없어요 — 다 받았어요'); return; }
+        copyText(txt, '복사했어요 — 업체 카톡·문자에 붙여 넣으세요');
+      };
+      btns.appendChild(cpq);
+      var dn = el2('button', 'ap-ib b-done'); dn.type = 'button';
+      dn.appendChild(el2('i', '', '✔')); dn.appendChild(document.createTextNode('보냈어요'));
+      dn.onclick = function () { decideApprove(d, x, 'done'); };
+      btns.appendChild(dn);
+    } else
     // ✋ 직접 구인 — 다 채우면 저절로 CLEAR. 못 구하겠으면 문자 모집으로 돌린다
     if (x.kind === 'selfhire') {
       var open = el2('button', 'ap-ib b-go'); open.type = 'button';
