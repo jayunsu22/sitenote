@@ -1947,3 +1947,19 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .lp-track { height: 12px; background: #e2e8f0; border-radius: 99px; overflow: hidden; } .lp-track i { display: block; height: 100%; background: #16a34a; border-radius: 99px; } .lp-track i.bad { background: #dc2626; }
 .lp-msg { margin-top: 8px; font-size: 13px; font-weight: 700; border-radius: 10px; padding: 8px 10px; }
 .lp-msg.ok { background: #dcfce7; color: #166534; } .lp-msg.bad { background: #fee2e2; color: #991b1b; }
+
+/* 🧑‍🔧 기사별 일감 (11/13 A안) */
+.wl-sec { margin-top: 12px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+.wl-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin-bottom: 8px; } .wl-h b { font-size: 15px; } .wl-h span { font-size: 12px; color: var(--muted); }
+.wl-card { background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #16a34a; border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+.wl-card.over { border-left-color: #dc2626; } .wl-card.low { border-left-color: #d97706; } .wl-card.nopay { border-left-color: #94a3b8; }
+.wl-top { display: flex; align-items: center; gap: 6px; } .wl-top b { font-size: 15px; } .wl-pay { font-size: 12.5px; color: var(--muted); }
+.wl-st { margin-left: auto; font-size: 12px; font-weight: 800; border-radius: 99px; padding: 2px 8px; background: #dcfce7; color: #166534; }
+.wl-st.over { background: #fee2e2; color: #991b1b; } .wl-st.low { background: #fef3c7; color: #92400e; } .wl-st.nopay { background: #f1f5f9; color: #475569; }
+.wl-g { position: relative; height: 10px; background: #f1f5f9; border-radius: 99px; margin: 8px 0 4px; }
+.wl-g i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: #16a34a; }
+.wl-card.over .wl-g i { background: #dc2626; } .wl-card.low .wl-g i { background: #d97706; } .wl-card.nopay .wl-g i { background: #94a3b8; }
+.wl-mk { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #0f172a; }
+.wl-num { font-size: 12.5px; color: #334155; }
+.wl-items summary { font-size: 12.5px; color: #1d4ed8; margin-top: 6px; cursor: pointer; }
+.wl-it { display: flex; justify-content: space-between; font-size: 12.5px; padding: 2px 0; } .wl-it em { font-style: normal; color: var(--muted); }

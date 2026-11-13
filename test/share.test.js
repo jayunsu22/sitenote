@@ -1544,5 +1544,16 @@ test('quoteLaborOf·laborPlan: 견적 인건비 → 페이 예산(÷(1+이득비
   assert.strictEqual(Share.laborPlan(Object.assign({}, site, { quoteCode: 'ZZ99' }), settings), null, '다른 견적서로 바꾸면 다시 받을 때까지 없음');
 });
 
+test('workerLoads: 밑작업 ⅓ · 시공 ⅔, 기준 = 페이 × 날수 × (1+이득비율) (11/13)', () => {
+  const site = { days: [{ date: '2026-11-19', staff: ['가', '나'] }, { date: '2026-11-20', staff: ['나'] }] };
+  const settings = { people: { 가: { pay: '15' }, 나: { pay: '18' } } };
+  const r = Share.workerLoads(site, settings, { '방1문+틀': 90000, '거실아트월': 180000, '현장정리': 30000 },
+    [{ fields: { 시공품목: '방1문+틀', 밑작업기사: '가', 시공기사: '나' } }, { fields: { 시공품목: '거실아트월', 밑작업기사: '가', 시공기사: '가' } },
+     { fields: { 시공품목: '현장정리', 시공기사: '나' } }], ['현장정리']);
+  const by = Object.fromEntries(r.map((w) => [w.name, w]));
+  assert.deepStrictEqual([by.가.value, by.가.goal, by.가.state], [21, 22.5, 'ok'], '가: 3 + 6 + 12 = 21만 / 15 × 1.5');
+  assert.deepStrictEqual([by.나.value, by.나.days, by.나.goal, by.나.state], [9, 2, 54, 'low'], '나: 6 + 3 = 9만, 이틀이라 18 × 2 × 1.5');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

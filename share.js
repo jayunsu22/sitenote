@@ -2179,6 +2179,36 @@
     return { labor: Math.round(labor * 10) / 10, rate: rate, budget: budget, profit: Math.round((labor - budget) * 10) / 10,
       paid: paid, left: Math.round((budget - paid) * 10) / 10, unknown: Number(ql.unknown) || 0, code: ql.code || '' };
   }
+  /* 🧑‍🔧 기사별 일감 (2026-11-13 사장님 A·B안): 기사 한 사람이 이 현장에서 맡은 일의 값 vs 페이 × (1 + 이득 비율).
+     itemValues = { 현장업무 품목: 인건비(원) } (QuoteLink.품목값), tasks = 현장업무 [{ fields: { 시공품목, 밑작업기사, 시공기사 } }],
+     onceItems = 한 번에 하는 품목(현장정리 — 담당은 시공기사 한 명, 값을 다 그 사람에게).
+     페이는 이 현장에 나오는 날수만큼 (설정 › 팀원 일당). 돌려주는 값 [{ name, pay 만, days, goal 만, value 만, items: [{ 품목, 단계, 만 }], state: over|ok|low|nopay }] */
+  var BASE_SHARE = 1 / 3;
+  function workerLoads(site, settings, itemValues, tasks, onceItems) {
+    var rate = profitRateOf(site, settings), people = (settings && settings.people) || {}, by = {};
+    var once = {}; (onceItems || []).forEach(function (n) { once[n] = true; });
+    var add = function (who, item, stage, won) {
+      who = str(who); if (!who || !(won > 0)) return;
+      var w = by[who] = by[who] || { name: who, value: 0, items: [] };
+      w.value += won; w.items.push({ 품목: item, 단계: stage, 만: Math.round(won / 1000) / 10 });
+    };
+    (tasks || []).forEach(function (t) {
+      var f = (t && t.fields) || {}, item = str(f.시공품목), won = Number((itemValues || {})[item]) || 0;
+      if (!item || !won) return;
+      if (once[item]) { add(f.시공기사, item, '시공', won); return; }
+      add(f.밑작업기사, item, '밑작업', won * BASE_SHARE);
+      add(f.시공기사, item, '시공', won * (1 - BASE_SHARE));
+    });
+    var days = {};
+    daysOf(site).forEach(function (d) { staffOf(d).forEach(function (n) { days[n] = (days[n] || 0) + 1; }); });
+    Object.keys(days).forEach(function (n) { if (!by[n]) by[n] = { name: n, value: 0, items: [] }; });
+    return Object.keys(by).map(function (n) {
+      var w = by[n], pay = parseInt(personOf(people, n).pay, 10) || 0, dn = days[n] || 1;
+      var goal = Math.round(pay * dn * (1 + rate / 100) * 10) / 10, value = Math.round(w.value / 1000) / 10;
+      var st = !pay ? 'nopay' : value > goal * 1.05 ? 'over' : value < goal * 0.85 ? 'low' : 'ok';
+      return { name: n, pay: pay, days: dn, goal: goal, value: value, items: w.items, state: st };
+    }).sort(function (a, b) { return b.value - a.value; });
+  }
   // 넣은 사람 일당 합계 (같은 사람이 이틀 나오면 두 번)
   function laborPaySum(site, people) {
     return daysOf(site).reduce(function (a, d) {
@@ -2777,7 +2807,7 @@
     selfHireLeft: selfHireLeft,
     dayNeedSum: dayNeedSum,
     LABOR_BUDGETS: LABOR_BUDGETS,
-    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE,
+    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE, workerLoads: workerLoads,
     laborPaySum: laborPaySum,
     teamSorted: teamSorted,
     recruitPlan: recruitPlan,

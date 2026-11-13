@@ -9,9 +9,31 @@
 
   var ADMIN_APP_URL = 'https://jayunsu22.github.io/autoblog/admin.html';
   // 견적코드를 같이 보내면 관리자 앱이 그 현장의 '방문견적 보기' 버튼에 이어 둔다 (2026-10-18)
-  function adminOpenUrl(adminId, quoteCode) {
+  // plan (2026-11-13) = 기사별 일감·배정 경고에 쓸 { r, p, v, o } — 관리자 앱이 현장마다 기억한다. base64url(UTF-8 JSON)
+  function adminOpenUrl(adminId, quoteCode, plan) {
     var q = String(quoteCode == null ? '' : quoteCode).trim();
-    return ADMIN_APP_URL + '#site=' + adminId + (/^[A-Za-z0-9_-]+$/.test(q) ? '&quote=' + q : '');
+    var u = ADMIN_APP_URL + '#site=' + adminId + (/^[A-Za-z0-9_-]+$/.test(q) ? '&quote=' + q : '');
+    if (plan && /^[A-Za-z0-9_-]+$/.test(q)) {
+      try {
+        var b = (typeof btoa === 'function' ? btoa : function (x) { return Buffer.from(x, 'binary').toString('base64'); })(unescape(encodeURIComponent(JSON.stringify(plan))));
+        u += '&plan=' + b.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      } catch (e) { /* 계획 없이 연다 */ }
+    }
+    return u;
+  }
+  // 관리자 앱에 넘길 일감 계획 — 견적 품목 값(site.laborItems)이 있어야. 페이는 설정 › 팀원 일당, 날수는 이 현장에 나오는 날
+  function laborPlanFor(site, settings) {
+    var li = site && site.laborItems;
+    if (!li || !li.값 || li.code !== site.quoteCode) return null;
+    var p = {}, people = (settings && settings.people) || {};
+    ((site.days) || []).forEach(function (d) {
+      ((d && d.staff) || []).forEach(function (n) {
+        n = str(n); if (!n) return;
+        var pay = parseInt(Share.personOf(people, n).pay, 10) || 0;
+        p[n] = [pay, ((p[n] || [0, 0])[1]) + 1];
+      });
+    });
+    return { r: Share.profitRateOf(site, settings), p: p, v: li.값, o: li.once || [] };
   }
 
   // 비슷함 기준: 숫자 없는 두 글자 조각이 2개 이상 겹침 (견적 앱 QuoteToSite.현장정렬 과 같은 규칙)
@@ -243,7 +265,7 @@
   }
 
   var AdminLink = {
-    ADMIN_APP_URL: ADMIN_APP_URL, adminOpenUrl: adminOpenUrl,
+    ADMIN_APP_URL: ADMIN_APP_URL, adminOpenUrl: adminOpenUrl, laborPlanFor: laborPlanFor,
     adminTitle: adminTitle, firstDate: firstDate, rosterOf: rosterOf,
     needsSync: needsSync, planRoster: planRoster, rankProjects: rankProjects,
     parseAdminLinkHash: parseAdminLinkHash, createBody: createBody,

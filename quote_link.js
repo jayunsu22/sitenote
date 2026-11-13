@@ -191,6 +191,28 @@
     return { 짝: 짝, 짝없음: 짝없음 };
   }
 
+  /* 💰 품목 값 (2026-11-13 사장님: 기사가 오늘 한 일의 값 = 품목 인건비, 밑작업 ⅓ · 시공 ⅔).
+     견적서 줄의 인건비(인건비표시금액 × 깎은 비율)를 현장업무 품목으로 옮긴다 — 품목맞추기와 같은 짝(후보).
+     한 줄이 여러 품목(전체공통 몰딩 → 방마다)이면 똑같이 나누고, 여러 줄이 한 품목이면 더한다. 원 단위.
+     돌려주는 값: { 값: { 현장품목: 원 }, 짝없음: [{ 구역, 견적품목, 원 }] } */
+  function 품목값(라인들, 현장품목명들, factor) {
+    var 있음 = {}, 값 = {}, 짝없음 = [], f = factor > 0 ? factor : 1, 방수 = 방수추정(라인들);
+    (현장품목명들 || []).forEach(function (n) { if (n) 있음[n] = true; });
+    (라인들 || []).forEach(function (l) {
+      if (!l) return;
+      var w = l.인건비표시금액 != null ? Number(l.인건비표시금액) : l.인건비금액 != null ? Number(l.인건비금액) : NaN;
+      if (!(w > 0)) return;
+      w = w * f;
+      var h = 후보(str(l.구역), str(l.품목명), 방수), 찾은 = [];
+      if (h.묶음) 찾은 = h.묶음.filter(function (n) { return 있음[n]; });
+      else for (var i = 0; i < h.후보.length; i++) { if (있음[h.후보[i]]) { 찾은 = [h.후보[i]]; break; } }
+      if (!찾은.length) { 짝없음.push({ 구역: str(l.구역), 견적품목: str(l.품목명), 원: Math.round(w) }); return; }
+      찾은.forEach(function (n) { 값[n] = (값[n] || 0) + w / 찾은.length; });
+    });
+    Object.keys(값).forEach(function (k) { 값[k] = Math.round(값[k]); });
+    return { 값: 값, 짝없음: 짝없음 };
+  }
+
   // ---------- 통신 (fetchFn 주입) ----------
   var TIMEOUT_MS = 15000;
   function request(deps, url, opt) {
@@ -266,7 +288,7 @@
     코드뽑기: 코드뽑기, 보기주소: 보기주소, 짧은주소: 짧은주소, is정산: is정산, 정산견적변환: 정산견적변환,
     구역별: 구역별, 요약: 요약,
     후보: 후보, 견적품목들: 견적품목들, 방수추정: 방수추정, 짝짓기: 짝짓기,
-    견적받기: 견적받기, 현장상세받기: 현장상세받기, 품목맞추기: 품목맞추기
+    견적받기: 견적받기, 현장상세받기: 현장상세받기, 품목맞추기: 품목맞추기, 품목값: 품목값
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = QuoteLink;

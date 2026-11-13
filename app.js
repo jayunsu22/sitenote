@@ -2367,7 +2367,7 @@
     $('modalBody').querySelectorAll('button[data-act]').forEach(function (b) {
       b.onclick = function () {
         var act = b.dataset.act;
-        if (act === 'open') { window.open(AdminLink.adminOpenUrl(s.adminId, s.quoteCode), '_blank'); return; }   // 견적코드도 같이 넘긴다
+        if (act === 'open') { window.open(AdminLink.adminOpenUrl(s.adminId, s.quoteCode, AdminLink.laborPlanFor(s, state.settings)), '_blank'); return; }   // 견적코드도 같이 넘긴다
         if (act === 'sync') { closeModal(); runAdminSync(siteId).then(function (r) { toast(r && r.ok ? '맞췄습니다' : '맞추지 못했습니다'); }); return; }
         if (act === 'unlink') {
           modalConfirm('연결 해제', '일정 앱과 현장업무의 연결만 끊습니다. 관리자 앱의 현장은 지워지지 않습니다.', '연결 해제', true).then(function (ok) {
@@ -2707,11 +2707,70 @@
     box.appendChild(g);
     return box;
   }
+  /* 🧑‍🔧 기사별 일감 (2026-11-13 A안) — 현장업무(관리자 앱)에 배정한 밑작업·시공 담당 × 품목 값(견적 인건비) vs 페이 × 날수 × (1+이득 비율).
+     현장업무 상세는 3분마다 다시 받는다. 품목 값은 site.laborItems 에 둬서 관리자 앱을 열 때 같이 넘긴다 (B안 배정 경고) */
+  var laborDetail = {};   // adminId → { at, tasks, once, busy }
+  function refreshLaborItems(siteId, rerender) {
+    var s = Store.getSite(siteId);
+    if (!s || !s.adminId || !s.quoteCode) return;
+    var cur = laborDetail[s.adminId] || {};
+    if (cur.busy || Date.now() - (cur.at || 0) < 180000) return;
+    laborDetail[s.adminId] = Object.assign({}, cur, { busy: true });
+    var q0 = 견적캐시[s.quoteCode];
+    Promise.all([QuoteLink.현장상세받기(s.adminId, quoteDeps), q0 ? Promise.resolve(q0) : QuoteLink.견적받기(s.quoteCode, quoteDeps)]).then(function (r) {
+      var d = r[0] || {}, q = r[1];
+      견적캐시[s.quoteCode] = q;
+      var masters = d.masterItems || [];
+      var once = masters.filter(function (m) { return m && m.작업방식 === '한번에'; }).map(function (m) { return m.품목명; });
+      laborDetail[s.adminId] = { at: Date.now(), tasks: d.tasks || [], once: once };
+      var pv = QuoteLink.품목값(q.라인들, masters.map(function (m) { return m && m.품목명; }), Share.quoteLaborOf(q).factor);
+      var li = { code: s.quoteCode, adminId: s.adminId, 값: pv.값, 짝없음: pv.짝없음, once: once };
+      var was = Store.getSite(siteId).laborItems;
+      if (JSON.stringify(was) !== JSON.stringify(li)) Store.updateSite(siteId, { laborItems: li });
+      if (rerender) rerender();
+    }).catch(function () { laborDetail[s.adminId] = { at: Date.now(), err: true }; });
+  }
+  function workerLoadSection(s, plan) {
+    var li = s.laborItems, det = laborDetail[s.adminId] || {};
+    var box = el2('div', 'wl-sec');
+    var h = el2('div', 'wl-h'); h.appendChild(el2('b', '', '🧑‍🔧 기사별 일감'));
+    h.appendChild(el2('span', '', '기준 = 페이 × 날수 × ' + (1 + plan.rate / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' · 밑작업 ⅓ · 시공 ⅔'));
+    box.appendChild(h);
+    if (!s.adminId) { box.appendChild(el2('div', 'hint', '현장업무를 연결하면 기사별로 맡은 일의 값을 보여 드려요')); return box; }
+    if (!li || li.code !== s.quoteCode || !det.tasks) { box.appendChild(el2('div', 'hint', det.err ? '현장업무를 못 읽었어요 — 잠시 뒤 다시 열어 주세요' : '현장업무 배정을 읽는 중…')); return box; }
+    var loads = Share.workerLoads(s, state.settings, li.값, det.tasks, li.once);
+    if (!loads.length) { box.appendChild(el2('div', 'hint', '아직 배정한 기사가 없어요 (관리자 앱 › 품목 배정)')); return box; }
+    var LAB = { over: '⚠ 많음', ok: '적당', low: '여유 있음', nopay: '일당 없음' };
+    loads.forEach(function (w) {
+      var c = el2('div', 'wl-card ' + w.state);
+      var top = el2('div', 'wl-top');
+      top.appendChild(el2('b', '', w.name));
+      top.appendChild(el2('span', 'wl-pay', w.pay ? '페이 ' + w.pay + '만' + (w.days > 1 ? ' × ' + w.days + '일' : '') : '일당 미정'));
+      top.appendChild(el2('span', 'wl-st ' + w.state, LAB[w.state]));
+      c.appendChild(top);
+      var max = Math.max(w.goal * 1.35, w.value * 1.05, 1);
+      var g = el2('div', 'wl-g'), fill = el2('i', ''); fill.style.width = (w.value / max * 100) + '%';
+      var mk = el2('span', 'wl-mk'); mk.style.left = (w.goal / max * 100) + '%';
+      g.appendChild(fill); if (w.pay) g.appendChild(mk); c.appendChild(g);
+      var d = w.value - w.goal;
+      c.appendChild(el2('div', 'wl-num', '맡은 일 ' + w.value + '만' + (w.pay ? ' / 기준 ' + w.goal + '만 · ' + (w.state === 'over' ? Math.round(d * 10) / 10 + '만 넘음' : w.state === 'low' ? Math.round(-d * 10) / 10 + '만 더 줄 수 있음' : '알맞음') : ' (설정 › 팀원에서 일당을 넣어 주세요)')));
+      if (w.items.length) {
+        var det2 = document.createElement('details'); det2.className = 'wl-items';
+        det2.appendChild(el2('summary', '', '맡은 품목 ' + w.items.length + '개'));
+        w.items.forEach(function (x) { var r = el2('div', 'wl-it'); r.appendChild(el2('span', '', x.품목 + ' ' + x.단계)); r.appendChild(el2('em', '', x.만 + '만')); det2.appendChild(r); });
+        c.appendChild(det2);
+      }
+      box.appendChild(c);
+    });
+    if ((li.짝없음 || []).length) box.appendChild(el2('div', 'hint', '현장업무에 짝이 없는 견적 품목은 값에서 빠졌어요: ' + li.짝없음.map(function (x) { return x.구역 + ' ' + x.견적품목; }).join(', ')));
+    return box;
+  }
   function laborBudgetRow(siteId, rerender) {
     var s = Store.getSite(siteId);
     refreshQuoteLabor(siteId, rerender);
+    refreshLaborItems(siteId, rerender);
     var plan = Share.laborPlan(s, state.settings);
-    if (plan) return laborPlanCard(siteId, rerender, plan);
+    if (plan) { var card = laborPlanCard(siteId, rerender, plan); card.appendChild(workerLoadSection(s, plan)); return card; }
     var cur = Share.laborBudgetOf(s);
     var row = el2('div', 'rc-labor');
     var top = el2('div', 'rc-labor-row');
