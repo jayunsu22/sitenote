@@ -1555,5 +1555,14 @@ test('workerLoads: 밑작업 ⅓ · 시공 ⅔, 기준 = 페이 × 날수 × (1+
   assert.deepStrictEqual([by.나.value, by.나.days, by.나.goal, by.나.state], [9, 2, 54, 'low'], '나: 6 + 3 = 9만, 이틀이라 18 × 2 × 1.5');
 });
 
+test('사장님(김정헌)이 직접 일하면 페이로 안 셈 — 사장님 몫은 이득 (11/13 A안)', () => {
+  const site = { quoteCode: 'AB12', quoteLabor: { code: 'AB12', labor: 1500000 }, days: [{ date: '2026-11-19', staff: ['김정헌', '가'] }] };
+  const settings = { people: { 김정헌: { pay: '25' }, 가: { pay: '15' } } };
+  assert.strictEqual(Share.laborPlan(site, settings).paid, 15);
+  const r = Share.workerLoads(site, settings, { 'x': 90000 }, [{ fields: { 시공품목: 'x', 밑작업기사: '가', 시공기사: '김정헌' } }], []);
+  const o = r.find((w) => w.name === '김정헌');
+  assert.deepStrictEqual([o.state, o.pay, o.value], ['owner', 0, 6]);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

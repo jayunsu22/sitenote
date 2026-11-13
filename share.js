@@ -2203,16 +2203,18 @@
     daysOf(site).forEach(function (d) { staffOf(d).forEach(function (n) { days[n] = (days[n] || 0) + 1; }); });
     Object.keys(days).forEach(function (n) { if (!by[n]) by[n] = { name: n, value: 0, items: [] }; });
     return Object.keys(by).map(function (n) {
-      var w = by[n], pay = parseInt(personOf(people, n).pay, 10) || 0, dn = days[n] || 1;
+      var owner = isOwnerName(n), w = by[n], pay = owner ? 0 : parseInt(personOf(people, n).pay, 10) || 0, dn = days[n] || 1;
       var goal = Math.round(pay * dn * (1 + rate / 100) * 10) / 10, value = Math.round(w.value / 1000) / 10;
-      var st = !pay ? 'nopay' : value > goal * 1.05 ? 'over' : value < goal * 0.85 ? 'low' : 'ok';
+      var st = owner ? 'owner' : !pay ? 'nopay' : value > goal * 1.05 ? 'over' : value < goal * 0.85 ? 'low' : 'ok';
       return { name: n, pay: pay, days: dn, goal: goal, value: value, items: w.items, state: st };
     }).sort(function (a, b) { return b.value - a.value; });
   }
   // 넣은 사람 일당 합계 (같은 사람이 이틀 나오면 두 번)
+  // 사장님(김정헌)이 직접 일한 날은 페이로 세지 않는다 (11/13 A안) — 사장님 몫은 이득이다
+  function isOwnerName(n) { return OWNER_NAMES.indexOf(str(n)) !== -1; }
   function laborPaySum(site, people) {
     return daysOf(site).reduce(function (a, d) {
-      return staffOf(d).reduce(function (b, n) { return b + (parseInt(personOf(people || {}, n).pay, 10) || 0); }, a);
+      return staffOf(d).reduce(function (b, n) { return isOwnerName(n) ? b : b + (parseInt(personOf(people || {}, n).pay, 10) || 0); }, a);
     }, 0);
   }
   // 문자로 구해야 할 수 — 직접 구인 날은 뺀다. 날마다 정하지 않은 예전 현장은 전체 부족 수
@@ -2807,7 +2809,7 @@
     selfHireLeft: selfHireLeft,
     dayNeedSum: dayNeedSum,
     LABOR_BUDGETS: LABOR_BUDGETS,
-    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE, workerLoads: workerLoads,
+    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE, workerLoads: workerLoads, isOwnerName: isOwnerName,
     laborPaySum: laborPaySum,
     teamSorted: teamSorted,
     recruitPlan: recruitPlan,
