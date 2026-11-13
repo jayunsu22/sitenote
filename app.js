@@ -2801,9 +2801,13 @@
   function laborBudgetRow(siteId, rerender) {
     var s = Store.getSite(siteId);
     refreshQuoteLabor(siteId, rerender);
-    refreshLaborItems(siteId, rerender);
     var plan = Share.laborPlan(s, state.settings);
-    if (plan) { var card = laborPlanCard(siteId, rerender, plan); card.appendChild(workerLoadSection(s, plan)); return card; }
+    // 기사별 일감은 관리자 앱 품목 배정 화면에서 (11/13 사장님: 배정하면서 보고 조정) — 같은 폰이면 이 앱 데이터를 읽어 계산한다
+    if (plan) {
+      var card = laborPlanCard(siteId, rerender, plan);
+      if (s.adminId) card.appendChild(el2('div', 'hint wl-move', '🧑‍🔧 기사별 일감은 관리자 앱 › 품목 배정에서 배정하면서 볼 수 있어요'));
+      return card;
+    }
     var cur = Share.laborBudgetOf(s);
     var row = el2('div', 'rc-labor');
     var top = el2('div', 'rc-labor-row');
