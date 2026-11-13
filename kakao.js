@@ -126,12 +126,14 @@
 
   // 우편함 한 줄 → 현장 patch (2026-10-31 카톡 '비서' 4단계). 노트북이 업체 카톡 방에 빈칸(공동현관·세대 비번·화장실·필름)을 묻고
   // 답에서 뽑은 값을 n8n 우편함(site-fill)에 두면 앱이 가져와 바로 넣는다 (사장님: 확인 버튼 없이). by = 출처 '방 날짜'
-  var FILL_FIELDS = ['pwLobby', 'pwUnit', 'toilet'];
+  // 11/13 질문폼: 드롭다운 칸 전부 (입구차단기·출입구·차량등록·주차·화물EV 도). 선택형 칸은 { v, memo } 로 넣는다
+  var FILL_FIELDS = ['pwLobby', 'pwUnit', 'toilet', 'barrier', 'gate', 'carReg', 'parking', 'cargoEv'];
+  var FILL_SELECT = { carReg: 1, cargoEv: 1 };
   function fillPatch(site, f, by) {
     if (!site || !f) return null;
     var src = Object.assign({}, site.fieldSrc || {}), p = {};
     if (f.kind === 'field' && FILL_FIELDS.indexOf(f.field) >= 0 && String(f.value || '').trim()) {
-      p[f.field] = String(f.value).trim();
+      p[f.field] = FILL_SELECT[f.field] ? { v: String(f.value).trim(), memo: (site[f.field] && site[f.field].memo) || '' } : String(f.value).trim();
       src[f.field] = by;
     } else if (f.kind === 'films' && Array.isArray(f.films) && f.films.some(function (x) { return x && x.code; })) {
       p.films = mergeFilms(site.films, f.films.filter(function (x) { return x && x.code; }));

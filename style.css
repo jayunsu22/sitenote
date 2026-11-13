@@ -1982,3 +1982,10 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .ask-opt.add { color: var(--primary); border-style: dashed; border-color: #93b4f5; font-weight: 700; }
 .ask-opts .chk-tog { height: 32px; border-radius: 999px; }
 .chk-hint { margin: 2px 0 8px; font-size: 13px; color: var(--muted); }
+
+/* 칸마다 드롭다운 (2026-11-13) — 안 묻기(흐림) · ❓ 업체에 묻기(주황) · 값(보통) */
+.ask-sel { width: 100%; min-height: 44px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; color: var(--text); font-size: 15px; }
+.ask-sel.off { background: #f7f8fa; color: #5f6672; }
+.ask-sel.ask { background: #fff4e0; border-color: #f0b35c; color: #b45309; font-weight: 700; }
+.ask-sub { margin: 14px 0 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.chk-frow .flabel { color: #a15c07; font-weight: 700; }

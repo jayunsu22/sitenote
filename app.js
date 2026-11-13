@@ -6222,7 +6222,25 @@
 
     var save = function (patch) { s = Store.updateSite(s.id, patch) || s; refreshRowState(row, s, f.key); };
 
-    if (f.type === 'date') {
+    if (Share.ASK_KEYS.indexOf(f.key) !== -1) {
+      // 칸마다 드롭다운 (2026-11-13 사장님) — 기본 '안 묻기', '❓ 업체에 묻기', 그 아래 설정에서 정한 목록, 직접 적기
+      var paintAsk = function () {
+        ctl.innerHTML = '';
+        var cur = Store.getSite(s.id) || s;
+        ctl.appendChild(askSelect(Share.fieldOpts(state.settings, f.key), Share.fieldValue(cur, f.key), Share.askOn(cur, f.key), f.label, function (kind, val) {
+          var p = {}, now = Store.getSite(s.id) || s;
+          var memo = f.type === 'select' && now[f.key] ? now[f.key].memo || '' : '';
+          if (kind === 'val') p[f.key] = f.type === 'select' ? { v: val, memo: memo } : val;
+          else p[f.key] = f.type === 'select' ? { v: '미확인', memo: memo } : '';
+          save(p);
+          setAskOn(s.id, f.key, kind === 'ask');
+          s = Store.getSite(s.id) || s;
+          paintAsk();
+          refreshRowState(row, s, f.key);
+        }));
+      };
+      paintAsk();
+    } else if (f.type === 'date') {
       // 시공날짜: 달력 시트에서 여러 날을 고른다 (탭 = 넣기/빼기, 초기화). 칸에는 요약만 보여준다
       var db = document.createElement('button'); db.type = 'button'; db.className = 'date-btn';
       var paint = function () {
@@ -6665,6 +6683,9 @@
 
   $('btnCopyQuestion').onclick = function () {
     var s = Store.getSite(currentSiteId); if (!s) return;
+    // 📋 '❓ 업체에 묻기' 로 둔 칸이 있으면 그 칸만 담은 질문폼 링크 글 (2026-11-13)
+    var link = Share.askLink(s) ? Share.askQuestion(s, state.settings) : '';
+    if (link) { copyText(link, '질문폼 링크를 복사했어요 — 업체 카톡·문자에 붙여 넣으세요'); return; }
     var text = Share.buildQuestion(s, checkedKeys(), state.settings.questions);
     if (!text) { toast('질문할 항목이 없습니다 (비어있는 항목이 체크돼야 함)'); return; }
     copyText(text, '질문 복사됨 — 업자에게 붙여넣기 하세요');
@@ -7503,11 +7524,22 @@
       // 📋 질문폼 보기 (11/13) — 업체는 이 중에서 고르기만. 보기가 없으면 직접 쓰기 칸만
       box.appendChild(askOptsRow(c.opts, c.free, function (opts, free) { var next = checksNow(); next[i].opts = opts; next[i].free = free; saveChecks(next); }));
     });
-    // 화장실 위치 보기 — 빈 화장실 칸을 물을 때 (settings.toiletOpts)
-    var tl = el2('div', 'slist-row rvq-row chk-set');
-    tl.appendChild(el2('span', 'slist-name rvq-name', '🚻 화장실 위치 (빈칸일 때)'));
-    box.insertBefore(askOptsRow(Share.toiletOpts(state.settings), true, function (opts) { Store.setSettings({ toiletOpts: opts }); renderCheckList(); }, true), box.firstChild);
-    box.insertBefore(tl, box.firstChild);
+    // 현장 칸(공동현관·세대 비번·화장실 …)의 드롭다운 목록 (2026-11-13) — 맨 위에. 선택형 칸(차량등록·화물EV)은 칸의 보기 그대로라 뺀다
+    var top = el2('div', '');
+    top.appendChild(el2('div', 'ask-sub', '현장 칸 드롭다운 목록'));
+    Share.ASK_KEYS.forEach(function (k) {
+      var f = Share.FIELDS.filter(function (x) { return x.key === k; })[0];
+      if (!f || f.type === 'select') return;
+      var tl = el2('div', 'slist-row rvq-row chk-set');
+      tl.appendChild(el2('span', 'slist-name rvq-name', f.label));
+      top.appendChild(tl);
+      top.appendChild(askOptsRow(Share.fieldOpts(state.settings, k), true, function (opts) {
+        var all = Object.assign({}, state.settings.fieldOpts || {}); all[k] = opts;
+        Store.setSettings({ fieldOpts: all }); renderCheckList();
+      }, true));
+    });
+    top.appendChild(el2('div', 'ask-sub', '추가 질문 (출입 칸 아래 한 줄씩)'));
+    box.insertBefore(top, box.firstChild);
   }
   // 보기 줄: [보기 ✕] … [＋ 보기] · 직접 쓰기도 받기 켬/끔
   function askOptsRow(opts, free, onSave, noFree) {
@@ -7563,103 +7595,55 @@
     }
     Store.updateSite(siteId, patch);
   }
-  var ASK_FIELD_LABEL = { pwLobby: '공동현관 비번', pwUnit: '세대 비번', toilet: '화장실 위치', films: '필름 번호 (위치별)' };
+  /* 칸마다 드롭다운 (2026-11-13 사장님: 따로 있던 '업체 확인' 칸이 헷갈린다 → 현장 칸에 바로).
+     맨 위 '안 묻기'(기본) · '❓ 업체에 묻기' · 설정에서 정한 목록 · 지금 값 · '직접 적기…'.
+     onPick(kind, 값) — kind: 'no' 안 묻기 · 'ask' 업체에 묻기 · 'val' 값 */
+  function askSelect(opts, cur, asked, label, onPick) {
+    var sel = document.createElement('select');
+    sel.className = 'ask-sel ' + (cur ? 'val' : asked ? 'ask' : 'off');
+    sel.setAttribute('aria-label', label);
+    var add = function (v, t) { var o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+    add('__no', '안 묻기');
+    add('__ask', '❓ 업체에 묻기');
+    var list = (opts || []).slice();
+    if (cur && list.indexOf(cur) === -1) list.unshift(cur);
+    list.forEach(function (o) { add('v:' + o, o); });
+    add('__type', '직접 적기…');
+    sel.value = cur ? 'v:' + cur : asked ? '__ask' : '__no';
+    sel.onchange = function () {
+      var v = sel.value;
+      if (v === '__no') onPick('no');
+      else if (v === '__ask') onPick('ask');
+      else if (v === '__type') {
+        modalPrompt(label, cur || '').then(function (t) {
+          t = String(t == null ? '' : t).trim();
+          if (t) onPick('val', t); else sel.value = cur ? 'v:' + cur : asked ? '__ask' : '__no';
+        });
+      } else onPick('val', v.slice(2));
+    };
+    return sel;
+  }
+  // 설정의 질문(문틀·겹치는 공정 …)도 출입 칸 아래에 같은 모양 한 줄씩 — 답은 site.checks[id]
   function renderCheckSection(box, siteId) {
     var s = Store.getSite(siteId), list = checksNow().filter(function (c) { return !c.off || Share.checkAnswer(s, c.id); });
     box.className = 'sec chk-sec';
     box.innerHTML = '';
-    // 빈 출입 칸(비번·화장실·필름)도 업체에 물을 수 있는 질문 — 기본은 안 물음
-    var fields = ['pwLobby', 'pwUnit', 'toilet', 'films'].filter(function (k) {
-      return k === 'films' ? !(Array.isArray(s.films) && s.films.some(function (x) { return x && String(x.code || '').trim(); })) : !String(s[k] || '').trim();
-    });
-    if (!list.length && !fields.length) return;
-    var asked = list.filter(function (c) { return !Share.checkSkipped(s, c.id); });
-    var got = asked.filter(function (c) { return Share.checkAnswer(s, c.id); }).length;
-    var head = el2('div', 'chk-head');
-    head.appendChild(el2('h3', '', '업체 확인'));
-    head.appendChild(el2('span', 'chk-count', got + ' / ' + asked.length + ' 받음'));
-    box.appendChild(head);
-    var onCount = fields.filter(function (k) { return Share.askOn(s, k); }).length + asked.length;
-    box.appendChild(el2('p', 'chk-hint', onCount ? '❓ 표시한 ' + onCount + '개만 업체에 묻습니다 (질문폼 링크로)' : '모두 "이 현장은 안 물음" — 물어볼 것만 [묻기] 를 눌러 주세요'));
-    if (onCount && Share.askLink(s)) {
-      var cp = el2('button', 'chk-btn plain', '📋 이 현장 질문폼 링크 복사'); cp.type = 'button';
-      cp.onclick = function () { copyText(Share.askQuestion(Store.getSite(siteId), state.settings) || Share.askLink(s), '질문 글과 링크를 복사했어요 — 업체 카톡에 붙여 넣으세요'); };
-      box.appendChild(cp);
-    }
-    fields.forEach(function (k) {
-      var on = Share.askOn(s, k);
-      var row = el2('div', 'chk-row' + (on ? '' : ' skip'));
-      var mark = el2('span', 'chk-mark');
-      row.appendChild(mark);
-      row.appendChild(el2('div', 'chk-q', ASK_FIELD_LABEL[k] + ' (빈칸)'));
-      var body = el2('div', 'chk-body'), line = el2('div', 'chk-skipline');
-      line.appendChild(el2('span', '', on ? '❓ 업체에 물음' : '이 현장은 안 물음'));
-      var t = el2('button', 'chk-again', on ? '이 현장은 안 물음' : '묻기'); t.type = 'button';
-      t.onclick = function () { setAskOn(siteId, k, !on); renderCheckSection(box, siteId); };
-      line.appendChild(t);
-      body.appendChild(line);
-      row.appendChild(body);
-      box.appendChild(row);
-    });
-    // 📞 통화로 확인 — 그만 묻기 (2026-11-13 사장님: 통화로 다 받았는데 노트북이 다음 날 또 물었다).
-    // 누르면 결재함 9시 질문도, 노트북의 다시 묻기도 이 현장은 멈춘다. 한 번 더 누르면 다시 묻기
-    var stop = el2('button', 'chk-stop' + (s.askStop ? ' on' : ''), s.askStop ? '📞 통화로 확인함 (' + Share.shortDate(s.askStop) + ') — 다시 묻게 하기' : '📞 통화로 확인했어요 — 업체에 그만 묻기');
-    stop.type = 'button';
-    stop.onclick = function () {
-      Store.updateSite(siteId, { askStop: s.askStop ? '' : Share.todayIso() });
-      toast(s.askStop ? '다시 물을 수 있게 했어요' : '이 현장은 업체에 더 묻지 않아요 (결재함·노트북 모두)');
-      renderCheckSection(box, siteId);
-    };
-    box.appendChild(stop);
-    var save = function (all) { Store.updateSite(siteId, { checks: all }); renderCheckSection(box, siteId); };
-    var checksOf = function () { return Object.assign({}, Store.getSite(siteId).checks || {}); };
     list.forEach(function (c) {
+      var row = el2('div', 'frow frow-wide chk-frow');   // 질문 글이 길어 드롭다운은 아래 줄로
+      var cb = el2('span', 'fcheck'); cb.style.visibility = 'hidden';
+      var label = el2('div', 'flabel', Share.checkText(c, s));
       var a = (s.checks || {})[c.id];
-      var v = Share.checkAnswer(s, c.id);
-      // '이 현장은 안 물음' — 11/13 부터 기본. [묻기] 를 누른 것만 업체에 묻는다 (답을 이미 받았으면 답을 보여 준다)
-      var skipped = Share.checkSkipped(s, c.id) && !v;
-      var row = el2('div', 'chk-row' + (skipped ? ' skip' : v ? ' done' : ''));
-      var mark = el2('span', 'chk-mark');
-      mark.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.500 4.500L19 7.500"/></svg>';
-      row.appendChild(mark);
-      row.appendChild(el2('div', 'chk-q', Share.checkText(c, s)));
-      var body = el2('div', 'chk-body');
-      row.appendChild(body);
+      if (a && a.src) label.appendChild(el2('small', 'fsrc', a.src));
+      var ctl = el2('div', 'fctl');
+      ctl.appendChild(askSelect(c.opts, Share.checkAnswer(s, c.id), Share.askOn(s, c.id), Share.checkText(c, s), function (kind, val) {
+        var all = Object.assign({}, Store.getSite(siteId).checks || {});
+        if (kind === 'val') all[c.id] = { v: val, src: '' }; else delete all[c.id];
+        Store.updateSite(siteId, { checks: all });
+        setAskOn(siteId, c.id, kind === 'ask');
+        renderCheckSection(box, siteId);
+      }));
+      row.appendChild(cb); row.appendChild(label); row.appendChild(ctl);
       box.appendChild(row);
-      if (skipped) {
-        var line = el2('div', 'chk-skipline');
-        line.appendChild(el2('span', '', '이 현장은 안 물음'));
-        var again = el2('button', 'chk-again', '묻기'); again.type = 'button';
-        again.onclick = function () { setAskOn(siteId, c.id, true); renderCheckSection(box, siteId); };
-        line.appendChild(again);
-        body.appendChild(line);
-        return;
-      }
-      var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'chk-ans'; inp.value = v; inp.autocomplete = 'off';
-      inp.placeholder = '업체 답을 적어 주세요';
-      inp.setAttribute('aria-label', '업체 답');
-      inp.addEventListener('change', function () {
-        var all = checksOf(), t = inp.value.trim();
-        if (t) all[c.id] = { v: t, src: '' }; else delete all[c.id];
-        save(all);
-      });
-      body.appendChild(inp);
-      if (v) {
-        if (a && a.src) body.appendChild(el2('div', 'chk-src', a.src));
-        return;
-      }
-      var acts = el2('div', 'chk-acts');
-      // 전화로 확답 받았을 때 (사장님 11/6) — 답이 있으면 업체에 다시 묻지 않는다
-      var yes = el2('button', 'chk-btn chk-yes', '확답 받음'); yes.type = 'button';
-      yes.onclick = function () {
-        var all = checksOf();
-        all[c.id] = { v: '확답 받음', src: '전화 ' + Share.shortDate(Share.todayIso()) };
-        save(all);
-      };
-      var skip = el2('button', 'chk-btn plain', '이 현장은 안 물음'); skip.type = 'button';
-      skip.onclick = function () { setAskOn(siteId, c.id, false); renderCheckSection(box, siteId); };
-      acts.appendChild(yes); acts.appendChild(skip);
-      body.appendChild(acts);
     });
   }
 

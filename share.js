@@ -1493,9 +1493,32 @@
     }).filter(function (c) { if (!c.id || !c.text || seen[c.id]) return false; seen[c.id] = true; return true; });
   }
   // 화장실 보기 — 설정 › 업체 확인 질문 맨 위 (settings.toiletOpts)
-  function toiletOpts(settings) {
-    var t = (settings || {}).toiletOpts;
-    return Array.isArray(t) ? cleanOpts(t) : DEFAULT_ASK_OPTS.toilet.slice();
+  function toiletOpts(settings) { return fieldOpts(settings, 'toilet'); }
+  /* 칸마다 드롭다운 (2026-11-13 사장님: '업체 확인' 칸이 따로 있어 헷갈린다 → 현장 칸에 바로 드롭다운).
+     맨 위 '안 묻기'(기본)·'❓ 업체에 묻기', 그 아래 사장님이 설정에서 정한 목록 (settings.fieldOpts[칸]).
+     업체 질문폼에도 같은 목록이 나간다. 선택형 칸(차량등록·화물EV)은 칸의 보기 그대로 */
+  var ASK_KEYS = ['pwLobby', 'pwUnit', 'barrier', 'gate', 'carReg', 'parking', 'cargoEv', 'toilet'];
+  var DEFAULT_FIELD_OPTS = {
+    pwLobby: ['없음(열려 있음)', '경비실 호출'],
+    pwUnit: ['없음(열려 있음)'],
+    barrier: ['경비호출', '비번'],
+    gate: ['따로 없음', '있음'],
+    parking: ['지하주차장', '지상 주차', '주차 어려움'],
+    toilet: ['안방 화장실', '거실 화장실', '사용 불가']
+  };
+  function fieldOpts(settings, key) {
+    var f = FIELD_MAP[key];
+    if (f && f.type === 'select') return (f.options || []).filter(function (o) { return o !== '미확인'; });
+    var all = (settings || {}).fieldOpts || {};
+    if (Array.isArray(all[key])) return cleanOpts(all[key]);
+    if (key === 'toilet' && Array.isArray((settings || {}).toiletOpts)) return cleanOpts(settings.toiletOpts);   // 11/13 첫 판의 화장실 보기
+    return (DEFAULT_FIELD_OPTS[key] || []).slice();
+  }
+  // 칸 값 (선택형은 { v } 안) — 드롭다운에 보일 글
+  function fieldValue(site, key) {
+    var f = FIELD_MAP[key], v = site && site[key];
+    if (f && f.type === 'select') return v && v.v && v.v !== '미확인' ? str(v.v) : '';
+    return str(v);
   }
   /* 이 현장에 물을 것 (2026-11-13 사장님: 모든 질문은 기본 '이 현장은 안 물음', 사장님이 풀어 준 것만 묻는다).
      site.askOn[id] = true 인 것만 묻는다 — id 는 pwLobby·pwUnit·toilet·films 와 업체 확인 질문 id */
@@ -1830,7 +1853,7 @@
   function siteAskItems(s, settings) {
     // 📞 통화로 확인 — 그만 묻기 (2026-11-13 사장님: 통화로 다 받았는데 또 물었다). 결재함·노트북 모두 이 현장은 안 묻는다
     if (s && str(s.askStop)) return { missing: [], checks: [] };
-    var missing = ['pwLobby', 'pwUnit', 'toilet'].filter(function (k) { return !str(s[k]); });
+    var missing = ASK_KEYS.filter(function (k) { return !fieldValue(s, k); });
     if (!(Array.isArray(s.films) && s.films.some(function (x) { return x && str(x.code); }))) missing.push('films');
     missing = missing.filter(function (k) { return askOn(s, k); });   // 기본 안 물음 (11/13)
     var checks = normalizeChecks((settings || {}).checks).filter(function (c) {
@@ -1845,9 +1868,10 @@
   function askFormItems(s, settings) {
     var it = siteAskItems(s, settings), all = normalizeChecks((settings || {}).checks), out = [];
     it.missing.forEach(function (k) {
-      if (k === 'pwLobby' || k === 'pwUnit') out.push({ id: k, label: ASK_LABEL[k], type: 'pw', opts: PW_OPTS.slice(), free: true });
-      else if (k === 'toilet') out.push({ id: k, label: ASK_LABEL[k], type: 'choice', opts: toiletOpts(settings), free: true });
-      else if (k === 'films') out.push({ id: k, label: '필름 번호 (위치별로 한 줄씩)', type: 'text', opts: [], free: true });
+      if (k === 'films') { out.push({ id: k, label: '필름 번호 (위치별로 한 줄씩)', type: 'text', opts: [], free: true }); return; }
+      var f = FIELD_MAP[k] || {}, opts = fieldOpts(settings, k);
+      if (k === 'pwLobby' || k === 'pwUnit') out.push({ id: k, label: ASK_LABEL[k], type: 'pw', opts: opts.concat(opts.indexOf('당일 알려드림') === -1 ? ['당일 알려드림'] : []), free: true });
+      else out.push({ id: k, label: ASK_LABEL[k] || f.label || k, type: opts.length ? 'choice' : 'text', opts: opts, free: f.type !== 'select' });
     });
     it.checks.forEach(function (c0) {
       var c = all.filter(function (x) { return x.id === c0.id; })[0] || c0;
@@ -1862,7 +1886,8 @@
      거래처 담당자(client.contacts)·현장 발주처 담당자(site.owners) 마다 ask(질문 담당)·via('kakao'|'sms')·kakaoRoom.
      정하는 순서: 현장 발주처 담당자 중 질문 담당 → 거래처 담당자 중 질문 담당 → 거래처 담당자가 하나면 그 사람 → 첫 담당자.
      방법을 안 정했으면 카톡방 이름이 있으면 카톡, 없으면 문자. 결재함 [진행해] 에서 고른 것이 9시에 그대로 나간다 */
-  var ASK_LABEL = { pwLobby: '공동현관 비번', pwUnit: '세대 비번', toilet: '화장실 위치', films: '필름 번호 (위치별)' };
+  var ASK_LABEL = { pwLobby: '공동현관 비번', pwUnit: '세대 비번', toilet: '화장실 위치', films: '필름 번호 (위치별)',
+    barrier: '입구차단기 (경비호출 / 비번)', gate: '방문객 차량 출입구', carReg: '출입 시 차량등록', parking: '주차할 곳', cargoEv: '화물 엘리베이터' };
   var ASK_GREETING = '안녕하세요. 실장님~';
   // 업체에 보낼 번호 질문 — 노트북 gaps.question 과 같은 글 (답을 번호로 맞춰 읽는다)
   function askQuestion(s, settings) {
@@ -2887,7 +2912,7 @@
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
-    askQuestion: askQuestion, askFormItems: askFormItems, askLink: askLink, askOn: askOn, toiletOpts: toiletOpts, DEFAULT_ASK_OPTS: DEFAULT_ASK_OPTS, ASK_LABEL: ASK_LABEL, askTarget: askTarget, askChoices: askChoices, askWho: askWho, clientKakaoRooms: clientKakaoRooms,
+    askQuestion: askQuestion, askFormItems: askFormItems, ASK_KEYS: ASK_KEYS, fieldOpts: fieldOpts, fieldValue: fieldValue, DEFAULT_FIELD_OPTS: DEFAULT_FIELD_OPTS, askLink: askLink, askOn: askOn, toiletOpts: toiletOpts, DEFAULT_ASK_OPTS: DEFAULT_ASK_OPTS, ASK_LABEL: ASK_LABEL, askTarget: askTarget, askChoices: askChoices, askWho: askWho, clientKakaoRooms: clientKakaoRooms,
     DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer, checkSkipped: checkSkipped,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,
