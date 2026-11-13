@@ -1561,7 +1561,9 @@ test('사장님(김정헌)이 직접 일하면 페이로 안 셈 — 사장님 �
   assert.strictEqual(Share.laborPlan(site, settings).paid, 15);
   const r = Share.workerLoads(site, settings, { 'x': 90000 }, [{ fields: { 시공품목: 'x', 밑작업기사: '가', 시공기사: '김정헌' } }], []);
   const o = r.find((w) => w.name === '김정헌');
-  assert.deepStrictEqual([o.state, o.pay, o.value], ['owner', 0, 6]);
+  assert.deepStrictEqual([o.owner, o.pay, o.goal, o.value, o.state], [true, 25, 37.5, 6, 'low'], 'B안: 가상 일당(설정 25만)으로 기준선');
+  const r2 = Share.workerLoads(site, { people: { 가: { pay: '15' } } }, { 'x': 90000 }, [{ fields: { 시공품목: 'x', 시공기사: '김정헌' } }], []);
+  assert.strictEqual(r2.find((w) => w.name === '김정헌').pay, 20, '일당이 비면 20만');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

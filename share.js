@@ -2203,15 +2203,19 @@
     daysOf(site).forEach(function (d) { staffOf(d).forEach(function (n) { days[n] = (days[n] || 0) + 1; }); });
     Object.keys(days).forEach(function (n) { if (!by[n]) by[n] = { name: n, value: 0, items: [] }; });
     return Object.keys(by).map(function (n) {
-      var owner = isOwnerName(n), w = by[n], pay = owner ? 0 : parseInt(personOf(people, n).pay, 10) || 0, dn = days[n] || 1;
+      var owner = isOwnerName(n), w = by[n], pay = owner ? ownerVirtualPay(people, n) : parseInt(personOf(people, n).pay, 10) || 0, dn = days[n] || 1;
       var goal = Math.round(pay * dn * (1 + rate / 100) * 10) / 10, value = Math.round(w.value / 1000) / 10;
-      var st = owner ? 'owner' : !pay ? 'nopay' : value > goal * 1.05 ? 'over' : value < goal * 0.85 ? 'low' : 'ok';
-      return { name: n, pay: pay, days: dn, goal: goal, value: value, items: w.items, state: st };
+      var st = !pay ? 'nopay' : value > goal * 1.05 ? 'over' : value < goal * 0.85 ? 'low' : 'ok';
+      return { name: n, pay: pay, days: dn, goal: goal, value: value, items: w.items, state: st, owner: owner };
     }).sort(function (a, b) { return b.value - a.value; });
   }
   // 넣은 사람 일당 합계 (같은 사람이 이틀 나오면 두 번)
   // 사장님(김정헌)이 직접 일한 날은 페이로 세지 않는다 (11/13 A안) — 사장님 몫은 이득이다
   function isOwnerName(n) { return OWNER_NAMES.indexOf(str(n)) !== -1; }
+  // 👑 사장님 가상 일당 (11/13 B안): 일감 기준선만 (페이 × 날수 × (1+이득 비율)). 이득 계산에는 비용으로 넣지 않는다.
+  // 설정 › 팀원 › 김정헌 일당, 비어 있으면 20만
+  var OWNER_VIRTUAL_PAY = 20;
+  function ownerVirtualPay(people, n) { return parseInt(personOf(people || {}, n).pay, 10) || OWNER_VIRTUAL_PAY; }
   function laborPaySum(site, people) {
     return daysOf(site).reduce(function (a, d) {
       return staffOf(d).reduce(function (b, n) { return isOwnerName(n) ? b : b + (parseInt(personOf(people || {}, n).pay, 10) || 0); }, a);
@@ -2809,7 +2813,7 @@
     selfHireLeft: selfHireLeft,
     dayNeedSum: dayNeedSum,
     LABOR_BUDGETS: LABOR_BUDGETS,
-    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE, workerLoads: workerLoads, isOwnerName: isOwnerName,
+    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE, workerLoads: workerLoads, isOwnerName: isOwnerName, ownerVirtualPay: ownerVirtualPay,
     laborPaySum: laborPaySum,
     teamSorted: teamSorted,
     recruitPlan: recruitPlan,
