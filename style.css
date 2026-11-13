@@ -1923,3 +1923,7 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 #viewOrder .ch-tab.on svg { stroke-width: 2.2; }
 #viewOrder #btnHourly { color: #475569; }
 #viewOrder .topbar .topbar-title { min-width: 0; }
+
+/* 📞 통화로 확인 — 그만 묻기 (11/13) */
+.chk-stop { display: block; width: 100%; margin: 4px 0 10px; padding: 10px; border: 1.5px dashed #94a3b8; border-radius: 10px; background: #fff; color: #334155; font-size: 14px; font-weight: 700; }
+.chk-stop.on { border-style: solid; border-color: #16a34a; background: #f0fdf4; color: #166534; }

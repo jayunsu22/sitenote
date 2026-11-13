@@ -1804,6 +1804,8 @@
   var REPORT_ASK_DAYS = 7, REPORT_PAY_DAYS = 14;
   // 업체에 물어볼 것 (n8n 빈칸고르기와 같은 기준): 비번·화장실·필름 빈칸 + 안 답한 업체 확인 질문 → 노트북 gaps.run_ask 가 번호를 매겨 보낸다
   function siteAskItems(s, settings) {
+    // 📞 통화로 확인 — 그만 묻기 (2026-11-13 사장님: 통화로 다 받았는데 또 물었다). 결재함·노트북 모두 이 현장은 안 묻는다
+    if (s && str(s.askStop)) return { missing: [], checks: [] };
     var missing = ['pwLobby', 'pwUnit', 'toilet'].filter(function (k) { return !str(s[k]); });
     if (!(Array.isArray(s.films) && s.films.some(function (x) { return x && str(x.code); }))) missing.push('films');
     var checks = normalizeChecks((settings || {}).checks).filter(function (c) {

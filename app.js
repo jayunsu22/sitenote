@@ -7324,6 +7324,16 @@
     head.appendChild(el2('h3', '', '업체 확인'));
     head.appendChild(el2('span', 'chk-count', got + ' / ' + asked.length + ' 받음'));
     box.appendChild(head);
+    // 📞 통화로 확인 — 그만 묻기 (2026-11-13 사장님: 통화로 다 받았는데 노트북이 다음 날 또 물었다).
+    // 누르면 결재함 9시 질문도, 노트북의 다시 묻기도 이 현장은 멈춘다. 한 번 더 누르면 다시 묻기
+    var stop = el2('button', 'chk-stop' + (s.askStop ? ' on' : ''), s.askStop ? '📞 통화로 확인함 (' + Share.shortDate(s.askStop) + ') — 다시 묻게 하기' : '📞 통화로 확인했어요 — 업체에 그만 묻기');
+    stop.type = 'button';
+    stop.onclick = function () {
+      Store.updateSite(siteId, { askStop: s.askStop ? '' : Share.todayIso() });
+      toast(s.askStop ? '다시 물을 수 있게 했어요' : '이 현장은 업체에 더 묻지 않아요 (결재함·노트북 모두)');
+      renderCheckSection(box, siteId);
+    };
+    box.appendChild(stop);
     var save = function (all) { Store.updateSite(siteId, { checks: all }); renderCheckSection(box, siteId); };
     var checksOf = function () { return Object.assign({}, Store.getSite(siteId).checks || {}); };
     list.forEach(function (c) {

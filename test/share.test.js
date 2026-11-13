@@ -1527,5 +1527,12 @@ test('filmPendingRows·filmLastVendor: 주문 뒤 새로 적은 필름만 (11/11
   assert.strictEqual(Share.filmLastVendor({ films: [] }, {}), null);
 });
 
+test('siteAskItems: 📞 통화로 확인(askStop) 한 현장은 묻지 않음 (11/13)', () => {
+  const s = { pwLobby: '', pwUnit: '', toilet: '', films: [], checks: {} };
+  assert.ok(Share.siteAskItems(s, {}).missing.length > 0);
+  assert.deepStrictEqual(Share.siteAskItems(Object.assign({}, s, { askStop: '2026-11-13' }), {}), { missing: [], checks: [] });
+  assert.strictEqual(Share.askQuestion(Object.assign({}, s, { askStop: '2026-11-13' }), {}), '');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
