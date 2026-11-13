@@ -2149,6 +2149,36 @@
     var x = parseInt(site && site.laborBudget, 10);
     return x > 0 ? x : 0;
   }
+  /* 💰 견적 → 페이 예산 (2026-11-13 사장님: 견적을 넣으면 인건비가 자동으로 — 인건비 150만이면 100만은 페이, 50만은 이득).
+     quoteLaborOf(견적서) = 품목 인건비(인건비표시금액) 합 × (총액/소계) — 업체조정가·절삭으로 깎은 만큼 인건비도 같은 비율로 줄인다.
+     인건비를 모르는 줄(예전 직접 입력·연결만 한 견적)은 빼고 그 수를 unknown 으로. 원 단위 */
+  function quoteLaborOf(q) {
+    var lines = (q && q.라인들) || [], labor = 0, unknown = 0;
+    lines.forEach(function (l) {
+      if (!l) return;
+      var w = l.인건비표시금액 != null ? Number(l.인건비표시금액) : l.인건비금액 != null ? Number(l.인건비금액) : NaN;
+      if (isFinite(w)) labor += w; else if (Number(l.표시금액 || l.라인금액) > 0) unknown++;
+    });
+    var sub = Number(q && q.소계) || 0, tot = Number(q && q.총액) || 0;
+    var factor = sub > 0 && tot > 0 && tot < sub * 3 ? tot / sub : 1;
+    return { labor: Math.round(labor * factor), unknown: unknown, factor: factor };
+  }
+  // 이득 비율 (%) — 페이 대비. 50 이면 페이 × 1.5 = 인건비. 현장마다 바꾼다 (기본 50)
+  var PROFIT_RATE = 50;
+  function profitRateOf(site, settings) {
+    var x = site && site.profitRate != null && site.profitRate !== '' ? Number(site.profitRate) : Number(settings && settings.profitRate);
+    return isFinite(x) && x >= 0 && x <= 200 ? x : PROFIT_RATE;
+  }
+  // { labor 만, rate %, budget 만 (페이 예산), profit 만, paid 만 (배정 페이 합), left 만 } — 연결한 견적서 인건비가 없으면 null
+  function laborPlan(site, settings) {
+    var ql = site && site.quoteLabor;
+    if (!ql || !(Number(ql.labor) > 0) || (site.quoteCode && ql.code && ql.code !== site.quoteCode)) return null;
+    var rate = profitRateOf(site, settings), labor = Number(ql.labor) / 10000;
+    var budget = Math.round(labor / (1 + rate / 100) * 10) / 10;
+    var paid = laborPaySum(site, settings && settings.people);
+    return { labor: Math.round(labor * 10) / 10, rate: rate, budget: budget, profit: Math.round((labor - budget) * 10) / 10,
+      paid: paid, left: Math.round((budget - paid) * 10) / 10, unknown: Number(ql.unknown) || 0, code: ql.code || '' };
+  }
   // 넣은 사람 일당 합계 (같은 사람이 이틀 나오면 두 번)
   function laborPaySum(site, people) {
     return daysOf(site).reduce(function (a, d) {
@@ -2747,7 +2777,7 @@
     selfHireLeft: selfHireLeft,
     dayNeedSum: dayNeedSum,
     LABOR_BUDGETS: LABOR_BUDGETS,
-    laborBudgetOf: laborBudgetOf,
+    laborBudgetOf: laborBudgetOf, quoteLaborOf: quoteLaborOf, profitRateOf: profitRateOf, laborPlan: laborPlan, PROFIT_RATE: PROFIT_RATE,
     laborPaySum: laborPaySum,
     teamSorted: teamSorted,
     recruitPlan: recruitPlan,

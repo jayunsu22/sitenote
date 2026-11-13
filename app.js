@@ -2654,8 +2654,64 @@
   }
   // 현장 상세: 총 필요 인원 칸 (− ＋ 로 올리고 내린다). 0 이면 '미정'
   // 💰 인건비 예산 (11/6): 현장에 하나. 참고용이라 문자를 막지 않는다 — 언제든 다시 고른다
+  /* 💰 견적 → 페이 예산 (2026-11-13 사장님 D안): 연결한 견적서의 인건비 → 페이 예산 = 인건비 ÷ (1 + 이득 비율) → 이득.
+     이득 비율은 현장마다 − ＋ 로 (기본 50% = 페이 × 1.5). 견적서는 하루 한 번·바꿨을 때 다시 받는다 (site.quoteLabor 에 둔다) */
+  var laborFetching = {};
+  function refreshQuoteLabor(siteId, rerender) {
+    var s = Store.getSite(siteId);
+    if (!s || !s.quoteCode || laborFetching[siteId]) return;
+    var ql = s.quoteLabor || {};
+    if (ql.code === s.quoteCode && Date.now() - (ql.at || 0) < 864e5) return;
+    laborFetching[siteId] = true;
+    QuoteLink.견적받기(s.quoteCode, quoteDeps).then(function (q) {
+      견적캐시[s.quoteCode] = q;
+      var r = Share.quoteLaborOf(q);
+      Store.updateSite(siteId, { quoteLabor: { code: s.quoteCode, labor: r.labor, unknown: r.unknown, at: Date.now() } });
+      if (rerender) rerender();
+    }).catch(function () { /* 다음에 */ }).then(function () { delete laborFetching[siteId]; });
+  }
+  function laborPlanCard(siteId, rerender, plan) {
+    var s = Store.getSite(siteId);
+    var box = el2('div', 'lp');
+    var head = el2('div', 'lp-h');
+    head.appendChild(el2('b', '', '💰 인건비 예산'));
+    head.appendChild(el2('span', 'lp-src', '견적서 ' + QuoteLink.짧은주소(plan.code) + '에서 자동' + (plan.unknown ? ' · 인건비 모르는 줄 ' + plan.unknown + '개 빠짐' : '')));
+    box.appendChild(head);
+    var flow = el2('div', 'lp-flow');
+    var cell = function (cls, label, val) { var c = el2('div', 'lp-box ' + cls); c.appendChild(el2('small', '', label)); c.appendChild(el2('b', '', val)); return c; };
+    flow.appendChild(cell('', '견적 인건비', plan.labor + '만'));
+    flow.appendChild(el2('span', 'lp-arr', '÷' + (1 + plan.rate / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' →'));
+    flow.appendChild(cell('pay', '페이 예산', plan.budget + '만'));
+    flow.appendChild(el2('span', 'lp-arr', '→'));
+    var over = plan.left < 0;
+    flow.appendChild(cell(over ? 'gain bad' : 'gain', '이득', (over ? Math.round((plan.profit + plan.left) * 10) / 10 : plan.profit) + '만'));
+    box.appendChild(flow);
+    // 이득 비율 − ＋ (5% 씩)
+    var rate = el2('div', 'lp-rate');
+    rate.appendChild(el2('span', '', '이득 비율 (페이 대비)'));
+    var setRate = function (v) { Store.updateSite(siteId, { profitRate: Math.max(0, Math.min(200, v)) }); rerender(); };
+    var minus = el2('button', 'lp-step', '−'); minus.type = 'button'; minus.onclick = function () { setRate(plan.rate - 5); };
+    var plus = el2('button', 'lp-step', '＋'); plus.type = 'button'; plus.onclick = function () { setRate(plan.rate + 5); };
+    rate.appendChild(minus); rate.appendChild(el2('b', 'lp-rate-v', plan.rate + '%')); rate.appendChild(plus);
+    rate.appendChild(el2('em', '', '= 페이 × ' + (1 + plan.rate / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '')));
+    box.appendChild(rate);
+    var g = el2('div', 'lp-g');
+    var lab = el2('div', 'lp-lab'); lab.appendChild(el2('span', '', '배정한 페이 합계')); lab.appendChild(el2('b', over ? 'bad' : 'ok', plan.paid + '만 / ' + plan.budget + '만'));
+    g.appendChild(lab);
+    var tr = el2('div', 'lp-track'), fill = el2('i', over ? 'bad' : '');
+    fill.style.width = Math.min(100, plan.budget ? plan.paid / plan.budget * 100 : 0) + '%';
+    tr.appendChild(fill); g.appendChild(tr);
+    g.appendChild(el2('div', 'lp-msg ' + (over ? 'bad' : 'ok'), over
+      ? '⚠ 예산보다 ' + Math.round(-plan.left * 10) / 10 + '만 많아요 — 이득이 ' + plan.profit + '만 → ' + Math.round((plan.profit + plan.left) * 10) / 10 + '만으로 줄어요'
+      : '✅ ' + plan.left + '만 남음 — 이 안에서 사람을 더 구할 수 있어요'));
+    box.appendChild(g);
+    return box;
+  }
   function laborBudgetRow(siteId, rerender) {
     var s = Store.getSite(siteId);
+    refreshQuoteLabor(siteId, rerender);
+    var plan = Share.laborPlan(s, state.settings);
+    if (plan) return laborPlanCard(siteId, rerender, plan);
     var cur = Share.laborBudgetOf(s);
     var row = el2('div', 'rc-labor');
     var top = el2('div', 'rc-labor-row');

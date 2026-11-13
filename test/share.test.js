@@ -1534,5 +1534,15 @@ test('siteAskItems: 📞 통화로 확인(askStop) 한 현장은 묻지 않음 (
   assert.strictEqual(Share.askQuestion(Object.assign({}, s, { askStop: '2026-11-13' }), {}), '');
 });
 
+test('quoteLaborOf·laborPlan: 견적 인건비 → 페이 예산(÷(1+이득비율)) → 이득 (11/13)', () => {
+  const q = { 소계: 2000000, 총액: 1800000, 라인들: [{ 인건비표시금액: 1200000, 표시금액: 1500000 }, { 인건비표시금액: 300000, 표시금액: 400000 }, { 인건비표시금액: null, 표시금액: 100000 }] };
+  assert.deepStrictEqual(Share.quoteLaborOf(q), { labor: 1350000, unknown: 1, factor: 0.9 }, '깎은 비율(0.9)만큼 인건비도');
+  const site = { quoteCode: 'AB12', quoteLabor: { code: 'AB12', labor: 1500000 }, days: [{ date: '2026-11-19', staff: ['가', '나'] }] };
+  const settings = { people: { 가: { pay: '15' }, 나: { pay: '18' } } };
+  assert.deepStrictEqual(Share.laborPlan(site, settings), { labor: 150, rate: 50, budget: 100, profit: 50, paid: 33, left: 67, unknown: 0, code: 'AB12' });
+  assert.strictEqual(Share.laborPlan(Object.assign({}, site, { profitRate: 25 }), settings).budget, 120, '이득 25% → 150 ÷ 1.25');
+  assert.strictEqual(Share.laborPlan(Object.assign({}, site, { quoteCode: 'ZZ99' }), settings), null, '다른 견적서로 바꾸면 다시 받을 때까지 없음');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
