@@ -2661,13 +2661,13 @@
     var s = Store.getSite(siteId);
     if (!s || !s.quoteCode || laborFetching[siteId]) return;
     var ql = s.quoteLabor || {};
-    if (ql.code === s.quoteCode && ql.adj !== undefined && Date.now() - (ql.at || 0) < 864e5) return;
+    if (ql.code === s.quoteCode && ql.v === 2 && Date.now() - (ql.at || 0) < 864e5) return;
     laborFetching[siteId] = true;
     QuoteLink.견적받기(s.quoteCode, quoteDeps).then(function (q) {
       견적캐시[s.quoteCode] = q;
       var r = Share.quoteLaborOf(q);
       var kind = QuoteLink.is정산(QuoteLink.코드뽑기(s.quoteCode)) || q.정산 ? '정산' : (q.견적종류 === '가견적' ? '가견적' : '견적');
-      var now = { code: s.quoteCode, labor: r.labor, unknown: r.unknown, adj: r.adj, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
+      var now = { v: 2, code: s.quoteCode, labor: r.labor, unknown: r.unknown, adj: r.adj, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
       // 📊 가견적 → 정산 비교 (11/13): 다른 견적서로 바꿔 연결하면 앞 견적서의 인건비를 남겨 둔다 (최근 5개)
       var cur = Store.getSite(siteId), hist = (cur.quoteLaborHist || []).filter(function (h) { return h && h.code !== s.quoteCode; });
       if (cur.quoteLabor && cur.quoteLabor.code && cur.quoteLabor.code !== s.quoteCode && !hist.some(function (h) { return h.code === cur.quoteLabor.code; })) hist.push(cur.quoteLabor);
