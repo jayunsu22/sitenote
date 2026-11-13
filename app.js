@@ -7500,7 +7500,40 @@
       };
       [nm, ok, off, up, dn, x].forEach(function (b) { row.appendChild(b); });
       box.appendChild(row);
+      // 📋 질문폼 보기 (11/13) — 업체는 이 중에서 고르기만. 보기가 없으면 직접 쓰기 칸만
+      box.appendChild(askOptsRow(c.opts, c.free, function (opts, free) { var next = checksNow(); next[i].opts = opts; next[i].free = free; saveChecks(next); }));
     });
+    // 화장실 위치 보기 — 빈 화장실 칸을 물을 때 (settings.toiletOpts)
+    var tl = el2('div', 'slist-row rvq-row chk-set');
+    tl.appendChild(el2('span', 'slist-name rvq-name', '🚻 화장실 위치 (빈칸일 때)'));
+    box.insertBefore(askOptsRow(Share.toiletOpts(state.settings), true, function (opts) { Store.setSettings({ toiletOpts: opts }); renderCheckList(); }, true), box.firstChild);
+    box.insertBefore(tl, box.firstChild);
+  }
+  // 보기 줄: [보기 ✕] … [＋ 보기] · 직접 쓰기도 받기 켬/끔
+  function askOptsRow(opts, free, onSave, noFree) {
+    opts = (opts || []).slice();
+    var wrap = el2('div', 'ask-opts');
+    opts.forEach(function (o, j) {
+      var chip = el2('button', 'ask-opt', o + ' ✕'); chip.type = 'button'; chip.title = '보기 빼기';
+      chip.onclick = function () { var n = opts.slice(); n.splice(j, 1); onSave(n, free); };
+      wrap.appendChild(chip);
+    });
+    if (opts.length < 8) {
+      var add = el2('button', 'ask-opt add', '＋ 보기'); add.type = 'button';
+      add.onclick = function () {
+        modalPrompt('보기 더하기', '').then(function (v) {
+          var t = String(v == null ? '' : v).trim().slice(0, 40);
+          if (t && opts.indexOf(t) === -1) onSave(opts.concat([t]), free);
+        });
+      };
+      wrap.appendChild(add);
+    }
+    if (!noFree) {
+      var fr = el2('button', 'chk-tog' + (free !== false ? ' on' : ''), '직접 쓰기도'); fr.type = 'button'; fr.title = '업체가 보기 말고 글로도 답할 수 있게';
+      fr.onclick = function () { onSave(opts, free === false); };
+      wrap.appendChild(fr);
+    }
+    return wrap;
   }
   (function () {
     var add = function () {
@@ -7516,17 +7549,58 @@
     $('checkInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
   })();
   // 현장 › 기본·출입 › 업체 확인 — 질문마다 답 칸. 노트북이 업체 답을 넣으면 '카톡 방 날짜' 가 붙는다. 손으로 적어도 된다
+  /* 이 현장에 물을 것 켜고 끄기 (2026-11-13 사장님: 모든 질문은 기본 '이 현장은 안 물음', 풀어 준 것만 묻는다).
+     처음 켤 때 그 현장 전용 질문폼 열쇠(askKey)를 만든다 — 업체는 링크를 눌러 보기에서 고르기만 */
+  function setAskOn(siteId, id, on) {
+    var s = Store.getSite(siteId), ask = Object.assign({}, s.askOn || {}), patch = {};
+    if (on) ask[id] = true; else delete ask[id];
+    patch.askOn = ask;
+    if (on && !/^[a-z0-9]{12,40}$/.test(String(s.askKey || ''))) {
+      var b = new Uint8Array(12), k = '';
+      (window.crypto || window.msCrypto).getRandomValues(b);
+      for (var i = 0; i < b.length; i++) k += (b[i] % 36).toString(36);
+      patch.askKey = k + Date.now().toString(36).slice(-4);
+    }
+    Store.updateSite(siteId, patch);
+  }
+  var ASK_FIELD_LABEL = { pwLobby: '공동현관 비번', pwUnit: '세대 비번', toilet: '화장실 위치', films: '필름 번호 (위치별)' };
   function renderCheckSection(box, siteId) {
     var s = Store.getSite(siteId), list = checksNow().filter(function (c) { return !c.off || Share.checkAnswer(s, c.id); });
     box.className = 'sec chk-sec';
     box.innerHTML = '';
-    if (!list.length) return;
+    // 빈 출입 칸(비번·화장실·필름)도 업체에 물을 수 있는 질문 — 기본은 안 물음
+    var fields = ['pwLobby', 'pwUnit', 'toilet', 'films'].filter(function (k) {
+      return k === 'films' ? !(Array.isArray(s.films) && s.films.some(function (x) { return x && String(x.code || '').trim(); })) : !String(s[k] || '').trim();
+    });
+    if (!list.length && !fields.length) return;
     var asked = list.filter(function (c) { return !Share.checkSkipped(s, c.id); });
     var got = asked.filter(function (c) { return Share.checkAnswer(s, c.id); }).length;
     var head = el2('div', 'chk-head');
     head.appendChild(el2('h3', '', '업체 확인'));
     head.appendChild(el2('span', 'chk-count', got + ' / ' + asked.length + ' 받음'));
     box.appendChild(head);
+    var onCount = fields.filter(function (k) { return Share.askOn(s, k); }).length + asked.length;
+    box.appendChild(el2('p', 'chk-hint', onCount ? '❓ 표시한 ' + onCount + '개만 업체에 묻습니다 (질문폼 링크로)' : '모두 "이 현장은 안 물음" — 물어볼 것만 [묻기] 를 눌러 주세요'));
+    if (onCount && Share.askLink(s)) {
+      var cp = el2('button', 'chk-btn plain', '📋 이 현장 질문폼 링크 복사'); cp.type = 'button';
+      cp.onclick = function () { copyText(Share.askQuestion(Store.getSite(siteId), state.settings) || Share.askLink(s), '질문 글과 링크를 복사했어요 — 업체 카톡에 붙여 넣으세요'); };
+      box.appendChild(cp);
+    }
+    fields.forEach(function (k) {
+      var on = Share.askOn(s, k);
+      var row = el2('div', 'chk-row' + (on ? '' : ' skip'));
+      var mark = el2('span', 'chk-mark');
+      row.appendChild(mark);
+      row.appendChild(el2('div', 'chk-q', ASK_FIELD_LABEL[k] + ' (빈칸)'));
+      var body = el2('div', 'chk-body'), line = el2('div', 'chk-skipline');
+      line.appendChild(el2('span', '', on ? '❓ 업체에 물음' : '이 현장은 안 물음'));
+      var t = el2('button', 'chk-again', on ? '이 현장은 안 물음' : '묻기'); t.type = 'button';
+      t.onclick = function () { setAskOn(siteId, k, !on); renderCheckSection(box, siteId); };
+      line.appendChild(t);
+      body.appendChild(line);
+      row.appendChild(body);
+      box.appendChild(row);
+    });
     // 📞 통화로 확인 — 그만 묻기 (2026-11-13 사장님: 통화로 다 받았는데 노트북이 다음 날 또 물었다).
     // 누르면 결재함 9시 질문도, 노트북의 다시 묻기도 이 현장은 멈춘다. 한 번 더 누르면 다시 묻기
     var stop = el2('button', 'chk-stop' + (s.askStop ? ' on' : ''), s.askStop ? '📞 통화로 확인함 (' + Share.shortDate(s.askStop) + ') — 다시 묻게 하기' : '📞 통화로 확인했어요 — 업체에 그만 묻기');
@@ -7542,7 +7616,8 @@
     list.forEach(function (c) {
       var a = (s.checks || {})[c.id];
       var v = Share.checkAnswer(s, c.id);
-      var skipped = Share.checkSkipped(s, c.id);   // '이 현장은 안 물음' (사장님 11/1). 다시 누르면 묻기로 돌아간다
+      // '이 현장은 안 물음' — 11/13 부터 기본. [묻기] 를 누른 것만 업체에 묻는다 (답을 이미 받았으면 답을 보여 준다)
+      var skipped = Share.checkSkipped(s, c.id) && !v;
       var row = el2('div', 'chk-row' + (skipped ? ' skip' : v ? ' done' : ''));
       var mark = el2('span', 'chk-mark');
       mark.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.500 4.500L19 7.500"/></svg>';
@@ -7553,9 +7628,9 @@
       box.appendChild(row);
       if (skipped) {
         var line = el2('div', 'chk-skipline');
-        line.appendChild(el2('span', '', '이 현장은 안 물어요'));
-        var again = el2('button', 'chk-again', '다시 묻기'); again.type = 'button';
-        again.onclick = function () { var all = checksOf(); delete all[c.id]; save(all); };
+        line.appendChild(el2('span', '', '이 현장은 안 물음'));
+        var again = el2('button', 'chk-again', '묻기'); again.type = 'button';
+        again.onclick = function () { setAskOn(siteId, c.id, true); renderCheckSection(box, siteId); };
         line.appendChild(again);
         body.appendChild(line);
         return;
@@ -7582,7 +7657,7 @@
         save(all);
       };
       var skip = el2('button', 'chk-btn plain', '이 현장은 안 물음'); skip.type = 'button';
-      skip.onclick = function () { var all = checksOf(); all[c.id] = { v: '', skip: true }; save(all); };
+      skip.onclick = function () { setAskOn(siteId, c.id, false); renderCheckSection(box, siteId); };
       acts.appendChild(yes); acts.appendChild(skip);
       body.appendChild(acts);
     });

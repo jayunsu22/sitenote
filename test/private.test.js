@@ -31,8 +31,9 @@ assert.deepStrictEqual(Share.sitesByPhone(list, '010 0000 0002', 'b').map((x) =>
 assert.deepStrictEqual(Share.sitesByPhone(list, '010').map((x) => x.id), [], '번호가 덜 적히면 안 찾음');
 console.log('private ok');
 // 업체에 빈칸 묻기: 빈칸 + 안 답한 확인 질문
-const items = Share.siteAskItems({ pwLobby: '1', films: [{ code: 'ps1' }], checks: { door: { v: '안 닿음' }, xmark: { skip: true } } }, { checks: [{ id: 'door', text: '문', ok: false }, { id: 'overlap', text: '공정', ok: false }, { id: 'xmark', text: 'X', ok: true }, { id: 'off', text: '끔', off: true }] });
+const items = Share.siteAskItems({ pwLobby: '1', films: [{ code: 'ps1' }], checks: { door: { v: '안 닿음' } }, askOn: { pwLobby: 1, pwUnit: 1, toilet: 1, films: 1, door: 1, overlap: 1, off: 1 } }, { checks: [{ id: 'door', text: '문', ok: false }, { id: 'overlap', text: '공정', ok: false }, { id: 'xmark', text: 'X', ok: true }, { id: 'off', text: '끔', off: true }] });
 assert.deepStrictEqual(items.missing, ['pwUnit', 'toilet']);
 assert.deepStrictEqual(items.checks.map((c) => c.id), ['overlap']);
-assert.deepStrictEqual(Share.siteAskItems({ films: [] }, {}).missing, ['pwLobby', 'pwUnit', 'toilet', 'films']);
-assert.ok(Share.siteAskItems({ films: [] }, {}).checks.length > 0, '설정이 없으면 기본 질문');
+assert.deepStrictEqual(Share.siteAskItems({ films: [] }, {}), { missing: [], checks: [] }, '11/13: 기본은 이 현장은 안 물음');
+assert.deepStrictEqual(Share.siteAskItems({ films: [], askOn: { pwLobby: 1, pwUnit: 1, toilet: 1, films: 1, door: 1, overlap: 1, xmark: 1, off: 1 } }, {}).missing, ['pwLobby', 'pwUnit', 'toilet', 'films']);
+assert.ok(Share.siteAskItems({ films: [], askOn: { pwLobby: 1, pwUnit: 1, toilet: 1, films: 1, door: 1, overlap: 1, xmark: 1, off: 1 } }, {}).checks.length > 0, '설정이 없으면 기본 질문');

@@ -1467,14 +1467,39 @@
     { id: 'overlap', text: '{날짜}에 겹치는 다른 공정', ok: false },
     { id: 'xmark', text: '현관문 부속교환할 부분에 마카펜으로 X 표시 부탁드려요', ok: true }
   ];
+  /* 📋 업체 확인 질문폼 (2026-11-13 사장님: 답이 너무 다양해 앱에 잘 안 들어간다 → 업체는 보기에서 고르기만).
+     질문마다 opts = 보기(사장님이 설정에서 만든다), free = '직접 쓰기'도 받기. 처음 쓰는 질문은 아래 기본 보기 */
+  var DEFAULT_ASK_OPTS = {
+    door: ['안 닿음', '닿음 → 목수님 조정', '아직 모름'],
+    overlap: ['없음', '도배', '바닥', '전기'],
+    xmark: ['표시해 둠', '교체할 부속 없음', '당일 알려드림'],
+    toilet: ['안방 화장실', '거실 화장실', '사용 불가']
+  };
+  var PW_OPTS = ['비번 없음(열려 있음)', '당일 알려드림'];
+  var ASK_MAX_OPTS = 8;
+  function cleanOpts(list) {
+    var seen = {};
+    return (Array.isArray(list) ? list : []).map(function (o) { return str(o).slice(0, 40); })
+      .filter(function (o) { if (!o || seen[o]) return false; seen[o] = true; return true; }).slice(0, ASK_MAX_OPTS);
+  }
   function normalizeChecks(list) {
-    if (!Array.isArray(list)) return DEFAULT_CHECKS.map(function (c) { return Object.assign({ off: false }, c); });
+    if (!Array.isArray(list)) list = DEFAULT_CHECKS;
     var seen = {};
     return list.map(function (c) {
       c = c && typeof c === 'object' ? c : {};
-      return { id: str(c.id), text: str(c.text), ok: !!c.ok, off: !!c.off };
+      var id = str(c.id);
+      return { id: id, text: str(c.text), ok: !!c.ok, off: !!c.off,
+        opts: Array.isArray(c.opts) ? cleanOpts(c.opts) : (DEFAULT_ASK_OPTS[id] || []).slice(), free: c.free === undefined ? true : !!c.free };
     }).filter(function (c) { if (!c.id || !c.text || seen[c.id]) return false; seen[c.id] = true; return true; });
   }
+  // 화장실 보기 — 설정 › 업체 확인 질문 맨 위 (settings.toiletOpts)
+  function toiletOpts(settings) {
+    var t = (settings || {}).toiletOpts;
+    return Array.isArray(t) ? cleanOpts(t) : DEFAULT_ASK_OPTS.toilet.slice();
+  }
+  /* 이 현장에 물을 것 (2026-11-13 사장님: 모든 질문은 기본 '이 현장은 안 물음', 사장님이 풀어 준 것만 묻는다).
+     site.askOn[id] = true 인 것만 묻는다 — id 는 pwLobby·pwUnit·toilet·films 와 업체 확인 질문 id */
+  function askOn(site, id) { return !!(site && site.askOn && site.askOn[id]); }
   function checkText(c, site) {
     return String(c.text || '').replace(/\{날짜\}/g, site && site.date ? shortDate(site.date) : '시공날짜');
   }
@@ -1482,10 +1507,9 @@
     var a = site && site.checks && site.checks[id];
     return a && typeof a === 'object' ? str(a.v) : str(a);
   }
-  // '이 현장은 안 물음' (2026-11-01) — site.checks[id] = { v: '', skip: true }. 업체에 안 묻고, 못 받은 답으로도 안 센다
+  // '이 현장은 안 물음' — 11/13 부터 기본이 안 물음, 사장님이 풀어 준 것(askOn)만 묻는다. 안 묻는 질문은 못 받은 답으로도 안 센다
   function checkSkipped(site, id) {
-    var a = site && site.checks && site.checks[id];
-    return !!(a && typeof a === 'object' && a.skip);
+    return !askOn(site, id);
   }
 
   var DEFAULT_REVIEW_QUESTIONS = ['시공후기', '개선사항은 무엇인가?', '견적과 다른 부분은 어떤 것이었나?'];
@@ -1808,13 +1832,32 @@
     if (s && str(s.askStop)) return { missing: [], checks: [] };
     var missing = ['pwLobby', 'pwUnit', 'toilet'].filter(function (k) { return !str(s[k]); });
     if (!(Array.isArray(s.films) && s.films.some(function (x) { return x && str(x.code); }))) missing.push('films');
+    missing = missing.filter(function (k) { return askOn(s, k); });   // 기본 안 물음 (11/13)
     var checks = normalizeChecks((settings || {}).checks).filter(function (c) {
-      if (c.off || !str(c.id) || !str(c.text)) return false;
-      var a = (s.checks || {})[c.id];
-      return !(a && typeof a === 'object' && a.skip) && !str(a && typeof a === 'object' ? a.v : a);
+      if (c.off || !str(c.id) || !str(c.text) || !askOn(s, c.id)) return false;
+      return !checkAnswer(s, c.id);
     }).map(function (c) { return { id: c.id, text: c.text, ok: !!c.ok }; });
     return { missing: missing, checks: checks };
   }
+  /* 📋 업체 질문폼에 띄울 것 (11/13) — 업체가 고르기만 하게. type: pw(숫자 칸 + 보기) · choice(보기, free 면 직접 쓰기) · text(직접 쓰기만).
+     n8n 업체확인폼 이 이 함수(배포된 share.js)를 그대로 써서 폼을 만든다 */
+  var ASK_FORM_URL = 'https://jayunsu22.github.io/sitenote/ask.html#';
+  function askFormItems(s, settings) {
+    var it = siteAskItems(s, settings), all = normalizeChecks((settings || {}).checks), out = [];
+    it.missing.forEach(function (k) {
+      if (k === 'pwLobby' || k === 'pwUnit') out.push({ id: k, label: ASK_LABEL[k], type: 'pw', opts: PW_OPTS.slice(), free: true });
+      else if (k === 'toilet') out.push({ id: k, label: ASK_LABEL[k], type: 'choice', opts: toiletOpts(settings), free: true });
+      else if (k === 'films') out.push({ id: k, label: '필름 번호 (위치별로 한 줄씩)', type: 'text', opts: [], free: true });
+    });
+    it.checks.forEach(function (c0) {
+      var c = all.filter(function (x) { return x.id === c0.id; })[0] || c0;
+      var opts = cleanOpts(c.opts);
+      out.push({ id: c.id, label: checkText(c, s), type: opts.length ? 'choice' : 'text', opts: opts, free: opts.length ? c.free !== false : true });
+    });
+    return out;
+  }
+  // 그 현장 전용 질문폼 주소 — 앱이 처음 '묻기' 를 켤 때 만든 무작위 열쇠(site.askKey)
+  function askLink(s) { return s && /^[a-z0-9]{12,40}$/.test(str(s.askKey)) ? ASK_FORM_URL + str(s.askKey) : ''; }
   /* ❓ 출입정보 질문 — 누구에게·카톡/문자 (2026-11-05 사장님: 보현나이스 질문을 누구에게 어떻게 물을지 정해야).
      거래처 담당자(client.contacts)·현장 발주처 담당자(site.owners) 마다 ask(질문 담당)·via('kakao'|'sms')·kakaoRoom.
      정하는 순서: 현장 발주처 담당자 중 질문 담당 → 거래처 담당자 중 질문 담당 → 거래처 담당자가 하나면 그 사람 → 첫 담당자.
@@ -1827,6 +1870,10 @@
     var qs = it.missing.map(function (k) { return ASK_LABEL[k]; }).filter(Boolean)
       .concat(it.checks.map(function (c) { return checkText(c, s); }));
     if (!qs.length) return '';
+    // 📋 질문폼 링크 (11/13) — 업체는 눌러서 고르기만. 열쇠가 없는 옛 현장은 예전처럼 번호 질문
+    var link = askLink(s);
+    if (link) return [ASK_GREETING, titleLine(s) + ' (' + shortDate(s.date) + ' 시공) 몇 가지만 확인 부탁드려요 😊',
+      '아래 눌러서 고르기만 하시면 돼요 (1분)', link].join('\n');
     return [ASK_GREETING, titleLine(s) + ' (' + shortDate(s.date) + ' 시공) 확인 부탁드려요.']
       .concat(qs.map(function (q, i) { return (i + 1) + '. ' + q; })).join('\n');
   }
@@ -2840,7 +2887,7 @@
     itemKind: itemKind,
     workerExperience: workerExperience, workDurations: workDurations, timeTrend: timeTrend, timedKind: timedKind,
     normalizeEvals: normalizeEvals,
-    askQuestion: askQuestion, askTarget: askTarget, askChoices: askChoices, askWho: askWho, clientKakaoRooms: clientKakaoRooms,
+    askQuestion: askQuestion, askFormItems: askFormItems, askLink: askLink, askOn: askOn, toiletOpts: toiletOpts, DEFAULT_ASK_OPTS: DEFAULT_ASK_OPTS, ASK_LABEL: ASK_LABEL, askTarget: askTarget, askChoices: askChoices, askWho: askWho, clientKakaoRooms: clientKakaoRooms,
     DEFAULT_CHECKS: DEFAULT_CHECKS, normalizeChecks: normalizeChecks, checkText: checkText, checkAnswer: checkAnswer, checkSkipped: checkSkipped,
     DEFAULT_REVIEW_QUESTIONS: DEFAULT_REVIEW_QUESTIONS,
     DEFAULT_REVIEW_TAGS: DEFAULT_REVIEW_TAGS,

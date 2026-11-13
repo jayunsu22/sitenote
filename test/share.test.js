@@ -1357,11 +1357,14 @@ test('업체 확인 질문 (2026-11-01): 기본 3개, {날짜} 바꾸기, 이상
   const def = Share.normalizeChecks();
   assert.deepStrictEqual(def.map((c) => [c.id, c.ok]), [['door', false], ['overlap', false], ['xmark', true]]);
   assert.strictEqual(Share.checkText(def[1], { date: '2026-11-25' }), '11/25에 겹치는 다른 공정');
-  assert.deepStrictEqual(Share.normalizeChecks([{ id: 'a', text: ' x ' }, { id: 'a', text: 'dup' }, { id: '', text: 'no id' }]), [{ id: 'a', text: 'x', ok: false, off: false }]);
+  assert.deepStrictEqual(Share.normalizeChecks([{ id: 'a', text: ' x ' }, { id: 'a', text: 'dup' }, { id: '', text: 'no id' }]), [{ id: 'a', text: 'x', ok: false, off: false, opts: [], free: true }]);
+  // 📋 질문폼 보기 (11/13): 기본 질문은 기본 보기, 같은 보기·빈 보기는 버림, 8개까지
+  assert.deepStrictEqual(def[0].opts, ['안 닿음', '닿음 → 목수님 조정', '아직 모름']);
+  assert.deepStrictEqual(Share.normalizeChecks([{ id: 'b', text: 'y', opts: [' 네 ', '네', '', '1', '2', '3', '4', '5', '6', '7', '8'], free: false }])[0], { id: 'b', text: 'y', ok: false, off: false, opts: ['네', '1', '2', '3', '4', '5', '6', '7'], free: false });
   assert.strictEqual(Share.checkAnswer({ checks: { door: { v: '안 닿음' } } }, 'door'), '안 닿음');
   assert.strictEqual(Share.checkAnswer({}, 'door'), '');
-  assert.strictEqual(Share.checkSkipped({ checks: { xmark: { v: '', skip: true } } }, 'xmark'), true);   // 이 현장은 안 물음
-  assert.strictEqual(Share.checkSkipped({ checks: { door: { v: '안 닿음' } } }, 'door'), false);
+  assert.strictEqual(Share.checkSkipped({ checks: {} }, 'xmark'), true, '11/13: 기본은 이 현장은 안 물음');
+  assert.strictEqual(Share.checkSkipped({ askOn: { door: true } }, 'door'), false, '사장님이 풀어 준 것만 묻는다');
 });
 
 console.log('인원 모집 (2026-11-01)');
@@ -1470,7 +1473,7 @@ console.log('인원 모집 (2026-11-01)');
     const sites = [
       { id: 'a', name: '필름현장', date: '2026-11-06', days: [{ date: '2026-11-06', staff: [] }], films: [{ code: 'ps035', qty: '2롤' }],
         filmOrders: [{ at: '2026-11-03', to: '에이엔디·주문담당', items: 'pwt1200 5롤' }], needStaff: 2, pwLobby: '1', pwUnit: '1', toilet: '있음' },
-      { id: 'b', name: '질문현장', date: '2026-11-11', days: [{ date: '2026-11-11', staff: [] }], pwLobby: '', pwUnit: '', toilet: '있음',
+      { id: 'b', name: '질문현장', date: '2026-11-11', days: [{ date: '2026-11-11', staff: [] }], pwLobby: '', pwUnit: '', toilet: '있음', askOn: { pwLobby: 1, pwUnit: 1, toilet: 1, films: 1, door: 1, overlap: 1, xmark: 1, off: 1 },
         services: [{ id: 'v1', kind: 'AS', date: '2026-11-04', request: '문틀 들뜸' }] },
       { id: 'c', name: '끝난현장', date: '2026-10-28', days: [{ date: '2026-10-28', staff: ['가'] }], settleManual: [] },
       { id: 'd', name: '입금현장', date: '2026-10-25', days: [{ date: '2026-10-25', staff: ['가'] }],
@@ -1497,7 +1500,7 @@ console.log('인원 모집 (2026-11-01)');
 
 console.log('❓ 출입정보 질문 담당 (11/5)');
 test('askTarget·askChoices·askQuestion: 현장 담당자 → 거래처 질문 담당 → 하나뿐이면 그 사람, 방법 기본은 카톡방 있으면 카톡', () => {
-  const site = { id: 's', name: '보현나이스 802호', date: '2026-11-12', pwLobby: '', pwUnit: '1', toilet: '', films: [{ code: 'x' }], owners: [], checks: {} };
+  const site = { id: 's', name: '보현나이스 802호', date: '2026-11-12', pwLobby: '', pwUnit: '1', toilet: '', films: [{ code: 'x' }], owners: [], checks: {}, askOn: { pwLobby: 1, pwUnit: 1, toilet: 1, films: 1, door: 1, overlap: 1, xmark: 1, off: 1 } };
   const client = { name: '블라블라', contacts: [{ name: '대표님', phone: '010-1111-2222' }, { name: '실장님', phone: '010-3333-4444', kakaoRoom: '블라 실장님' }] };
   assert.strictEqual(Share.askWho(Share.askTarget(site, client)), '대표님 · 💬 카톡', '거래처에 카톡방(실장님 방)이 있으면 카톡 (11/11)');
   client.contacts[1].ask = true;
@@ -1516,7 +1519,17 @@ test('askTarget·askChoices·askQuestion: 현장 담당자 → 거래처 질문 
   const q = Share.askQuestion(site, {});
   assert.ok(q.startsWith('안녕하세요. 실장님~\n보현나이스 802호 (11/12 시공) 확인 부탁드려요.'));
   assert.ok(q.includes('1. 공동현관 비번\n2. 화장실 위치\n3. '), q);
-  assert.strictEqual(Share.askQuestion(Object.assign({}, site, { pwLobby: '1', toilet: '1', checks: { door: { v: '네' }, overlap: { v: '없음' }, xmark: { skip: true } } }), {}), '');
+  assert.strictEqual(Share.askQuestion(Object.assign({}, site, { pwLobby: '1', toilet: '1', checks: { door: { v: '네' }, overlap: { v: '없음' } }, askOn: { pwLobby: 1, toilet: 1, door: 1, overlap: 1 } }), {}), '');
+  // 📋 질문폼 (11/13): 열쇠가 있으면 번호 질문 대신 짧은 글 + 그 현장 전용 링크
+  const withKey = Object.assign({}, site, { askKey: 'abcdef0123456789' });
+  const q2 = Share.askQuestion(withKey, {});
+  assert.ok(q2.endsWith('\nhttps://jayunsu22.github.io/sitenote/ask.html#abcdef0123456789') && !q2.includes('1. '), q2);
+  assert.strictEqual(Share.askLink(Object.assign({}, site, { askKey: 'BAD KEY' })), '', '이상한 열쇠는 링크 안 만듦');
+  const form = Share.askFormItems(withKey, { toiletOpts: ['안방', '거실'] });
+  assert.deepStrictEqual(form.map((x) => [x.id, x.type]), [['pwLobby', 'pw'], ['toilet', 'choice'], ['door', 'choice'], ['overlap', 'choice'], ['xmark', 'choice']]);
+  assert.deepStrictEqual(form[1].opts, ['안방', '거실']);
+  assert.strictEqual(form[3].label, '11/12에 겹치는 다른 공정');
+  assert.deepStrictEqual(Share.askFormItems(Object.assign({}, withKey, { askOn: { toilet: 1 } }), {}).map((x) => x.id), ['toilet'], '안 물음인 것은 폼에도 없음');
 });
 
 test('filmPendingRows·filmLastVendor: 주문 뒤 새로 적은 필름만 (11/11)', () => {
@@ -1528,7 +1541,7 @@ test('filmPendingRows·filmLastVendor: 주문 뒤 새로 적은 필름만 (11/11
 });
 
 test('siteAskItems: 📞 통화로 확인(askStop) 한 현장은 묻지 않음 (11/13)', () => {
-  const s = { pwLobby: '', pwUnit: '', toilet: '', films: [], checks: {} };
+  const s = { pwLobby: '', pwUnit: '', toilet: '', films: [], checks: {}, askOn: { pwLobby: 1, pwUnit: 1, toilet: 1, films: 1, door: 1, overlap: 1, xmark: 1, off: 1 } };
   assert.ok(Share.siteAskItems(s, {}).missing.length > 0);
   assert.deepStrictEqual(Share.siteAskItems(Object.assign({}, s, { askStop: '2026-11-13' }), {}), { missing: [], checks: [] });
   assert.strictEqual(Share.askQuestion(Object.assign({}, s, { askStop: '2026-11-13' }), {}), '');
