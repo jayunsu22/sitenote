@@ -2666,7 +2666,12 @@
     QuoteLink.견적받기(s.quoteCode, quoteDeps).then(function (q) {
       견적캐시[s.quoteCode] = q;
       var r = Share.quoteLaborOf(q);
-      Store.updateSite(siteId, { quoteLabor: { code: s.quoteCode, labor: r.labor, unknown: r.unknown, at: Date.now() } });
+      var kind = QuoteLink.is정산(QuoteLink.코드뽑기(s.quoteCode)) || q.정산 ? '정산' : (q.견적종류 === '가견적' ? '가견적' : '견적');
+      var now = { code: s.quoteCode, labor: r.labor, unknown: r.unknown, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
+      // 📊 가견적 → 정산 비교 (11/13): 다른 견적서로 바꿔 연결하면 앞 견적서의 인건비를 남겨 둔다 (최근 5개)
+      var cur = Store.getSite(siteId), hist = (cur.quoteLaborHist || []).filter(function (h) { return h && h.code !== s.quoteCode; });
+      if (cur.quoteLabor && cur.quoteLabor.code && cur.quoteLabor.code !== s.quoteCode && !hist.some(function (h) { return h.code === cur.quoteLabor.code; })) hist.push(cur.quoteLabor);
+      Store.updateSite(siteId, { quoteLabor: now, quoteLaborHist: hist.slice(-5) });
       if (rerender) rerender();
     }).catch(function () { /* 다음에 */ }).then(function () { delete laborFetching[siteId]; });
   }
@@ -2705,6 +2710,34 @@
       ? '⚠ 예산보다 ' + Math.round(-plan.left * 10) / 10 + '만 많아요 — 이득이 ' + plan.profit + '만 → ' + Math.round((plan.profit + plan.left) * 10) / 10 + '만으로 줄어요'
       : '✅ ' + plan.left + '만 남음 — 이 안에서 사람을 더 구할 수 있어요'));
     box.appendChild(g);
+    var cmp = quoteCompare(s, plan);
+    if (cmp) box.appendChild(cmp);
+    return box;
+  }
+  /* 📊 가견적 → 정산 이득 비교 (2026-11-13 사장님): 처음 연결한 견적서(가견적)의 예상 이득 vs 지금 견적서(정산)의 실제 이득.
+     예상 이득 = 그때 인건비 × 이득 비율/(1+이득 비율). 실제 이득 = 지금 인건비 − 실제로 준 페이(배정 페이 합계) */
+  function quoteCompare(s, plan) {
+    var first = (s.quoteLaborHist || [])[0];
+    if (!first || !(first.labor > 0)) return null;
+    var rate = first.rate != null ? first.rate : plan.rate;
+    var aLabor = Math.round(first.labor / 1000) / 10, aGain = Math.round(aLabor * rate / (100 + rate) * 10) / 10;
+    var bGain = Math.round((plan.labor - plan.paid) * 10) / 10, diff = Math.round((bGain - aGain) * 10) / 10;
+    var name = function (k) { return k === '정산' ? '정산견적' : k === '가견적' ? '가견적' : '견적'; };
+    var box = el2('div', 'qc');
+    box.appendChild(el2('div', 'qc-h', '📊 ' + name(first.kind) + ' → ' + name((s.quoteLabor || {}).kind) + ' 이득 비교'));
+    var row = function (label, sub, labor, gain, cls) {
+      var r = el2('div', 'qc-row ' + (cls || ''));
+      var l = el2('div', 'qc-l'); l.appendChild(el2('b', '', label)); l.appendChild(el2('small', '', sub)); r.appendChild(l);
+      r.appendChild(el2('span', 'qc-v', '인건비 ' + labor + '만'));
+      r.appendChild(el2('span', 'qc-g', gain + '만'));
+      return r;
+    };
+    var head = el2('div', 'qc-row qc-th'); head.appendChild(el2('div', 'qc-l', '')); head.appendChild(el2('span', 'qc-v', '')); head.appendChild(el2('span', 'qc-g', '이득'));
+    box.appendChild(head);
+    box.appendChild(row(name(first.kind), QuoteLink.짧은주소(first.code) + ' · 예상 (이득 ' + rate + '%)', aLabor, aGain));
+    box.appendChild(row(name((s.quoteLabor || {}).kind), QuoteLink.짧은주소(plan.code) + ' · 실제 (준 페이 ' + plan.paid + '만)', plan.labor, bGain, 'now'));
+    box.appendChild(el2('div', 'qc-diff ' + (diff >= 0 ? 'up' : 'down'), (diff >= 0 ? '▲ 예상보다 ' + diff + '만 더 남았어요' : '▼ 예상보다 ' + (-diff) + '만 덜 남았어요') +
+      ' (인건비 ' + (plan.labor - aLabor >= 0 ? '+' : '') + Math.round((plan.labor - aLabor) * 10) / 10 + '만)'));
     return box;
   }
   /* 🧑‍🔧 기사별 일감 (2026-11-13 A안) — 현장업무(관리자 앱)에 배정한 밑작업·시공 담당 × 품목 값(견적 인건비) vs 페이 × 날수 × (1+이득 비율).
