@@ -1536,10 +1536,13 @@ test('siteAskItems: 📞 통화로 확인(askStop) 한 현장은 묻지 않음 (
 
 test('quoteLaborOf·laborPlan: 견적 인건비 → 페이 예산(÷(1+이득비율)) → 이득 (11/13)', () => {
   const q = { 소계: 2000000, 총액: 1800000, 라인들: [{ 인건비표시금액: 1200000, 표시금액: 1500000 }, { 인건비표시금액: 300000, 표시금액: 400000 }, { 인건비표시금액: null, 표시금액: 100000 }] };
-  assert.deepStrictEqual(Share.quoteLaborOf(q), { labor: 1350000, unknown: 1, factor: 0.9 }, '깎은 비율(0.9)만큼 인건비도');
+  assert.deepStrictEqual(Share.quoteLaborOf(q), { labor: 1500000, unknown: 1, factor: 1, adj: -200000 }, '할인은 인건비에 손대지 않고 adj 로 (11/13)');
+  const sd = { quoteCode: 'D1', quoteLabor: { code: 'D1', labor: 1500000, adj: -100000 } };
+  const pd = Share.laborPlan(sd, {});
+  assert.deepStrictEqual([pd.budget, pd.profit, pd.adj], [100, 40, -10], '업체 할인 10만은 이득에서만');
   const site = { quoteCode: 'AB12', quoteLabor: { code: 'AB12', labor: 1500000 }, days: [{ date: '2026-11-19', staff: ['가', '나'] }] };
   const settings = { people: { 가: { pay: '15' }, 나: { pay: '18' } } };
-  assert.deepStrictEqual(Share.laborPlan(site, settings), { labor: 150, rate: 50, budget: 100, profit: 50, paid: 33, left: 67, unknown: 0, code: 'AB12' });
+  assert.deepStrictEqual(Share.laborPlan(site, settings), { labor: 150, rate: 50, budget: 100, profit: 50, paid: 33, left: 67, unknown: 0, code: 'AB12', adj: 0 });
   assert.strictEqual(Share.laborPlan(Object.assign({}, site, { profitRate: 25 }), settings).budget, 120, '이득 25% → 150 ÷ 1.25');
   assert.strictEqual(Share.laborPlan(Object.assign({}, site, { quoteCode: 'ZZ99' }), settings), null, '다른 견적서로 바꾸면 다시 받을 때까지 없음');
 });

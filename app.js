@@ -2661,13 +2661,13 @@
     var s = Store.getSite(siteId);
     if (!s || !s.quoteCode || laborFetching[siteId]) return;
     var ql = s.quoteLabor || {};
-    if (ql.code === s.quoteCode && Date.now() - (ql.at || 0) < 864e5) return;
+    if (ql.code === s.quoteCode && ql.adj !== undefined && Date.now() - (ql.at || 0) < 864e5) return;
     laborFetching[siteId] = true;
     QuoteLink.견적받기(s.quoteCode, quoteDeps).then(function (q) {
       견적캐시[s.quoteCode] = q;
       var r = Share.quoteLaborOf(q);
       var kind = QuoteLink.is정산(QuoteLink.코드뽑기(s.quoteCode)) || q.정산 ? '정산' : (q.견적종류 === '가견적' ? '가견적' : '견적');
-      var now = { code: s.quoteCode, labor: r.labor, unknown: r.unknown, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
+      var now = { code: s.quoteCode, labor: r.labor, unknown: r.unknown, adj: r.adj, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
       // 📊 가견적 → 정산 비교 (11/13): 다른 견적서로 바꿔 연결하면 앞 견적서의 인건비를 남겨 둔다 (최근 5개)
       var cur = Store.getSite(siteId), hist = (cur.quoteLaborHist || []).filter(function (h) { return h && h.code !== s.quoteCode; });
       if (cur.quoteLabor && cur.quoteLabor.code && cur.quoteLabor.code !== s.quoteCode && !hist.some(function (h) { return h.code === cur.quoteLabor.code; })) hist.push(cur.quoteLabor);
@@ -2691,6 +2691,8 @@
     var over = plan.left < 0;
     flow.appendChild(cell(over ? 'gain bad' : 'gain', '이득', (over ? Math.round((plan.profit + plan.left) * 10) / 10 : plan.profit) + '만'));
     box.appendChild(flow);
+    // 업체 할인 (11/13): 인건비·페이 예산은 그대로, 이득에서만
+    if (plan.adj) box.appendChild(el2('div', 'lp-adj', (plan.adj < 0 ? '🎁 업체 할인 ' + (-plan.adj) + '만 — 이득에서만 뺐어요 (인건비·기사 기준은 그대로)' : '➕ 견적 조정 +' + plan.adj + '만 — 이득에 더했어요')));
     // 이득 비율 − ＋ (5% 씩)
     var rate = el2('div', 'lp-rate');
     rate.appendChild(el2('span', '', '이득 비율 (페이 대비)'));
@@ -2720,8 +2722,8 @@
     var first = (s.quoteLaborHist || [])[0];
     if (!first || !(first.labor > 0)) return null;
     var rate = first.rate != null ? first.rate : plan.rate;
-    var aLabor = Math.round(first.labor / 1000) / 10, aGain = Math.round(aLabor * rate / (100 + rate) * 10) / 10;
-    var bGain = Math.round((plan.labor - plan.paid) * 10) / 10, diff = Math.round((bGain - aGain) * 10) / 10;
+    var aLabor = Math.round(first.labor / 1000) / 10, aGain = Math.round((aLabor * rate / (100 + rate) + (Number(first.adj) || 0) / 10000) * 10) / 10;
+    var bGain = Math.round((plan.labor - plan.paid + (plan.adj || 0)) * 10) / 10, diff = Math.round((bGain - aGain) * 10) / 10;
     var name = function (k) { return k === '정산' ? '정산견적' : k === '가견적' ? '가견적' : '견적'; };
     var box = el2('div', 'qc');
     box.appendChild(el2('div', 'qc-h', '📊 ' + name(first.kind) + ' → ' + name((s.quoteLabor || {}).kind) + ' 이득 비교'));

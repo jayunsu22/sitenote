@@ -2159,9 +2159,11 @@
       var w = l.인건비표시금액 != null ? Number(l.인건비표시금액) : l.인건비금액 != null ? Number(l.인건비금액) : NaN;
       if (isFinite(w)) labor += w; else if (Number(l.표시금액 || l.라인금액) > 0) unknown++;
     });
+    // 업체 할인·절삭·조정 (11/13 사장님): 인건비·일감 기준은 그대로 두고 이득에서만 뺀다 — 할인한 만큼 사람들을 더 일하게 하지 않는다.
+    // adj = 총액 − 소계 (할인이면 음수). factor 는 1 (예전 호출과 맞추려고 남겨 둔다)
     var sub = Number(q && q.소계) || 0, tot = Number(q && q.총액) || 0;
-    var factor = sub > 0 && tot > 0 && tot < sub * 3 ? tot / sub : 1;
-    return { labor: Math.round(labor * factor), unknown: unknown, factor: factor };
+    var adj = sub > 0 && tot > 0 && tot < sub * 3 ? tot - sub : 0;
+    return { labor: Math.round(labor), unknown: unknown, factor: 1, adj: Math.round(adj) };
   }
   // 이득 비율 (%) — 페이 대비. 50 이면 페이 × 1.5 = 인건비. 현장마다 바꾼다 (기본 50)
   var PROFIT_RATE = 50;
@@ -2176,8 +2178,9 @@
     var rate = profitRateOf(site, settings), labor = Number(ql.labor) / 10000;
     var budget = Math.round(labor / (1 + rate / 100) * 10) / 10;
     var paid = laborPaySum(site, settings && settings.people);
-    return { labor: Math.round(labor * 10) / 10, rate: rate, budget: budget, profit: Math.round((labor - budget) * 10) / 10,
-      paid: paid, left: Math.round((budget - paid) * 10) / 10, unknown: Number(ql.unknown) || 0, code: ql.code || '' };
+    var adj = Math.round((Number(ql.adj) || 0) / 1000) / 10;   // 업체 할인(음수)·조정 — 이득에서만
+    return { labor: Math.round(labor * 10) / 10, rate: rate, budget: budget, profit: Math.round((labor - budget + adj) * 10) / 10,
+      paid: paid, left: Math.round((budget - paid) * 10) / 10, unknown: Number(ql.unknown) || 0, code: ql.code || '', adj: adj };
   }
   /* 🧑‍🔧 기사별 일감 (2026-11-13 사장님 A·B안): 기사 한 사람이 이 현장에서 맡은 일의 값 vs 페이 × (1 + 이득 비율).
      itemValues = { 현장업무 품목: 인건비(원) } (QuoteLink.품목값), tasks = 현장업무 [{ fields: { 시공품목, 밑작업기사, 시공기사 } }],
