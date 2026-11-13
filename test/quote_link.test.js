@@ -163,3 +163,13 @@ test('견적품목들 / 방수추정', () => {
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
+
+// 💰 정산 견적서의 인건비 (11/13): 품수 = 시공 인건비 줄, 품목 = 품목 금액에서 자재비 비율만큼 뺀 나머지
+{
+  const assert = require('assert');
+  const Q = require('../quote_link.js'), S = require('../share.js');
+  const a = Q.정산견적변환({ 견적코드: 'S1', 스냅샷: { 방식: '품수', 인건비: { 품수: 6, 금액: 1200000 }, 자재소계: [{ 자재명: 'ps170', 금액: 300000 }], 부가: [{ 항목명: '출장', 금액: 50000 }] } });
+  assert.strictEqual(S.quoteLaborOf(a).labor, 1200000);
+  const b = Q.정산견적변환({ 견적코드: 'S2', 스냅샷: { 방식: '품목', 시공품목: [{ 구역: '방1', 품목명: '방문', 금액: 170000 }, { 구역: '방2', 품목명: '방문', 금액: 170000 }], 자재소계: [{ 자재명: 'ps170', 금액: 90000 }] } });
+  assert.strictEqual(S.quoteLaborOf(b).labor, 250000);
+}
