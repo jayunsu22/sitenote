@@ -4252,6 +4252,7 @@
           bub.appendChild(u);
         }
       });
+      if (m.notice) noticeButtons(bub, m);
       if (i === list.length - 1 && !chatBusy) {
         var chips = el2('div', 'ap-picks');
         if ((m.pending || []).length) {
@@ -4281,6 +4282,51 @@
   /* 📋 업무 내역 (2026-11-04 사장님: 진행 내역을 한곳에) — 비서 화면의 탭. 서버(n8n work-log)에 모아 어느 기기에서나 같다.
      우편함을 거치는 일(칸 넣기·필름 주문·인원·잔금)은 서버가 적고, 비서·앱 바로 주문은 여기서 적는다. 설계 songil docs/superpowers/specs/2026-11-04-업무내역-design.md */
   var WORK_LOG_URL = 'https://primary-production-a6fa.up.railway.app/webhook/work-log';
+  /* 📝 업무비서 알림 버튼 (2026-11-13) — 텔레그램에서 누르던 버튼(확인함·답장 보내기·필름 주문 담당자·인원 넣기 …)을 여기서.
+     n8n 카톡_버튼 kakao-press 가 텔레그램 콜백과 똑같이 처리하고 결과 글을 돌려준다. 한 번 누르면 버튼 대신 결과 */
+  var KAKAO_PRESS_URL = 'https://primary-production-a6fa.up.railway.app/webhook/kakao-press';
+  function noticeButtons(bub, m) {
+    var n = m.notice;
+    if (n.done) { bub.appendChild(el2('div', 'ch-card' + (/❌/.test(n.done) ? ' bad' : ''), n.done)); return; }
+    var box = el2('div', 'ap-picks');
+    (n.buttons || []).forEach(function (b) {
+      var btn = el2('button', 'ap-pick', b.text); btn.type = 'button';
+      btn.disabled = !!n.pressing;
+      btn.onclick = function () { noticePress(m, b); };
+      box.appendChild(btn);
+    });
+    if (n.url) {
+      var open = el2('button', 'ap-pick no', '열기'); open.type = 'button';
+      open.onclick = function () { location.href = n.url; };
+      box.appendChild(open);
+    }
+    if (box.children.length) bub.appendChild(box);
+  }
+  function noticePress(m, b) {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { /* 저장소 막힘 */ }
+    chatPatch(m.id, { notice: Object.assign({}, m.notice, { pressing: true }) });
+    renderChat();
+    fetch(KAKAO_PRESS_URL, { method: 'POST', headers: { 'content-type': 'application/json', 'x-owner-key': key }, body: JSON.stringify({ data: b.data, text: m.text }) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) {
+        var line = String(d.text || '').split('\n').filter(Boolean).pop() || '받았습니다';
+        chatPatch(m.id, { notice: Object.assign({}, m.notice, { pressing: false, done: '「' + b.text + '」 ' + line }) });
+      })
+      .catch(function (e) {
+        chatPatch(m.id, { notice: Object.assign({}, m.notice, { pressing: false }) });
+        toast('❌ 버튼을 못 보냈어요 — 잠시 뒤 다시 (' + String(e.message || e).slice(0, 40) + ')');
+      })
+      .then(function () { renderChat(); });
+  }
+  // 폰 알림의 버튼을 앱을 안 열고도 누를 수 있게 — 서비스워커가 이 열쇠로 kakao-press 를 부른다 (같은 앱 저장소 안에만)
+  function shareKeyWithWorker() {
+    var key = '';
+    try { key = localStorage.getItem('ownerKey') || ''; } catch (e) { return; }
+    if (!key || !window.caches) return;
+    caches.open('sitenote-owner').then(function (c) { return c.put('./owner-key', new Response(key)); }).catch(function () { /* 그땐 앱에서 누르면 됨 */ });
+  }
+  shareKeyWithWorker();
   var WL_SRC = { me: '내 지시', auto: '비서 자동' };
   var WL_ICON = { sms: '📨', reply: '💬', site: '🔑', crew: '👷', etc: '📌' };
   var WL_CHIPS = [['all', '전체'], ['need', '확인 필요'], ['sms', '문자'], ['site', '현장 정보'], ['crew', '필름·인원']];
@@ -4429,6 +4475,8 @@
       items.forEach(function (x) {
         // ⏰ 정시 업무보고 (11/7) — 카드로 (일 없는 시간은 회색 한 줄)
         if (x.kind === 'report') { chatAdd({ role: 'ai', text: '', report: { title: x.title, quiet: !!x.quiet, start: x.start, end: x.end, done: x.done || [], replies: x.replies || [], need: x.need || [] } }); return; }
+        // 📝 업무비서 알림 (2026-11-13 사장님: 거래처 카톡·문자·일정 알림은 텔레그램 대신 여기로) — 버튼은 전부 여기서 누른다
+        if (x.kind === 'notice') { chatAdd({ role: 'ai', text: x.title + (x.text ? '\n' + x.text : ''), notice: { id: x.id, buttons: x.buttons || [], url: x.url || '' } }); return; }
         var head = (x.kind === 'sms' ? '📨 ' : '💬 ') + x.from + '님이 답했어요' + (x.siteName ? ' · ' + x.siteName : '');
         var cards = (x.lines || []).map(function (l) { return { ok: true, text: '✅ ' + l }; });
         if ((x.left || []).length) cards.push({ wait: true, text: '❓ 아직 못 받음: ' + x.left.join(' · ') });
@@ -4522,11 +4570,12 @@
         '<div class="rp-opt"><span>시간<small>매일 이 시간 정시마다</small></span><span class="rp-hrs"><select id="rpFrom">' + hours(c.from || 8) + '</select> ~ <select id="rpTo">' + hours(c.to || 17) + '</select></span></div>' +
         '<label class="rp-opt"><span>일 없는 시간도 알림<small>끄면 대화에 회색 한 줄만</small></span><input type="checkbox" id="rpEmpty"' + (c.empty ? ' checked' : '') + '></label>' +
         '<div class="rp-opt"><span>주말<small>토·일요일에도 보고</small></span><span class="rp-days"><label><input type="checkbox" id="rpSat"' + (c.sat !== false ? ' checked' : '') + '> 토</label><label><input type="checkbox" id="rpSun"' + (c.sun ? ' checked' : '') + '> 일</label></span></div>' +
-        '<div class="rp-opt"><span>이 폰<small>' + (here ? '✅ 알림 받는 중' : '아직 이 폰은 알림을 안 받아요') + ' · 등록된 기기 ' + (res[0].n || 0) + '대</small></span>' +
+        '<p class="hint">⏰ 정시 업무보고는 텔레그램으로 갑니다. 이 폰 알림은 거래처 카톡·문자·업무일정표용이에요 (11/13).</p>' +
+        '<div class="rp-opt"><span>이 폰<small>' + (here ? '✅ 업무비서 알림 받는 중' : '아직 이 폰은 업무비서 알림을 안 받아요') + ' · 등록된 기기 ' + (res[0].n || 0) + '대</small></span>' +
         '<button type="button" id="rpSub" class="btn-sm' + (here ? '' : ' primary') + '">' + (here ? '다시 등록' : '이 폰에서 받기') + '</button></div>' +
         '</div>';
       openModal('🔔 정시 업무보고', html, [
-        { label: '시험 보내기', onClick: function () { hourPost({ action: 'test' }).then(function () { toast('🔔 시험 알림을 보냈어요 — 몇 초 안에 와요'); }).catch(function (e) { toast('❌ ' + String(e.message || e).slice(0, 60)); }); } },
+        { label: '시험 보내기', onClick: function () { hourPost({ action: 'test' }).then(function () { toast('🔔 텔레그램(정시 보고)과 이 폰(업무비서)에 시험 알림을 보냈어요'); }).catch(function (e) { toast('❌ ' + String(e.message || e).slice(0, 60)); }); } },
         { label: '닫기', onClick: closeModal },
         { label: '저장', cls: 'primary', onClick: function () {
           var cfg = { on: $('rpOn').checked, from: +$('rpFrom').value, to: +$('rpTo').value, empty: $('rpEmpty').checked, sat: $('rpSat').checked, sun: $('rpSun').checked };
@@ -4535,7 +4584,7 @@
       ]);
       $('rpSub').onclick = function () {
         $('rpSub').disabled = true;
-        pushSubscribe().then(function () { toast('✅ 이 폰에서 정시 보고 알림을 받아요'); openHourlySettings(); })
+        pushSubscribe().then(function () { shareKeyWithWorker(); toast('✅ 이 폰에서 업무비서 알림을 받아요'); openHourlySettings(); })
           .catch(function (e) { $('rpSub').disabled = false; toast('❌ ' + String(e.message || e).slice(0, 80)); });
       };
     }).catch(function (e) { $('modalBody').innerHTML = '<p class="hint">못 불러왔어요 — 인터넷을 확인해 주세요 (' + esc(String(e.message || e).slice(0, 60)) + ')</p>'; });
