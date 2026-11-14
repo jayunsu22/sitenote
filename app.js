@@ -8188,7 +8188,7 @@
         .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); });
     };
     post({}).then(function (d) {
-      var done = [], n = 0, changed = false;
+      var done = [], n = 0, changed = false, notes = [];
       (d && d.fills || []).forEach(function (f) {
         var quiet = f.room === '결재함' || f.room === '직접 주문';
         // 결재함 [내가할께] → 그날 할 일 (2026-11-03). 현장이 이 기기에 있으면 현장에 이어 둔다
@@ -8237,6 +8237,11 @@
           return;
         }
         var p = Kakao.fillPatch(s, f, (f.room || '카톡') + ' ' + Share.shortDate(f.at || Share.todayIso()));
+        // 🔑 이미 적힌 칸이 바뀌면 무엇이 무엇으로 바뀌었는지 (11/14 사장님: 기존 현장 비번이 바뀌면 알려줘야지)
+        if (p && f.kind === 'field' && !quiet) {
+          var was = String(s[f.field] && s[f.field].v !== undefined ? s[f.field].v : (s[f.field] || '')).trim();
+          notes.push((was ? '🔑 ' : '📥 ') + Share.titleLine(s) + ' ' + (CHAT_LABEL[f.field] || f.field) + ': ' + (was ? was + ' → ' : '') + String(f.value || '').trim());
+        }
         if (p) { Store.updateSite(s.id, p); changed = true; if (!quiet) n += f.kind === 'films' ? f.films.length : 1; }
         done.push(f.id);
       });
@@ -8244,7 +8249,9 @@
       return post({ done: done }).then(function () {
         if (changed && apLast && !$('viewApprove').hidden) paintApprove(apLast);
         if (!n) return;
-        toast('📬 카톡에서 ' + n + '칸 채웠어요');
+        if (notes.some(function (t) { return t.indexOf('🔑') === 0; })) openModal('📬 카톡에서 바뀐 현장 정보', notes.map(function (t) { return '<p style="margin:0 0 6px">' + esc(t) + '</p>'; }).join('') +
+          '<p class="hint" style="margin:6px 0 0">작업자에게 이미 알린 정보면 다시 알려 주세요.</p>', [{ label: '확인', cls: 'primary', onClick: function () { closeModal(); } }]);
+        else toast(notes.length === 1 ? '📬 카톡에서 ' + notes[0].replace(/^📥 /, '') : '📬 카톡에서 ' + n + '칸 채웠어요');
         if (!$('viewSite').hidden) renderSite(); else if (!$('viewMain').hidden) renderMain();
       });
     }).catch(function () { /* 다음에 다시 */ }).then(function () { fillBusy = false; });
