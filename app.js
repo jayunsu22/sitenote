@@ -8213,8 +8213,29 @@
           done.push(f.id);
           return;
         }
+        // 🏗 업체 카톡의 새 현장 → 사장님이 알림에서 [현장 만들기] (11/14). 같은 현장이 이미 있으면 날짜만 맞춘다
+        if (f.kind === 'newSite') {
+          var made = chatAddSite({ client: f.client || f.room, name: f.name, dates: f.dates, newClient: !!f.client });
+          if (!made.ok) {
+            var dupId = (String(made.why || '').match(/siteId (\S+?)\)/) || [])[1];
+            if (dupId && Store.getSite(dupId)) Store.setDays(dupId, f.dates);
+            else Store.addTask({ title: '새 현장 만들기: ' + (f.client || f.room || '') + ' ' + f.name + ' ' + (f.dates || []).map(function (d) { return Share.shortDate(d); }).join('·'), date: Share.todayIso() });
+          }
+          changed = true; n++;
+          toast(made.ok ? made.text : '🏗 ' + f.name + ' — ' + (made.why || '').split(' — ')[0]);
+          done.push(f.id);
+          return;
+        }
         var s = Store.getSite(f.siteId);
         if (!s) return;   // 이 기기에 없는 현장
+        if (f.kind === 'dates') {
+          // 📅 업체가 시공일을 바꿈 → 사장님이 [날짜 바꾸기] (11/14). 남는 날의 작업자는 그대로
+          Store.setDays(s.id, f.dates);
+          changed = true; n++;
+          toast('📅 ' + Share.titleLine(s) + ' 시공일: ' + datesText(f.dates));
+          done.push(f.id);
+          return;
+        }
         var p = Kakao.fillPatch(s, f, (f.room || '카톡') + ' ' + Share.shortDate(f.at || Share.todayIso()));
         if (p) { Store.updateSite(s.id, p); changed = true; if (!quiet) n += f.kind === 'films' ? f.films.length : 1; }
         done.push(f.id);
