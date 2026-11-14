@@ -2516,7 +2516,21 @@
     var s = Store.getSite(siteId); if (!s) return;
     box.innerHTML = '<h3 class="sec-title">필름준비과정알림 <span class="sec-hint">— 지금 단계를 탭하세요</span></h3>';
     var strip = document.createElement('div'); strip.className = 'stage-strip stage-strip-lg';
-    renderStageStrip(strip, s, { onPick: function (k) { Store.setFilmStage(siteId, k); renderStageSection(box, siteId); } });
+    renderStageStrip(strip, s, { onPick: function (k) {
+      // '필름 주문' 을 직접 누르면 주문 기록도 남긴다 (11/14 사장님: 주문 눌렀는데 기록이 없다) — 이미 주문 기록이 있으면 단계만
+      var cur = Store.getSite(siteId) || s;
+      if (k === 2 && Share.filmStageOf(cur) < 2 && !(cur.filmOrders || []).length) {
+        var coded = (cur.films || []).filter(function (f) { return f && String(f.code || '').trim(); });
+        if (coded.length) {
+          Store.updateSite(siteId, { filmStage: 2, filmOrders: [{ id: '', at: Share.todayIso(), to: '직접 표시',
+            items: Share.filmOrderText({ films: coded }).split('\n').join(' · ') }] });
+          renderStageSection(box, siteId);
+          if (!$('viewSite').hidden) renderSite();
+          return;
+        }
+      }
+      Store.setFilmStage(siteId, k); renderStageSection(box, siteId);
+    } });
     box.appendChild(strip);
     // 🚚 업체가 필름을 가져다주는 현장 (2026-11-05)
     var fvBtn = document.createElement('button'); fvBtn.type = 'button'; fvBtn.className = 'fv-sitetog' + (s.filmVendor ? ' on' : '');
@@ -8100,16 +8114,24 @@
             if (!res.ok || !d.ok) throw new Error(d.error || ('HTTP ' + res.status));
           });
         })
-        .then(function () {
-          var cur = Store.getSite(site.id) || site;
-          Store.updateSite(site.id, { filmStage: Math.max(Share.filmStageOf(cur), 2),
-            filmOrders: (cur.filmOrders || []).concat([{ id: '', at: Share.todayIso(), to: to, items: Share.filmOrderText({ films: films }).split('\n').join(' · ') }]) });
-          toast('✅ ' + to + '에게 보냈어요');
-          if (onSent) onSent();
-          workLog([{ src: 'me', kind: 'crew', title: '필름 주문 문자', detail: to, siteId: site.id }]);
-          if (!$('viewSite').hidden) renderSite();
-        })
-        .catch(function (e) { toast('❌ 못 보냈어요 — 폰의 SMS Gateway 를 확인하고 💬 로 보내 주세요 (' + String(e.message || e).slice(0, 80) + ')'); });
+        .then(function () { record(''); })
+        .catch(function (e) {
+          // 폰(SMS Gateway)이 늦게 답하면 실패로 오지만 문자는 나중에 간다 (11/14 사장님: 문자는 갔는데 기록이 안 됨) — 갔으면 기록만
+          openModal('❌ 보냈다는 답을 못 받았어요', '<p style="margin:0 0 8px">폰이 늦게 답하면 이렇게 나와도 문자는 나중에 가요. <b>' + esc(to) +
+            '</b> 문자방에 주문 문자가 갔는지 확인해 주세요.</p><p class="hint" style="margin:0">(' + esc(String(e.message || e).slice(0, 80)) + ')</p>', [
+            { label: '안 갔어요', onClick: function () { closeModal(); toast('💬 로 직접 보내 주세요'); } },
+            { label: '보냈어요 — 주문으로 기록', cls: 'primary', onClick: function () { closeModal(); record(' (확인)'); } }
+          ]);
+        });
+      function record(note) {
+        var cur = Store.getSite(site.id) || site;
+        Store.updateSite(site.id, { filmStage: Math.max(Share.filmStageOf(cur), 2),
+          filmOrders: (cur.filmOrders || []).concat([{ id: '', at: Share.todayIso(), to: to + note, items: Share.filmOrderText({ films: films }).split('\n').join(' · ') }]) });
+        toast('✅ ' + to + '에게 보냈어요');
+        if (onSent) onSent();
+        workLog([{ src: 'me', kind: 'crew', title: '필름 주문 문자', detail: to, siteId: site.id }]);
+        if (!$('viewSite').hidden) renderSite();
+      }
     });
   }
   var fillBusy = false;
