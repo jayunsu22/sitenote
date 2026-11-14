@@ -229,22 +229,27 @@
      견적서 줄의 인건비(인건비표시금액 × 깎은 비율)를 현장업무 품목으로 옮긴다 — 품목맞추기와 같은 짝(후보).
      한 줄이 여러 품목(전체공통 몰딩 → 방마다)이면 똑같이 나누고, 여러 줄이 한 품목이면 더한다. 원 단위.
      돌려주는 값: { 값: { 현장품목: 원 }, 짝없음: [{ 구역, 견적품목, 원 }] } */
-  function 품목값(라인들, 현장품목명들, factor) {
-    var 있음 = {}, 값 = {}, 짝없음 = [], f = factor > 0 ? factor : 1, 방수 = 방수추정(라인들);
+  // picks = { '구역|기본이름': 현장품목 } — 이 견적서에서 사장님이 직접 고른 짝 (11/14 '현관문 → 현관방화문' 처럼 애매할 때). 규칙·기억보다 먼저.
+  // 돌려주는 값에 줄짝: [{ 구역, 견적품목, 원, 현장품목들, key, 방식: 'pick'|'alias'|'rule' }] (짝 찾은 줄만)
+  function 품목값(라인들, 현장품목명들, factor, picks) {
+    var 있음 = {}, 값 = {}, 짝없음 = [], 줄짝 = [], f = factor > 0 ? factor : 1, 방수 = 방수추정(라인들);
     (현장품목명들 || []).forEach(function (n) { if (n) 있음[n] = true; });
     (라인들 || []).forEach(function (l) {
       if (!l) return;
       var w = l.인건비표시금액 != null ? Number(l.인건비표시금액) : l.인건비금액 != null ? Number(l.인건비금액) : NaN;
       if (!(w > 0)) return;
       w = w * f;
-      var h = 후보(str(l.구역), str(l.품목명), 방수), 찾은 = [];
+      var key = str(l.구역) + '|' + 기본이름(l.품목명), 고른 = picks && picks[key], 방식 = 'rule';
+      var h = 고른 && 있음[고른] ? { 후보: [고른] } : 후보(str(l.구역), str(l.품목명), 방수), 찾은 = [];
+      if (고른 && 있음[고른]) 방식 = 'pick'; else if (짝기억찾기(l.구역, l.품목명)) 방식 = 'alias';
       if (h.묶음) 찾은 = h.묶음.filter(function (n) { return 있음[n]; });
       else for (var i = 0; i < h.후보.length; i++) { if (있음[h.후보[i]]) { 찾은 = [h.후보[i]]; break; } }
       if (!찾은.length) { 짝없음.push({ 구역: str(l.구역), 견적품목: str(l.품목명), 원: Math.round(w) }); return; }
       찾은.forEach(function (n) { 값[n] = (값[n] || 0) + w / 찾은.length; });
+      줄짝.push({ 구역: str(l.구역), 견적품목: str(l.품목명), 원: Math.round(w), 현장품목들: 찾은, key: key, 방식: 방식 });
     });
     Object.keys(값).forEach(function (k) { 값[k] = Math.round(값[k]); });
-    return { 값: 값, 짝없음: 짝없음 };
+    return { 값: 값, 짝없음: 짝없음, 줄짝: 줄짝 };
   }
 
   // ---------- 통신 (fetchFn 주입) ----------

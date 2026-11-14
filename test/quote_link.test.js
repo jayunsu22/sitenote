@@ -197,3 +197,12 @@ test('견적품목들 / 방수추정', () => {
   delete global.localStorage;
   console.log('  ✓ 정산 이름 그대로 · 짝 기억');
 }
+{
+  // 이 견적서에서 고른 짝(picks)이 규칙보다 먼저 (11/14 현관문 ↔ 현관방화문)
+  const Q = require('../quote_link.js');
+  const r = Q.품목값([{ 구역: '현관', 품목명: '방화문', 인건비표시금액: 125000 }], ['현관방화문', '현관문'], 1, { '현관|방화문': '현관문' });
+  assert.deepStrictEqual(r.값, { '현관문': 125000 }); assert.strictEqual(r.줄짝[0].방식, 'pick');
+  const r2 = Q.품목값([{ 구역: '현관', 품목명: '방화문', 인건비표시금액: 125000 }], ['현관방화문', '현관문'], 1);
+  assert.deepStrictEqual(r2.값, { '현관방화문': 125000 }); assert.strictEqual(r2.줄짝[0].방식, 'rule');
+  console.log('  ✓ 견적서별 짝 고르기');
+}
