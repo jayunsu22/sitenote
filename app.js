@@ -4105,9 +4105,44 @@
       if (!t) return Promise.resolve({ ok: false, why: '할 일을 못 넣었어요' });
       return Promise.resolve({ ok: true, text: '📝 ' + Share.shortDate(date) + ' 할 일: ' + t.title, undoId: chatUndoId(), undo: { kind: 'task', id: t.id }, logs: [{ kind: 'site', title: '할 일 추가', detail: t.title }] });
     }
+    if (a.tool === 'add_site') return Promise.resolve(chatAddSite(a));
+    if (a.tool === 'set_dates') {
+      var ds = Store.getSite(a.siteId);
+      if (!ds) return Promise.resolve({ ok: false, why: '이 기기에 그 현장이 없어요' });
+      var prevDays = (ds.days || []).map(function (d) { return { date: d.date, staff: (d.staff || []).slice() }; });
+      Store.setDays(ds.id, a.dates);
+      var nd = (Store.getSite(ds.id).days || []).map(function (d) { return d.date; }).filter(Boolean);
+      return Promise.resolve({ ok: true, text: '📅 ' + Share.titleLine(ds) + ' 시공일: ' + datesText(prevDays.map(function (d) { return d.date; }).filter(Boolean)) + ' → ' + datesText(nd),
+        undoId: chatUndoId(), undo: { kind: 'dates', siteId: ds.id, prev: prevDays }, logs: [{ kind: 'site', title: '시공일 바꿈', detail: Share.titleLine(ds) + ' ' + datesText(nd), siteId: ds.id }] });
+    }
     if (a.tool === 'undo') return Promise.resolve(chatUndo(a.id));
     if (a.tool === 'find_sites') return Promise.resolve({ ok: true, data: BossChat.findSites(state.sites, state.clients, a.query) });
     return Promise.resolve({ ok: false, why: '비서가 할 줄 모르는 일이에요' });
+  }
+  function datesText(ds) { return (ds || []).length ? ds.map(function (d) { return Share.shortDate(d); }).join('·') : '날짜 없음'; }
+  // 🏗 비서가 새 현장 만들기 (11/14 사장님) — 거래처는 있는 것 중에서 (말로 해서 조금 틀려도 가장 비슷한 것), 없으면 newClient:true 일 때만 새로
+  function chatAddSite(a) {
+    var sq = function (v) { return String(v || '').replace(/[\s()（）·.,-]/g, '').toLowerCase(); };
+    var want = sq(a.client);
+    var live = state.clients.filter(function (c) { return !c.deleted; });
+    var hit = live.filter(function (c) { return sq(c.name) === want; });
+    if (!hit.length) hit = live.filter(function (c) { var n = sq(c.name); return n && want && (n.indexOf(want) !== -1 || want.indexOf(n) !== -1); });
+    if (hit.length > 1) return { ok: false, why: '거래처 후보가 여럿이에요: ' + hit.slice(0, 5).map(function (c) { return c.name; }).join(', ') + ' — 어느 거래처인지 물어보라' };
+    var c = hit[0], made = false;
+    if (!c) {
+      if (!a.newClient) return { ok: false, why: '"' + String(a.client).trim() + '" 거래처가 앱에 없어요 — 새 거래처로 만들지 사장님께 물어보라 (만들면 newClient:true)' };
+      c = Store.addClient(String(a.client).trim()); made = true;
+    }
+    var name = String(a.name).trim();
+    var dup = state.sites.filter(function (s) { return s.clientId === c.id && !s.deleted && sq(Share.titleLine(s)) === sq(name); })[0];
+    if (dup) return { ok: false, why: '이미 있는 현장이에요 (' + Share.titleLine(dup) + ', siteId ' + dup.id + ') — 날짜를 바꾸려면 set_dates' };
+    var s = Store.addSite(c.id);
+    Store.updateSite(s.id, { name: name });
+    Store.setDays(s.id, a.dates);
+    var nd = (Store.getSite(s.id).days || []).map(function (d) { return d.date; }).filter(Boolean);
+    return { ok: true, siteId: s.id, text: '🏗 새 현장: ' + c.name + ' · ' + name + ' — ' + datesText(nd) + (made ? ' (새 거래처)' : ''),
+      undoId: chatUndoId(), undo: { kind: 'newSite', siteId: s.id, clientId: made ? c.id : '' },
+      logs: [{ kind: 'site', title: '새 현장', detail: c.name + ' · ' + name + ' ' + datesText(nd), siteId: s.id }] };
   }
   function chatUndo(id) {
     var list = chatList(), hit = null;
@@ -4121,11 +4156,19 @@
       var p = {}; p[u.prev.key] = u.prev.value;
       if (u.prev.key !== 'payDone' && u.prev.key !== 'days') { var src = Object.assign({}, s.fieldSrc || {}); if (u.prev.src) src[u.prev.key] = u.prev.src; else delete src[u.prev.key]; p.fieldSrc = src; }
       Store.updateSite(s.id, p);
+    } else if (u.kind === 'newSite') {
+      Store.deleteSite(u.siteId);
+      if (u.clientId && !state.sites.some(function (x) { return x.clientId === u.clientId && !x.deleted; })) Store.deleteClient(u.clientId);
+    } else if (u.kind === 'dates') {
+      var ds = Store.getSite(u.siteId);
+      if (!ds) return { ok: false, why: '이 기기에 그 현장이 없어요' };
+      var pd = (u.prev || []).length ? u.prev : [{ date: '', staff: [] }];
+      Store.updateSite(ds.id, { date: pd[0].date || '', days: pd });
     } else if (u.kind === 'phone') Store.setSettings({ people: Share.mergePerson(state.settings.people, u.name, { phone: u.prev }) });
     else if (u.kind === 'task') Store.deleteTask(u.id);
     hit.undone = true;
     chatSave(list);
-    var what = u.kind === 'phone' ? '연락처' : u.kind === 'task' ? '할 일' : (CHAT_LABEL[u.prev.key] || (u.prev.key === 'days' ? '작업자' : u.prev.key === 'payDone' ? '잔금' : '필름'));
+    var what = u.kind === 'phone' ? '연락처' : u.kind === 'task' ? '할 일' : u.kind === 'newSite' ? '새 현장' : u.kind === 'dates' ? '시공일' : (CHAT_LABEL[u.prev.key] || (u.prev.key === 'days' ? '작업자' : u.prev.key === 'payDone' ? '잔금' : '필름'));
     return { ok: true, text: '↩ 되돌림: ' + hit.text, logs: [{ kind: 'site', title: what + ' 되돌림', siteId: u.siteId || '' }] };
   }
   // 실제 결과 → 카드 (AI 말이 아니라 이걸 믿는다)

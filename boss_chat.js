@@ -177,6 +177,17 @@
       // AI 가 번호를 지어내지 못하게 — 사장님이 쓴 글에 있는 번호만
       return digits(o.userText).indexOf(d) === -1 ? '사장님이 알려 주신 번호가 아니에요' : '';
     }
+    // 🏗 새 현장 (11/14 사장님: '디자인봄애 ○○ 1월 14 15 16 시공일정 잡아줘') — 거래처 + 현장명 + 시공 날짜
+    var isoDates = function () { return (Array.isArray(a.dates) ? a.dates : []).filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(str(d)); }); };
+    if (t === 'add_site') {
+      if (!str(a.client)) return '어느 거래처 현장인지 모르겠어요';
+      if (!str(a.name)) return '현장 이름(주소)이 없어요';
+      return isoDates().length ? '' : '시공 날짜가 없어요';
+    }
+    if (t === 'set_dates') {
+      if (!isoDates().length) return '시공 날짜가 없어요';
+      return site() ? '' : '그 현장을 못 찾았어요';
+    }
     if (t === 'add_task') return str(a.title) ? '' : '할 일 내용이 없어요';
     if (t === 'undo') return str(a.id) ? '' : '되돌릴 것을 모르겠어요';
     if (t === 'find_sites') return str(a.query) ? '' : '찾을 말이 없어요';
@@ -279,7 +290,7 @@
   }
   function forAi(x) {
     var o = {};
-    ['tool', 'ok', 'partial', 'why', 'waiting', 'text', 'data', 'people', 'undoId', 'same', 'state'].forEach(function (k) { if (x[k] !== undefined && x[k] !== '') o[k] = x[k]; });
+    ['tool', 'ok', 'partial', 'why', 'waiting', 'text', 'data', 'people', 'undoId', 'same', 'state', 'siteId'].forEach(function (k) { if (x[k] !== undefined && x[k] !== '') o[k] = x[k]; });
     return o;
   }
   // 📋 업무 내역: 시킨 일의 실제 결과 → 내역 줄 (비번 값 없음). 실패 중 사장님이 봐야 할 것(문자)은 state need
