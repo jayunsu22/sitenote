@@ -179,3 +179,21 @@ test('견적품목들 / 방수추정', () => {
   const d = Q.정산견적변환({ 견적코드: 'S4', 스냅샷: { 방식: '품목', 시공품목: [{ 품목명: 'a', 금액: 1000000 }, { 품목명: 'b', 금액: 660000 }], 합계: { 인건비: 1320000, 자재비: 340000, 총액: 1660000 } } });
   assert.ok(Math.abs(S.quoteLaborOf(d).labor - 1320000) <= 1, '합계 인건비 비율');
 }
+
+{
+  // 정산 견적 품목명은 이미 현장업무 이름 — 구역을 또 붙이지 않는다 (11/13 '방1 방1문+틀' 빠짐)
+  const Q = require('../quote_link.js');
+  const masters = ['방1문+틀', '방1수납장', '거실샤시1', '현관중문', '거실샤시'];
+  const r = Q.품목값([{ 구역: '방1', 품목명: '방1문+틀 (문틀만 시공)', 인건비표시금액: 100000 }, { 구역: '거실', 품목명: '거실샤시1', 인건비표시금액: 50000 },
+    { 구역: '방1', 품목명: '방문', 인건비표시금액: 70000 }], masters, 1);
+  assert.deepStrictEqual(r.값, { '방1문+틀': 170000, '거실샤시1': 50000 }); assert.strictEqual(r.짝없음.length, 0);
+  // 짝 기억: 거실 베란다샤시1 → 거실샤시
+  const store = {}; global.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } };
+  const line = [{ 구역: '거실', 품목명: '베란다샤시1 (샤시(단창))', 인건비표시금액: 80000 }];
+  assert.strictEqual(Q.품목값(line, masters, 1).짝없음.length, 1);
+  assert.ok(Q.짝기억저장('거실', '베란다샤시1 (샤시(단창))', '거실샤시'));
+  assert.deepStrictEqual(Q.품목값(line, masters, 1).값, { '거실샤시': 80000 });
+  assert.strictEqual(Q.짝짓기([{ 구역: '거실', 품목명: '베란다샤시1' }], 3, masters).짝[0].현장품목, '거실샤시');
+  delete global.localStorage;
+  console.log('  ✓ 정산 이름 그대로 · 짝 기억');
+}

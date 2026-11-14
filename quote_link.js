@@ -134,9 +134,26 @@
     for (var i = 2; i <= n; i++) out.push('방' + i);
     return out;
   }
+  /* 🔗 짝 기억 (2026-11-13 사장님: 짝 없는 견적 품목은 관리자 앱 배정 화면에서 현장업무 품목을 골라 맞춘다).
+     '구역|기본이름' → 현장업무 품목. 이 폰(jayunsu22.github.io — 일정 앱·관리자 앱 같이)에 기억 */
+  var ALIAS_KEY = 'quoteItemAlias';
+  function 짝기억() {
+    try { return (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(ALIAS_KEY) || '{}')) || {}; } catch (e) { return {}; }
+  }
+  function 짝기억찾기(구역, 품목명) { return 짝기억()[str(구역) + '|' + 기본이름(품목명)] || ''; }
+  function 짝기억저장(구역, 품목명, 현장품목) {
+    try {
+      var m = 짝기억(), k = str(구역) + '|' + 기본이름(품목명);
+      if (현장품목) m[k] = 현장품목; else delete m[k];
+      localStorage.setItem(ALIAS_KEY, JSON.stringify(m));
+      return true;
+    } catch (e) { return false; }
+  }
   function 후보(구역, 품목명, 방수) {
     var 이름 = 기본이름(품목명);
     var P = 앞머리(구역);
+    var 기억 = 짝기억찾기(구역, 품목명);
+    if (기억) return { 후보: [기억] };
     if (몰딩류.indexOf(이름) >= 0) {
       var 끝 = 이름 === '걸레받이' ? '걸레받이' : '몰딩';
       if (구역 === '전체공통') return { 묶음: 몰딩구역(방수).map(function (z) { return z + 끝; }) };
@@ -159,7 +176,9 @@
     if (이름 === '실외기실문') return { 후보: ['거실실외기실문'] };
     if (/^중문/.test(이름) && 구역 === '현관') return { 후보: ['현관중문'] };
     if (이름 === '신발장1' || 이름 === '신발장2' || 이름 === '현관문') return { 후보: [이름] };
-    return { 후보: [P + 이름.replace(/\s+/g, '')] };
+    // 정산 견적은 품목명이 이미 현장업무 이름(방1문+틀) — 구역을 또 붙이면 '방1방1문+틀' 이 돼 짝을 못 찾았다 (11/13)
+    var 붙인 = 이름.replace(/\s+/g, '');
+    return { 후보: P && 붙인.indexOf(P) === 0 ? [붙인, P + 붙인] : [P + 붙인] };
   }
   // 라인들 → [{구역, 품목명}] (금액 0 짜리도 시공은 하므로 뺄 이유가 없다)
   function 견적품목들(라인들) {
@@ -300,7 +319,7 @@
 
   var QuoteLink = {
     QUOTE_URL: QUOTE_URL, SAVE_URL: SAVE_URL, DETAIL_URL: DETAIL_URL,
-    코드뽑기: 코드뽑기, 보기주소: 보기주소, 짧은주소: 짧은주소, is정산: is정산, 정산견적변환: 정산견적변환,
+    코드뽑기: 코드뽑기, 보기주소: 보기주소, 짝기억찾기: 짝기억찾기, 짝기억저장: 짝기억저장, 짧은주소: 짧은주소, is정산: is정산, 정산견적변환: 정산견적변환,
     구역별: 구역별, 요약: 요약,
     후보: 후보, 견적품목들: 견적품목들, 방수추정: 방수추정, 짝짓기: 짝짓기,
     견적받기: 견적받기, 현장상세받기: 현장상세받기, 품목맞추기: 품목맞추기, 품목값: 품목값
