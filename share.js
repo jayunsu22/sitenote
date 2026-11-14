@@ -2235,7 +2235,9 @@
     // adj = 총액 − 소계 (할인이면 음수). factor 는 1 (예전 호출과 맞추려고 남겨 둔다)
     var sub = Number(q && q.소계) || 0, tot = Number(q && q.총액) || 0;
     var adj = sub > 0 && tot > 0 && tot < sub * 3 ? tot - sub : 0;
-    return { labor: Math.round(labor), unknown: unknown, factor: 1, adj: Math.round(adj) };
+    // 견적 금액 (할인 전) — 자재비 = 견적 − 인건비 (11/14 사장님: '견적 224만 − 자재 51.5만 = 인건비')
+    var sum = sub > 0 ? sub : lines.reduce(function (a, l) { return a + (l && Number(l.표시금액 || l.라인금액) > 0 ? Number(l.표시금액 || l.라인금액) : 0); }, 0) || tot;
+    return { labor: Math.round(labor), unknown: unknown, factor: 1, adj: Math.round(adj), sum: Math.round(sum) };
   }
   // 이득 비율 (%) — 페이 대비. 50 이면 페이 × 1.5 = 인건비. 현장마다 바꾼다 (기본 50)
   var PROFIT_RATE = 50;
@@ -2251,8 +2253,15 @@
     var budget = Math.round(labor / (1 + rate / 100) * 10) / 10;
     var paid = laborPaySum(site, settings && settings.people);
     var adj = Math.round((Number(ql.adj) || 0) / 1000) / 10;   // 업체 할인(음수)·조정 — 이득에서만
-    return { labor: Math.round(labor * 10) / 10, rate: rate, budget: budget, profit: Math.round((labor - budget + adj) * 10) / 10,
-      paid: paid, left: Math.round((budget - paid) * 10) / 10, unknown: Number(ql.unknown) || 0, code: ql.code || '', adj: adj };
+    var r1 = function (v) { return Math.round(v * 10) / 10; };
+    // 🙋 내 근로소득 (11/14 사장님 2번): 사장님이 일한 날 × 가상 일당. 실제 이득 = 인건비 − 기사 페이(실제 배정) − 근로소득 + 할인, 총이익 = 실제 이득 + 근로소득
+    var people = (settings && settings.people) || {}, ownDays = 0, own = 0, ownPay = 0;
+    daysOf(site).forEach(function (d) { staffOf(d).forEach(function (n) { if (isOwnerName(n)) { ownDays++; ownPay = ownerVirtualPay(people, n); own += ownPay; } }); });
+    var quote = r1((Number(ql.sum) || 0) / 10000);
+    return { labor: r1(labor), rate: rate, budget: budget, profit: r1(labor - budget + adj),
+      paid: paid, left: r1(budget - paid), unknown: Number(ql.unknown) || 0, code: ql.code || '', adj: adj,
+      quote: quote, material: quote > labor ? r1(quote - labor) : 0, own: own, ownDays: ownDays, ownPay: ownPay,
+      net: r1(labor - paid - own + adj), total: r1(labor - paid + adj) };
   }
   /* 🧑‍🔧 기사별 일감 (2026-11-13 사장님 A·B안): 기사 한 사람이 이 현장에서 맡은 일의 값 vs 페이 × (1 + 이득 비율).
      itemValues = { 현장업무 품목: 인건비(원) } (QuoteLink.품목값), tasks = 현장업무 [{ fields: { 시공품목, 밑작업기사, 시공기사 } }],

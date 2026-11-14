@@ -2675,13 +2675,13 @@
     var s = Store.getSite(siteId);
     if (!s || !s.quoteCode || laborFetching[siteId]) return;
     var ql = s.quoteLabor || {};
-    if (ql.code === s.quoteCode && ql.v === 2 && Date.now() - (ql.at || 0) < 864e5) return;
+    if (ql.code === s.quoteCode && ql.v === 3 && Date.now() - (ql.at || 0) < 864e5) return;
     laborFetching[siteId] = true;
     QuoteLink.견적받기(s.quoteCode, quoteDeps).then(function (q) {
       견적캐시[s.quoteCode] = q;
       var r = Share.quoteLaborOf(q);
       var kind = QuoteLink.is정산(QuoteLink.코드뽑기(s.quoteCode)) || q.정산 ? '정산' : (q.견적종류 === '가견적' ? '가견적' : '견적');
-      var now = { v: 2, code: s.quoteCode, labor: r.labor, unknown: r.unknown, adj: r.adj, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
+      var now = { v: 3, code: s.quoteCode, labor: r.labor, unknown: r.unknown, adj: r.adj, sum: r.sum, at: Date.now(), kind: kind, rate: Share.profitRateOf(s, state.settings) };
       // 📊 가견적 → 정산 비교 (11/13): 다른 견적서로 바꿔 연결하면 앞 견적서의 인건비를 남겨 둔다 (최근 5개)
       var cur = Store.getSite(siteId), hist = (cur.quoteLaborHist || []).filter(function (h) { return h && h.code !== s.quoteCode; });
       if (cur.quoteLabor && cur.quoteLabor.code && cur.quoteLabor.code !== s.quoteCode && !hist.some(function (h) { return h.code === cur.quoteLabor.code; })) hist.push(cur.quoteLabor);
@@ -2696,17 +2696,21 @@
     head.appendChild(el2('b', '', '💰 인건비 예산'));
     head.appendChild(el2('span', 'lp-src', '견적서 ' + QuoteLink.짧은주소(plan.code) + '에서 자동' + (plan.unknown ? ' · 인건비 모르는 줄 ' + plan.unknown + '개 빠짐' : '')));
     box.appendChild(head);
-    var flow = el2('div', 'lp-flow');
-    var cell = function (cls, label, val) { var c = el2('div', 'lp-box ' + cls); c.appendChild(el2('small', '', label)); c.appendChild(el2('b', '', val)); return c; };
-    flow.appendChild(cell('', '견적 인건비', plan.labor + '만'));
-    flow.appendChild(el2('span', 'lp-arr', '÷' + (1 + plan.rate / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '') + ' →'));
-    flow.appendChild(cell('pay', '페이 예산', plan.budget + '만'));
-    flow.appendChild(el2('span', 'lp-arr', '→'));
-    var over = plan.left < 0;
-    flow.appendChild(cell(over ? 'gain bad' : 'gain', '이득', (over ? Math.round((plan.profit + plan.left) * 10) / 10 : plan.profit) + '만'));
-    box.appendChild(flow);
-    // 업체 할인 (11/13): 인건비·페이 예산은 그대로, 이득에서만
-    if (plan.adj) box.appendChild(el2('div', 'lp-adj', (plan.adj < 0 ? '🎁 업체 할인 ' + (-plan.adj) + '만 — 이득에서만 뺐어요 (인건비·기사 기준은 그대로)' : '➕ 견적 조정 +' + plan.adj + '만 — 이득에 더했어요')));
+    // 💰 인건비 → 👷 기사 페이 → ✅ 실제 이득 → 🙋 내 근로소득 → 🏆 총이익 (11/14 사장님 2번)
+    var over = plan.left < 0, k = (1 + plan.rate / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '');
+    var mm = function (v) { return Math.round(v * 10) / 10 + '만'; };
+    var rows = el2('div', 'lp-rows');
+    var row = function (cls, label, val, sub) {
+      var r = el2('div', 'lp-row ' + cls); r.appendChild(el2('span', 'lp-rl', label)); r.appendChild(el2('b', 'lp-rv', val));
+      if (sub) r.appendChild(el2('small', 'lp-rs', sub));
+      rows.appendChild(r);
+    };
+    row('', '💰 인건비', mm(plan.labor), plan.quote > plan.labor ? '견적 ' + mm(plan.quote) + ' − 자재 ' + mm(plan.material) : '');
+    row(over ? 'bad' : '', '👷 기사 페이', mm(plan.paid), '예산 ' + mm(plan.budget) + ' (인건비 ÷' + k + ') · ' + (over ? mm(-plan.left) + ' 넘음' : mm(plan.left) + ' 여유'));
+    row(plan.net < 0 ? 'bad' : 'gain', '✅ 실제 이득', mm(plan.net), '인건비 − 기사 페이' + (plan.own ? ' − 내 근로소득' : '') + (plan.adj < 0 ? ' − 할인 ' + mm(-plan.adj) : plan.adj > 0 ? ' + 조정 ' + mm(plan.adj) : ''));
+    row(plan.own ? 'own' : 'none', '🙋 내 근로소득', plan.own ? mm(plan.own) : '✗', plan.own ? '김정헌 ' + plan.ownDays + '일 × ' + mm(plan.ownPay) : '사장님이 일하지 않음');
+    row('total', '🏆 총이익', mm(plan.total), plan.own ? '실제 이득 + 내 근로소득' : '');
+    box.appendChild(rows);
     // 이득 비율 − ＋ (5% 씩)
     var rate = el2('div', 'lp-rate');
     rate.appendChild(el2('span', '', '이득 비율 (페이 대비)'));
@@ -2717,14 +2721,14 @@
     rate.appendChild(el2('em', '', '= 페이 × ' + (1 + plan.rate / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '')));
     box.appendChild(rate);
     var g = el2('div', 'lp-g');
-    var lab = el2('div', 'lp-lab'); lab.appendChild(el2('span', '', '배정한 페이 합계')); lab.appendChild(el2('b', over ? 'bad' : 'ok', plan.paid + '만 / ' + plan.budget + '만'));
+    var lab = el2('div', 'lp-lab'); lab.appendChild(el2('span', '', '기사 페이 / 예산')); lab.appendChild(el2('b', over ? 'bad' : 'ok', plan.paid + '만 / ' + plan.budget + '만'));
     g.appendChild(lab);
     var tr = el2('div', 'lp-track'), fill = el2('i', over ? 'bad' : '');
     fill.style.width = Math.min(100, plan.budget ? plan.paid / plan.budget * 100 : 0) + '%';
     tr.appendChild(fill); g.appendChild(tr);
     g.appendChild(el2('div', 'lp-msg ' + (over ? 'bad' : 'ok'), over
-      ? '⚠ 예산보다 ' + Math.round(-plan.left * 10) / 10 + '만 많아요 — 이득이 ' + plan.profit + '만 → ' + Math.round((plan.profit + plan.left) * 10) / 10 + '만으로 줄어요'
-      : '✅ ' + plan.left + '만 남음 — 이 안에서 사람을 더 구할 수 있어요'));
+      ? '⚠ 예산보다 ' + Math.round(-plan.left * 10) / 10 + '만 많아요 — 그만큼 실제 이득이 줄어요'
+      : '✅ ' + plan.left + '만 여유 — 이득이 많거나 기사 일이 과하면 이 안에서 사람을 더 구하세요'));
     box.appendChild(g);
     var cmp = quoteCompare(s, plan);
     if (cmp) box.appendChild(cmp);

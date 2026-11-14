@@ -1549,13 +1549,14 @@ test('siteAskItems: 📞 통화로 확인(askStop) 한 현장은 묻지 않음 (
 
 test('quoteLaborOf·laborPlan: 견적 인건비 → 페이 예산(÷(1+이득비율)) → 이득 (11/13)', () => {
   const q = { 소계: 2000000, 총액: 1800000, 라인들: [{ 인건비표시금액: 1200000, 표시금액: 1500000 }, { 인건비표시금액: 300000, 표시금액: 400000 }, { 인건비표시금액: null, 표시금액: 100000 }] };
-  assert.deepStrictEqual(Share.quoteLaborOf(q), { labor: 1500000, unknown: 1, factor: 1, adj: -200000 }, '할인은 인건비에 손대지 않고 adj 로 (11/13)');
+  assert.deepStrictEqual(Share.quoteLaborOf(q), { labor: 1500000, unknown: 1, factor: 1, adj: -200000, sum: 2000000 }, '할인은 인건비에 손대지 않고 adj 로 (11/13)');
   const sd = { quoteCode: 'D1', quoteLabor: { code: 'D1', labor: 1500000, adj: -100000 } };
   const pd = Share.laborPlan(sd, {});
   assert.deepStrictEqual([pd.budget, pd.profit, pd.adj], [100, 40, -10], '업체 할인 10만은 이득에서만');
   const site = { quoteCode: 'AB12', quoteLabor: { code: 'AB12', labor: 1500000 }, days: [{ date: '2026-11-19', staff: ['가', '나'] }] };
   const settings = { people: { 가: { pay: '15' }, 나: { pay: '18' } } };
-  assert.deepStrictEqual(Share.laborPlan(site, settings), { labor: 150, rate: 50, budget: 100, profit: 50, paid: 33, left: 67, unknown: 0, code: 'AB12', adj: 0 });
+  const lp0 = Share.laborPlan(site, settings);
+  assert.deepStrictEqual(['labor', 'rate', 'budget', 'profit', 'paid', 'left', 'unknown', 'code', 'adj'].map((k) => lp0[k]), [150, 50, 100, 50, 33, 67, 0, 'AB12', 0]);
   assert.strictEqual(Share.laborPlan(Object.assign({}, site, { profitRate: 25 }), settings).budget, 120, '이득 25% → 150 ÷ 1.25');
   assert.strictEqual(Share.laborPlan(Object.assign({}, site, { quoteCode: 'ZZ99' }), settings), null, '다른 견적서로 바꾸면 다시 받을 때까지 없음');
 });
@@ -1582,5 +1583,15 @@ test('사장님(김정헌)이 직접 일하면 페이로 안 셈 — 사장님 �
   assert.strictEqual(r2.find((w) => w.name === '김정헌').pay, 20, '일당이 비면 20만');
 });
 
+
+{
+  // 🙋 내 근로소득·실제 이득·총이익 (11/14 사장님 2번) — 영남아파트: 견적 224만, 인건비 172.5만, 할인 24만, 기사 96만, 사장님 1일(25만)
+  const site = { quoteCode: 'G1', quoteLabor: { code: 'G1', labor: 1725000, adj: -240000, sum: 2240000 },
+    days: [{ date: '2026-11-16', staff: ['서영호', '안병군', '김정헌'] }, { date: '2026-11-17', staff: ['서영호', '염문철', '윤인재'] }] };
+  const settings = { people: { 서영호: { pay: '23' }, 안병군: { pay: '25' }, 염문철: { pay: '16' }, 윤인재: { pay: '9' }, 김정헌: { pay: '25' } } };
+  const lp = Share.laborPlan(site, settings);
+  assert.deepStrictEqual([lp.quote, lp.material, lp.budget, lp.paid, lp.left, lp.own, lp.ownDays, lp.net, lp.total], [224, 51.5, 115, 96, 19, 25, 1, 27.5, 52.5]);
+  console.log('  ✓ 내 근로소득·실제 이득·총이익 (11/14)');
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
