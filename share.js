@@ -1991,7 +1991,8 @@
     return on ? { filmVendor: true, filmStage: Math.max(k, 2) } : { filmVendor: false, filmStage: k === 2 ? 1 : k };
   }
   /* 📨 작업자 안내 문자 (앱 비서·낮 12시 자동이 같은 글을 쓴다). 출입정보만 — 필름 번호·현장사진·🚚 줄은 안 보낸다 (사장님 11/8) */
-  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo', 'films', 'photoUrl'], OWNER_NAMES = ['김정헌'];
+  // 'date' (사장님 11/16): 시공날짜 줄·날짜별 일하는 사람 줄은 작업자 안내 문자에 안 넣는다 — 사람마다 일하는 날이 다르고, 누가 언제 오는지는 안 알린다
+  var WORKER_SHARE_SKIP = ['name', 'owners', 'calRegion', 'quoteUrl', 'memo', 'films', 'photoUrl', 'date'], OWNER_NAMES = ['김정헌'];
   function workerInfoText(s) {
     var keys = FIELDS.map(function (f) { return f.key; }).filter(function (k) { return WORKER_SHARE_SKIP.indexOf(k) === -1; });
     var text = buildShare(s, keys.concat([WORKER_KEY]));

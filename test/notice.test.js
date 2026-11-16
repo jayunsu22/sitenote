@@ -12,6 +12,9 @@ const rich = site({ films: [{ place: '방문', code: 'PW0000' }], photoUrl: 'htt
 const rt = Share.workerNotices([rich], set, '2026-11-05')[0].text;
 assert.ok(!rt.includes('PW0000') && !rt.includes('example.com/p') && !rt.includes('업체가 현장으로'), rt);
 assert.ok(rt.includes('#0000') && rt.includes('1층'));
+// 날짜·날짜별 사람 줄은 안 보낸다 (사장님 11/16)
+assert.ok(!rt.includes('11/6') && !rt.includes('사아') && !rt.includes('👤'), rt);
+assert.ok(rt.startsWith('안녕하세요') && rt.includes('[하늘마을]'), rt);
 // 🚗 픽업: 그날 픽업한 사람은 문자 없이 pickup 표시만, 다른 날·다른 사람은 그대로
 const pk = site(Share.pickupPatch(site(), '2026-11-06', '마바', true));
 assert.deepStrictEqual(pk.pickup, { '2026-11-06': ['마바'] });
