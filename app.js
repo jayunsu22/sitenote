@@ -2486,6 +2486,19 @@
     history.replaceState(null, '', location.pathname + (ts ? '#site/' + al.siteId : ''));
   }
 
+  // 📄 정산견적 발행 창의 [일정 앱에 적용] (11/17 사장님) — #applyquote=<현장업무 id>:<견적코드(s:…)>
+  // 그 현장업무와 이어진 현장을 찾아 견적서를 잇고 그 현장을 연다
+  function handleApplyQuoteHash() {
+    var m = /^#applyquote=(rec[A-Za-z0-9]+):((?:s:)?[A-Za-z0-9_-]+)$/.exec(location.hash || '');
+    if (!m) return;
+    var code = QuoteLink.코드뽑기 ? QuoteLink.코드뽑기(m[2]) : m[2];
+    var ts = ((Store.state && Store.state.sites) || []).filter(function (x) { return x.adminId === m[1] && !x.deleted; })[0];
+    if (!ts) { toast('이 폰의 일정 앱에 이 현장이 없습니다 — 현장업무와 이어진 현장에서 [견적서 연결] 로 넣어 주세요'); history.replaceState(null, '', location.pathname); return; }
+    if (ts.quoteCode === code) toast('이미 이 견적서가 이어져 있습니다');
+    else { Store.updateSite(ts.id, { quoteCode: code }); toast('📄 견적서를 이 현장에 이었습니다'); }
+    history.replaceState(null, '', location.pathname + '#site/' + ts.id);
+  }
+
   // ---------- 필름 준비 단계 (현장 상세 + 일정 화면 공용) ----------
   // 4칸 띠: 지난 단계·현재 단계는 파랑, 아직 안 온 단계는 빨강. 미확정(0)이면 네 칸 다 빨강.
   // 깜빡임은 눈이 아프니 시공일 3일 전부터만 (opts.date 기준, 없으면 site.date).
@@ -8291,6 +8304,7 @@
   refreshApproveCount();
   roomsSync();
   handleAdminLinkHash();
+  handleApplyQuoteHash();
   scheduleAdminSync();   // 앱을 열 때 맞출 게 남은 연결 현장이 있으면 한 번 더
   // 첫 진입: 해시가 없고 마지막에 일정 화면을 봤으면 일정으로 시작
   if ((!location.hash || location.hash === '#') && state.settings.lastView === 'schedule') location.replace('#schedule');
