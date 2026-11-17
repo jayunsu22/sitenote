@@ -1893,6 +1893,7 @@
 
   function renderSite() {
     var s = Store.getSite(currentSiteId); if (!s) { go(''); return; }
+    try { 정산자동잇기(s.id); } catch (e) { /* 다음에 */ }
     staffDelDay = -1;   // 현장을 새로 열면 '빼기 모드'는 풀고 시작한다
     /* 체크박스 초기값: 전부 꺼짐 (2026-09-26).
        탭으로 나뉜 뒤로는 안 보이는 탭의 칸까지 켜져 있어서, 두어 개만 고른 줄 알고
@@ -2027,6 +2028,31 @@
     st.when = line; st.dday = dd;
     return st;
   }
+  /* 📄 정산 견적서 자동 잇기 (11/17 사장님: 발행하면 기본으로 일정 앱에도 걸리게) — 현장을 열 때 그 현장업무의
+     가장 최근 정산 견적서를 받아, 아직 한 번도 자동으로 잇지 않은 견적서면 이 현장 견적서로 잇는다.
+     한 번 이은 코드는 site.autoSettle 에 남겨, 사장님이 다른 견적서로 바꾼 뒤에 다시 끌어오지 않는다 */
+  var 정산자동시각 = {};
+  function 정산자동잇기(siteId) {
+    var s = Store.getSite(siteId);
+    var adminId = s && String(s.adminId || '').trim();
+    if (!adminId || !/^rec/.test(adminId)) return;
+    if (정산자동시각[siteId] && Date.now() - 정산자동시각[siteId] < 2 * 60 * 1000) return;
+    정산자동시각[siteId] = Date.now();
+    fetch(SETTLE_HISTORY_URL + encodeURIComponent(adminId))
+      .then(function (res) { return res.ok ? res.json() : {}; })
+      .then(function (d) {
+        var list = ((d && d.정산) || []).filter(function (p) { return p && p.코드; })
+          .sort(function (a, b) { return String(b.발행일시 || '').localeCompare(String(a.발행일시 || '')); });
+        var 최신 = list[0]; if (!최신) return;
+        var code = 's:' + 최신.코드;
+        var cur = Store.getSite(siteId); if (!cur) return;
+        if (cur.quoteCode === code || cur.autoSettle === code) return;
+        Store.updateSite(siteId, { quoteCode: code, autoSettle: code });
+        toast('📄 새 정산 견적서를 이 현장에 이었습니다');
+      })
+      .catch(function () { /* 열쇠 없는 기기·통신 실패 — 그냥 둔다 */ });
+  }
+
   function paintSiteStatus() {
     var s = Store.getSite(currentSiteId), head = $('siteHead');
     if (!s || !head) return;
