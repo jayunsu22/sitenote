@@ -2002,7 +2002,7 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .lp-row.total { background: #0f172a; border-color: #0f172a; } .lp-row.total .lp-rl { color: #e2e8f0; } .lp-row.total .lp-rv { color: #fff; font-size: 19px; } .lp-row.total .lp-rs { color: #cbd5e1; }
 
 /* 📷 시공사진 공유 (2026-11-19) */
-.sh-photo { flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 8px 14px; font-size: 15px; font-weight: 700; color: var(--text); }
+.sh-photo { flex: none; max-width: 100%; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 3px 10px; font-size: 12.5px; font-weight: 800; color: #374151; white-space: nowrap; }
 .sh-photo.on { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
 body.ps-open { overflow: hidden; }
 #psSheet { position: fixed; inset: 0; z-index: 90; background: #f6f7f9; display: flex; flex-direction: column; }

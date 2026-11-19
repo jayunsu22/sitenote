@@ -27,8 +27,8 @@
 #viewSite .sh-sub { gap: 6px 8px; margin-top: 6px; font-size: 14.5px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 #viewSite .sh-dday { padding: 0; background: none; color: var(--primary-dark); font-size: 14.5px; font-weight: 650; }
 #viewSite .sh-dday.done { background: none; color: var(--muted); }
-#viewSite .sh-quote, #viewSite .sh-admin { min-height: 34px; padding: 0 10px; border: 1px solid #cfd6de; border-radius: 8px; background: #fff; color: var(--text); font-size: 13.5px; font-weight: 600; box-shadow: none; }
-#viewSite .sh-quote.on, #viewSite .sh-admin.on { border-color: #b9d0f5; background: #eaf1fd; color: var(--primary-dark); }
+#viewSite .sh-quote, #viewSite .sh-admin, #viewSite .sh-photo { min-height: 34px; padding: 0 10px; border: 1px solid #cfd6de; border-radius: 8px; background: #fff; color: var(--text); font-size: 13.5px; font-weight: 600; box-shadow: none; }
+#viewSite .sh-quote.on, #viewSite .sh-admin.on, #viewSite .sh-photo.on { border-color: #b9d0f5; background: #eaf1fd; color: var(--primary-dark); }
 #viewSite .sh-client { min-height: 34px; padding: 0 2px; border: 0; background: none; color: var(--muted); font-size: 13.5px; font-weight: 500; }
 /* 1안 머리 (11/7): 위 아이콘·현장명·날짜·거래처 줄을 옅은 회색 띠로 묶어 아래 탭·항목과 나눈다 */
 #viewSite > .topbar { background: var(--bg); }
@@ -47,7 +47,7 @@
 #viewSite .site-head .sh-client { order: 0; margin: 0 auto 0 0; flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 5px; justify-content: flex-start; padding: 0 2px; font-size: 14px; font-weight: 600; color: var(--muted); }
 #viewSite .site-head .sh-client svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #viewSite .site-head .sh-client span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#viewSite .site-head .sh-quote, #viewSite .site-head .sh-admin { flex: none; }
+#viewSite .site-head .sh-quote, #viewSite .site-head .sh-admin, #viewSite .site-head .sh-photo { flex: none; }
 
 /* 탭 — 칸마다 배경, 지금 탭은 파랑으로 꽉 채운다 (사장님 11/6: 구분이 잘 안 됨) */
 #viewSite .site-tabs { top: 56px; gap: 4px; padding: 8px 12px; background: var(--card); border-bottom: 1px solid var(--border); }
