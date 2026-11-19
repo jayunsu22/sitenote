@@ -2077,6 +2077,16 @@
     qb.title = s.quoteCode ? '견적 내역 보기 · ' + QuoteLink.짧은주소(s.quoteCode) : '발행한 견적서를 이 현장에 이어 붙입니다';
     qb.onclick = function () { openQuoteSheet(s.id); };
     sub.appendChild(qb);
+    // 📷 시공사진 (11/19) — 구역별로 찍어 업체에 링크로 보낸다 (photo_share.js)
+    var pb = document.createElement('button'); pb.type = 'button';
+    pb.className = 'sh-photo' + (s.photoShare ? ' on' : '');
+    pb.textContent = '📷 시공사진';
+    pb.title = '구역별로 찍어 업체에 링크로 보냅니다';
+    pb.onclick = function () {
+      if (!window.PhotoShare) { toast('사진 기능을 불러오지 못했습니다 — 새로고침해 주세요'); return; }
+      window.PhotoShare.열기(Store.getSite(s.id), { update: function (id, patch) { Store.updateSite(id, patch); }, toast: toast, title: function (x) { return Share.titleLine(x); } });
+    };
+    sub.appendChild(pb);
     // 현장업무(관리자 앱) 연결 버튼 — 연결 전엔 '연결', 후엔 맞춤 상태와 함께 시트를 연다
     var ab = document.createElement('button'); ab.type = 'button';
     ab.className = 'sh-admin' + (s.adminId ? ' on' : '');

@@ -2000,3 +2000,37 @@ textarea { resize: vertical; line-height: 1.5; min-height: calc(6em + 22px); } /
 .lp-row.own { background: #fffbeb; border-color: #fde68a; } .lp-row.own .lp-rv { color: #b45309; }
 .lp-row.none .lp-rv { color: #94a3b8; }
 .lp-row.total { background: #0f172a; border-color: #0f172a; } .lp-row.total .lp-rl { color: #e2e8f0; } .lp-row.total .lp-rv { color: #fff; font-size: 19px; } .lp-row.total .lp-rs { color: #cbd5e1; }
+
+/* 📷 시공사진 공유 (2026-11-19) */
+.sh-photo { flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 8px 14px; font-size: 15px; font-weight: 700; color: var(--text); }
+.sh-photo.on { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+body.ps-open { overflow: hidden; }
+#psSheet { position: fixed; inset: 0; z-index: 90; background: #f6f7f9; display: flex; flex-direction: column; }
+#psSheet[hidden] { display: none; }
+.ps-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+.ps-head b { font-size: 18px; font-weight: 900; }
+.ps-head span { font-size: 13px; color: #64748b; font-weight: 700; }
+.ps-head button { margin-left: auto; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid #e5e7eb; background: #fff; font-weight: 800; font-size: 15px; }
+.ps-site { padding: 10px 14px 0; font-size: 15px; font-weight: 800; color: #334155; word-break: keep-all; }
+.ps-zones { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 4px; }
+.ps-zones button { height: 38px; padding: 0 13px; border-radius: 999px; border: 1.5px solid #e5e7eb; background: #fff; font-size: 15px; font-weight: 800; color: #334155; }
+.ps-zones button b { color: #1d4ed8; margin-left: 2px; }
+.ps-zones button.on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.ps-zones button.on b { color: #fde68a; }
+.ps-zones button.add { border-style: dashed; color: #1d4ed8; }
+.ps-now { padding: 6px 14px 0; font-size: 14px; color: #475569; }
+.ps-now b { color: #1d4ed8; }
+.ps-up { color: #b45309; font-weight: 800; }
+.ps-shoot { display: flex; gap: 8px; padding: 10px 14px; }
+.ps-shoot button { flex: 1; height: 56px; border-radius: 14px; border: 1.5px solid #c7d7fb; background: #eff6ff; color: #1d4ed8; font-size: 17px; font-weight: 900; }
+.ps-shoot button.primary { background: #1d4ed8; border-color: #1d4ed8; color: #fff; flex: 1.4; }
+.ps-list { flex: 1; overflow-y: auto; padding: 4px 14px 12px; }
+.ps-z h4 { font-size: 16px; font-weight: 900; margin: 12px 2px 6px; }
+.ps-z h4 small { color: #64748b; font-size: 13px; }
+.ps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.ps-grid button { aspect-ratio: 1; border: 0; padding: 0; border-radius: 8px; background: #dfe3ea center / cover no-repeat; }
+.ps-msg { text-align: center; color: #64748b; padding: 30px 10px; font-size: 15px; }
+.ps-hint { text-align: center; color: #94a3b8; font-size: 12.5px; padding: 10px 0 0; }
+.ps-share { display: flex; gap: 8px; padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #e5e7eb; }
+.ps-share button { flex: 1; height: 52px; border-radius: 12px; border: 1px solid #e5e7eb; background: #fff; font-size: 16px; font-weight: 800; }
+.ps-share button.primary { background: #fee500; border-color: #fee500; color: #191919; }
